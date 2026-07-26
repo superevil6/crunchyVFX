@@ -1,0 +1,60 @@
+{
+  // Press F5 (Run and Debug) to launch CrunchyVFX.
+  //
+  //  • "Web app (file://)" — the default. No server, no port, nothing to install beyond the
+  //    Firefox debugger extension. The app is deliberately buildless (<link> + <script src>,
+  //    never fetch or ES modules) precisely so file:// works, so this is the honest smoke test:
+  //    if it runs here, it runs from a plain unzipped folder on a user's machine.
+  //
+  //  • "Web app (localhost)" — same thing over http://localhost:5173. Use this when a feature
+  //    actually needs a real origin: share links, the update checker, service workers, or
+  //    anything the Cloudflare Worker serves. Starts the "Web: serve" task automatically.
+  //
+  //  • "Web app (Chrome/Edge)" — for machines with a Chromium browser. Nothing Chromium-based
+  //    is installed on this box, so it will fail here; kept for portability.
+  //
+  //  • Desktop (Tauri) — DEFERRED. There is no src-tauri/ in this repo yet. The config is
+  //    parked at the bottom of this file, commented out; uncomment it once the Tauri wrapper
+  //    is scaffolded (it needs the rust-analyzer + CodeLLDB extensions, and on Windows the
+  //    "type" becomes "cppvsdbg"). See VFX-DESIGN.md §7 step 4.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Web app (file://)",
+      "type": "firefox",
+      "request": "launch",
+      "file": "${workspaceFolder}/index.html",
+      "reAttach": true,
+      "pathMappings": [
+        { "url": "file://${workspaceFolder}", "path": "${workspaceFolder}" }
+      ]
+    },
+    {
+      "name": "Web app (localhost)",
+      "type": "firefox",
+      "request": "launch",
+      "url": "http://localhost:5173/index.html",
+      "webRoot": "${workspaceFolder}",
+      "reAttach": true,
+      "preLaunchTask": "Web: serve"
+    },
+    {
+      "name": "Web app (Chrome/Edge)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173/index.html",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "Web: serve"
+    }
+    // ---- DEFERRED: uncomment once src-tauri/ exists ------------------------------------
+    // ,{
+    //   "name": "Desktop app (Tauri)",
+    //   "type": "lldb",
+    //   "request": "launch",
+    //   "cargo": {
+    //     "args": ["build", "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"]
+    //   },
+    //   "cwd": "${workspaceFolder}"
+    // }
+  ]
+}

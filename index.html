@@ -1,0 +1,754 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CrunchyVFX — sprite VFX generator</title>
+<meta name="description" content="Free, from-scratch 2D sprite-VFX generator in your browser — explosions, hit sparks, magic, smoke, pickups. Make an effect, export a PNG sprite sheet.">
+<link rel="stylesheet" href="styles.css">
+
+<header>
+  <h1>crunchy<b>VFX</b></h1>
+  <span class="tag">a from-scratch sprite VFX generator</span>
+</header>
+
+<div class="controls">
+  <div class="controls-left">
+    <button class="primary" id="playBtn">⏸ Pause</button>
+    <button id="rand" class="accent2">🎲 Randomize</button>
+    <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
+    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
+  </div>
+  <div class="controls-right">
+    <button id="expSheet" class="export-btn" title="One PNG grid of every frame, plus a JSON sidecar">⬇ Sprite sheet</button>
+    <button id="expFrames" title="Every frame as its own PNG, zipped — full alpha, best for Aseprite">⬇ PNG frames</button>
+    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
+    <span id="msg" class="hint"></span>
+  </div>
+</div>
+
+<div class="stagerow">
+  <div class="stage-box">
+    <div class="stage-wrap" id="stageWrap"><canvas id="stage"></canvas></div>
+  </div>
+  <div class="stage-side">
+    <div class="stage-info"><span id="statFrames">—</span></div>
+    <label class="stage-ctl">Frame
+      <input type="range" id="scrub" min="0" max="0" step="1" value="0">
+      <span id="scrubVal" class="hint">0</span>
+    </label>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Zoom</span>
+      <span class="zoomgroup" id="zoomGroup">
+        <button data-z="1" class="active">1×</button><button data-z="2">2×</button><button data-z="4">4×</button>
+      </span>
+    </div>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Backdrop</span>
+      <span class="zoomgroup" id="bgGroup">
+        <button data-bg="checker" class="active">Checker</button><button data-bg="dark">Dark</button><button data-bg="light">Light</button>
+      </span>
+    </div>
+    <div class="hint stage-hint">The backdrop is preview-only — exports are always transparent.</div>
+  </div>
+</div>
+
+<div class="workspace">
+  <section class="ws-browser">
+    <div class="presetsearch">
+      <input type="text" id="presetSearch" placeholder="Search effects… (e.g. explosion)" autocomplete="off" spellcheck="false">
+      <span id="presetCount" class="hint"></span>
+    </div>
+    <div class="presetbar" id="presets" style="margin-top:10px"></div>
+  </section>
+  <section class="ws-editor">
+    <div class="engine" id="shapeSection">
+      <div class="engine-title"><span>Particle shape</span></div>
+      <div class="engine-grid" id="shapeGrid"></div>
+    </div>
+    <div class="engine" id="paletteSection">
+      <div class="engine-title"><span>Palette</span></div>
+      <div class="engine-cat-btns" id="paletteGrid"></div>
+    </div>
+    <main id="panels"></main>
+  </section>
+</div>
+
+<footer class="license">
+  <h2>License</h2>
+  <p><strong>Your effects are yours — free and clear.</strong> Everything you create or export with CrunchyVFX is released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0 (public domain)</a>. Use them in anything — commercial games, videos, apps. <strong>No attribution required.</strong></p>
+  <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 Alex Cassells — all rights reserved. The CC0 dedication covers the <em>effects you create</em>, not this tool's source code.</p>
+</footer>
+
+<script src="presets.js"></script>
+<script src="vfx.js"></script>
+<script src="gif.js"></script>
+<script>
+"use strict";
+
+// ---------- Parameter model ----------
+// One row per control: [key, label, min, max, step, default, unit, group, kind?, enumList?].
+// The UI, `state` defaults, randomize and save/load are all generated from this — add a control
+// = add one row. Because applyPreset resets-then-overlays, EVERY new row must default to a
+// neutral/off value or it silently changes every existing preset.
+const PARAMS = [
+  // Emitter — where particles are born
+  ["shape",      "Particle",    0, SHAPES.length - 1, 1, 0, "", "Emitter", "shape"],
+  ["emitter",    "Emitter",     0, EMITTERS.length - 1, 1, 0, "", "Emitter", "enum", EMITTERS],
+  ["count",      "Count",       1, 3000, 1, 150, "",   "Emitter"],
+  ["emitAngle",  "Direction",   0, 360, 1, 0, "°",     "Emitter"],
+  ["emitSpread", "Spread",      0, 360, 1, 360, "°",   "Emitter"],
+  ["emitRadius", "Emit radius", 0, 0.5, 0.01, 0, "",   "Emitter"],
+  ["emitTime",   "Emit over",   0, 1, 0.01, 0, "",     "Emitter"],
+  ["originX",    "Origin X",    0, 1, 0.01, 0.5, "",   "Emitter"],
+  ["originY",    "Origin Y",    0, 1, 0.01, 0.5, "",   "Emitter"],
+  // Motion — the integrator's forces
+  ["speed",      "Speed",       0, 900, 1, 240, "px/s","Motion"],
+  ["speedVar",   "Speed var",   0, 1, 0.01, 0.4, "",   "Motion"],
+  ["gravity",    "Gravity",  -1500, 1500, 5, 0, "px/s²","Motion"],
+  ["drag",       "Drag",        0, 1, 0.01, 0.2, "",   "Motion"],
+  ["wind",       "Wind",     -600, 600, 5, 0, "px/s²", "Motion"],
+  ["radial",     "Radial",   -900, 900, 5, 0, "px/s²", "Motion"],
+  ["swirl",      "Swirl",    -900, 900, 5, 0, "px/s²", "Motion"],
+  ["turb",       "Turbulence",  0, 1, 0.01, 0, "",     "Motion"],
+  ["turbScale",  "Turb scale",  0.5, 8, 0.1, 2, "",    "Motion"],
+  ["turbSpeed",  "Turb speed",  0, 4, 0.05, 1, "",     "Motion"],
+  ["spin",       "Spin",     -720, 720, 5, 0, "°/s",   "Motion"],
+  ["spinVar",    "Spin var",    0, 1, 0.01, 0, "",     "Motion"],
+  // Life & size — the envelope analog
+  ["life",       "Lifetime",    0.05, 3, 0.01, 0.5, "s","Life"],
+  ["lifeVar",    "Life var",    0, 1, 0.01, 0.3, "",   "Life"],
+  ["size",       "Size",        1, 96, 0.5, 16, "px",  "Life"],
+  ["sizeVar",    "Size var",    0, 1, 0.01, 0.4, "",   "Life"],
+  ["grow",       "Grow / shrink", -1, 1, 0.01, -0.6, "","Life"],
+  ["fadeIn",     "Fade in",     0, 1, 0.01, 0.05, "",  "Life"],
+  ["fadeOut",    "Fade out",    0, 1, 0.01, 0.5, "",   "Life"],
+  ["alphaCurve", "Fade curve",  0, 1, 0.01, 0, "",     "Life"],
+  // Colour
+  ["hue",        "Hue",         0, 360, 1, 30, "°",    "Color"],
+  ["hueLife",    "Hue shift", -180, 180, 1, -25, "°",  "Color"],
+  ["hueVar",     "Hue var",     0, 1, 0.01, 0.08, "",  "Color"],
+  ["sat",        "Saturation",  0, 1, 0.01, 0.9, "",   "Color"],
+  ["bright",     "Brightness",  0, 1, 0.01, 1, "",     "Color"],
+  ["coreWhite",  "Hot core",    0, 1, 0.01, 0.5, "",   "Color"],
+  ["opacity",    "Opacity",     0, 1, 0.01, 1, "",     "Color"],
+  ["blend",      "Blend",       0, BLENDS.length - 1, 1, 0, "", "Color", "enum", BLENDS],
+  // Shape-specific groups — shown only for their shape (see PANEL_SHAPES)
+  ["sparkLen",   "Spark length",0, 1, 0.01, 0.5, "",   "Spark"],
+  ["sparkTaper", "Spark taper", 0, 1, 0.01, 0.7, "",   "Spark"],
+  ["ringThick",  "Ring thickness",0.02, 1, 0.01, 0.25, "","Ring"],
+  ["ringSoft",   "Ring softness",0, 1, 0.01, 0.5, "",  "Ring"],
+  ["starPoints", "Star points",  3, 12, 1, 4, "",      "Star"],
+  ["starInner",  "Star inner",  0.05, 0.9, 0.01, 0.3, "","Star"],
+  ["smokeBillow","Billow",      0, 1, 0.01, 0.5, "",   "Smoke"],
+  ["smokeSoft",  "Softness",    0, 1, 0.01, 0.8, "",   "Smoke"],
+  ["shardSides", "Shard sides", 3, 8, 1, 3, "",        "Shard"],
+  ["shardRatio", "Shard aspect",0.2, 2, 0.01, 1, "",   "Shard"],
+  ["boltSegs",   "Bolt segments",3, 24, 1, 8, "",      "Bolt"],
+  ["boltJitter", "Bolt jitter", 0, 1, 0.01, 0.4, "",   "Bolt"],
+  ["boltBranch", "Bolt branch", 0, 1, 0.01, 0.2, "",   "Bolt"],
+  ["crossArms",  "Arms",        2, 8, 1, 4, "",        "Cross"],
+  ["crossThin",  "Thinness",    0.02, 0.5, 0.01, 0.14, "","Cross"],
+  ["crescentArc","Arc",         0.1, 1, 0.01, 0.55, "", "Crescent"],
+  ["crescentThick","Thickness", 0.05, 0.6, 0.01, 0.22, "","Crescent"],
+  ["flakeArms",  "Arms",        3, 8, 1, 6, "",        "Snowflake"],
+  ["flakeBranch","Branches",    0, 1, 0.01, 0.5, "",   "Snowflake"],
+  ["blobLobes",  "Lobes",       3, 9, 1, 5, "",        "Blob"],
+  ["blobRough",  "Roughness",   0, 1, 0.01, 0.5, "",   "Blob"],
+  ["dropTail",   "Tail length", 0, 1, 0.01, 0.6, "",   "Teardrop"],
+  ["spiralTurns","Turns",       0.5, 4, 0.1, 1.5, "",  "Spiral"],
+  ["spiralThick","Thickness",   0.02, 0.4, 0.01, 0.12, "","Spiral"],
+  ["glyphTint",  "Tint amount", 0, 1, 0.01, 1, "",     "Glyph"],
+  // Extra layers — default 0 = off, exactly like SFX's noise/subOsc/boom
+  ["flash",      "Flash",       0, 1, 0.01, 0, "",     "Flash"],
+  ["flashSize",  "Flash size",  0, 1, 0.01, 0.5, "",   "Flash"],
+  ["flashLife",  "Flash life",  0.02, 1, 0.01, 0.12, "s","Flash"],
+  ["flashRays",  "Flash rays",  0, 12, 1, 0, "",       "Flash"],
+  ["wave",       "Shockwave",   0, 1, 0.01, 0, "",     "Shockwave"],
+  ["waveSpeed",  "Wave speed",  0, 1, 0.01, 0.5, "",   "Shockwave"],
+  ["waveWidth",  "Wave width",  0, 1, 0.01, 0.2, "",   "Shockwave"],
+  ["waveLife",   "Wave life",   0.05, 2, 0.01, 0.4, "s","Shockwave"],
+  ["waveSquash", "Wave squash", 0, 1, 0.01, 0, "",     "Shockwave"],
+  // Trails — the delay analog
+  ["trail",      "Motion trail",0, 1, 0.01, 0, "",     "Trails"],
+  ["echo",       "Frame echo",  0, 1, 0.01, 0, "",     "Trails"],
+  ["echoDecay",  "Echo decay",  0, 1, 0.01, 0.6, "",   "Trails"],
+  // Glow — the reverb analog
+  ["glow",       "Glow",        0, 1, 0.01, 0, "",     "Glow"],
+  ["glowRadius", "Glow radius", 1, 32, 1, 8, "px",     "Glow"],
+  ["glowThresh", "Glow thresh", 0, 1, 0.01, 0.5, "",   "Glow"],
+  // Crunch — the pixel-art finishing stage
+  ["pixelate",   "Pixelate",    1, 16, 1, 1, "px",     "Crunch"],
+  ["posterize",  "Color steps", 2, 32, 1, 32, "",      "Crunch"],
+  ["dither",     "Dither",      0, 1, 0.01, 0, "",     "Crunch"],
+  ["alphaCut",   "Alpha cut",   0, 1, 0.01, 0, "",     "Crunch"],
+  ["outline",    "Outline",     0, 3, 1, 0, "px",      "Crunch"],
+  ["outlineTone","Outline tone",0, 1, 0.01, 0, "",     "Crunch"],
+  // Burst — chained secondary explosions
+  ["shots",      "Shots",       1, 8, 1, 1, "x",       "Burst"],
+  ["shotDelay",  "Shot delay",  0.02, 1, 0.01, 0.12, "s","Burst"],
+  ["shotScale",  "Shot scale",  0.2, 1.5, 0.01, 0.7, "","Burst"],
+  ["shotSpread", "Shot offset", 0, 1, 0.01, 0.3, "",   "Burst"],
+  // Master
+  ["scale",      "Scale",       0.25, 3, 0.01, 1, "x", "Master"],
+  ["shake",      "Shake",       0, 1, 0.01, 0, "",     "Master"],
+  ["loopBlend",  "Seamless loop",0, 1, 0.01, 0, "",    "Master"],
+  ["reverse",    "Reverse",     0, 1, 1, 0, "",        "Master"],
+  // Output
+  ["duration",   "Duration",    0.1, 3, 0.01, 0.7, "s","Output"],
+  ["fps",        "FPS",         8, 60, 1, 24, "",      "Output"],
+  ["frameSize",  "Frame size",  0, SIZES.length - 1, 1, 4, "px", "Output", "enum", SIZES],
+  ["seed",       "Seed",        1, 9999, 1, 1, "",     "Output"],
+];
+
+const state = {};
+for (const p of PARAMS) state[p[0]] = p[5];
+// The glyph character is part of the patch but NOT a PARAMS row (it's text, not a number) — the
+// same treatment CrunchySFX gives speechText. It has to be threaded explicitly through
+// applyPreset / syncUI / randomize so it travels with the effect.
+const GLYPH_DEFAULT = "★";
+state.glyph = GLYPH_DEFAULT;
+const PARAM_BY_KEY = {};
+for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
+
+let fitOn = false;
+let effectLabel = "effect";
+
+// Contextual panels: a shape's group is only shown when that shape is selected — the
+// PANEL_WAVES trick from CrunchySFX. Keeps the editor from drowning as shapes proliferate.
+const PANEL_SHAPES = {
+  Spark: [1], Ring: [2], Star: [3], Smoke: [5], Shard: [6], Bolt: [7],
+  Cross: [11], Crescent: [13], Snowflake: [14], Blob: [15], Teardrop: [16], Spiral: [17], Glyph: [18],
+};
+
+// ---------- Render + preview ----------
+let rendered = null;      // { canvases, w, h, fps }
+let frameIdx = 0, playing = true, lastTick = 0, zoom = 1;
+const stage = document.getElementById("stage");
+const sctx = stage.getContext("2d");
+const stageWrap = document.getElementById("stageWrap");
+const scrub = document.getElementById("scrub");
+const scrubVal = document.getElementById("scrubVal");
+const statFrames = document.getElementById("statFrames");
+const msg = document.getElementById("msg");
+
+function rerender() {
+  // The sprite cache is keyed by shape + quantized colour; colour/shape params invalidate it.
+  // It repopulates lazily (a handful of sprites per effect), so clearing wholesale is cheaper
+  // than tracking which knob touched what.
+  clearSpriteCache();
+  const t0 = performance.now();
+  rendered = renderFrames(state, { size: frameSizePx(state), fit: fitOn });
+  const ms = Math.round(performance.now() - t0);
+  const n = rendered.canvases.length;
+  stage.width = rendered.w; stage.height = rendered.h;
+  applyZoom();
+  scrub.max = String(n - 1);
+  if (frameIdx >= n) frameIdx = 0;
+  statFrames.textContent = n + " frames · " + rendered.w + "px · " + rendered.fps + " fps · " + ms + " ms";
+  drawStage();
+}
+
+function drawStage() {
+  if (!rendered) return;
+  const cv = rendered.canvases[frameIdx];
+  sctx.clearRect(0, 0, stage.width, stage.height);
+  if (cv) sctx.drawImage(cv, 0, 0);
+  scrub.value = String(frameIdx);
+  scrubVal.textContent = frameIdx + " / " + (rendered.canvases.length - 1);
+}
+
+function applyZoom() {
+  if (!rendered) return;
+  stage.style.width = (rendered.w * zoom) + "px";
+  stage.style.height = (rendered.h * zoom) + "px";
+}
+
+function tick(ts) {
+  requestAnimationFrame(tick);
+  if (!playing || !rendered) return;
+  const step = 1000 / rendered.fps;
+  if (ts - lastTick < step) return;
+  lastTick = ts;
+  frameIdx = (frameIdx + 1) % rendered.canvases.length;
+  drawStage();
+}
+requestAnimationFrame(tick);
+
+// Re-render is cheap (a few ms), but dragging a slider fires input continuously — debounce so a
+// drag stays smooth on a 3000-particle patch.
+let renderTimer = null;
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(rerender, 50);
+}
+
+// ---------- Panels generated from PARAMS ----------
+const groups = {};
+for (const p of PARAMS) (groups[p[7]] ||= []).push(p);
+
+const panels = document.getElementById("panels");
+const outputs = {};
+const inputs = {};
+
+function fmt(p, val) {
+  const [, , , , , , unit, , kind] = p;
+  if (kind === "shape") return SHAPES[Math.round(val)];
+  if (kind === "enum") return p[9][Math.round(val)];
+  const s = (Math.abs(val) >= 100 || Number.isInteger(val)) ? Math.round(val) : val.toFixed(2);
+  return s + (unit ? " " + unit : "");
+}
+
+for (const [group, ps] of Object.entries(groups)) {
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.dataset.group = group;
+  panel.innerHTML = "<h2>" + group + "</h2>";
+  for (const p of ps) {
+    const [key, label, min, max, step, , , , kind] = p;
+    if (kind === "shape") continue;            // the shape picker is its own hero section
+    if (kind === "enum") {
+      const row = document.createElement("div");
+      row.className = "waverow";
+      row.innerHTML = "<label>" + label + "</label><select data-key=\"" + key + "\">" +
+        p[9].map((w, i) => "<option value=\"" + i + "\">" + w + "</option>").join("") + "</select>";
+      panel.appendChild(row);
+      const el = row.querySelector("select");
+      el.value = state[key];
+      inputs[key] = el;
+      el.addEventListener("change", () => { state[key] = +el.value; rerender(); });
+    } else {
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = "<label>" + label + "</label>" +
+        "<input type=\"range\" data-key=\"" + key + "\" min=\"" + min + "\" max=\"" + max +
+        "\" step=\"" + step + "\" value=\"" + state[key] + "\"><output></output>";
+      panel.appendChild(row);
+      const input = row.querySelector("input"), out = row.querySelector("output");
+      inputs[key] = input; outputs[key] = out;
+      out.textContent = fmt(p, state[key]);
+      input.addEventListener("input", () => {
+        state[key] = +input.value;
+        out.textContent = fmt(p, state[key]);
+        scheduleRender();
+      });
+    }
+  }
+  panels.appendChild(panel);
+}
+
+// ---------- Glyph text box ----------
+// Lives in the Glyph panel rather than being a PARAMS row, because it's a character, not a
+// number. The quick picks matter more than they look: nobody wants to hunt for ♥ in a character
+// map to find out whether the idea works.
+const GLYPH_PICKS = ["★", "♥", "✦", "✚", "◆", "!", "?", "☠", "💥", "🔥", "❄", "⚡", "💧", "✨", "💀", "🪙"];
+let glyphInput = null;
+{
+  const glyphPanel = panels.querySelector('[data-group="Glyph"]');
+  if (glyphPanel) {
+    const row = document.createElement("div");
+    row.className = "glyph-row";
+    row.innerHTML = '<label for="glyphInput">Character</label>' +
+      '<input id="glyphInput" type="text" maxlength="8" autocomplete="off" spellcheck="false">' +
+      '<div class="glyph-picks"></div>';
+    glyphPanel.insertBefore(row, glyphPanel.firstChild.nextSibling);
+    glyphInput = row.querySelector("#glyphInput");
+    glyphInput.value = state.glyph;
+    glyphInput.addEventListener("input", () => {
+      state.glyph = glyphInput.value || GLYPH_DEFAULT;
+      scheduleRender();
+    });
+    const picks = row.querySelector(".glyph-picks");
+    for (const ch of GLYPH_PICKS) {
+      const b = document.createElement("button");
+      b.textContent = ch;
+      b.title = "Use " + ch;
+      b.addEventListener("click", () => {
+        state.glyph = ch;
+        glyphInput.value = ch;
+        rerender();
+      });
+      picks.appendChild(b);
+    }
+  }
+}
+
+function updateShapePanels() {
+  const s = Math.round(state.shape);
+  for (const [group, shapes] of Object.entries(PANEL_SHAPES)) {
+    const el = panels.querySelector('[data-group="' + group + '"]');
+    if (el) el.hidden = shapes.indexOf(s) < 0;
+  }
+}
+
+function syncUI() {
+  for (const p of PARAMS) {
+    const el = inputs[p[0]];
+    if (!el) continue;
+    el.value = state[p[0]];
+    if (outputs[p[0]]) outputs[p[0]].textContent = fmt(p, state[p[0]]);
+  }
+  if (glyphInput) glyphInput.value = state.glyph;
+  syncShapeButtons();
+  updateShapePanels();
+}
+
+// ---------- Shape picker (hero section) ----------
+const SHAPE_CATS = [
+  ["Soft",   ["glow", "smoke", "blob"]],
+  ["Sharp",  ["spark", "pixel", "shard", "star", "cross", "diamond"]],
+  ["Formed", ["ring", "crescent", "spiral", "bolt", "teardrop", "snowflake", "heart"]],
+  ["Symbol", ["glyph"]],
+];
+const shapeGrid = document.getElementById("shapeGrid");
+const shapeBtns = {};
+for (const [cat, names] of SHAPE_CATS) {
+  const row = document.createElement("div");
+  row.className = "engine-cat";
+  row.innerHTML = '<span class="engine-cat-label">' + cat + '</span><span class="engine-cat-btns"></span>';
+  const box = row.querySelector(".engine-cat-btns");
+  for (const name of names) {
+    const i = SHAPES.indexOf(name);
+    const b = document.createElement("button");
+    b.className = "engine-btn";
+    b.textContent = name;
+    b.addEventListener("click", () => { state.shape = i; syncShapeButtons(); updateShapePanels(); rerender(); });
+    box.appendChild(b);
+    shapeBtns[i] = b;
+  }
+  shapeGrid.appendChild(row);
+}
+function syncShapeButtons() {
+  const s = Math.round(state.shape);
+  for (const i in shapeBtns) shapeBtns[i].classList.toggle("active", +i === s);
+}
+
+// ---------- Palettes ----------
+// Buttons, not a param (the CONSOLES pattern): they write the real colour params, so the patch
+// keeps carrying honest values through share links, presets and breeding.
+const PALETTES = [
+  ["Fire",     { hue: 32,  hueLife: -30, sat: 0.95, coreWhite: 0.7, blend: 0 }],
+  ["Ember",    { hue: 18,  hueLife: -18, sat: 1,    coreWhite: 0.35, blend: 0 }],
+  ["Ice",      { hue: 195, hueLife: 25,  sat: 0.7,  coreWhite: 0.75, blend: 0 }],
+  ["Toxic",    { hue: 95,  hueLife: -20, sat: 1,    coreWhite: 0.4, blend: 0 }],
+  ["Magic",    { hue: 285, hueLife: 45,  sat: 0.85, coreWhite: 0.6, blend: 0 }],
+  ["Electric", { hue: 210, hueLife: 60,  sat: 0.8,  coreWhite: 0.9, blend: 0 }],
+  ["Smoke",    { hue: 220, hueLife: 0,   sat: 0.12, coreWhite: 0.1, blend: 1 }],
+  ["Gold",     { hue: 45,  hueLife: -12, sat: 1,    coreWhite: 0.55, blend: 0 }],
+  ["Blood",    { hue: 355, hueLife: -12, sat: 0.9,  coreWhite: 0.25, blend: 1 }],
+  ["Rainbow",  { hue: 0,   hueLife: 160, sat: 1,    coreWhite: 0.3, hueVar: 0.9, blend: 0 }],
+  ["Frost",    { hue: 185, hueLife: 15,  sat: 0.45, coreWhite: 0.9, blend: 0 }],
+  ["Water",    { hue: 205, hueLife: -12, sat: 0.75, coreWhite: 0.35, blend: 1 }],
+  ["Nature",   { hue: 110, hueLife: -28, sat: 0.7,  coreWhite: 0.15, blend: 1 }],
+  ["Holy",     { hue: 48,  hueLife: 8,   sat: 0.5,  coreWhite: 0.85, blend: 0 }],
+  ["Void",     { hue: 275, hueLife: -35, sat: 0.85, coreWhite: 0.1, blend: 1 }],
+  ["Plasma",   { hue: 310, hueLife: 90,  sat: 0.95, coreWhite: 0.7, blend: 0 }],
+  ["Candy",    { hue: 330, hueLife: 40,  sat: 0.6,  coreWhite: 0.5, blend: 0 }],
+  ["Steel",    { hue: 215, hueLife: 0,   sat: 0.18, coreWhite: 0.45, blend: 1 }],
+];
+const paletteGrid = document.getElementById("paletteGrid");
+for (const [name, patch] of PALETTES) {
+  const b = document.createElement("button");
+  b.className = "engine-btn";
+  b.textContent = name;
+  b.addEventListener("click", () => {
+    for (const k in patch) state[k] = patch[k];
+    if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
+    syncUI(); rerender();
+  });
+  paletteGrid.appendChild(b);
+}
+
+// ---------- Presets ----------
+const PRESETS = window.PRESETS || {};
+const PRESET_CATEGORIES = window.PRESET_CATEGORIES || [];
+
+function applyPreset(obj, label) {
+  for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
+  state.glyph = GLYPH_DEFAULT;                  // non-PARAMS patch fields reset too, or they leak
+  for (const k in obj) if (k in state) state[k] = obj[k];
+  if (label) effectLabel = label;
+  syncUI();
+  frameIdx = 0;
+  rerender();
+}
+
+const presetBar = document.getElementById("presets");
+const presetSections = [];
+for (const [cat, names] of PRESET_CATEGORIES) {
+  const sec = document.createElement("details");
+  sec.className = "preset-section";
+  sec.open = true;
+  sec.innerHTML = "<summary>" + cat + "</summary>";
+  const box = document.createElement("div");
+  box.className = "sec-buttons";
+  const buttons = [];
+  for (const name of names) {
+    if (!PRESETS[name]) continue;
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.addEventListener("click", () => applyPreset(PRESETS[name], name));
+    box.appendChild(b);
+    buttons.push(b);
+  }
+  sec.appendChild(box);
+  presetBar.appendChild(sec);
+  presetSections.push({ sec, buttons });
+}
+document.getElementById("presetCount").textContent = Object.keys(PRESETS).length + " effects";
+
+const presetSearch = document.getElementById("presetSearch");
+presetSearch.addEventListener("input", () => {
+  const q = presetSearch.value.trim().toLowerCase();
+  for (const { sec, buttons } of presetSections) {
+    let shown = 0;
+    for (const b of buttons) {
+      const hit = !q || b.textContent.toLowerCase().includes(q);
+      b.hidden = !hit;
+      if (hit) shown++;
+    }
+    sec.hidden = shown === 0;
+    if (q) sec.open = true;
+  }
+});
+
+// ---------- Randomize ----------
+// Not a uniform roll over every slider — that reliably produces mush. Randomize the handful of
+// params that define an effect's character, leave the finishing stage alone.
+const RAND_KEYS = ["count", "emitAngle", "emitSpread", "emitRadius", "emitTime", "speed", "speedVar",
+  "gravity", "drag", "radial", "swirl", "turb", "spin", "life", "lifeVar", "size", "sizeVar",
+  "grow", "fadeOut", "hue", "hueLife", "hueVar", "coreWhite", "flash", "wave", "trail"];
+// Every shape except custom (8) and image (9), which aren't built yet.
+const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+function randomize() {
+  for (const p of PARAMS) state[p[0]] = p[5];
+  state.shape = RANDOM_SHAPES[Math.floor(Math.random() * RANDOM_SHAPES.length)];
+  state.glyph = GLYPH_PICKS[Math.floor(Math.random() * GLYPH_PICKS.length)];
+  state.emitter = Math.floor(Math.random() * EMITTERS.length);
+  for (const k of RAND_KEYS) {
+    const p = PARAM_BY_KEY[k];
+    const v = p[2] + Math.random() * (p[3] - p[2]);
+    state[k] = p[4] >= 1 ? Math.round(v / p[4]) * p[4] : Math.round(v * 100) / 100;
+  }
+  state.count = Math.round(30 + Math.random() * 400);  // the full 3000 is a wall of pixels
+  state.life = 0.2 + Math.random() * 0.8;
+  state.size = 4 + Math.random() * 28;
+  state.seed = 1 + Math.floor(Math.random() * 9999);
+  effectLabel = "random";
+  syncUI();
+  frameIdx = 0;
+  rerender();
+}
+
+// ---------- Controls ----------
+const playBtn = document.getElementById("playBtn");
+playBtn.addEventListener("click", () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "⏸ Pause" : "▶ Play";
+});
+document.getElementById("rand").addEventListener("click", randomize);
+document.getElementById("reroll").addEventListener("click", () => {
+  state.seed = 1 + Math.floor(Math.random() * 9999);
+  syncUI(); rerender();
+});
+const fitBtn = document.getElementById("fitBtn");
+fitBtn.addEventListener("click", () => {
+  fitOn = !fitOn;
+  fitBtn.classList.toggle("on", fitOn);
+  rerender();
+});
+scrub.addEventListener("input", () => { playing = false; playBtn.textContent = "▶ Play"; frameIdx = +scrub.value; drawStage(); });
+document.getElementById("zoomGroup").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  zoom = +b.dataset.z;
+  [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
+  applyZoom();
+});
+document.getElementById("bgGroup").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  stageWrap.className = "stage-wrap bg-" + b.dataset.bg;
+  [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
+});
+addEventListener("keydown", (e) => {
+  if (e.target.matches("input,select,textarea")) return;
+  if (e.code === "Space") { e.preventDefault(); playBtn.click(); }
+  if (e.key === "r" || e.key === "R") randomize();
+});
+
+// ---------- Export ----------
+function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
+const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
+
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Pack every frame into one PNG grid + a JSON sidecar an engine can read.
+function buildSheet() {
+  const n = rendered.canvases.length, w = rendered.w, h = rendered.h;
+  const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+  const cv = document.createElement("canvas");
+  cv.width = cols * w; cv.height = rows * h;
+  const g = cv.getContext("2d");
+  for (let i = 0; i < n; i++) g.drawImage(rendered.canvases[i], (i % cols) * w, Math.floor(i / cols) * h);
+  return { cv, cols, rows, n, w, h };
+}
+
+document.getElementById("expSheet").addEventListener("click", async () => {
+  if (!rendered) return;
+  const { cv, cols, rows, n, w, h } = buildSheet();
+  const base = sanitize(effectLabel);
+  download(await canvasBlob(cv), base + "-sheet.png");
+  const meta = { name: base, frames: n, fps: rendered.fps, frameW: w, frameH: h, cols, rows, loop: true };
+  download(new Blob([JSON.stringify(meta, null, 2)], { type: "application/json" }), base + "-sheet.json");
+  msg.textContent = "Exported " + n + " frames (" + cols + "×" + rows + ")";
+});
+
+// Frame sequence — full alpha, one PNG per frame, zipped with the hand-rolled STORE-only writer
+// copied from CrunchySFX. STORE is right here: PNG is already deflated.
+let CRC_TABLE;
+function crc32(bytes) {
+  if (!CRC_TABLE) { CRC_TABLE = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC_TABLE[n] = c >>> 0; } }
+  let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  const push = (a) => { parts.push(a); offset += a.length; };
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length, at = offset;
+    const hd = new DataView(new ArrayBuffer(30));
+    hd.setUint32(0, 0x04034b50, true); hd.setUint16(4, 20, true); hd.setUint16(8, 0, true);
+    hd.setUint32(14, crc, true); hd.setUint32(18, sz, true); hd.setUint32(22, sz, true); hd.setUint16(26, name.length, true);
+    push(new Uint8Array(hd.buffer)); push(name); push(f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, at, true);
+    central.push(new Uint8Array(c.buffer), name);
+  }
+  const cdAt = offset; let cdSize = 0;
+  for (const c of central) { cdSize += c.length; push(c); }
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, cdAt, true);
+  push(new Uint8Array(e.buffer));
+  let total = 0; for (const p of parts) total += p.length;
+  const out = new Uint8Array(total); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+document.getElementById("expFrames").addEventListener("click", async () => {
+  if (!rendered) return;
+  const base = sanitize(effectLabel);
+  msg.textContent = "Encoding…";
+  const files = [];
+  for (let i = 0; i < rendered.canvases.length; i++) {
+    const blob = await canvasBlob(rendered.canvases[i]);
+    files.push({ name: base + "_" + String(i).padStart(3, "0") + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+  }
+  download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-frames.zip");
+  msg.textContent = "Exported " + files.length + " PNGs";
+});
+
+// ---------- GIF export ----------
+// GIF is the format people can actually paste into Discord, an itch page or a tweet, so it has to
+// exist — but it's the lossiest thing we ship. Rather than bury that, the dialog states both
+// caveats in plain language and offers a one-click fix for the one that's fixable.
+const gifModal = document.createElement("div");
+gifModal.className = "modal";
+gifModal.hidden = true;
+gifModal.innerHTML =
+  '<div class="modal-box gif-box">' +
+    '<div class="modal-head"><h2>Export GIF</h2>' +
+      '<span class="hint">Plays anywhere. Costs you colours and soft edges.</span>' +
+      '<button id="gifClose">✕ Close</button></div>' +
+    '<div class="gif-body">' +
+      '<div class="gif-stats" id="gifStats"></div>' +
+      '<div id="gifWarn"></div>' +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button id="gifPrep" title="Hard-edge the sprite and snap to a frame rate GIF can actually hit">✨ Prep for GIF</button>' +
+      '<button id="gifGo" class="primary">⬇ Export GIF</button>' +
+      '<span id="gifMsg" class="hint"></span>' +
+    '</div>' +
+  '</div>';
+document.body.appendChild(gifModal);
+const gifStats = gifModal.querySelector("#gifStats");
+const gifWarn = gifModal.querySelector("#gifWarn");
+const gifMsg = gifModal.querySelector("#gifMsg");
+
+function refreshGifInfo() {
+  if (!rendered) return;
+  const n = rendered.canvases.length, d = gifDelayCs(state.fps);
+  gifStats.textContent = n + " frames · " + rendered.w + "×" + rendered.h + "px · " +
+    d.cs + " cs/frame · plays at " + (Math.round(d.fps * 10) / 10) + " fps";
+  const warns = [];
+  if (!d.exact) {
+    warns.push("<b>Frame rate won't be exact.</b> GIF delays are whole centiseconds, so " +
+      state.fps + " fps becomes " + (Math.round(d.fps * 10) / 10) + " fps. Exact rates: " +
+      GIF_EXACT_FPS.join(" / ") + ".");
+  }
+  if (state.alphaCut < 0.35) {
+    warns.push("<b>Soft edges will fringe.</b> GIF alpha is 1 bit — a pixel is fully there or " +
+      "fully gone, with nothing in between. Your glow currently fades out gradually, so it will " +
+      "get a hard halo against any background that isn't the one you exported on. Raise " +
+      "<i>Alpha cut</i> (Crunch panel) so the sprite has deliberate edges.");
+  }
+  if (rendered.w * rendered.h * rendered.canvases.length > 6e6) {
+    warns.push("<b>This will be a big file.</b> " + n + " frames at " + rendered.w +
+      "px — consider fewer frames or a smaller frame size.");
+  }
+  gifWarn.innerHTML = warns.length
+    ? warns.map((t) => '<p class="gif-warn">' + t + "</p>").join("")
+    : '<p class="gif-ok">Nothing to warn about — this patch exports cleanly.</p>';
+}
+
+document.getElementById("expGif").addEventListener("click", () => {
+  gifMsg.textContent = "";
+  refreshGifInfo();
+  gifModal.hidden = false;
+});
+gifModal.querySelector("#gifClose").addEventListener("click", () => { gifModal.hidden = true; });
+gifModal.addEventListener("click", (e) => { if (e.target === gifModal) gifModal.hidden = true; });
+
+// One click to make the current patch GIF-shaped: hard alpha edges, and a frame rate the format
+// can actually represent. Deliberately does NOT touch colour — 255 colours is plenty for these
+// effects, and posterizing is a look, not a fix.
+gifModal.querySelector("#gifPrep").addEventListener("click", () => {
+  const before = { alphaCut: state.alphaCut, fps: state.fps };
+  if (state.alphaCut < 0.35) state.alphaCut = 0.5;
+  if (!gifDelayCs(state.fps).exact) {
+    state.fps = GIF_EXACT_FPS.reduce((a, b) => Math.abs(b - state.fps) < Math.abs(a - state.fps) ? b : a);
+  }
+  const changed = [];
+  if (state.alphaCut !== before.alphaCut) changed.push("Alpha cut → " + state.alphaCut);
+  if (state.fps !== before.fps) changed.push("FPS → " + state.fps);
+  syncUI();
+  rerender();
+  refreshGifInfo();
+  gifMsg.textContent = changed.length ? changed.join(", ") : "Already GIF-ready";
+});
+
+gifModal.querySelector("#gifGo").addEventListener("click", () => {
+  if (!rendered) return;
+  gifMsg.textContent = "Encoding…";
+  // yield a frame so the label paints before the encoder blocks the thread
+  setTimeout(() => {
+    const t0 = performance.now();
+    const bytes = encodeGif(rendered.canvases, state.fps);
+    const ms = Math.round(performance.now() - t0);
+    download(new Blob([bytes], { type: "image/gif" }), sanitize(effectLabel) + ".gif");
+    const kb = Math.round(bytes.length / 1024);
+    gifMsg.textContent = kb + " KB in " + ms + " ms";
+    msg.textContent = "Exported GIF (" + kb + " KB)";
+  }, 30);
+});
+
+// ---------- Boot ----------
+syncUI();
+const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];
+if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else rerender();
+</script>

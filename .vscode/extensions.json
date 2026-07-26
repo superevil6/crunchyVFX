@@ -1,0 +1,12 @@
+{
+  // VS Code will offer to install these when the folder is opened.
+  "recommendations": [
+    // Required by the two default F5 configs. Chromium's debugger is built into VS Code;
+    // Firefox's is not, and Firefox is what this project is developed against.
+    "firefox-devtools.vscode-firefox-debug"
+    // Deferred until the Tauri wrapper lands (see launch.json):
+    // "rust-lang.rust-analyzer",
+    // "vadimcn.vscode-lldb",
+    // "tauri-apps.tauri-vscode"
+  ]
+}
