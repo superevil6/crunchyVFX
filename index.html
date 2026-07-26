@@ -18,6 +18,7 @@
     <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again">🧬 Breed</button>
     <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack">📦 Variations</button>
     <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style">⚒ Foundry</button>
+    <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect">🔊 Match a sound</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
     <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
@@ -212,6 +213,7 @@ const PARAMS = [
   ["spiralTurns","Turns",       0.5, 4, 0.1, 1.5, "",  "Spiral"],
   ["spiralThick","Thickness",   0.02, 0.4, 0.01, 0.12, "","Spiral"],
   ["glyphTint",  "Tint amount", 0, 1, 0.01, 1, "",     "Glyph"],
+  ["imgTint",    "Tint amount", 0, 1, 0.01, 0, "",     "Image sprite"],
   // Extra layers — default 0 = off, exactly like SFX's noise/subOsc/boom
   ["flash",      "Flash",       0, 1, 0.01, 0, "",     "Flash"],
   ["flashSize",  "Flash size",  0, 1, 0.01, 0.5, "",   "Flash"],
@@ -260,7 +262,11 @@ for (const p of PARAMS) state[p[0]] = p[5];
 // same treatment CrunchySFX gives speechText. It has to be threaded explicitly through
 // applyPreset / syncUI / randomize so it travels with the effect.
 const GLYPH_DEFAULT = "★";
-state.glyph = GLYPH_DEFAULT;
+// Non-PARAMS patch fields: text and image data that can't live in a numeric slider row. They have
+// to be threaded through EVERY state operation (reset, snapshot, undo, withState, encode) or they
+// leak between effects — one table so a new one can't be half-wired.
+const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", ramp: "" };
+for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
 
@@ -272,6 +278,7 @@ let effectLabel = "effect";
 const PANEL_SHAPES = {
   Spark: [1], Ring: [2], Star: [3], Smoke: [5], Shard: [6], Bolt: [7],
   Cross: [11], Crescent: [13], Snowflake: [14], Blob: [15], Teardrop: [16], Spiral: [17], Glyph: [18],
+  "Custom sprite": [8], "Image sprite": [9],
 };
 
 // ---------- Render + preview ----------
@@ -399,7 +406,7 @@ for (const [group, ps] of Object.entries(groups)) {
       const el = row.querySelector("select");
       el.value = state[key];
       inputs[key] = el;
-      el.addEventListener("change", () => { state[key] = +el.value; commitHistory(); rerender(); });
+      el.addEventListener("change", () => { state[key] = +el.value; noteLockEdit(key); commitHistory(); rerender(); });
     } else {
       const row = document.createElement("div");
       row.className = "row";
@@ -413,7 +420,8 @@ for (const [group, ps] of Object.entries(groups)) {
       input.addEventListener("input", () => {
         state[key] = +input.value;
         out.textContent = fmt(p, state[key]);
-        updateMacros();          // a hand edit must move the macro that owns this param
+        noteLockEdit(key);       // a hand edit is a deliberate choice — the lock should keep it
+        updateMacros();          // …and must move the macro that owns this param
         scheduleRender();
       });
       // one history entry per drag, not per pixel of movement
@@ -460,6 +468,347 @@ let glyphInput = null;
   }
 }
 
+// ---------- Colour ramp editor ----------
+// Hue + Hue-shift is a two-stop gradient with no control over the middle, but VFX artists think
+// in gradients: white-hot → yellow → orange → deep red → smoke. This is that control. It's
+// OPT-IN — an empty `ramp` means the classic hue/hueLife/coreWhite path runs, so every existing
+// preset and share link behaves exactly as before.
+let rampStops = [];
+let rampSel = 0;
+let rampCanvas = null, rampCtl = null;
+const RAMP_PRESETS = {
+  Fire:    [[0, 50, 0.25, 1, 1], [0.18, 45, 1, 0.72, 1], [0.5, 24, 1, 0.5, 1], [0.8, 8, 0.9, 0.3, 0.8], [1, 0, 0.6, 0.12, 0]],
+  Ice:     [[0, 190, 0.2, 1, 1], [0.3, 195, 0.65, 0.75, 1], [0.7, 210, 0.75, 0.5, 0.85], [1, 225, 0.6, 0.3, 0]],
+  Magic:   [[0, 300, 0.3, 1, 1], [0.25, 285, 0.9, 0.68, 1], [0.6, 260, 0.95, 0.5, 0.9], [1, 220, 0.9, 0.3, 0]],
+  Smoke:   [[0, 30, 0.35, 0.75, 0.9], [0.35, 20, 0.15, 0.5, 0.6], [1, 220, 0.05, 0.28, 0]],
+  Toxic:   [[0, 80, 0.4, 0.95, 1], [0.35, 95, 1, 0.6, 1], [0.75, 110, 0.9, 0.38, 0.8], [1, 130, 0.7, 0.2, 0]],
+  Rainbow: [[0, 0, 1, 0.6, 1], [0.25, 90, 1, 0.6, 1], [0.5, 180, 1, 0.6, 1], [0.75, 270, 1, 0.6, 1], [1, 359, 1, 0.6, 0.7]],
+};
+const rampToString = () => rampStops.map((s) =>
+  [+s.p.toFixed(3), Math.round(s.h), +s.s.toFixed(3), +s.l.toFixed(3), +s.a.toFixed(3)].join(",")).join("|");
+function rampFromString(str) {
+  const st = (str || "").split("|").map((s) => {
+    const n = s.split(",").map(Number);
+    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4] };
+  }).filter((s) => Number.isFinite(s.p) && Number.isFinite(s.h));
+  return st.sort((a, b) => a.p - b.p);
+}
+// Turning the ramp on shouldn't change the look — seed it from the classic colour params.
+function rampFromClassic() {
+  const h0 = state.hue, h1 = state.hue + state.hueLife;
+  const w = state.coreWhite;
+  return [
+    { p: 0, h: h0, s: state.sat * (1 - w * 0.85), l: clamp01(state.bright * (0.5 + 0.5 * w)), a: 1 },
+    { p: 0.5, h: (h0 + h1) / 2, s: state.sat, l: clamp01(state.bright * 0.55), a: 1 },
+    { p: 1, h: h1, s: state.sat, l: clamp01(state.bright * 0.35), a: 1 },
+  ];
+}
+{
+  const panel = panels.querySelector('[data-group="Color"]');
+  if (panel) {
+    const box = document.createElement("div");
+    box.className = "ramp-box";
+    box.innerHTML =
+      '<div class="ramp-head"><span>Colour over lifetime</span>' +
+      '<button id="rampToggle">Off</button></div>' +
+      '<div class="ramp-body" id="rampBody" hidden>' +
+        '<canvas id="rampCanvas" width="256" height="34"></canvas>' +
+        '<div class="ramp-hint">Click to add a stop · drag to move · the selected stop is edited below</div>' +
+        '<div class="ramp-ctl"><span>Hue</span><input type="range" id="rH" min="0" max="359" step="1"><span class="hint" id="rHV"></span></div>' +
+        '<div class="ramp-ctl"><span>Sat</span><input type="range" id="rS" min="0" max="1" step="0.01"><span class="hint" id="rSV"></span></div>' +
+        '<div class="ramp-ctl"><span>Light</span><input type="range" id="rL" min="0" max="1" step="0.01"><span class="hint" id="rLV"></span></div>' +
+        '<div class="ramp-ctl"><span>Alpha</span><input type="range" id="rA" min="0" max="1" step="0.01"><span class="hint" id="rAV"></span></div>' +
+        '<div class="ramp-btns"><button id="rampDel">✕ Delete stop</button>' +
+          '<span class="ramp-presets" id="rampPresets"></span></div>' +
+      '</div>';
+    panel.appendChild(box);
+    rampCanvas = box.querySelector("#rampCanvas");
+    const rampBody = box.querySelector("#rampBody");
+    const toggle = box.querySelector("#rampToggle");
+    rampCtl = { h: box.querySelector("#rH"), s: box.querySelector("#rS"), l: box.querySelector("#rL"), a: box.querySelector("#rA"),
+                hv: box.querySelector("#rHV"), sv: box.querySelector("#rSV"), lv: box.querySelector("#rLV"), av: box.querySelector("#rAV") };
+
+    function drawRamp() {
+      const g = rampCanvas.getContext("2d");
+      const w = rampCanvas.width, hgt = rampCanvas.height;
+      g.clearRect(0, 0, w, hgt);
+      // checker behind, so alpha stops are visible as transparency rather than as dark
+      g.fillStyle = "#17131f"; g.fillRect(0, 0, w, hgt);
+      g.fillStyle = "#221d2c";
+      for (let y = 0; y < hgt; y += 8) for (let x = ((y / 8) % 2) * 8; x < w; x += 16) g.fillRect(x, y, 8, 8);
+      if (rampStops.length) {
+        const stops = rampFromString(rampToString());
+        for (let x = 0; x < w; x++) {
+          const c = sampleRamp(stops, x / (w - 1));
+          g.fillStyle = "hsla(" + ((c.h % 360 + 360) % 360) + "," + Math.round(clamp01(c.s) * 100) + "%," +
+            Math.round(clamp01(c.l) * 100) + "%," + clamp01(c.a) + ")";
+          g.fillRect(x, 0, 1, hgt);
+        }
+      }
+      rampStops.forEach((s, i) => {
+        const x = Math.round(s.p * (w - 1));
+        g.beginPath(); g.arc(x, hgt - 6, i === rampSel ? 5.5 : 4, 0, Math.PI * 2);
+        g.fillStyle = i === rampSel ? "#ff7a45" : "#e8e4f0";
+        g.strokeStyle = "#14121a"; g.lineWidth = 2;
+        g.fill(); g.stroke();
+      });
+    }
+    function commitRamp(replay) {
+      rampStops.sort((a, b) => a.p - b.p);
+      state.ramp = rampStops.length >= 2 ? rampToString() : "";
+      drawRamp();
+      syncRampCtl();
+      clearSpriteCache();
+      if (replay) { rerender(); commitHistory(); } else { scheduleRender(); }
+    }
+    function syncRampCtl() {
+      const s = rampStops[rampSel];
+      if (!s) return;
+      rampCtl.h.value = s.h; rampCtl.s.value = s.s; rampCtl.l.value = s.l; rampCtl.a.value = s.a;
+      rampCtl.hv.textContent = Math.round(s.h) + "°";
+      rampCtl.sv.textContent = s.s.toFixed(2);
+      rampCtl.lv.textContent = s.l.toFixed(2);
+      rampCtl.av.textContent = s.a.toFixed(2);
+    }
+    for (const [k, prop] of [["h", "h"], ["s", "s"], ["l", "l"], ["a", "a"]]) {
+      rampCtl[k].addEventListener("input", () => {
+        const s = rampStops[rampSel];
+        if (!s) return;
+        s[prop] = +rampCtl[k].value;
+        commitRamp(false);
+      });
+      rampCtl[k].addEventListener("change", () => commitRamp(true));
+    }
+
+    let rampDrag = -1;
+    const rampPos = (ev) => {
+      const r = rampCanvas.getBoundingClientRect();
+      return clamp01((ev.clientX - r.left) / r.width);
+    };
+    rampCanvas.addEventListener("pointerdown", (e) => {
+      const p = rampPos(e);
+      let hit = -1, best = 0.04;
+      rampStops.forEach((s, i) => { const d = Math.abs(s.p - p); if (d < best) { best = d; hit = i; } });
+      if (hit < 0) {                                   // clicked empty space → add a stop there
+        const c = sampleRamp(rampFromString(rampToString()), p);
+        rampStops.push({ p, h: c.h, s: c.s, l: c.l, a: c.a });
+        rampStops.sort((a, b) => a.p - b.p);
+        hit = rampStops.findIndex((s) => s.p === p);
+      }
+      rampSel = hit;
+      rampDrag = hit;
+      rampCanvas.setPointerCapture(e.pointerId);
+      commitRamp(false);
+    });
+    rampCanvas.addEventListener("pointermove", (e) => {
+      if (rampDrag < 0) return;
+      const s = rampStops[rampDrag];
+      s.p = rampPos(e);
+      // keep the identity of the dragged stop as the sort reorders around it
+      const moved = s;
+      rampStops.sort((a, b) => a.p - b.p);
+      rampSel = rampDrag = rampStops.indexOf(moved);
+      commitRamp(false);
+    });
+    addEventListener("pointerup", () => { if (rampDrag >= 0) { rampDrag = -1; commitRamp(true); } });
+
+    box.querySelector("#rampDel").addEventListener("click", () => {
+      if (rampStops.length <= 2) { msg.textContent = "A ramp needs at least two stops"; return; }
+      rampStops.splice(rampSel, 1);
+      rampSel = Math.max(0, rampSel - 1);
+      commitRamp(true);
+    });
+    const presetsEl = box.querySelector("#rampPresets");
+    for (const name in RAMP_PRESETS) {
+      const b = document.createElement("button");
+      b.textContent = name;
+      b.addEventListener("click", () => {
+        rampStops = RAMP_PRESETS[name].map((v) => ({ p: v[0], h: v[1], s: v[2], l: v[3], a: v[4] }));
+        rampSel = 0;
+        rampBody.hidden = false; toggle.textContent = "On"; toggle.classList.add("on");
+        commitRamp(true);
+      });
+      presetsEl.appendChild(b);
+    }
+    toggle.addEventListener("click", () => {
+      if (state.ramp) { state.ramp = ""; rampStops = []; }
+      else { rampStops = rampFromClassic(); rampSel = 0; }
+      window.syncRampUI();
+      clearSpriteCache(); rerender(); commitHistory();
+    });
+
+    window.syncRampUI = () => {
+      rampStops = rampFromString(state.ramp);
+      if (rampSel >= rampStops.length) rampSel = 0;
+      const on = !!state.ramp;
+      rampBody.hidden = !on;
+      toggle.textContent = on ? "On" : "Off";
+      toggle.classList.toggle("on", on);
+      drawRamp();
+      syncRampCtl();
+    };
+    window.syncRampUI();
+  }
+}
+
+// ---------- Custom drawn sprite (shape 8) ----------
+// Draw your own particle on a 16×16 alpha grid. Alpha only — the tint pass colours it, so a
+// drawn sprite still responds to Hue and the palettes like every other shape. 16×16 keeps the
+// base64 at ~344 chars, small enough to ride along in a share link.
+const customGrid = new Uint8Array(CUSTOM_SPRITE_N * CUSTOM_SPRITE_N);
+let csCanvas = null, csErase = false;
+{
+  const panel = panels.querySelector('[data-group="Custom sprite"]');
+  if (panel) {
+    const row = document.createElement("div");
+    row.className = "cs-row";
+    row.innerHTML = '<canvas class="cs-canvas" width="' + CUSTOM_SPRITE_N + '" height="' + CUSTOM_SPRITE_N + '"></canvas>' +
+      '<div class="cs-btns">' +
+      '<button data-cs="dot">● Dot</button><button data-cs="ring">◎ Ring</button>' +
+      '<button data-cs="square">■ Square</button><button data-cs="cross">✚ Cross</button>' +
+      '<button data-cs="tri">▲ Shard</button><button data-cs="noise">▦ Speckle</button>' +
+      '<button data-cs="clear">Clear</button>' +
+      '<button data-cs="erase" class="cs-erase">Eraser: off</button>' +
+      '</div>';
+    panel.appendChild(row);
+    csCanvas = row.querySelector(".cs-canvas");
+    const cg = csCanvas.getContext("2d");
+
+    function drawGrid() {
+      const n = CUSTOM_SPRITE_N;
+      const img = cg.createImageData(n, n);
+      for (let i = 0; i < n * n; i++) {
+        img.data[i * 4] = 255; img.data[i * 4 + 1] = 255; img.data[i * 4 + 2] = 255;
+        img.data[i * 4 + 3] = customGrid[i];
+      }
+      cg.putImageData(img, 0, 0);
+    }
+    function commitSprite(replay) {
+      let any = false;
+      for (let i = 0; i < customGrid.length; i++) if (customGrid[i]) { any = true; break; }
+      state.customSprite = any ? encodeSpriteAlpha(customGrid) : "";
+      drawGrid();
+      clearSpriteCache();
+      if (replay) { rerender(); commitHistory(); }
+    }
+    // fill(fn) → fn(x, y, cx, cy, r) returns 0..255
+    const fill = (fn) => {
+      const n = CUSTOM_SPRITE_N, c = (n - 1) / 2;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) customGrid[y * n + x] = fn(x, y, c, c, n / 2);
+      commitSprite(true);
+    };
+    const SHAPES_CS = {
+      dot: (x, y, cx, cy, r) => { const d = Math.hypot(x - cx, y - cy); return Math.max(0, Math.min(255, Math.round(255 * (1 - d / r)))); },
+      ring: (x, y, cx, cy, r) => { const d = Math.hypot(x - cx, y - cy); return Math.abs(d - r * 0.7) < 1.6 ? 255 : 0; },
+      square: (x, y, cx, cy, r) => (Math.abs(x - cx) < r * 0.7 && Math.abs(y - cy) < r * 0.7 ? 255 : 0),
+      cross: (x, y, cx, cy, r) => (Math.abs(x - cx) < 1.6 || Math.abs(y - cy) < 1.6 ? 255 : 0),
+      tri: (x, y, cx, cy, r) => (y >= cy - r * 0.7 && Math.abs(x - cx) <= (y - (cy - r * 0.7)) * 0.75 ? 255 : 0),
+      noise: (x, y, cx, cy, r) => (Math.hypot(x - cx, y - cy) < r * 0.9 && Math.random() < 0.55 ? 255 : 0),
+      clear: () => 0,
+    };
+    row.querySelector(".cs-btns").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      const k = b.dataset.cs;
+      if (k === "erase") {
+        csErase = !csErase;
+        b.textContent = "Eraser: " + (csErase ? "on" : "off");
+        b.classList.toggle("on", csErase);
+        return;
+      }
+      if (SHAPES_CS[k]) fill(SHAPES_CS[k]);
+    });
+
+    // Pointer events, not mouse events — the Tauri WebKitGTK webview handles these reliably
+    // and it gets touch/stylus for free.
+    let painting = false;
+    const paintAt = (ev) => {
+      const r = csCanvas.getBoundingClientRect();
+      const x = Math.floor((ev.clientX - r.left) / r.width * CUSTOM_SPRITE_N);
+      const y = Math.floor((ev.clientY - r.top) / r.height * CUSTOM_SPRITE_N);
+      if (x < 0 || y < 0 || x >= CUSTOM_SPRITE_N || y >= CUSTOM_SPRITE_N) return;
+      customGrid[y * CUSTOM_SPRITE_N + x] = csErase ? 0 : 255;
+      state.customSprite = encodeSpriteAlpha(customGrid);
+      drawGrid();
+      clearSpriteCache();
+      scheduleRender();
+    };
+    csCanvas.addEventListener("pointerdown", (e) => { painting = true; csCanvas.setPointerCapture(e.pointerId); paintAt(e); });
+    csCanvas.addEventListener("pointermove", (e) => { if (painting) paintAt(e); });
+    addEventListener("pointerup", () => { if (painting) { painting = false; commitSprite(true); } });
+
+    window.syncCustomSprite = () => {                 // called by syncUI when the patch changes
+      const data = decodeSpriteAlpha(state.customSprite);
+      customGrid.fill(0);
+      if (data) customGrid.set(data);
+      drawGrid();
+    };
+    window.syncCustomSprite();
+  }
+}
+
+// ---------- Imported PNG particle (shape 9) ----------
+// The cheapest possible route to "this tool works with my art": your own sprite, thrown by the
+// particle system. Stored as a data: URL in the patch (never a blob: URL — see the reference
+// underlay for why that taints the canvas under file://).
+let imgSpriteName = "";
+function applyImageSprite(url) {
+  if (!url) {
+    imageSpriteEl = null; imageSpriteVersion++; clearSpriteCache(); updateImageSpriteUI();
+    return;
+  }
+  if (imageSpriteEl && imageSpriteEl.src === url) return;   // already the loaded one
+  const img = new Image();
+  img.onload = () => {
+    imageSpriteEl = img; imageSpriteVersion++;
+    clearSpriteCache(); updateImageSpriteUI();
+    if (typeof rendered !== "undefined" && rendered) rerender();
+  };
+  img.onerror = () => { imageSpriteEl = null; imageSpriteVersion++; updateImageSpriteUI(); };
+  img.src = url;
+}
+let imgSpriteInfo = null;
+function updateImageSpriteUI() {
+  if (!imgSpriteInfo) return;
+  imgSpriteInfo.textContent = imageSpriteEl
+    ? (imgSpriteName || "image") + " · " + imageSpriteEl.naturalWidth + "×" + imageSpriteEl.naturalHeight
+    : "No image loaded — the particle falls back to a soft glow.";
+}
+{
+  const panel = panels.querySelector('[data-group="Image sprite"]');
+  if (panel) {
+    const row = document.createElement("div");
+    row.className = "is-row";
+    row.innerHTML = '<div class="is-btns"><button id="isLoad">📂 Load PNG</button><button id="isClear">✕ Clear</button></div>' +
+      '<div class="is-info" id="isInfo"></div>' +
+      '<input type="file" id="isFile" accept="image/*" hidden>';
+    panel.insertBefore(row, panel.firstChild.nextSibling);
+    imgSpriteInfo = row.querySelector("#isInfo");
+    const isFile = row.querySelector("#isFile");
+    row.querySelector("#isLoad").addEventListener("click", () => isFile.click());
+    row.querySelector("#isClear").addEventListener("click", () => {
+      state.imageSprite = ""; imgSpriteName = "";
+      applyImageSprite(""); rerender(); commitHistory();
+    });
+    isFile.addEventListener("change", () => {
+      const f = isFile.files && isFile.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.imageSprite = reader.result;
+        imgSpriteName = f.name;
+        state.shape = SHAPES.indexOf("image");    // you loaded a sprite; you want to see it
+        applyImageSprite(state.imageSprite);
+        syncUI(); rerender(); commitHistory();
+        msg.textContent = "Particle sprite: " + f.name;
+      };
+      reader.onerror = () => { msg.textContent = "Couldn't read that image"; };
+      reader.readAsDataURL(f);
+      isFile.value = "";
+    });
+    updateImageSpriteUI();
+  }
+}
+
 function updateShapePanels() {
   const s = Math.round(state.shape);
   for (const [group, shapes] of Object.entries(PANEL_SHAPES)) {
@@ -481,6 +830,9 @@ function syncParamInputs() {
 function syncUI() {
   syncParamInputs();
   if (glyphInput) glyphInput.value = state.glyph;
+  if (window.syncCustomSprite) window.syncCustomSprite();
+  if (window.syncRampUI) window.syncRampUI();
+  updateImageSpriteUI();
   syncShapeButtons();
   updateShapePanels();
   updateMacros();
@@ -494,12 +846,13 @@ const EDIT_HIST_MAX = 80;
 function snapshotState() {
   const s = {};
   for (const p of PARAMS) s[p[0]] = state[p[0]];
-  s.glyph = state.glyph;
+  for (const k in PATCH_EXTRAS) s[k] = state[k];
   return s;
 }
 function sameSnapshot(a, b) {
   for (const p of PARAMS) if (a[p[0]] !== b[p[0]]) return false;
-  return a.glyph === b.glyph;
+  for (const k in PATCH_EXTRAS) if (a[k] !== b[k]) return false;
+  return true;
 }
 function commitHistory() {
   if (restoringHistory) return;
@@ -514,7 +867,8 @@ function commitHistory() {
 function restoreEdit(snap) {
   restoringHistory = true;
   for (const p of PARAMS) state[p[0]] = snap[p[0]];
-  state.glyph = snap.glyph;
+  for (const k in PATCH_EXTRAS) state[k] = snap[k];
+  applyImageSprite(state.imageSprite);
   syncUI();
   rerender();
   restoringHistory = false;
@@ -678,7 +1032,10 @@ for (const m of MACROS) {
 }
 
 function applyMacro(m, v) {
+  const before = {};
+  for (const k of LOCK_KEYS) before[k] = state[k];
   m.to(clamp01(v));
+  for (const k of LOCK_KEYS) if (state[k] !== before[k]) noteLockEdit(k);
   syncParamInputs();     // the real sliders have to visibly move, or the macro feels like magic
   updateMacros();
 }
@@ -704,16 +1061,37 @@ const PRESET_CATEGORIES = window.PRESET_CATEGORIES || [];
 const LOCK_KEYS = ["frameSize", "pixelate", "posterize", "dither", "alphaCut", "outline", "outlineTone"];
 const LOCK_PREF = "crunchyvfx.lockpixels.v1";
 let pixelLock = true;
-try { const v = localStorage.getItem(LOCK_PREF); if (v !== null) pixelLock = v === "1"; } catch (e) { /* private mode */ }
+// Only values the USER chose get pinned. The first version pinned anything that was merely
+// off-default, which meant a preset's own crunch settings got captured and then leaked into every
+// effect loaded afterwards — load Pixel Burst, and everything after it stayed pixelated. Tracking
+// deliberate edits separately is what makes "keep MY settings" actually mean mine.
+let lockedValues = {};
+try {
+  const raw = localStorage.getItem(LOCK_PREF);
+  if (raw !== null) {
+    if (raw === "0" || raw === "1") pixelLock = raw === "1";       // v1 format
+    else { const d = JSON.parse(raw); pixelLock = !!d.on; lockedValues = d.values || {}; }
+  }
+} catch (e) { /* private mode / corrupt */ }
+function saveLockPref() {
+  try { localStorage.setItem(LOCK_PREF, JSON.stringify({ on: pixelLock, values: lockedValues })); }
+  catch (e) { /* best-effort */ }
+}
+// Called whenever the user moves one of these controls by hand (slider, dropdown, or a macro that
+// writes them) — that's the signal that this value is theirs and should survive preset loads.
+function noteLockEdit(key) {
+  if (LOCK_KEYS.indexOf(key) < 0) return;
+  lockedValues[key] = state[key];
+  saveLockPref();
+  updateLockBtn();
+}
 
 function applyPreset(obj, label) {
-  const keep = {};
-  if (pixelLock) {
-    for (const k of LOCK_KEYS) if (state[k] !== PARAM_BY_KEY[k][5]) keep[k] = state[k];
-  }
+  const keep = pixelLock ? Object.assign({}, lockedValues) : {};
   for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
-  state.glyph = GLYPH_DEFAULT;                  // non-PARAMS patch fields reset too, or they leak
+  for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];   // or they leak between effects
   for (const k in obj) if (k in state) state[k] = obj[k];
+  applyImageSprite(state.imageSprite);
   for (const k in keep) state[k] = keep[k];
   if (label) effectLabel = label;
   syncUI();
@@ -777,10 +1155,10 @@ const thumbCache = new Map();   // id -> dataURL; a saved effect never changes, 
 function withState(snap, fn) {
   const backup = snapshotState();
   for (const p of PARAMS) state[p[0]] = (p[0] in snap) ? snap[p[0]] : p[5];
-  state.glyph = snap.glyph !== undefined ? snap.glyph : GLYPH_DEFAULT;
+  for (const k in PATCH_EXTRAS) state[k] = snap[k] !== undefined ? snap[k] : PATCH_EXTRAS[k];
   try { return fn(); } finally {
     for (const p of PARAMS) state[p[0]] = backup[p[0]];
-    state.glyph = backup.glyph;
+    for (const k in PATCH_EXTRAS) state[k] = backup[k];
   }
 }
 
@@ -901,10 +1279,13 @@ mpFile.addEventListener("change", async () => {
 const RAND_KEYS = ["count", "emitAngle", "emitSpread", "emitRadius", "emitTime", "speed", "speedVar",
   "gravity", "drag", "radial", "swirl", "turb", "spin", "life", "lifeVar", "size", "sizeVar",
   "grow", "fadeOut", "hue", "hueLife", "hueVar", "coreWhite", "flash", "wave", "trail"];
-// Every shape except custom (8) and image (9), which aren't built yet.
+// custom (8) and image (9) are excluded: they need artwork the user supplied, and randomize
+// wipes the extras, so picking them would just render an empty particle.
 const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 function randomize() {
   for (const p of PARAMS) state[p[0]] = p[5];
+  for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
+  applyImageSprite("");
   state.shape = RANDOM_SHAPES[Math.floor(Math.random() * RANDOM_SHAPES.length)];
   state.glyph = GLYPH_PICKS[Math.floor(Math.random() * GLYPH_PICKS.length)];
   state.emitter = Math.floor(Math.random() * EMITTERS.length);
@@ -943,12 +1324,19 @@ fitBtn.addEventListener("click", () => {
 });
 const lockBtn = document.getElementById("lockBtn");
 function updateLockBtn() {
+  const n = Object.keys(lockedValues).length;
   lockBtn.classList.toggle("on", pixelLock);
-  lockBtn.textContent = pixelLock ? "🔒 Lock pixels" : "🔓 Lock pixels";
+  lockBtn.textContent = (pixelLock ? "🔒" : "🔓") + " Lock pixels" + (pixelLock && n ? " (" + n + ")" : "");
+  lockBtn.title = !pixelLock
+    ? "Off — presets bring their own frame size and Crunch settings."
+    : n
+      ? "Keeping your own " + Object.keys(lockedValues).join(", ") + " when you load an effect. Turn off to forget them."
+      : "On, but nothing pinned yet — adjust Frame size or any Crunch control and it'll stick across effects.";
 }
 lockBtn.addEventListener("click", () => {
   pixelLock = !pixelLock;
-  try { localStorage.setItem(LOCK_PREF, pixelLock ? "1" : "0"); } catch (e) { /* private mode */ }
+  if (!pixelLock) lockedValues = {};     // turning it off is also how you forget what's pinned
+  saveLockPref();
   updateLockBtn();
 });
 document.getElementById("undoBtn").addEventListener("click", undoEdit);
@@ -1262,7 +1650,7 @@ const b64decode = (b64) => {
 function encodePatch(nameOverride) {
   const diff = {};
   for (const p of PARAMS) if (state[p[0]] !== p[5]) diff[p[0]] = state[p[0]];
-  if (state.glyph !== GLYPH_DEFAULT) diff.glyph = state.glyph;
+  for (const k in PATCH_EXTRAS) if (state[k] !== PATCH_EXTRAS[k]) diff[k] = state[k];
   const name = (nameOverride || "").trim();
   if (name) diff.n = name.slice(0, 60);
   return b64encode(JSON.stringify(diff))
@@ -1295,13 +1683,13 @@ function mutateGenome(src, amount) {
     v = Math.max(p[2], Math.min(p[3], v));
     g[k] = p[4] >= 1 ? Math.round(v / p[4]) * p[4] : Math.round(v * 1000) / 1000;
   }
-  g.glyph = src.glyph;
+  for (const k in PATCH_EXTRAS) g[k] = src[k];
   return g;
 }
 function crossGenome(a, b) {
   const g = {};
   for (const p of PARAMS) g[p[0]] = Math.random() < 0.5 ? a[p[0]] : b[p[0]];
-  g.glyph = Math.random() < 0.5 ? a.glyph : b.glyph;
+  for (const k in PATCH_EXTRAS) g[k] = Math.random() < 0.5 ? a[k] : b[k];
   return g;
 }
 function breedChild(parents, amount) {
@@ -1311,7 +1699,7 @@ function breedChild(parents, amount) {
 function fullGenome(patch) {
   const g = {};
   for (const p of PARAMS) g[p[0]] = (p[0] in patch) ? patch[p[0]] : p[5];
-  g.glyph = patch.glyph !== undefined ? patch.glyph : GLYPH_DEFAULT;
+  for (const k in PATCH_EXTRAS) g[k] = patch[k] !== undefined ? patch[k] : PATCH_EXTRAS[k];
   return g;
 }
 
@@ -1822,6 +2210,180 @@ function ucOpenMenu(e, item, label) {
 }
 addEventListener("click", closeUcMenu);
 addEventListener("scroll", closeUcMenu, true);
+
+// ============================================================================================
+// Match the sound — paste a CrunchySFX share link, get a starting VFX patch.
+//
+// This is the one feature neither app could have alone, and it's why the two are one product.
+// It is explicitly a STARTING POINT, not a translation: there's no correct visual for a sound.
+// What it does is carry across the things that genuinely correspond — length, weight, brightness,
+// grit, repeats, direction — so the effect lands in the right neighbourhood and you tune from
+// there. The modal lists every mapping it applied so it's never a black box.
+//
+// CrunchySFX link format: ?s=<base64url> of { v:1, s:{param diff}, t:"name" }.
+// ============================================================================================
+const SFX_DEFAULTS = {
+  duration: 0.4, freq: 440, sweep: 0, noise: 0, boom: 0, drive: 0.1, bitcrush: 16, downsample: 1,
+  reverb: 0, convMix: 0, delay: 0, attack: 0.005, decay: 0.12, release: 0.1, sustain: 0,
+  repeat: 1, rate: 10, reverse: 0, wave: 2, width: 0.4, vibDepth: 0, ringMod: 0, cutoff: 8000,
+  limiter: 0, transient: 0,
+};
+// SFX engine index → the VFX shape that reads most like it.
+const SFX_WAVE_SHAPE = {
+  8: 1, 10: 3, 11: 4, 13: 15, 14: 2, 15: 0, 16: 0, 17: 18, 19: 1, 20: 5,
+};
+const SFX_WAVE_NAME = {
+  8: "pluck", 10: "modal/bell", 11: "granular", 13: "formant", 14: "bubble", 15: "particle",
+  16: "additive", 17: "speech", 19: "impact", 20: "whoosh",
+};
+
+function decodeSfxLink(text) {
+  const s = String(text || "").trim();
+  // Take the LAST ?s= in the string, not the first. If you click at the end of the box and paste a
+  // second link without clearing it, the field holds both — and matching the first would silently
+  // re-import the sound you already had, which reads as "it kept the previous sound's settings".
+  const all = s.match(/[?#&]s=[A-Za-z0-9\-_]+/g);
+  const code = all ? all[all.length - 1].slice(3) : (s.match(/^([A-Za-z0-9\-_]{16,})$/) || [])[1];
+  if (!code) return null;
+  try {
+    let b64 = code.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const obj = JSON.parse(b64decode(b64));
+    return obj && typeof obj.s === "object" ? obj : null;
+  } catch (e) { return null; }
+}
+
+function matchSound(obj) {
+  const sfx = obj.s;
+  const d = (k) => (k in sfx ? sfx[k] : SFX_DEFAULTS[k]);
+  const notes = [];
+  const p = {};
+  const note = (t) => notes.push(t);
+
+  // Length is the one true correspondence — a 2-second sound wants a 2-second effect.
+  p.duration = Math.max(0.15, Math.min(3, d("duration") * 1.15));
+  note("length " + d("duration").toFixed(2) + "s → " + p.duration.toFixed(2) + "s");
+
+  const wave = Math.round(d("wave"));
+  p.shape = SFX_WAVE_SHAPE[wave] !== undefined ? SFX_WAVE_SHAPE[wave] : 0;
+  if (SFX_WAVE_NAME[wave]) note("engine “" + SFX_WAVE_NAME[wave] + "” → " + SHAPES[p.shape] + " particles");
+
+  // Pitch ↔ scale: high sounds are small and quick, low sounds are big and heavy.
+  const freq = d("freq");
+  const pitch = clamp01((Math.log2(Math.max(20, freq)) - 4.3) / 3.6);   // ~20Hz..4kHz → 0..1
+  p.size = Math.round((36 - 26 * pitch) * 10) / 10;
+  p.hue = Math.round(200 * pitch + (1 - pitch) * 24);
+  note("pitch " + Math.round(freq) + "Hz → size " + p.size + "px, hue " + p.hue + "°");
+
+  // Noise ↔ how many pieces it breaks into.
+  const noise = d("noise");
+  p.count = Math.round(40 + noise * 320);
+  p.sat = clamp01(0.95 - noise * 0.45);
+  if (noise > 0.05) note("noise " + noise.toFixed(2) + " → " + p.count + " particles, less saturated");
+
+  // Boom ↔ the impact layers.
+  const boom = d("boom");
+  if (boom > 0.02) {
+    p.flash = clamp01(0.3 + boom * 0.7);
+    p.wave = clamp01(boom * 0.8);
+    p.waveSpeed = 0.6 + boom * 0.4;
+    note("boom " + boom.toFixed(2) + " → flash + shockwave");
+  }
+
+  // Pitch sweep ↔ movement. Falling pitch implodes, rising pitch explodes outward.
+  const sweep = d("sweep");
+  p.speed = Math.round(120 + Math.abs(sweep) * 520);
+  if (Math.abs(sweep) > 0.05) {
+    p.radial = Math.round(sweep * 260);
+    note("pitch sweep " + sweep.toFixed(2) + " → speed " + p.speed + ", " + (sweep > 0 ? "outward" : "inward") + " pull");
+  }
+
+  // Envelope ↔ particle life.
+  p.life = Math.max(0.08, Math.min(3, d("decay") + d("release") + d("sustain") * 0.4 + 0.1));
+  p.fadeIn = clamp01(d("attack") / 0.2);
+  p.fadeOut = clamp01(0.3 + d("release"));
+  note("envelope → life " + p.life.toFixed(2) + "s");
+
+  // The crunch stage maps one-for-one, which is the whole brand.
+  const bits = d("bitcrush"), ds = d("downsample");
+  if (bits < 16) { p.posterize = Math.max(2, Math.round(bits * 2)); note("bitcrush " + bits + "-bit → " + p.posterize + " colour steps"); }
+  if (ds > 1) { p.pixelate = Math.max(1, Math.min(16, Math.round(ds / 3))); note("downsample " + ds + "× → pixelate " + p.pixelate + "px"); }
+  if (bits < 12 || ds > 4) p.alphaCut = 0.5;
+
+  p.coreWhite = clamp01(0.2 + d("drive") * 0.8);
+  const space = Math.max(d("reverb"), d("convMix"));
+  if (space > 0.02) { p.glow = clamp01(space * 0.9); note("reverb " + space.toFixed(2) + " → glow"); }
+  const delay = d("delay");
+  if (delay > 0.02) { p.echo = clamp01(delay * 0.8); p.trail = clamp01(delay * 0.6); note("delay → frame echo + motion trail"); }
+
+  const rep = Math.round(d("repeat"));
+  if (rep > 1) { p.shots = Math.min(8, rep); p.shotDelay = Math.max(0.02, Math.min(1, 1 / d("rate"))); note(rep + " shots → " + p.shots + " chained bursts"); }
+  if (d("reverse")) { p.reverse = 1; note("reversed sound → reversed animation"); }
+  if (d("vibDepth") > 0.05) { p.turb = clamp01(d("vibDepth") * 0.8); note("vibrato → turbulence"); }
+  if (d("ringMod") > 0.05) { p.hueVar = clamp01(d("ringMod") * 0.6); note("ring mod → colour scatter"); }
+  if (d("limiter") > 0.1 || d("transient") > 0.2) { p.shake = clamp01(Math.max(d("limiter"), d("transient")) * 0.4); note("limiter/transient → shake"); }
+  p.emitSpread = Math.round(120 + d("width") * 240);
+
+  return { patch: p, notes, name: obj.t || "Matched effect" };
+}
+
+const matchModal = document.createElement("div");
+matchModal.className = "modal";
+matchModal.hidden = true;
+matchModal.innerHTML =
+  '<div class="modal-box share-box">' +
+    '<div class="modal-head"><h2>🔊 Match a sound</h2>' +
+      '<span class="hint">Paste a CrunchySFX share link.</span>' +
+      '<button id="matchClose">✕ Close</button></div>' +
+    '<div class="share-body">' +
+      '<label class="share-lbl" for="matchIn">CrunchySFX link</label>' +
+      '<input id="matchIn" class="share-input" type="text" placeholder="https://crunchysfx.com/?s=…" autocomplete="off" spellcheck="false">' +
+      '<p class="share-note">A sound has no single correct visual, so this is a <b>starting point</b>: ' +
+        'it carries across length, weight, brightness, grit, repeats and direction, then you tune it. ' +
+        'Everything it changes is listed below before you apply it.</p>' +
+      '<div id="matchOut"></div>' +
+    '</div>' +
+    '<div class="modal-foot"><button id="matchApply" class="primary" disabled>✨ Apply to the editor</button>' +
+      '<span id="matchMsg" class="hint"></span></div>' +
+  '</div>';
+document.body.appendChild(matchModal);
+const matchIn = matchModal.querySelector("#matchIn");
+const matchOut = matchModal.querySelector("#matchOut");
+const matchMsg = matchModal.querySelector("#matchMsg");
+const matchApplyBtn = matchModal.querySelector("#matchApply");
+let matchResult = null;
+
+function refreshMatch() {
+  const obj = decodeSfxLink(matchIn.value);
+  matchResult = null;
+  matchApplyBtn.disabled = true;
+  if (!matchIn.value.trim()) { matchOut.innerHTML = ""; matchMsg.textContent = ""; return; }
+  if (!obj) {
+    matchOut.innerHTML = '<p class="match-bad">That doesn\'t look like a CrunchySFX link — it should contain <code>?s=</code> followed by the code.</p>';
+    return;
+  }
+  matchResult = matchSound(obj);
+  matchApplyBtn.disabled = false;
+  matchOut.innerHTML = '<div class="match-name">“' + matchResult.name.replace(/[<>&]/g, "") + '”</div><ul class="match-list">' +
+    matchResult.notes.map((n) => "<li>" + n.replace(/[<>&]/g, "") + "</li>").join("") + "</ul>";
+  matchMsg.textContent = matchResult.notes.length + " mappings";
+}
+matchIn.addEventListener("input", refreshMatch);
+matchIn.addEventListener("focus", () => matchIn.select());   // so a paste replaces, never appends
+document.getElementById("matchBtn").addEventListener("click", () => {
+  matchIn.value = ""; matchOut.innerHTML = ""; matchMsg.textContent = "";
+  matchApplyBtn.disabled = true;
+  matchModal.hidden = false;
+  matchIn.focus();
+});
+matchModal.querySelector("#matchClose").addEventListener("click", () => { matchModal.hidden = true; });
+matchModal.addEventListener("click", (e) => { if (e.target === matchModal) matchModal.hidden = true; });
+matchApplyBtn.addEventListener("click", () => {
+  if (!matchResult) return;
+  applyPreset(matchResult.patch, matchResult.name);
+  matchModal.hidden = true;
+  msg.textContent = "Matched “" + matchResult.name + "” — " + matchResult.notes.length + " mappings applied";
+});
 
 // ---------- Boot ----------
 loadUserEffects();

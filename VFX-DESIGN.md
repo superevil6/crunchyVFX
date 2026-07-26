@@ -39,6 +39,11 @@ The `Crunch` group is the brand fit: `pixelate` + `posterize` + `dither` + `alph
 
 ## 2. `PARAMS` — paste-ready draft
 
+> **Note (superseded in part):** this section is the original draft. The shipped schema has grown
+> well past it — 19 shapes, 7 emitters, ~130 params, plus non-`PARAMS` patch fields (`glyph`,
+> `customSprite`, `imageSprite`, `ramp`). **`index.html` is authoritative**; this remains as the
+> record of the reasoning.
+
 Same row format: `[key, label, min, max, step, default, unit, group, kind?, enumList?]`.
 **Every entry defaults to neutral/off** so `applyPreset`'s reset-then-overlay never silently
 changes an existing preset — the same backward-compat rule as SFX.

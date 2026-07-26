@@ -855,3 +855,48 @@
   .uc-menu button { text-align: left; background: none; border: none; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
   .uc-menu button:hover { background: var(--panel2); color: var(--accent); }
   .uc-menu-new { color: var(--accent2) !important; }
+
+  /* Custom drawn sprite editor + imported PNG particle */
+  .cs-row { margin: 8px 0 4px; }
+  .cs-canvas {
+    width: 100%; max-width: 168px; height: auto; aspect-ratio: 1 / 1; display: block;
+    image-rendering: pixelated; cursor: crosshair; touch-action: none; border-radius: 8px;
+    border: 1px solid var(--line); margin: 0 auto 8px;
+    background-color: #17131f;
+    background-image:
+      linear-gradient(45deg, #211d2b 25%, transparent 25%, transparent 75%, #211d2b 75%),
+      linear-gradient(45deg, #211d2b 25%, #17131f 25%, #17131f 75%, #211d2b 75%);
+    background-size: 12px 12px; background-position: 0 0, 6px 6px;
+  }
+  .cs-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cs-btns button { padding: 4px 7px; font-size: 11px; }
+  .is-row { margin: 6px 0 4px; }
+  .is-btns { display: flex; gap: 6px; }
+  .is-btns button { padding: 5px 9px; font-size: 12px; }
+  .is-info { font-size: 11px; color: var(--muted); margin-top: 7px; line-height: 1.4; }
+
+  /* Colour-over-lifetime ramp editor */
+  .ramp-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .ramp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .ramp-head > span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+  .ramp-head button { padding: 3px 12px; font-size: 12px; }
+  #rampCanvas {
+    width: 100%; height: 34px; display: block; margin: 9px 0 5px;
+    border-radius: 7px; border: 1px solid var(--line); cursor: pointer; touch-action: none;
+    background: none;
+  }
+  .ramp-hint { font-size: 10.5px; color: var(--muted); line-height: 1.4; margin-bottom: 7px; }
+  .ramp-ctl { display: grid; grid-template-columns: 42px 1fr 38px; align-items: center; gap: 7px; margin: 5px 0; }
+  .ramp-ctl > span:first-child { font-size: 11px; color: var(--muted); }
+  .ramp-ctl .hint { text-align: right; font-variant-numeric: tabular-nums; font-size: 11px; }
+  .ramp-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 9px; }
+  .ramp-btns button { padding: 3px 8px; font-size: 11px; }
+  .ramp-presets { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+
+  /* Match-a-sound modal */
+  .match-name { font-size: 14px; color: var(--accent); margin: 14px 0 6px; }
+  .match-list { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--ink); }
+  .match-list li { margin: 2px 0; }
+  .match-bad { font-size: 13px; color: #ffb08a; background: rgba(255,122,69,0.09);
+    border: 1px solid rgba(255,122,69,0.35); border-radius: 8px; padding: 10px 12px; margin: 14px 0 0; }
+  .match-bad code { font: 12px ui-monospace, monospace; color: var(--accent); }

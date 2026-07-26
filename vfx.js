@@ -20,20 +20,50 @@ const BLENDS   = ["additive", "alpha", "screen"];
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
 
 // ---------- constants ----------
-const P_STRIDE = 10;        // one particle per stride in the per-frame Float32Array
+const P_STRIDE = 12;       // one particle per stride in the per-frame Float32Array
 const P_X = 0, P_Y = 1, P_SIZE = 2, P_ANG = 3, P_ALPHA = 4;
 const P_HUE = 5, P_WHITE = 6, P_KIND = 7, P_VX = 8, P_VY = 9;
+// Colour is resolved at SIMULATE time, not draw time: with a ramp, hue/sat/light are a function
+// of the particle's own life fraction, which the frame table doesn't otherwise carry.
+const P_SAT = 10, P_LIGHT = 11;
 const K_PART = 0, K_FLASH = 1, K_WAVE = 2;   // P_KIND values
 
 const SUB = 2;                 // simulation substeps per frame — keeps motion stable at 8 fps
 const MAX_FRAMES = 120;        // hard cap (3 s @ 60 fps would be 180; the sheet gets silly first)
 const MAX_PARTS = 6000;        // hard cap across all shots
 const SPRITE_PX = 64;          // master sprite resolution; particles draw scaled from this
-const HUE_STEPS = 24;          // colour-ramp quantization for the sprite cache
-const WHITE_STEPS = 5;
+// Sprite-cache quantization. Every distinct (shape, hue, sat, light) is one cached 64px canvas,
+// so these multiply — kept coarse enough that a patch builds a few dozen sprites, not hundreds.
+const HUE_STEPS = 24;
+const SAT_STEPS = 5;
+const LIGHT_STEPS = 6;
 
 const DEG = Math.PI / 180;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+
+// Custom drawn sprite (shape 8): a 16×16 ALPHA grid, base64'd into the patch so it travels in
+// share links and saved effects — the 2D cousin of CrunchySFX's drawn wavetable. Alpha only: the
+// tint pass colours it, so it responds to Hue/palettes like every other shape.
+const CUSTOM_SPRITE_N = 16;
+function decodeSpriteAlpha(b64) {
+  if (!b64) return null;
+  try {
+    const s = atob(b64);
+    if (s.length !== CUSTOM_SPRITE_N * CUSTOM_SPRITE_N) return null;
+    const a = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    return a;
+  } catch (e) { return null; }
+}
+function encodeSpriteAlpha(arr) {
+  let s = "";
+  for (let i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
+  return btoa(s);
+}
+// Imported PNG particle (shape 9). Declared HERE rather than in index.html so it's initialized
+// before any render can reach it; index.html assigns to it when the user loads a file.
+let imageSpriteEl = null;
+let imageSpriteVersion = 0;   // bumped on load so the sprite cache knows to rebuild
 
 // ---------- determinism ----------
 // Every random draw is a HASH of (seed, particle index, salt) rather than the next value from a
@@ -160,6 +190,7 @@ function simulate(st) {
   const scratch = new Float32Array((total + 2 * shots) * P_STRIDE);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
 
+  const ramp = parseRamp(st.ramp);
   const dragK = st.drag * 6;
   const turb = st.turb, turbScale = Math.max(0.01, st.turbScale), turbSpeed = st.turbSpeed;
   const nSteps = nFrames * SUB;
@@ -184,9 +215,24 @@ function simulate(st) {
         scratch[o + P_X] = px[g]; scratch[o + P_Y] = py[g];
         scratch[o + P_SIZE] = size;
         scratch[o + P_ANG] = pang[g];
-        scratch[o + P_ALPHA] = lifeAlpha(st, u);
-        scratch[o + P_HUE] = phue[g] + st.hueLife * u;
-        scratch[o + P_WHITE] = st.coreWhite * (1 - u) * (1 - u);
+        if (ramp) {
+          // With a ramp the gradient owns hue/sat/light; hueVar still jitters per particle and
+          // the fade envelope still multiplies, so the ramp is a colour curve, not a replacement
+          // for the envelope.
+          const c = sampleRamp(ramp, u);
+          scratch[o + P_HUE] = c.h + (phue[g] - st.hue);
+          scratch[o + P_SAT] = c.s;
+          scratch[o + P_LIGHT] = clamp01(c.l * st.bright);
+          scratch[o + P_ALPHA] = lifeAlpha(st, u) * c.a;
+          scratch[o + P_WHITE] = 0;
+        } else {
+          const white = st.coreWhite * (1 - u) * (1 - u);
+          scratch[o + P_HUE] = phue[g] + st.hueLife * u;
+          scratch[o + P_WHITE] = white;
+          scratch[o + P_SAT] = st.sat * (1 - white * 0.85);
+          scratch[o + P_LIGHT] = clamp01(st.bright * (0.5 + 0.5 * white));
+          scratch[o + P_ALPHA] = lifeAlpha(st, u);
+        }
         scratch[o + P_KIND] = K_PART;
         scratch[o + P_VX] = vx[g]; scratch[o + P_VY] = vy[g];
         n++;
@@ -213,6 +259,8 @@ function simulate(st) {
             scratch[o + P_ALPHA] = st.flash * (1 - u) * (1 - u);
             scratch[o + P_HUE] = st.hue + st.hueLife * u;
             scratch[o + P_WHITE] = 0.85;
+            scratch[o + P_SAT] = st.sat * 0.15;
+            scratch[o + P_LIGHT] = clamp01(st.bright * 0.93);
             scratch[o + P_KIND] = K_FLASH;
             scratch[o + P_VX] = 0; scratch[o + P_VY] = 0;
             n++;
@@ -228,8 +276,11 @@ function simulate(st) {
             scratch[o + P_SIZE] = r * 2;
             scratch[o + P_ANG] = 0;
             scratch[o + P_ALPHA] = st.wave * (1 - u);
+            const ww = 0.4 * (1 - u);
             scratch[o + P_HUE] = st.hue + st.hueLife * u;
-            scratch[o + P_WHITE] = 0.4 * (1 - u);
+            scratch[o + P_WHITE] = ww;
+            scratch[o + P_SAT] = st.sat * (1 - ww * 0.85);
+            scratch[o + P_LIGHT] = clamp01(st.bright * (0.5 + 0.5 * ww));
             scratch[o + P_KIND] = K_WAVE;
             scratch[o + P_VX] = 0; scratch[o + P_VY] = 0;
             n++;
@@ -277,6 +328,40 @@ function simulate(st) {
   return { frames, counts, nFrames, fps, fs, bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 } };
 }
 
+// ---------- colour ramp ----------
+// An optional multi-stop gradient over particle lifetime, stored as "p,h,s,l,a|…" in the patch.
+// Empty string = off, and the classic hue / hueLife / coreWhite path runs instead — so every
+// existing preset and share link is untouched.
+let rampCacheSrc = null, rampCacheStops = null;
+function parseRamp(src) {
+  if (!src) return null;
+  if (rampCacheSrc === src) return rampCacheStops;
+  const stops = src.split("|").map((s) => {
+    const n = s.split(",").map(Number);
+    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4] };
+  }).filter((s) => Number.isFinite(s.p) && Number.isFinite(s.h)).sort((x, y) => x.p - y.p);
+  rampCacheSrc = src;
+  rampCacheStops = stops.length ? stops : null;
+  return rampCacheStops;
+}
+function sampleRamp(stops, u) {
+  if (u <= stops[0].p) return stops[0];
+  const last = stops[stops.length - 1];
+  if (u >= last.p) return last;
+  for (let i = 1; i < stops.length; i++) {
+    const b = stops[i];
+    if (u > b.p) continue;
+    const a = stops[i - 1];
+    const k = (u - a.p) / Math.max(1e-6, b.p - a.p);
+    // Interpolate hue the SHORT way round the wheel — otherwise red→magenta sweeps through the
+    // entire spectrum and every ramp turns into a rainbow.
+    let dh = b.h - a.h;
+    if (dh > 180) dh -= 360; else if (dh < -180) dh += 360;
+    return { h: a.h + dh * k, s: a.s + (b.s - a.s) * k, l: a.l + (b.l - a.l) * k, a: a.a + (b.a - a.a) * k };
+  }
+  return last;
+}
+
 // fade-in / fade-out with a linear→exponential curve knob (the envCurve analog)
 function lifeAlpha(st, u) {
   const fi = st.fadeIn, fo = st.fadeOut;
@@ -297,7 +382,7 @@ function frameSizePx(st) {
 // a small canvas, tinted with source-in, and cached by (shape, hue step, white step) — every
 // particle then costs one drawImage.
 const spriteCache = new Map();
-function spriteKey(shape, hi, wi, st) {
+function spriteKey(shape, hi, si, li, st) {
   // shape params that change the drawing have to be in the key or the cache goes stale
   const extra = shape === 1 ? st.sparkLen + "," + st.sparkTaper
     : shape === 2 ? st.ringThick + "," + st.ringSoft
@@ -311,14 +396,16 @@ function spriteKey(shape, hi, wi, st) {
                     : shape === 15 ? st.blobLobes + "," + st.blobRough
                       : shape === 16 ? st.dropTail
                         : shape === 17 ? st.spiralTurns + "," + st.spiralThick
-                          : shape === 18 ? st.glyph + "," + st.glyphTint : "";
-  return shape + "|" + hi + "|" + wi + "|" + extra;
+                          : shape === 18 ? st.glyph + "," + st.glyphTint
+                            : shape === 8 ? st.customSprite
+                              : shape === 9 ? imageSpriteVersion + "," + st.imgTint : "";
+  return shape + "|" + hi + "|" + si + "|" + li + "|" + extra;
 }
 function clearSpriteCache() { spriteCache.clear(); }
 
 function hsl(h, s, l) { return "hsl(" + (((h % 360) + 360) % 360) + "," + Math.round(clamp01(s) * 100) + "%," + Math.round(clamp01(l) * 100) + "%)"; }
 
-function makeSprite(shape, hue, white, st) {
+function makeSprite(shape, hue, sat, lum, st) {
   const c = document.createElement("canvas");
   c.width = c.height = SPRITE_PX;
   const g = c.getContext("2d");
@@ -522,8 +609,32 @@ function makeSprite(shape, hue, white, st) {
       g.fillText(st.glyph || "★", R, R + SPRITE_PX * 0.03);
       break;
     }
-    // 8 custom (drawn sprite) and 9 image (imported PNG) fall through to glow until their
-    // panels exist. The enum indices stay put so presets/share links don't shift under us.
+    case 8: {   // custom — the 16×16 grid you drew, blown up with hard edges
+      const data = decodeSpriteAlpha(st.customSprite);
+      if (!data) break;                       // nothing drawn yet → an empty sprite, not a crash
+      const n = CUSTOM_SPRITE_N;
+      const tmp = document.createElement("canvas");
+      tmp.width = tmp.height = n;
+      const tg = tmp.getContext("2d");
+      const img = tg.createImageData(n, n);
+      for (let i = 0; i < n * n; i++) {
+        img.data[i * 4] = 255; img.data[i * 4 + 1] = 255; img.data[i * 4 + 2] = 255;
+        img.data[i * 4 + 3] = data[i];
+      }
+      tg.putImageData(img, 0, 0);
+      g.imageSmoothingEnabled = false;        // it's pixel art; keep the blocks crisp
+      g.drawImage(tmp, 0, 0, SPRITE_PX, SPRITE_PX);
+      break;
+    }
+    case 9: {   // image — your own PNG as the particle
+      if (!imageSpriteEl || !imageSpriteEl.complete || !imageSpriteEl.naturalWidth) break;
+      const iw = imageSpriteEl.naturalWidth, ih = imageSpriteEl.naturalHeight;
+      const k = Math.min(SPRITE_PX / iw, SPRITE_PX / ih);   // contain, preserving aspect
+      const w = iw * k, h = ih * k;
+      g.imageSmoothingEnabled = k < 1;        // downscale smoothly, upscale crisply
+      g.drawImage(imageSpriteEl, (SPRITE_PX - w) / 2, (SPRITE_PX - h) / 2, w, h);
+      break;
+    }
     default: {  // 0 glow — the workhorse: hot centre, soft falloff
       const grd = g.createRadialGradient(R, R, 0, R, R, R);
       grd.addColorStop(0, "#fff");
@@ -533,15 +644,15 @@ function makeSprite(shape, hue, white, st) {
       g.beginPath(); g.arc(R, R, R, 0, Math.PI * 2); g.fill();
     }
   }
-  // Tint: one pass over whatever alpha we just drew. Every shape is drawn in white, so
-  // source-in simply repaints it — except the glyph, which may be a full-colour emoji. There
-  // source-atop at partial alpha lets `glyphTint` fade between "keep 🔥's own colours" and
-  // "this is a particle like any other".
-  const sat = st.sat * (1 - white * 0.85);
-  const lum = clamp01(st.bright * (0.5 + 0.5 * white));
-  const tintAmt = shape === 18 ? clamp01(st.glyphTint) : 1;
+  // Tint: one pass over whatever alpha we just drew, in the colour simulate() already resolved
+  // (classic hue/coreWhite path or a ramp sample — makeSprite doesn't need to know which).
+  // Shapes drawn in white take source-in (a flat repaint). The glyph and the imported PNG carry
+  // their own colours, so they get source-atop at partial alpha — letting their tint slider fade
+  // between "keep 🔥 / my artwork as drawn" and "treat it as a particle like any other".
+  const ownColour = shape === 18 || shape === 9;
+  const tintAmt = shape === 18 ? clamp01(st.glyphTint) : shape === 9 ? clamp01(st.imgTint) : 1;
   if (tintAmt > 0) {
-    g.globalCompositeOperation = shape === 18 ? "source-atop" : "source-in";
+    g.globalCompositeOperation = ownColour ? "source-atop" : "source-in";
     g.globalAlpha = tintAmt;
     g.fillStyle = hsl(hue, sat, lum);
     g.fillRect(0, 0, SPRITE_PX, SPRITE_PX);
@@ -550,12 +661,16 @@ function makeSprite(shape, hue, white, st) {
   return c;
 }
 
-function getSprite(shape, hue, white, st) {
+function getSprite(shape, hue, sat, light, st) {
   const hi = Math.round((((hue % 360) + 360) % 360) / 360 * HUE_STEPS) % HUE_STEPS;
-  const wi = Math.round(clamp01(white) * (WHITE_STEPS - 1));
-  const key = spriteKey(shape, hi, wi, st);
+  const si = Math.round(clamp01(sat) * (SAT_STEPS - 1));
+  const li = Math.round(clamp01(light) * (LIGHT_STEPS - 1));
+  const key = spriteKey(shape, hi, si, li, st);
   let s = spriteCache.get(key);
-  if (!s) { s = makeSprite(shape, hi / HUE_STEPS * 360, wi / (WHITE_STEPS - 1), st); spriteCache.set(key, s); }
+  if (!s) {
+    s = makeSprite(shape, hi / HUE_STEPS * 360, si / (SAT_STEPS - 1), li / (LIGHT_STEPS - 1), st);
+    spriteCache.set(key, s);
+  }
   return s;
 }
 
@@ -574,28 +689,28 @@ function drawFrame(sim, f, g, st, xf) {
     const kind = arr[o + P_KIND];
     const x = arr[o + P_X] * xf.k + xf.dx, y = arr[o + P_Y] * xf.k + xf.dy;
     const sz = arr[o + P_SIZE] * xf.k;
-    const hue = arr[o + P_HUE], white = arr[o + P_WHITE];
+    const hue = arr[o + P_HUE], sat = arr[o + P_SAT], light = arr[o + P_LIGHT];
 
     if (kind === K_WAVE) {   // shockwave: an expanding (optionally squashed) ring
       g.save();
       g.globalAlpha = a;
       g.translate(x, y);
       g.scale(1, 1 - st.waveSquash * 0.85);
-      g.strokeStyle = hsl(hue, st.sat * (1 - white * 0.85), clamp01(st.bright * (0.5 + 0.5 * white)));
+      g.strokeStyle = hsl(hue, sat, light);
       g.lineWidth = Math.max(1, sz * 0.5 * st.waveWidth);
       g.beginPath(); g.arc(0, 0, Math.max(0.5, sz / 2), 0, Math.PI * 2); g.stroke();
       g.restore();
       continue;
     }
     if (kind === K_FLASH) {
-      const spr = getSprite(0, hue, white, st);
+      const spr = getSprite(0, hue, sat, light, st);
       g.globalAlpha = a;
       g.drawImage(spr, x - sz / 2, y - sz / 2, sz, sz);
       if (st.flashRays > 0) drawRays(g, x, y, sz, st, hue, a);
       continue;
     }
 
-    const spr = getSprite(shape, hue, white, st);
+    const spr = getSprite(shape, hue, sat, light, st);
     // spark and teardrop are directional shapes — they point where they're going
     const rot = (shape === 1 || shape === 16) ? Math.atan2(arr[o + P_VY], arr[o + P_VX]) : arr[o + P_ANG];
     // motion trail: a few ghosts back along the velocity vector. Cheap, and it reads as speed.

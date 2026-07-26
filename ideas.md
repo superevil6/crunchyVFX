@@ -81,6 +81,20 @@ sliders and whatnots:
   `audiblePatch()`. A wide mutation trivially produces `opacity: 0` or a 2px particle — valid and
   completely invisible. `visibleGenome()` renders candidates at 40px, counts lit pixels and
   retries, which took the foundry from ~3 of 8 dead cells to ~1.
+- **Two bugs Alex spotted from behaviour alone** ("importing a second sound keeps the first's
+  length"), both confirmed by driving the real UI in a test rather than guessing:
+  1. `decodeSfxLink` took the **first** `?s=` in the box. Paste a second link without clearing
+     (click at the end, Ctrl+V) and the field holds both — so it silently re-imported the sound you
+     already had. Now takes the last match, and the field selects-all on focus so a paste replaces.
+  2. The pixel lock pinned anything merely **off-default**, which meant a *preset's own* crunch
+     settings got captured and leaked into every effect loaded afterwards. Load Pixel Burst and
+     everything after it stayed pixelated. The lock now pins only values the **user** changed by
+     hand (slider, dropdown, or a macro that writes them); the button shows how many are pinned and
+     turning it off forgets them.
+- **An imported sprite decodes asynchronously.** Loading a patch that carries an imported PNG
+  renders one frame without it, then corrects itself when `Image.onload` fires and triggers a
+  re-render. Unavoidable with `Image`, harmless in practice, but it makes any *synchronous* test
+  of that path fail misleadingly — prime the element first, or await the load.
 - **A reference image must be loaded as a `data:` URL, never `URL.createObjectURL`.** A blob URL
   inherits the document's origin, which is *opaque* under `file://` — drawing it taints the
   canvas, and then `toBlob` and `getImageData` both throw `SecurityError`, killing every export
@@ -116,20 +130,21 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## Authoring & editing — C
 
-- **Color ramp editor** — M. The strongest single upgrade to the tool's expressive range. `hue` +
-  `hueLife` is a 2-stop ramp with no control over the middle; real VFX artists think in gradients
-  (white → yellow → orange → dark red → smoke grey). A 3–5 stop ramp with alpha per stop would
-  replace four params with one control that does more.
-- **Curve editor for size/alpha over life** — M. Same argument: `grow`/`fadeIn`/`fadeOut`/
-  `alphaCurve` are four sliders approximating one curve. Ties in with the ramp editor — one
-  "over lifetime" panel.
+- ~~**Color ramp editor**~~ ✅ **done** — a multi-stop gradient over particle lifetime with hue,
+  sat, light and **alpha** per stop, six built-in ramps, click-to-add / drag-to-move stops.
+  Opt-in: an empty ramp runs the classic hue/hueLife/coreWhite path, so nothing existing moved.
+  Hue interpolates the *short* way round the wheel — otherwise every red→magenta ramp becomes a
+  rainbow.
+- **Curve editor for SIZE over life** — M. Alpha is now a ramp channel, so this is the remaining
+  half: `grow` is still a single linear number where a curve belongs. Same panel as the ramp.
 - **Reference underlay** — S, high payoff per hour. Drop a character sprite behind the preview to
   judge scale and read. Artists eyeball this constantly and currently can't.
 - **Pixel-grid overlay + safe-frame guides** — S. Matters the moment you're working at 32/48px.
-- **Custom drawn particle sprite** — M [port]. `SHAPES[8]` is reserved for it. Reuses the
-  CrunchySFX paint canvas + base64-in-patch trick wholesale.
-- **Import a PNG as the particle** — S. `SHAPES[9]`, mirrors the WAV import. Instantly makes the
-  tool work for someone's existing art — leaves, coins, runes, their own smoke puff.
+- ~~**Custom drawn particle sprite**~~ ✅ **done** — a 16×16 alpha grid you paint, with shape
+  helpers (dot/ring/square/cross/shard/speckle) and an eraser. Alpha-only, so a drawn sprite
+  still responds to Hue and the palettes. ~344 base64 chars, small enough to ride in a share link.
+- ~~**Import a PNG as the particle**~~ ✅ **done** — `SHAPES[9]`. `imgTint` defaults to 0 so your
+  art arrives in its own colours; raise it to treat it as a particle like any other.
 - ~~**Undo / redo**~~ ✅ **done** — Ctrl+Z / Ctrl+Shift+Z, one entry per gesture.
 - ~~**My Presets + custom categories**~~ ✅ **done** — My Effects library (thumbnails, rename,
   delete, JSON export/import) plus custom categories holding built-ins and saved effects side by
@@ -142,11 +157,12 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## Procedural & generative — C
 
-- **"Match the sound"** — M, and it's the *suite's* killer feature. Paste a CrunchySFX share link
-  and derive a starting VFX patch from it: sound duration → effect duration, noise → particle
-  count, boom → flash + shockwave, pitch sweep → speed, bitcrush/downsample → pixelate/posterize.
-  It won't be perfect and it doesn't need to be — it's the thing that makes the bundle make sense,
-  and no competitor can copy it without shipping both halves.
+- ~~**"Match the sound"**~~ ✅ **done** — paste a CrunchySFX `?s=` link and it derives a starting
+  patch: length→length, engine→particle shape, pitch→size and hue, noise→count, boom→flash +
+  shockwave, sweep→speed and in/out pull, envelope→lifetime, bitcrush→posterize,
+  downsample→pixelate, reverb→glow, delay→echo + trail, repeats→chained bursts, reverse→reverse.
+  It lists every mapping in the dialog before you apply it, because a sound has no single correct
+  visual and pretending otherwise would be dishonest.
 - **Console styles** — S [port]. The `CONSOLES` pattern: NES / GB / GBA / PS1 / Modern buttons
   that clamp resolution, framerate, palette size and dither in one click. This is the crunchy
   brand in a button, and it's just a patch per style.
@@ -188,10 +204,9 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 1. ~~**GIF89a**~~ ✅ done
 2. ~~**Share links**~~ ✅ done
-3. **Color ramp + over-lifetime curves** — the biggest jump in what the tool can *express*, and it
-   simplifies the param list rather than growing it.
-4. **"Match the sound"** — the reason the two apps are one product.
-5. **Import a PNG as the particle** — the cheapest possible route to "this tool works with my art."
+3. ~~**Color ramp**~~ ✅ done (size-over-life curve still open)
+4. ~~**"Match the sound"**~~ ✅ done
+5. ~~**Import a PNG as the particle**~~ ✅ done
 
 Deliberately *not* in my five: normal maps, collision, sub-emitters. All good; none of them change
 who can use the tool tomorrow.
