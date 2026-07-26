@@ -112,7 +112,13 @@ function simulate(st) {
   // around the emitter, not a second engine.
   const shots = Math.max(1, Math.round(st.shots));
   const perShot = Math.min(MAX_PARTS, Math.max(1, Math.round(st.count)));
-  const total = Math.min(MAX_PARTS, perShot * shots);
+  const parents = Math.min(MAX_PARTS, perShot * shots);
+  // Sub-emitter: each parent spawns `subCount` children AS IT DIES — fireworks, sparks off
+  // debris, smoke from embers. Children live in the same arrays after the parents, so the whole
+  // integrator works on them unchanged; they're just born later. One generation only: children
+  // never spawn grandchildren, which would be an unbounded population.
+  const subN = Math.max(0, Math.round(st.subCount));
+  const total = Math.min(MAX_PARTS, parents * (1 + subN));
 
   const ox = st.originX * fs, oy = st.originY * fs;
   const emitR = st.emitRadius * fs;
@@ -128,9 +134,13 @@ function simulate(st) {
   const plife = new Float32Array(total), pbirth = new Float32Array(total);
   const psize = new Float32Array(total), phue = new Float32Array(total);
   const alive = new Uint8Array(total), born = new Uint8Array(total);
+  const pgen = new Uint8Array(total);          // 0 = parent, 1 = child
 
   // birth schedule + per-particle constants (all hashed, so they never depend on order)
-  for (let g = 0; g < total; g++) {
+  // Children are born on a parent's death, so park their birth beyond the end of time — otherwise
+  // the "spawn everything due by now" sweep would hatch them all at t = 0.
+  if (subN > 0) { pbirth.fill(Infinity, parents); for (let i = parents; i < total; i++) pgen[i] = 1; }
+  for (let g = 0; g < parents; g++) {
     const k = Math.floor(g / perShot);           // which shot
     const i = g % perShot;                       // index within the shot
     const shotScale = Math.pow(st.shotScale, k);
@@ -303,7 +313,29 @@ function simulate(st) {
     for (let g = 0; g < total; g++) {
       if (!alive[g]) continue;
       const age = t - pbirth[g];
-      if (age >= plife[g]) { alive[g] = 0; continue; }
+      if (age >= plife[g]) {
+        alive[g] = 0;
+        if (subN > 0 && pgen[g] === 0) {
+          const spreadC = st.subSpread * DEG;
+          for (let j = 0; j < subN; j++) {
+            const c = parents + g * subN + j;
+            if (c >= total) break;                       // hit the population cap
+            const ang = rnd(seed, c, 41) * spreadC + (spreadC < Math.PI * 2 ? Math.atan2(vy[g], vx[g]) - spreadC / 2 : 0);
+            const sp = st.subSpeed * (1 + st.speedVar * rndS(seed, c, 42));
+            px[c] = px[g]; py[c] = py[g];
+            vx[c] = vx[g] * st.subInherit + Math.cos(ang) * sp;
+            vy[c] = vy[g] * st.subInherit + Math.sin(ang) * sp;
+            plife[c] = Math.max(0.02, st.subLife * (1 + st.lifeVar * rndS(seed, c, 43)));
+            psize[c] = Math.max(0.5, psize[g] * st.subSize * (1 + st.sizeVar * rndS(seed, c, 44)));
+            phue[c] = phue[g] + st.hueVar * 90 * rndS(seed, c, 45);
+            pspin[c] = pspin[g];
+            pang[c] = st.angle * DEG + st.angleVar * rnd(seed, c, 46) * Math.PI * 2;
+            pbirth[c] = t;
+            born[c] = 1; alive[c] = 1;
+          }
+        }
+        continue;
+      }
       let ax = st.wind, ay = st.gravity;
       if (st.radial || st.swirl) {
         const dx = px[g] - ox, dy = py[g] - oy;

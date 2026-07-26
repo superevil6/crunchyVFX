@@ -343,9 +343,9 @@ Two honest caveats to surface **in the export dialog**, not just in a README:
 
 ### 4.4 Later tiers
 
-- **APNG** — full alpha *and* animated, the real answer to the GIF caveat. Buildable without a
-  library: `toBlob` each frame, parse the PNG chunks, re-emit as `acTL`/`fcTL`/`fdAT`. Chunk
-  surgery only, no encoder. Strong candidate for the paid desktop tier.
+- **APNG** ✅ **shipped** (`apng.js`) exactly as predicted: `toBlob` each frame, parse the chunks,
+  re-emit as `acTL`/`fcTL`/`fdAT`. No encoder. It also turned out to fix the *timing* problem, not
+  just the alpha one — `delay_num/delay_den` expresses 24 fps exactly where GIF cannot.
 - **Drag-out to Aseprite / the engine** — the existing `tauri-plugin-drag` path with a sheet
   PNG instead of a WAV. Near-free; see the pointer-drag notes (HTML5 drag is broken in
   WebKitGTK).

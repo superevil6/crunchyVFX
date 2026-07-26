@@ -81,6 +81,10 @@ sliders and whatnots:
   `audiblePatch()`. A wide mutation trivially produces `opacity: 0` or a 2px particle — valid and
   completely invisible. `visibleGenome()` renders candidates at 40px, counts lit pixels and
   retries, which took the foundry from ~3 of 8 dead cells to ~1.
+- **Children are born hot.** A sub-emitter's children reset to `u = 0`, so `coreWhite` flashes them
+  white at birth. It reads well for fireworks and embers but it does make children look
+  disconnected from their parents when that isn't wanted — turn `Hot core` down. If it proves
+  annoying, the fix is a "children inherit the parent's life fraction" toggle.
 - **Two bugs Alex spotted from behaviour alone** ("importing a second sound keeps the first's
   length"), both confirmed by driving the real UI in a test rather than guessing:
   1. `decodeSfxLink` took the **first** `?s=` in the box. Paste a second link without clearing
@@ -110,23 +114,31 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**GIF89a export**~~ ✅ **done** — `gif.js` (median cut + LZW), with an export dialog that
   states both caveats and a "Prep for GIF" button. Verified against Firefox's decoder *and*
   Pillow: 20 frames, 40ms delays, loops forever, transparent index 0, disposal 2.
-- **APNG export** — M. Full alpha *and* animated; the honest answer to GIF's fringing. Pure chunk
-  surgery on `toBlob` output (acTL/fcTL/fdAT), no encoder needed.
-- **Trim + pivot metadata** — M. Per-frame bounding boxes so engines can use a trimmed atlas, plus
-  a pivot point. This is the single most requested thing in every sprite tool's issue tracker.
-- **Engine sidecars** — S each, and they're what make a tool feel "for me": Godot `SpriteFrames`
-  `.tres`, Aseprite JSON-hash, Phaser/PixiJS atlas JSON, Unity sheet `.meta`, GameMaker.
-- **Multi-resolution export in one go** — S. Ship 32/64/128 variants of the same effect. Nearly
-  free given simulate/rasterize are split — one sim, three rasterizes.
+- ~~**APNG export**~~ ✅ **done** — `apng.js`. No encoder at all: the browser already writes a
+  perfect PNG per frame, so this re-files their image data under animation chunks. Verified with
+  Pillow — 19 frames, **exactly 41.667ms (1/24s)** where GIF has to round to 40ms, and 1692
+  partial-alpha pixels in frame 0, i.e. the soft edges GIF destroys are intact.
+- ~~**Trim + pivot metadata**~~ ✅ **done** — one *shared* bounding box across all frames, not a
+  per-frame crop: cropping each frame to its own box would make the sprite hop around inside its
+  cell. Pivot records where the untrimmed centre went, so a trimmed sheet drops in exactly where
+  the untrimmed one was.
+- **Engine sidecars** — ✅ **partly done**: generic JSON, Aseprite JSON-hash, Phaser 3 atlas.
+  **Deliberately not done:** Godot `.tres` and Unity `.meta` are editor-version-specific and I
+  can't verify them without the editor — a sidecar that *almost* imports is worse than none.
+  Worth adding once someone can test the output in the real tool.
+- ~~**Multi-resolution export**~~ ✅ **done** — 1×/2×/3×/4× checkboxes, zipped together. Exactly
+  as cheap as predicted: re-rasterises the same sim, so every size is the same effect rather than
+  a similar one.
 - **Emissive / glow mask as a second sheet** — M. Lit 2D games want the bloom channel separately
   instead of baked in. We already compute the >threshold mask inside the glow pass.
 - **Normal map from the sprite** — L, speculative, but a genuine differentiator: nobody generates
   normals for VFX sprites. Probably only meaningful for smoke/debris, not additive fire.
 - **Drag-out to Aseprite / the engine** — S [port]. The tauri-plugin-drag path already works for
   WAVs; swap the payload for a sheet PNG.
-- **Copy sheet to clipboard as PNG** — S. Underrated: straight into Aseprite/Photoshop, no file.
+- ~~**Copy sheet to clipboard as PNG**~~ ✅ **done**. Note: the async clipboard API needs a secure
+  context, so it fails under `file://` — the dialog says so and points at the localhost launcher.
 - **Batch export the whole library** — S [port]. "Export all presets" exists in SFX.
-- **Power-of-two padding toggle** — S. Old engines and some mobile pipelines still need it.
+- ~~**Power-of-two padding toggle**~~ ✅ **done**.
 
 ## Authoring & editing — C
 
@@ -178,8 +190,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## Simulation — C
 
-- **Sub-emitters** (particles spawn particles on death) — M. Fireworks, sparks off debris, smoke
-  from embers. The single biggest expressive jump the sim could make.
+- ~~**Sub-emitters**~~ ✅ **done** — each particle spawns `subCount` children as it dies, with
+  their own speed/life/size/spread and an inherit-velocity knob. Children live in the same arrays
+  after the parents, so the integrator handles them unchanged. **One generation only** — children
+  never spawn grandchildren, which would be an unbounded population.
 - **Per-particle flipbook** — M. Each particle plays its own small animation. This is how real
   smoke/explosion sheets are made and would let imported sprite strips work as particles.
 - **Curl noise** — S. Divergence-free turbulence looks dramatically more like fluid than the

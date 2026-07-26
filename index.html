@@ -24,8 +24,7 @@
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
   </div>
   <div class="controls-right">
-    <button id="expSheet" class="export-btn" title="One PNG grid of every frame, plus a JSON sidecar">⬇ Sprite sheet</button>
-    <button id="expFrames" title="Every frame as its own PNG, zipped — full alpha, best for Aseprite">⬇ PNG frames</button>
+    <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution">⬇ Export…</button>
     <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
     <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
     <span id="msg" class="hint"></span>
@@ -132,6 +131,7 @@
 <script src="presets.js"></script>
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
+<script src="apng.js"></script>
 <script>
 "use strict";
 
@@ -239,6 +239,13 @@ const PARAMS = [
   ["alphaCut",   "Alpha cut",   0, 1, 0.01, 0, "",     "Crunch"],
   ["outline",    "Outline",     0, 3, 1, 0, "px",      "Crunch"],
   ["outlineTone","Outline tone",0, 1, 0.01, 0, "",     "Crunch"],
+  // Sub-emitter — each particle spawns children as it dies. Default 0 = off.
+  ["subCount",   "Children",    0, 12, 1, 0, "",       "Sub-emitter"],
+  ["subSpeed",   "Child speed", 0, 600, 5, 140, "px/s","Sub-emitter"],
+  ["subLife",    "Child life",  0.05, 2, 0.01, 0.3, "s","Sub-emitter"],
+  ["subSize",    "Child size",  0.05, 1, 0.01, 0.4, "x","Sub-emitter"],
+  ["subSpread",  "Child spread",0, 360, 1, 360, "°",   "Sub-emitter"],
+  ["subInherit", "Inherit speed",0, 1, 0.01, 0.3, "",  "Sub-emitter"],
   // Burst — chained secondary explosions
   ["shots",      "Shots",       1, 8, 1, 1, "x",       "Burst"],
   ["shotDelay",  "Shot delay",  0.02, 1, 0.01, 0.12, "s","Burst"],
@@ -1437,10 +1444,9 @@ refCtl.combine.addEventListener("change", () => {
 // ---------- Export ----------
 // Every export path goes through this, so "Combine on export" applies to the sheet, the PNG
 // sequence and the GIF alike rather than only the one it was written for.
-function outputCanvases() {
-  if (!rendered) return [];
-  if (!ref.img || !ref.combine) return rendered.canvases;
-  return rendered.canvases.map((cv, i) => {
+function compositeRef(canvases) {
+  if (!ref.img || !ref.combine) return canvases;
+  return canvases.map((cv, i) => {
     const out = document.createElement("canvas");
     out.width = cv.width; out.height = cv.height;
     const g = out.getContext("2d");
@@ -1449,6 +1455,17 @@ function outputCanvases() {
     if (ref.front) drawRefFrame(g, i, out.width, out.height);
     return out;
   });
+}
+function outputCanvases() { return rendered ? compositeRef(rendered.canvases) : []; }
+
+// Re-rasterise the SAME simulation at a different resolution. This is the payoff of splitting
+// simulate from rasterize: a 2× or 4× export is a re-draw, not a re-simulation, so the motion is
+// pixel-for-pixel the same effect rather than a similar one.
+function framesAtScale(mult) {
+  if (!rendered) return [];
+  if (mult === 1) return outputCanvases();
+  const r = renderFrames(state, { size: Math.round(rendered.w * mult), fit: fitOn, sim: rendered.sim });
+  return compositeRef(r.canvases);
 }
 
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
@@ -1462,77 +1479,258 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-// Pack every frame into one PNG grid + a JSON sidecar an engine can read.
-function buildSheet() {
-  const frames = outputCanvases();
-  const n = frames.length, w = rendered.w, h = rendered.h;
-  const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+// ---------- Sheet building, trim & pivot ----------
+// Trim is the single most-requested feature in every sprite tool, and the reason is atlas space:
+// a 128px explosion is mostly empty pixels. The subtlety is that frames must be cropped by ONE
+// shared box, not each to its own — per-frame crops would make the effect jitter as the sprite
+// hops around inside its cell. So: union bounding box across every frame, then a pivot telling the
+// engine where the original centre went, so a trimmed sprite still lines up with an untrimmed one.
+function alphaBBoxAll(canvases) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const cv of canvases) {
+    const w = cv.width, h = cv.height;
+    const d = cv.getContext("2d").getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] <= 4) continue;
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (!isFinite(x0)) return null;                       // wholly transparent — nothing to trim to
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+function cropCanvases(canvases, box) {
+  return canvases.map((cv) => {
+    const out = document.createElement("canvas");
+    out.width = box.w; out.height = box.h;
+    out.getContext("2d").drawImage(cv, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+    return out;
+  });
+}
+const nextPot = (v) => { let p = 1; while (p < v) p *= 2; return p; };
+
+// frames → one packed sheet. Returns everything the sidecar writers need.
+function buildSheet(opts) {
+  opts = opts || {};
+  let frames = opts.frames || outputCanvases();
+  const srcW = frames.length ? frames[0].width : 0, srcH = frames.length ? frames[0].height : 0;
+  let trim = null;
+  if (opts.trim) {
+    const box = alphaBBoxAll(frames);
+    if (box && (box.w < srcW || box.h < srcH)) { trim = box; frames = cropCanvases(frames, box); }
+  }
+  const n = frames.length;
+  const w = n ? frames[0].width : 0, h = n ? frames[0].height : 0;
+  const layout = opts.layout || "grid";
+  const cols = layout === "row" ? n : layout === "col" ? 1 : Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
   const cv = document.createElement("canvas");
-  cv.width = cols * w; cv.height = rows * h;
+  cv.width = opts.pot ? nextPot(cols * w) : cols * w;
+  cv.height = opts.pot ? nextPot(rows * h) : rows * h;
   const g = cv.getContext("2d");
   for (let i = 0; i < n; i++) g.drawImage(frames[i], (i % cols) * w, Math.floor(i / cols) * h);
-  return { cv, cols, rows, n, w, h };
+  // Pivot: where the untrimmed frame's centre now sits inside a cell, 0..1. Set an engine's
+  // sprite origin to this and a trimmed sheet drops in exactly where the untrimmed one was.
+  const pivot = trim
+    ? { x: (srcW / 2 - trim.x) / w, y: (srcH / 2 - trim.y) / h }
+    : { x: 0.5, y: 0.5 };
+  return { cv, cols, rows, n, w, h, trim, pivot, srcW, srcH, frames };
 }
 
-document.getElementById("expSheet").addEventListener("click", async () => {
-  if (!rendered) return;
-  const { cv, cols, rows, n, w, h } = buildSheet();
-  const base = sanitize(effectLabel);
-  download(await canvasBlob(cv), base + "-sheet.png");
-  const meta = { name: base, frames: n, fps: rendered.fps, frameW: w, frameH: h, cols, rows, loop: true };
-  download(new Blob([JSON.stringify(meta, null, 2)], { type: "application/json" }), base + "-sheet.json");
-  msg.textContent = "Exported " + n + " frames (" + cols + "×" + rows + ")";
-});
-
-// Frame sequence — full alpha, one PNG per frame, zipped with the hand-rolled STORE-only writer
-// copied from CrunchySFX. STORE is right here: PNG is already deflated.
-let CRC_TABLE;
-function crc32(bytes) {
-  if (!CRC_TABLE) { CRC_TABLE = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC_TABLE[n] = c >>> 0; } }
-  let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ 0xFFFFFFFF) >>> 0;
-}
-function makeZip(files) {
-  const enc = new TextEncoder(), parts = [], central = [];
-  let offset = 0;
-  const push = (a) => { parts.push(a); offset += a.length; };
-  for (const f of files) {
-    const name = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length, at = offset;
-    const hd = new DataView(new ArrayBuffer(30));
-    hd.setUint32(0, 0x04034b50, true); hd.setUint16(4, 20, true); hd.setUint16(8, 0, true);
-    hd.setUint32(14, crc, true); hd.setUint32(18, sz, true); hd.setUint32(22, sz, true); hd.setUint16(26, name.length, true);
-    push(new Uint8Array(hd.buffer)); push(name); push(f.data);
-    const c = new DataView(new ArrayBuffer(46));
-    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
-    c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true);
-    c.setUint16(28, name.length, true); c.setUint32(42, at, true);
-    central.push(new Uint8Array(c.buffer), name);
+// ---------- Engine sidecars ----------
+// Only formats whose shape I can state with confidence. Godot and Unity want editor-version-
+// specific resource files that I can't verify without the editor, so they're deliberately absent
+// rather than guessed at — a sidecar that ALMOST imports is worse than none.
+function sidecarFor(kind, sh, name, fps) {
+  const durMs = Math.round(1000 / fps);
+  const cell = (i) => ({ x: (i % sh.cols) * sh.w, y: Math.floor(i / sh.cols) * sh.h, w: sh.w, h: sh.h });
+  const sss = () => sh.trim
+    ? { x: sh.trim.x, y: sh.trim.y, w: sh.w, h: sh.h }
+    : { x: 0, y: 0, w: sh.w, h: sh.h };
+  const meta = {
+    app: "CrunchyVFX", version: "1.0", image: name + ".png", format: "RGBA8888",
+    size: { w: sh.cv.width, h: sh.cv.height }, scale: "1",
+  };
+  if (kind === "aseprite") {
+    const frames = {};
+    for (let i = 0; i < sh.n; i++) {
+      frames[name + " " + i + ".png"] = {
+        frame: cell(i), rotated: false, trimmed: !!sh.trim,
+        spriteSourceSize: sss(), sourceSize: { w: sh.srcW, h: sh.srcH }, duration: durMs,
+      };
+    }
+    return JSON.stringify({ frames, meta: Object.assign({}, meta, {
+      frameTags: [{ name: name, from: 0, to: sh.n - 1, direction: "forward" }],
+    }) }, null, 2);
   }
-  const cdAt = offset; let cdSize = 0;
-  for (const c of central) { cdSize += c.length; push(c); }
-  const e = new DataView(new ArrayBuffer(22));
-  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
-  e.setUint32(12, cdSize, true); e.setUint32(16, cdAt, true);
-  push(new Uint8Array(e.buffer));
-  let total = 0; for (const p of parts) total += p.length;
-  const out = new Uint8Array(total); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
-  return out;
+  if (kind === "phaser") {
+    const frames = [];
+    for (let i = 0; i < sh.n; i++) {
+      frames.push({
+        filename: name + "_" + String(i).padStart(3, "0"),
+        frame: cell(i), rotated: false, trimmed: !!sh.trim,
+        spriteSourceSize: sss(), sourceSize: { w: sh.srcW, h: sh.srcH },
+      });
+    }
+    return JSON.stringify({ frames, meta }, null, 2);
+  }
+  // generic — everything an engine could want, in the plainest possible shape
+  return JSON.stringify({
+    name, frames: sh.n, fps, frameW: sh.w, frameH: sh.h,
+    cols: sh.cols, rows: sh.rows, sheetW: sh.cv.width, sheetH: sh.cv.height,
+    trimmed: !!sh.trim, sourceSize: { w: sh.srcW, h: sh.srcH },
+    trimOffset: sh.trim ? { x: sh.trim.x, y: sh.trim.y } : { x: 0, y: 0 },
+    pivot: { x: +sh.pivot.x.toFixed(4), y: +sh.pivot.y.toFixed(4) },
+    loop: true,
+  }, null, 2);
 }
 
-document.getElementById("expFrames").addEventListener("click", async () => {
+// ---------- Export dialog ----------
+const expModal = document.createElement("div");
+expModal.className = "modal";
+expModal.hidden = true;
+expModal.innerHTML =
+  '<div class="modal-box share-box">' +
+    '<div class="modal-head"><h2>⬇ Export</h2><span class="hint" id="expStat"></span>' +
+      '<button id="expClose">✕ Close</button></div>' +
+    '<div class="exp-body">' +
+      '<div class="exp-row"><span>Format</span><select id="expFormat">' +
+        '<option value="sheet">Sprite sheet (PNG)</option>' +
+        '<option value="frames">PNG frames (.zip)</option>' +
+        '<option value="apng">Animated PNG</option>' +
+      '</select></div>' +
+      '<div class="exp-row" data-only="sheet"><span>Layout</span><select id="expLayout">' +
+        '<option value="grid">Grid</option><option value="row">Horizontal strip</option>' +
+        '<option value="col">Vertical strip</option></select></div>' +
+      '<div class="exp-row" data-only="sheet"><span>Metadata</span><select id="expMeta">' +
+        '<option value="generic">Generic JSON</option><option value="aseprite">Aseprite JSON</option>' +
+        '<option value="phaser">Phaser 3 atlas</option><option value="none">None</option>' +
+      '</select></div>' +
+      '<div class="exp-row"><span>Sizes</span><span class="exp-scales" id="expScales"></span></div>' +
+      '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
+      '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
+      '<div class="exp-note" id="expNote"></div>' +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button id="expGo" class="primary">⬇ Export</button>' +
+      '<button id="expClip" title="Straight into Aseprite or Photoshop, no file">📋 Copy sheet</button>' +
+      '<span class="hint" id="expMsg"></span>' +
+    '</div>' +
+  '</div>';
+document.body.appendChild(expModal);
+const expFormat = expModal.querySelector("#expFormat");
+const expLayout = expModal.querySelector("#expLayout");
+const expMetaSel = expModal.querySelector("#expMeta");
+const expTrim = expModal.querySelector("#expTrim");
+const expPot = expModal.querySelector("#expPot");
+const expMsg = expModal.querySelector("#expMsg");
+const expNote = expModal.querySelector("#expNote");
+const EXPORT_SCALES = [1, 2, 3, 4];
+const expScaleBoxes = {};
+for (const s of EXPORT_SCALES) {
+  const l = document.createElement("label");
+  l.className = "exp-chk";
+  l.innerHTML = '<input type="checkbox"' + (s === 1 ? " checked" : "") + "> " + s + "×";
+  expModal.querySelector("#expScales").appendChild(l);
+  expScaleBoxes[s] = l.querySelector("input");
+  expScaleBoxes[s].addEventListener("change", refreshExpInfo);
+}
+const chosenScales = () => EXPORT_SCALES.filter((s) => expScaleBoxes[s].checked);
+
+function refreshExpInfo() {
   if (!rendered) return;
-  const base = sanitize(effectLabel);
-  msg.textContent = "Encoding…";
+  const fmt = expFormat.value;
+  for (const el of expModal.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== fmt;
+  const scales = chosenScales();
+  const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+  expModal.querySelector("#expStat").textContent =
+    rendered.canvases.length + " frames · " + rendered.w + "px · " + rendered.fps + " fps";
+  const bits = [];
+  if (fmt === "sheet") {
+    bits.push("Sheet: <b>" + sh.cv.width + "×" + sh.cv.height + "</b> (" + sh.cols + "×" + sh.rows + " cells of " + sh.w + "×" + sh.h + ")");
+    if (sh.trim) bits.push("Trimmed from " + sh.srcW + "×" + sh.srcH + " → pivot " + sh.pivot.x.toFixed(3) + ", " + sh.pivot.y.toFixed(3));
+    else if (expTrim.checked) bits.push("Nothing to trim — the effect already fills the frame.");
+  } else if (fmt === "apng") {
+    bits.push("Full 8-bit alpha and an <b>exact " + rendered.fps + " fps</b> — the two things GIF can't do. Bigger file; no inline preview in Discord/Slack.");
+  } else {
+    bits.push("One PNG per frame, zipped — full alpha, the friendliest thing to hand Aseprite.");
+  }
+  if (scales.length > 1) bits.push("Exporting " + scales.length + " sizes (" + scales.join("×, ") + "×) as one .zip.");
+  expNote.innerHTML = bits.map((b) => "<p>" + b + "</p>").join("");
+}
+for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot]) el.addEventListener("change", refreshExpInfo);
+document.getElementById("expOpen").addEventListener("click", () => {
+  if (!rendered) return;
+  expMsg.textContent = "";
+  refreshExpInfo();
+  expModal.hidden = false;
+});
+expModal.querySelector("#expClose").addEventListener("click", () => { expModal.hidden = true; });
+expModal.addEventListener("click", (e) => { if (e.target === expModal) expModal.hidden = true; });
+
+// One export routine for every combination — a single zip when more than one file comes out.
+expModal.querySelector("#expGo").addEventListener("click", async () => {
+  if (!rendered) return;
+  const fmt = expFormat.value, base = sanitize(effectLabel), scales = chosenScales();
+  if (!scales.length) { expMsg.textContent = "Pick at least one size"; return; }
+  expMsg.textContent = "Rendering…";
   const files = [];
-  const frames = outputCanvases();
-  for (let i = 0; i < frames.length; i++) {
-    const blob = await canvasBlob(frames[i]);
-    files.push({ name: base + "_" + String(i).padStart(3, "0") + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+  try {
+    for (const mult of scales) {
+      const suffix = scales.length > 1 ? "@" + mult + "x" : "";
+      const frames = framesAtScale(mult);
+      if (fmt === "sheet") {
+        const sh = buildSheet({ frames, trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+        const blob = await canvasBlob(sh.cv);
+        files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+        if (expMetaSel.value !== "none") {
+          files.push({ name: base + suffix + ".json",
+            data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
+        }
+      } else if (fmt === "apng") {
+        let out = frames;
+        if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
+        const bytes = await encodeApng(out, rendered.fps);
+        files.push({ name: base + suffix + ".png", data: bytes });
+      } else {
+        let out = frames;
+        if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
+        for (let i = 0; i < out.length; i++) {
+          const blob = await canvasBlob(out[i]);
+          files.push({ name: base + suffix + "_" + String(i).padStart(3, "0") + ".png",
+                       data: new Uint8Array(await blob.arrayBuffer()) });
+        }
+      }
+      expMsg.textContent = "Rendering… " + mult + "×";
+    }
+    if (files.length === 1) {
+      download(new Blob([files[0].data], { type: "image/png" }), files[0].name);
+    } else {
+      download(new Blob([makeZip(files)], { type: "application/zip" }), base + ".zip");
+    }
+    const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
+    expMsg.textContent = files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB";
+    msg.textContent = "Exported " + base;
+  } catch (e) {
+    expMsg.textContent = "Export failed: " + e.message;
   }
-  download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-frames.zip");
-  msg.textContent = "Exported " + files.length + " PNGs";
 });
 
+expModal.querySelector("#expClip").addEventListener("click", async () => {
+  try {
+    const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+    const blob = await canvasBlob(sh.cv);
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    expMsg.textContent = "Sheet copied to the clipboard";
+  } catch (e) {
+    // The async clipboard API needs a secure context — file:// isn't one.
+    expMsg.textContent = location.protocol === "file:"
+      ? "Clipboard needs http(s) — use the localhost launch config, or just Export."
+      : "Clipboard blocked: " + e.message;
+  }
+});
 // ---------- GIF export ----------
 // GIF is the format people can actually paste into Discord, an itch page or a tweet, so it has to
 // exist — but it's the lossiest thing we ship. Rather than bury that, the dialog states both
