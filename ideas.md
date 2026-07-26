@@ -71,6 +71,16 @@ sliders and whatnots:
 - **Fixed particle angle** ✅ added while doing the above — `angle` + `angleVar`. `angleVar`
   defaults to 1 (fully random), which is byte-identical to the old behaviour, so no preset moved.
   Slash now sets `angleVar: 0` and points the same way every seed.
+- **Beware parse-time calls into later declarations.** `renderMyEffects()` ran at parse time and
+  I made it refresh the custom categories — whose DOM handles are declared 900 lines further down.
+  That's a temporal-dead-zone ReferenceError that kills the *entire* script, and because the UI is
+  built earlier in the file the page still *looked* fine: panels, presets and buttons all present,
+  just nothing rendered and every later feature silently missing. All initial loading now happens
+  in Boot. Worth a `window.onerror` probe whenever the app looks right but behaves oddly.
+- **Generated effects need a visibility guard**, the exact analogue of CrunchySFX's
+  `audiblePatch()`. A wide mutation trivially produces `opacity: 0` or a 2px particle — valid and
+  completely invisible. `visibleGenome()` renders candidates at 40px, counts lit pixels and
+  retries, which took the foundry from ~3 of 8 dead cells to ~1.
 - **A reference image must be loaded as a `data:` URL, never `URL.createObjectURL`.** A blob URL
   inherits the document's origin, which is *opaque* under `file://` — drawing it taints the
   canvas, and then `toBlob` and `getImageData` both throw `SecurityError`, killing every export
@@ -120,10 +130,14 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   CrunchySFX paint canvas + base64-in-patch trick wholesale.
 - **Import a PNG as the particle** — S. `SHAPES[9]`, mirrors the WAV import. Instantly makes the
   tool work for someone's existing art — leaves, coins, runes, their own smoke puff.
-- **Undo / redo** — S [port].
-- **My Presets + custom categories** — M [port]. Includes the pointer-based drag-to-organize that
-  was verified working in WebKitGTK.
-- **Share links** — S [port]. Whole effect in a URL; the growth mechanism that worked for SFX.
+- ~~**Undo / redo**~~ ✅ **done** — Ctrl+Z / Ctrl+Shift+Z, one entry per gesture.
+- ~~**My Presets + custom categories**~~ ✅ **done** — My Effects library (thumbnails, rename,
+  delete, JSON export/import) plus custom categories holding built-ins and saved effects side by
+  side, filed via right-click. **Still pending:** the pointer-based drag-to-organize (HTML5 drag
+  is broken in WebKitGTK, so it has to be pointer events).
+- ~~**Share links**~~ ✅ **done** — the whole effect in a `?e=` URL as a URL-safe base64 diff from
+  the defaults. Diff, not dump: 23 keys instead of 97, and a link made today still loads after
+  new params are added because anything absent falls back to its default.
 - **A/B compare** — S. Hold a second patch and toggle between them in the preview.
 
 ## Procedural & generative — C
@@ -139,9 +153,12 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - **Import a palette** (.hex / .gpl / Lospec) and quantize to it — M. Pixel artists work *inside*
   a fixed palette; "make this effect use my 16 colours" is a genuine unlock and the posterize
   machinery is already there.
-- **Foundry** — M [port]. Generate original effects, keep the ones you like, export as a pack.
-- **Breed / variations** — M [port]. "Give me 8 variations of this hit spark" is exactly how
-  people use VFX — you want a family, not one sprite.
+- ~~**Foundry**~~ ✅ **done** — 6 archetypes (Explosion / Impact / Magic / Smoke / Pickup /
+  Weather) × 4 art styles (Anything / NES / GBA / Modern). Generates 8 candidates; ✎ loads one,
+  ★ keeps it in My Effects.
+- ~~**Breed / variations**~~ ✅ **done** — Breed shows 9 children, you pick parents and breed
+  again; Variations makes a family (hit_01…hit_08) and exports the lot as one zip of sheets +
+  sidecars. All grid thumbnails animate — a still frame is a terrible way to judge a VFX.
 
 ## Simulation — C
 
@@ -169,8 +186,8 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## If I had to pick five — C
 
-1. **GIF89a** — the last thing standing between "neat" and "usable by anyone."
-2. **Share links** [port] — nearly free, and it's how SFX found its audience.
+1. ~~**GIF89a**~~ ✅ done
+2. ~~**Share links**~~ ✅ done
 3. **Color ramp + over-lifetime curves** — the biggest jump in what the tool can *express*, and it
    simplifies the param list rather than growing it.
 4. **"Match the sound"** — the reason the two apps are one product.

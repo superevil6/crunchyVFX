@@ -15,6 +15,9 @@
     <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
     <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
     <button id="rand" class="accent2">🎲 Randomize</button>
+    <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again">🧬 Breed</button>
+    <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack">📦 Variations</button>
+    <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style">⚒ Foundry</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
     <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
@@ -23,6 +26,7 @@
     <button id="expSheet" class="export-btn" title="One PNG grid of every frame, plus a JSON sidecar">⬇ Sprite sheet</button>
     <button id="expFrames" title="Every frame as its own PNG, zipped — full alpha, best for Aseprite">⬇ PNG frames</button>
     <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
+    <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -98,6 +102,7 @@
       </div>
       <div class="mp-list" id="mpList"></div>
     </div>
+    <div class="usercats" id="userCats"></div>
     <input type="file" id="mpFile" accept="application/json,.json" hidden>
     <div class="presetbar" id="presets" style="margin-top:10px"></div>
   </section>
@@ -732,6 +737,7 @@ for (const [cat, names] of PRESET_CATEGORIES) {
     const b = document.createElement("button");
     b.textContent = name;
     b.addEventListener("click", () => applyPreset(PRESETS[name], name));
+    b.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "b", n: name }, name));
     box.appendChild(b);
     buttons.push(b);
   }
@@ -809,8 +815,10 @@ function renderMyEffects() {
   mpList.innerHTML = "";
   if (!userEffects.length) {
     mpList.innerHTML = '<div class="mp-empty">Nothing saved yet — make something you like and hit “Save current”.</div>';
+    renderUserCats();
     return;
   }
+  renderUserCats();   // chips reference saved effects — names and deletions must propagate
   for (const item of userEffects) {
     const el = document.createElement("div");
     el.className = "up-item";
@@ -839,6 +847,7 @@ function renderMyEffects() {
       saveUserEffects();
     });
     nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nameInput.blur(); });
+    el.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "u", id: item.id }, item.name));
     mpList.appendChild(el);
   }
 }
@@ -882,8 +891,9 @@ mpFile.addEventListener("change", async () => {
   mpFile.value = "";
 });
 
-loadUserEffects();
-renderMyEffects();
+// NOTE: the initial load/render happens in Boot, not here. renderMyEffects() also refreshes
+// the custom categories, whose DOM handles are declared further down the file — calling it at
+// parse time hits the temporal dead zone and kills the whole script.
 
 // ---------- Randomize ----------
 // Not a uniform roll over every slider — that reliably produces mush. Randomize the handful of
@@ -1230,9 +1240,597 @@ gifModal.querySelector("#gifGo").addEventListener("click", () => {
   }, 30);
 });
 
+// ============================================================================================
+// Patch codec — the shared basis for share links, breeding, variations and the foundry.
+// A patch is a DIFF from the PARAMS defaults, so it stays small and, more importantly, stays
+// forward-compatible: a link made today still loads after new params are added, because
+// anything absent falls back to its default.
+// ============================================================================================
+const b64encode = (str) => {
+  const bytes = new TextEncoder().encode(str);
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+};
+const b64decode = (b64) => {
+  const s = atob(b64);
+  const arr = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) arr[i] = s.charCodeAt(i);
+  return new TextDecoder().decode(arr);   // TextDecoder, not escape/unescape — the glyph is emoji
+};
+
+function encodePatch(nameOverride) {
+  const diff = {};
+  for (const p of PARAMS) if (state[p[0]] !== p[5]) diff[p[0]] = state[p[0]];
+  if (state.glyph !== GLYPH_DEFAULT) diff.glyph = state.glyph;
+  const name = (nameOverride || "").trim();
+  if (name) diff.n = name.slice(0, 60);
+  return b64encode(JSON.stringify(diff))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");   // URL-safe base64
+}
+function decodePatch(str) {
+  try {
+    let s = String(str).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    const obj = JSON.parse(b64decode(s));
+    return obj && typeof obj === "object" ? obj : null;
+  } catch (e) { return null; }
+}
+
+// ---------- Genome operations (breed / variations / foundry all use these) ----------
+const BREED_SKIP = new Set(["shape", "emitter", "duration", "fps", "frameSize", "blend", "seed"]);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function mutateGenome(src, amount) {
+  const g = {};
+  for (const p of PARAMS) {
+    const k = p[0];
+    g[k] = src[k];
+    // Skipped keys are the ones that decide WHAT the effect is rather than how it looks —
+    // mutating them gives you a different effect, not a sibling of this one.
+    if (BREED_SKIP.has(k)) continue;
+    if (Math.random() > 0.55) continue;
+    const span = (p[3] - p[2]) * amount;
+    let v = g[k] + (Math.random() * 2 - 1) * span;
+    v = Math.max(p[2], Math.min(p[3], v));
+    g[k] = p[4] >= 1 ? Math.round(v / p[4]) * p[4] : Math.round(v * 1000) / 1000;
+  }
+  g.glyph = src.glyph;
+  return g;
+}
+function crossGenome(a, b) {
+  const g = {};
+  for (const p of PARAMS) g[p[0]] = Math.random() < 0.5 ? a[p[0]] : b[p[0]];
+  g.glyph = Math.random() < 0.5 ? a.glyph : b.glyph;
+  return g;
+}
+function breedChild(parents, amount) {
+  const a = pick(parents), b = pick(parents);
+  return mutateGenome(a === b ? a : crossGenome(a, b), amount);
+}
+function fullGenome(patch) {
+  const g = {};
+  for (const p of PARAMS) g[p[0]] = (p[0] in patch) ? patch[p[0]] : p[5];
+  g.glyph = patch.glyph !== undefined ? patch.glyph : GLYPH_DEFAULT;
+  return g;
+}
+
+// ---------- Visibility guard ----------
+// The direct analogue of CrunchySFX's audiblePatch(). A wide mutation can trivially produce an
+// effect with opacity 0, a 2px size or a 1-frame lifetime — technically valid, completely
+// invisible. Generating nine of those and presenting them as choices wastes the user's time, so
+// candidates are rendered small, checked for actual pixels, and retried.
+function genomePixels(gnome) {
+  try {
+    const r = withState(gnome, () => renderFrames(state, { size: 40, fit: true }));
+    const n = r.canvases.length;
+    let px = 0;
+    for (const f of [0.25, 0.5, 0.75]) {          // three frames is plenty to tell alive from dead
+      const cv = r.canvases[Math.min(n - 1, Math.floor(n * f))];
+      const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 8) px++;
+    }
+    return px;
+  } catch (e) { return 0; }
+}
+function visibleGenome(make, tries) {
+  let best = null, bestPx = -1;
+  for (let i = 0; i < (tries || 10); i++) {
+    const g = make();
+    const px = genomePixels(g);
+    if (px >= 40) return g;                        // good enough, stop early
+    if (px > bestPx) { bestPx = px; best = g; }
+  }
+  return best;                                     // nothing cleared the bar — show the least-bad
+}
+
+// ---------- Animated thumbnails ----------
+// A still frame is a bad way to judge a VFX — half of them read as "an orange blob" frozen. Every
+// grid cell therefore plays. The frames are already rendered canvases, so playback is one
+// drawImage per cell per tick; a single shared rAF drives them all rather than one loop each.
+const miniPlayers = [];
+function miniPlay(canvas, genome, size) {
+  const g = canvas.getContext("2d");
+  let frames = [], fps = 24;
+  try {
+    const r = withState(genome, () => renderFrames(state, { size: size || 64, fit: true }));
+    frames = r.canvases; fps = r.fps;
+  } catch (e) { /* a broken genome shouldn't take the grid down */ }
+  // Start ~35% in rather than at frame 0: most effects are a single dot on their first frame,
+  // so a grid parked at 0 tells you nothing. Staggering also keeps nine cells from pulsing in
+  // lockstep, which reads as one blinking thing instead of nine separate effects.
+  const p = { g, canvas, frames, fps, i: Math.floor(frames.length * 0.35), last: 0 };
+  miniPlayers.push(p);
+  if (frames.length) g.drawImage(frames[p.i], 0, 0);
+  return p;
+}
+function clearMinis(container) {
+  for (let i = miniPlayers.length - 1; i >= 0; i--) {
+    if (!miniPlayers[i].canvas.isConnected || (container && container.contains(miniPlayers[i].canvas))) {
+      miniPlayers.splice(i, 1);
+    }
+  }
+}
+function tickMinis(ts) {
+  requestAnimationFrame(tickMinis);
+  for (let i = miniPlayers.length - 1; i >= 0; i--) {
+    const p = miniPlayers[i];
+    if (!p.canvas.isConnected) { miniPlayers.splice(i, 1); continue; }   // GC cells that went away
+    if (!p.frames.length) continue;
+    if (ts - p.last < 1000 / p.fps) continue;
+    p.last = ts;
+    p.i = (p.i + 1) % p.frames.length;
+    p.g.clearRect(0, 0, p.canvas.width, p.canvas.height);
+    p.g.drawImage(p.frames[p.i], 0, 0);
+  }
+}
+requestAnimationFrame(tickMinis);
+
+// Build a standard grid cell: a playing thumbnail plus a button bar.
+function makeGridCell(genome, label, buttons, size) {
+  const cell = document.createElement("div");
+  cell.className = "breed-cell";
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = size || 64;
+  cell.appendChild(cv);
+  const bar = document.createElement("div");
+  bar.className = "breed-cell-bar";
+  if (label) { const s = document.createElement("span"); s.className = "cell-label"; s.textContent = label; bar.appendChild(s); }
+  for (const [text, title, fn] of buttons) {
+    const b = document.createElement("button");
+    b.textContent = text; b.title = title;
+    b.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
+    bar.appendChild(b);
+  }
+  cell.appendChild(bar);
+  miniPlay(cv, genome, size || 64);
+  return cell;
+}
+
+// ---------- Share links ----------
+// The whole effect lives in the URL. No server, no account, no upload — the same trick that got
+// CrunchySFX shared around.
+const WEB_BASE_URL = "https://crunchyvfx.com/";
+function buildShareUrl(enc) {
+  // From file:// there is no meaningful origin to hand someone, so point at the web build.
+  const base = location.protocol === "file:" ? WEB_BASE_URL : location.origin + location.pathname;
+  return base + "?e=" + enc;
+}
+function loadSharedEffect() {
+  const m = /[?&]e=([^&#]+)/.exec(location.search);
+  if (!m) return false;
+  const patch = decodePatch(m[1]);
+  if (!patch) return false;
+  applyPreset(patch, patch.n || "Shared effect");
+  return true;
+}
+
+const shareModal = document.createElement("div");
+shareModal.className = "modal";
+shareModal.hidden = true;
+shareModal.innerHTML =
+  '<div class="modal-box share-box">' +
+    '<div class="modal-head"><h2>Share effect</h2>' +
+      '<span class="hint">Name it (optional), then copy the link.</span>' +
+      '<button id="shareClose">✕ Close</button></div>' +
+    '<div class="share-body">' +
+      '<label class="share-lbl" for="shareName">Name</label>' +
+      '<input id="shareName" class="share-input" type="text" placeholder="Name your effect" maxlength="60" autocomplete="off">' +
+      '<label class="share-lbl" for="shareUrl">Link</label>' +
+      '<input id="shareUrl" class="share-input" type="text" readonly>' +
+      '<p class="share-note" id="shareNote"></p>' +
+    '</div>' +
+    '<div class="modal-foot"><button id="shareCopy" class="primary">🔗 Copy link</button>' +
+      '<span id="shareMsg" class="hint"></span></div>' +
+  '</div>';
+document.body.appendChild(shareModal);
+const shareName = shareModal.querySelector("#shareName");
+const shareUrlEl = shareModal.querySelector("#shareUrl");
+const shareMsg = shareModal.querySelector("#shareMsg");
+function refreshShareUrl() {
+  const enc = encodePatch(shareName.value);
+  shareUrlEl.value = buildShareUrl(enc);
+  shareModal.querySelector("#shareNote").textContent = location.protocol === "file:"
+    ? "You're running from a file, so this points at " + WEB_BASE_URL + " — which isn't live yet. The ?e=… part is the effect and works on any copy of the app."
+    : "Anyone opening this link gets exactly this effect.";
+  return enc;
+}
+shareName.addEventListener("input", refreshShareUrl);
+document.getElementById("share").addEventListener("click", () => {
+  shareName.value = effectLabel && effectLabel !== "random" ? effectLabel : "";
+  shareMsg.textContent = "";
+  refreshShareUrl();
+  shareModal.hidden = false;
+  shareUrlEl.focus(); shareUrlEl.select();
+});
+shareModal.querySelector("#shareClose").addEventListener("click", () => { shareModal.hidden = true; });
+shareModal.addEventListener("click", (e) => { if (e.target === shareModal) shareModal.hidden = true; });
+shareModal.querySelector("#shareCopy").addEventListener("click", async () => {
+  const url = shareUrlEl.value;
+  try {
+    await navigator.clipboard.writeText(url);
+    shareMsg.textContent = "Copied!";
+  } catch (e) {
+    shareUrlEl.select();                       // clipboard API needs permission/https — fall back
+    shareMsg.textContent = document.execCommand && document.execCommand("copy") ? "Copied!" : "Press Ctrl+C to copy";
+  }
+});
+
+// ---------- Breed ----------
+// Nine children of the current effect. Pick the ones you like, breed again. It finds things you
+// would never have reached by dragging sliders, which is the whole point.
+const BREED_AMT = 0.22;
+let breedGenomes = [], breedGen = 1;
+const breedModal = document.createElement("div");
+breedModal.className = "modal";
+breedModal.hidden = true;
+breedModal.innerHTML =
+  '<div class="modal-box">' +
+    '<div class="modal-head"><h2>🧬 Breed</h2>' +
+      '<span class="hint">Click the ones you like, then breed again. Generation <b id="breedGen">1</b></span>' +
+      '<button id="breedClose">✕ Close</button></div>' +
+    '<div class="breed-grid" id="breedGrid"></div>' +
+    '<div class="modal-foot">' +
+      '<button id="breedNext" class="primary">🧬 Breed selected</button>' +
+      '<button id="breedReseed">🎲 Start over from the editor</button>' +
+      '<span class="hint" id="breedMsg"></span>' +
+    '</div>' +
+  '</div>';
+document.body.appendChild(breedModal);
+const breedGrid = breedModal.querySelector("#breedGrid");
+const breedMsg = breedModal.querySelector("#breedMsg");
+
+function renderBreedGrid() {
+  clearMinis(breedGrid);
+  breedGrid.innerHTML = "";
+  breedGenomes.forEach((gnome, i) => {
+    const cell = makeGridCell(gnome, "", [
+      ["✎", "Load into the editor", () => { applyPreset(gnome, "Bred " + breedGen + "." + (i + 1)); breedModal.hidden = true; }],
+      ["★", "Save to My Effects", () => { userEffects.unshift({ id: ++upSeq, name: "Bred " + breedGen + "." + (i + 1), state: fullGenome(gnome) }); saveUserEffects(); renderMyEffects(); breedMsg.textContent = "Saved"; }],
+    ], 72);
+    cell.addEventListener("click", () => { cell.classList.toggle("sel"); });
+    breedGrid.appendChild(cell);
+  });
+  breedModal.querySelector("#breedGen").textContent = breedGen;
+}
+function selectedGenomes() {
+  const sel = [];
+  [...breedGrid.children].forEach((c, i) => { if (c.classList.contains("sel")) sel.push(breedGenomes[i]); });
+  return sel.length ? sel : breedGenomes;   // nothing picked = breed from the whole generation
+}
+function seedBreedGrid() {
+  const base = snapshotState();
+  breedGen = 1;
+  breedGenomes = [base, ...Array.from({ length: 8 }, () => visibleGenome(() => mutateGenome(base, BREED_AMT)))];
+  renderBreedGrid();
+  breedMsg.textContent = "Top-left is your current effect";
+}
+function breedNext() {
+  const parents = selectedGenomes();
+  breedGen++;
+  breedGenomes = Array.from({ length: 9 }, () => visibleGenome(() => breedChild(parents, BREED_AMT)));
+  renderBreedGrid();
+  breedMsg.textContent = "Bred from " + parents.length + " parent" + (parents.length > 1 ? "s" : "");
+}
+document.getElementById("breed").addEventListener("click", () => { seedBreedGrid(); breedModal.hidden = false; });
+breedModal.querySelector("#breedClose").addEventListener("click", () => { breedModal.hidden = true; clearMinis(breedGrid); });
+breedModal.addEventListener("click", (e) => { if (e.target === breedModal) { breedModal.hidden = true; clearMinis(breedGrid); } });
+breedModal.querySelector("#breedNext").addEventListener("click", breedNext);
+breedModal.querySelector("#breedReseed").addEventListener("click", seedBreedGrid);
+
+// ---------- Variations pack ----------
+// Games want a FAMILY, not a sprite: hit_01…hit_08, each slightly different so repeated use
+// doesn't read as a loop. Same jitter as breeding, exported in one go.
+let varGenomes = [];
+const varModal = document.createElement("div");
+varModal.className = "modal";
+varModal.hidden = true;
+varModal.innerHTML =
+  '<div class="modal-box">' +
+    '<div class="modal-head"><h2>📦 Variations</h2>' +
+      '<span class="hint">A family of near-identical effects, exported as one pack.</span>' +
+      '<button id="varClose">✕ Close</button></div>' +
+    '<div class="var-opts">' +
+      '<label>How many <input type="number" id="varCount" min="2" max="16" value="8"></label>' +
+      '<label>Difference <input type="range" id="varAmt" min="0.03" max="0.4" step="0.01" value="0.14"><span class="hint" id="varAmtV">0.14</span></label>' +
+      '<label>Name <input type="text" id="varName" value="effect" spellcheck="false"></label>' +
+      '<button id="varRoll">🎲 Reroll</button>' +
+    '</div>' +
+    '<div class="breed-grid" id="varGrid"></div>' +
+    '<div class="modal-foot">' +
+      '<button id="varExport" class="primary">⬇ Export pack (.zip)</button>' +
+      '<span class="hint" id="varMsg"></span>' +
+    '</div>' +
+  '</div>';
+document.body.appendChild(varModal);
+const varGrid = varModal.querySelector("#varGrid");
+const varMsg = varModal.querySelector("#varMsg");
+const varCountEl = varModal.querySelector("#varCount");
+const varAmtEl = varModal.querySelector("#varAmt");
+const varNameEl = varModal.querySelector("#varName");
+
+function seedVariations() {
+  const base = snapshotState();
+  const n = Math.max(2, Math.min(16, +varCountEl.value || 8));
+  const amt = +varAmtEl.value;
+  varGenomes = [base, ...Array.from({ length: n - 1 }, () => visibleGenome(() => mutateGenome(base, amt)))];
+  clearMinis(varGrid);
+  varGrid.innerHTML = "";
+  varGenomes.forEach((gnome, i) => {
+    varGrid.appendChild(makeGridCell(gnome, String(i + 1).padStart(2, "0"), [
+      ["✎", "Load into the editor", () => { applyPreset(gnome, varNameEl.value + " " + (i + 1)); varModal.hidden = true; }],
+    ], 64));
+  });
+  varModal.querySelector("#varAmtV").textContent = amt.toFixed(2);
+}
+document.getElementById("variations").addEventListener("click", () => { seedVariations(); varMsg.textContent = ""; varModal.hidden = false; });
+varModal.querySelector("#varClose").addEventListener("click", () => { varModal.hidden = true; clearMinis(varGrid); });
+varModal.addEventListener("click", (e) => { if (e.target === varModal) { varModal.hidden = true; clearMinis(varGrid); } });
+varModal.querySelector("#varRoll").addEventListener("click", seedVariations);
+varCountEl.addEventListener("change", seedVariations);
+varAmtEl.addEventListener("input", () => { varModal.querySelector("#varAmtV").textContent = (+varAmtEl.value).toFixed(2); });
+varAmtEl.addEventListener("change", seedVariations);
+
+varModal.querySelector("#varExport").addEventListener("click", async () => {
+  varMsg.textContent = "Rendering…";
+  const base = sanitize(varNameEl.value || "effect");
+  const files = [];
+  for (let i = 0; i < varGenomes.length; i++) {
+    const nn = String(i + 1).padStart(2, "0");
+    // Render each variation at full export size through the normal path, so the pack gets the
+    // same sheet + sidecar the single-effect export would produce (reference included and all).
+    await new Promise((res) => {
+      withState(varGenomes[i], () => {
+        rendered = renderFrames(state, { size: frameSizePx(state), fit: fitOn });
+        const sh = buildSheet();
+        sh.cv.toBlob(async (blob) => {
+          files.push({ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+          files.push({
+            name: base + "_" + nn + ".json",
+            data: new TextEncoder().encode(JSON.stringify({
+              name: base + "_" + nn, frames: sh.n, fps: rendered.fps,
+              frameW: sh.w, frameH: sh.h, cols: sh.cols, rows: sh.rows, loop: true,
+            }, null, 2)),
+          });
+          res();
+        }, "image/png");
+      });
+    });
+    varMsg.textContent = "Rendering… " + (i + 1) + "/" + varGenomes.length;
+  }
+  download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-pack.zip");
+  varMsg.textContent = "Exported " + varGenomes.length + " variations";
+  rerender();   // the editor's own render was clobbered above; put it back
+});
+
+// ---------- Foundry ----------
+// Breeding explores AROUND an effect you already have. The foundry starts from nothing: pick a
+// kind of effect and an art style, and it invents candidates. Keep what you like.
+const ARCHETYPES = [
+  { name: "Explosion", shapes: [0, 5, 6], emitters: [0, 3],
+    base: { count: 200, speed: 320, drag: 0.5, gravity: 140, life: 0.5, size: 20, grow: -0.6,
+            fadeOut: 0.6, hue: 30, hueLife: -34, coreWhite: 0.6, emitRadius: 0.05, emitTime: 0.05,
+            flash: 0.8, flashSize: 0.36, wave: 0.4, glow: 0.4, duration: 0.8 } },
+  { name: "Impact",    shapes: [1, 4, 6, 11], emitters: [0, 1],
+    base: { count: 30, speed: 480, drag: 0.72, life: 0.22, size: 13, grow: -0.8, fadeOut: 0.6,
+            hue: 45, hueLife: -20, coreWhite: 0.85, flash: 0.7, flashSize: 0.3, glow: 0.4, duration: 0.35, fps: 30 } },
+  { name: "Magic",     shapes: [3, 11, 17, 0], emitters: [2, 3, 5],
+    base: { count: 70, speed: 80, drag: 0.45, gravity: -60, swirl: 140, spin: 160, emitRadius: 0.18,
+            emitTime: 0.6, life: 0.9, size: 14, grow: -0.4, fadeIn: 0.2, fadeOut: 0.55,
+            hue: 285, hueLife: 45, coreWhite: 0.7, glow: 0.5, duration: 1.2 } },
+  { name: "Smoke",     shapes: [5, 15], emitters: [1, 3],
+    base: { count: 30, speed: 60, drag: 0.6, gravity: -80, turb: 0.3, life: 1.4, size: 34, grow: 0.8,
+            fadeIn: 0.2, fadeOut: 0.7, sat: 0.15, bright: 0.75, coreWhite: 0, blend: 1, opacity: 0.5,
+            duration: 1.6, fps: 20 } },
+  { name: "Pickup",    shapes: [3, 10, 12, 11], emitters: [0, 2],
+    base: { count: 16, speed: 200, drag: 0.5, gravity: 420, spin: 300, life: 0.7, size: 13,
+            grow: -0.3, fadeOut: 0.4, hue: 46, sat: 1, coreWhite: 0.55, flash: 0.5, glow: 0.4, duration: 0.8 } },
+  { name: "Weather",   shapes: [16, 14, 0], emitters: [4, 6],
+    base: { count: 60, emitRadius: 0.5, emitAngle: 190, emitSpread: 25, emitTime: 1, originY: 0.02,
+            speed: 240, gravity: 220, life: 1.4, size: 11, fadeIn: 0.08, fadeOut: 0.2,
+            hue: 200, sat: 0.5, blend: 1, opacity: 0.7, duration: 1.5, loopBlend: 0.9 } },
+];
+// Styles clamp the output to a platform's look — the CONSOLES pattern from CrunchySFX.
+const STYLES = [
+  { name: "Anything", patch: {} },
+  { name: "NES",      patch: { pixelate: 3, posterize: 4, dither: 0, alphaCut: 0.5, outline: 1, outlineTone: 0, fps: 12, frameSize: 2, glow: 0 } },
+  { name: "GBA",      patch: { pixelate: 2, posterize: 10, dither: 0.4, alphaCut: 0.45, fps: 15, frameSize: 3 } },
+  { name: "Modern",   patch: { pixelate: 1, posterize: 32, alphaCut: 0, outline: 0, fps: 30, frameSize: 5, glow: 0.5 } },
+];
+const archByName = (n) => ARCHETYPES.find((a) => a.name === n) || ARCHETYPES[0];
+const styleByName = (n) => STYLES.find((s) => s.name === n) || STYLES[0];
+
+function foundryGenerate(typeName, styleName) {
+  const a = archByName(typeName);
+  const g = fullGenome(a.base);
+  // shape/emitter are in BREED_SKIP (mutating them changes WHAT the effect is), so pick them here
+  g.shape = pick(a.shapes);
+  g.emitter = pick(a.emitters);
+  g.hue = Math.floor(Math.random() * 360);
+  const m = mutateGenome(g, 0.4);     // wider than breeding — these are meant to be their own thing
+  m.shape = g.shape; m.emitter = g.emitter; m.hue = g.hue;
+  Object.assign(m, styleByName(styleName).patch);
+  m.seed = 1 + Math.floor(Math.random() * 9999);
+  if (m.shape === 18) m.glyph = pick(GLYPH_PICKS);
+  return m;
+}
+
+const foundryModal = document.createElement("div");
+foundryModal.className = "modal";
+foundryModal.hidden = true;
+foundryModal.innerHTML =
+  '<div class="modal-box">' +
+    '<div class="modal-head"><h2>⚒ Foundry</h2>' +
+      '<span class="hint">Invent effects from scratch. Keep the good ones.</span>' +
+      '<button id="fndClose">✕ Close</button></div>' +
+    '<div class="var-opts">' +
+      '<label>Type <select id="fndType"></select></label>' +
+      '<label>Style <select id="fndStyle"></select></label>' +
+      '<button id="fndGen" class="primary">⚒ Generate 8</button>' +
+    '</div>' +
+    '<div class="breed-grid" id="fndGrid"></div>' +
+    '<div class="modal-foot"><span class="hint" id="fndMsg">Pick a type and hit Generate.</span></div>' +
+  '</div>';
+document.body.appendChild(foundryModal);
+const fndGrid = foundryModal.querySelector("#fndGrid");
+const fndMsg = foundryModal.querySelector("#fndMsg");
+const fndType = foundryModal.querySelector("#fndType");
+const fndStyle = foundryModal.querySelector("#fndStyle");
+for (const a of ARCHETYPES) { const o = document.createElement("option"); o.textContent = a.name; fndType.appendChild(o); }
+for (const s of STYLES) { const o = document.createElement("option"); o.textContent = s.name; fndStyle.appendChild(o); }
+
+function foundryRun() {
+  clearMinis(fndGrid);
+  fndGrid.innerHTML = "";
+  const made = Array.from({ length: 8 }, () => visibleGenome(() => foundryGenerate(fndType.value, fndStyle.value), 14));
+  made.forEach((gnome, i) => {
+    fndGrid.appendChild(makeGridCell(gnome, "", [
+      ["✎", "Load into the editor", () => { applyPreset(gnome, fndType.value + " " + (i + 1)); foundryModal.hidden = true; }],
+      ["★", "Save to My Effects", () => {
+        userEffects.unshift({ id: ++upSeq, name: fndType.value + " " + (i + 1), state: fullGenome(gnome) });
+        saveUserEffects(); renderMyEffects();
+        fndMsg.textContent = "Saved to My Effects";
+      }],
+    ], 72));
+  });
+  fndMsg.textContent = "8 " + fndType.value.toLowerCase() + " candidates — ✎ loads one, ★ keeps it";
+}
+document.getElementById("foundry").addEventListener("click", () => { foundryRun(); foundryModal.hidden = false; });
+foundryModal.querySelector("#fndClose").addEventListener("click", () => { foundryModal.hidden = true; clearMinis(fndGrid); });
+foundryModal.addEventListener("click", (e) => { if (e.target === foundryModal) { foundryModal.hidden = true; clearMinis(fndGrid); } });
+foundryModal.querySelector("#fndGen").addEventListener("click", foundryRun);
+
+// ---------- Custom categories ----------
+// Your own shelves, holding built-in presets and saved effects side by side. Items are stored as
+// REFERENCES ({t:"b",n} built-in / {t:"u",id} saved) rather than copies, so renaming a saved
+// effect updates it everywhere and there's one source of truth.
+const UC_KEY = "crunchyvfx.usercats.v1";
+let userCats = [], ucSeq = 0;
+const userCatsBox = document.getElementById("userCats");
+const ucKey = (it) => (it.t === "b" ? "b:" + it.n : "u:" + it.id);
+function saveUserCats() { try { localStorage.setItem(UC_KEY, JSON.stringify({ seq: ucSeq, cats: userCats })); } catch (e) { /* best-effort */ } }
+function loadUserCats() {
+  try {
+    const d = JSON.parse(localStorage.getItem(UC_KEY) || "null");
+    if (d) { userCats = d.cats || []; ucSeq = d.seq || 0; }
+  } catch (e) { userCats = []; }
+}
+function ucResolve(it) {
+  if (it.t === "b") return PRESETS[it.n] ? { name: it.n, patch: PRESETS[it.n] } : null;
+  const u = userEffects.find((x) => x.id === it.id);
+  return u ? { name: u.name, patch: u.state } : null;
+}
+function ucNewCategory(seed) {
+  const name = "Category " + (userCats.length + 1);
+  const cat = { id: ++ucSeq, name, items: seed ? [seed] : [] };
+  userCats.push(cat);
+  saveUserCats(); renderUserCats();
+  return cat;
+}
+function ucAddItem(catId, item) {
+  const cat = userCats.find((c) => c.id === catId);
+  if (!cat) return;
+  if (cat.items.some((x) => ucKey(x) === ucKey(item))) return;   // dedup
+  cat.items.push(item);
+  saveUserCats(); renderUserCats();
+  msg.textContent = 'Added to "' + cat.name + '"';
+}
+function renderUserCats() {
+  userCatsBox.innerHTML = "";
+  if (!userCats.length) return;
+  for (const cat of userCats) {
+    const el = document.createElement("div");
+    el.className = "uc-cat";
+    el.innerHTML = '<div class="uc-head"><input class="uc-name" spellcheck="false">' +
+      '<span class="hint uc-count"></span><button class="uc-del" title="Delete this category">✕</button></div>' +
+      '<div class="uc-items"></div>';
+    const nameEl = el.querySelector(".uc-name");
+    nameEl.value = cat.name;
+    nameEl.addEventListener("change", () => { cat.name = nameEl.value.trim() || cat.name; nameEl.value = cat.name; saveUserCats(); });
+    el.querySelector(".uc-del").addEventListener("click", () => {
+      userCats = userCats.filter((c) => c.id !== cat.id); saveUserCats(); renderUserCats();
+    });
+    const items = el.querySelector(".uc-items");
+    let live = 0;
+    for (const it of cat.items) {
+      const r = ucResolve(it);
+      if (!r) continue;   // the saved effect it pointed at is gone
+      live++;
+      const chip = document.createElement("span");
+      chip.className = "uc-chip";
+      chip.innerHTML = '<button class="uc-load"></button><button class="uc-rm" title="Remove">✕</button>';
+      chip.querySelector(".uc-load").textContent = r.name;
+      chip.querySelector(".uc-load").addEventListener("click", () => applyPreset(r.patch, r.name));
+      chip.querySelector(".uc-rm").addEventListener("click", () => {
+        cat.items = cat.items.filter((x) => ucKey(x) !== ucKey(it));
+        saveUserCats(); renderUserCats();
+      });
+      items.appendChild(chip);
+    }
+    if (!live) items.innerHTML = '<span class="hint">Empty — right-click any effect to add it here.</span>';
+    el.querySelector(".uc-count").textContent = live + " item" + (live === 1 ? "" : "s");
+    userCatsBox.appendChild(el);
+  }
+}
+
+// Right-click menu: the reliable way to file something. (A pointer-drag version is the natural
+// follow-up — HTML5 drag is broken in the Tauri WebKitGTK webview, so it must be pointer-based.)
+let ucMenuEl = null;
+function closeUcMenu() { if (ucMenuEl) { ucMenuEl.remove(); ucMenuEl = null; } }
+function ucOpenMenu(e, item, label) {
+  e.preventDefault();
+  closeUcMenu();
+  const menu = document.createElement("div");
+  menu.className = "uc-menu";
+  menu.innerHTML = '<div class="uc-menu-head"></div>';
+  menu.querySelector(".uc-menu-head").textContent = "Add “" + label + "” to…";
+  for (const cat of userCats) {
+    const b = document.createElement("button");
+    b.textContent = cat.name;
+    b.addEventListener("click", () => { ucAddItem(cat.id, item); closeUcMenu(); });
+    menu.appendChild(b);
+  }
+  const nb = document.createElement("button");
+  nb.className = "uc-menu-new";
+  nb.textContent = "＋ New category";
+  nb.addEventListener("click", () => { ucNewCategory(item); closeUcMenu(); });
+  menu.appendChild(nb);
+  menu.style.left = Math.min(e.clientX, innerWidth - 200) + "px";
+  menu.style.top = Math.min(e.clientY, innerHeight - 40 - userCats.length * 32) + "px";
+  document.body.appendChild(menu);
+  ucMenuEl = menu;
+}
+addEventListener("click", closeUcMenu);
+addEventListener("scroll", closeUcMenu, true);
+
 // ---------- Boot ----------
+loadUserEffects();
+loadUserCats();
+renderMyEffects();   // also renders the categories
 updateLockBtn();
 syncUI();
-const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];
-if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else { rerender(); commitHistory(); }
+if (!loadSharedEffect()) {
+  const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];
+  if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else { rerender(); commitHistory(); }
+}
 </script>

@@ -788,3 +788,70 @@
   .ref-toggles label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
   .ref-toggles input { accent-color: var(--accent); cursor: pointer; margin: 0; }
   .ref-toggles button { padding: 2px 8px; font-size: 12px; margin-left: auto; }
+
+  /* ---- Breed / Variations / Foundry grids ---------------------------------- */
+  /* Square, playing thumbnails — the inherited `.breed-cell canvas` 62px letterbox is for an
+     oscilloscope, not a sprite. */
+  .breed-grid { grid-template-columns: repeat(3, 1fr); }
+  .breed-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  /* The backing store stays small (fast to render); CSS scales it up so the grid is actually
+     legible. pixelated keeps the upscale crisp instead of mushy. */
+  .breed-cell canvas {
+    width: 100%; max-width: 148px; height: auto; aspect-ratio: 1 / 1;
+    image-rendering: pixelated; border-radius: 6px;
+    background-color: #17131f;
+    background-image:
+      linear-gradient(45deg, #211d2b 25%, transparent 25%, transparent 75%, #211d2b 75%),
+      linear-gradient(45deg, #211d2b 25%, #17131f 25%, #17131f 75%, #211d2b 75%);
+    background-size: 12px 12px; background-position: 0 0, 6px 6px;
+  }
+  .breed-cell-bar { justify-content: center; width: 100%; }
+  .breed-cell-bar button { padding: 2px 9px; font-size: 12px; }
+  .cell-label { font: 11px ui-monospace, monospace; color: var(--muted); margin-right: auto; }
+  .var-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 12px 16px 0; }
+  .var-opts label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .var-opts input[type=number] { width: 56px; }
+  .var-opts input[type=text] { width: 120px; }
+  .var-opts input[type=number], .var-opts input[type=text] {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px 7px; font: inherit; font-size: 12px;
+  }
+  .var-opts select { width: auto; min-width: 110px; }
+
+  /* ---- Share modal ---------------------------------------------------------- */
+  .share-box { width: min(620px, 100%); }
+  .share-body { padding: 14px 18px; }
+  .share-lbl { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+  .share-input {
+    width: 100%; background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit;
+  }
+  .share-input:focus { outline: none; border-color: var(--accent2); }
+  .share-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 12px 0 0; }
+
+  /* ---- Custom categories ---------------------------------------------------- */
+  .usercats { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .uc-cat { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 9px 11px; }
+  .uc-head { display: flex; align-items: center; gap: 8px; }
+  .uc-name {
+    flex: 1; min-width: 0; background: none; border: 1px solid transparent; border-radius: 6px;
+    color: var(--accent); font: inherit; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 5px;
+  }
+  .uc-name:hover { border-color: var(--line); }
+  .uc-name:focus { outline: none; background: var(--panel2); border-color: var(--accent2); }
+  .uc-del { padding: 2px 7px; font-size: 12px; }
+  .uc-items { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .uc-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .uc-chip button { border: none; border-radius: 0; padding: 4px 8px; font-size: 12px; background: var(--panel2); }
+  .uc-chip .uc-rm { color: var(--muted); border-left: 1px solid var(--line); padding: 4px 6px; }
+  .uc-chip .uc-rm:hover { color: #ff7a7a; }
+  .uc-menu {
+    position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 6px; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,.55);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .uc-menu-head { font-size: 11px; color: var(--muted); padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  .uc-menu button { text-align: left; background: none; border: none; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+  .uc-menu button:hover { background: var(--panel2); color: var(--accent); }
+  .uc-menu-new { color: var(--accent2) !important; }
