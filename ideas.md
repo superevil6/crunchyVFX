@@ -45,14 +45,19 @@ sliders and whatnots:
   different kind of object than everything else in the tool. Worth talking about.
 - **hue** ✅ Hue, Hue shift, Hue var + **18** palette buttons
 - **pixel thickness** ✅ Pixelate (block size) and Outline (edge width)
-- **macro sliders (CrunchySFX-style)** ❌ pending — see "Authoring" below; I sketched six
-  candidates (Violence / Softness / Chunkiness / Weight / Heat / Swirl).
-- **lock pixel mode by default** ❌ pending, and cheap. Really two things: a persisted "keep my
-  frame size / pixelate / outline across presets" lock, and probably a first-run default. Same
-  shape as CrunchySFX's wave lock.
-- **import a sprite sheet, overlay, composite, export as one** ❌ pending. This is the "reference
-  underlay" idea plus a compositing export path — the underlay half is cheap and useful on its
-  own, so it's worth doing first and separately.
+- **macro sliders (CrunchySFX-style)** ✅ **done** — six: Violence, Softness, Chunkiness, Weight,
+  Heat, Swirl. Each `to(v)` writes several params and moves the real sliders; each `from()` reads
+  one param back so hand-editing a control drags its macro along instead of letting the two lie
+  to each other.
+- **lock pixel mode by default** ✅ **done** — 🔒 Lock pixels, default ON, persisted. The subtlety
+  worth knowing: it only preserves keys you've actually **moved off their default**. A blunt lock
+  would break the showcase presets on a fresh load (Pixel Burst would arrive un-pixelated), so
+  it's "keep my settings" rather than "ignore the preset".
+- **import a sprite sheet, overlay, composite, export as one** ✅ **done** — the Reference panel
+  beside the stage. Load an image or sheet, set cols×rows (guessed from the aspect ratio),
+  scale/offset/⤢fit it, put it behind or in front, and tick **Combine on export** to bake it into
+  the sheet, the PNG sequence *and* the GIF. Sheet frames cycle in step with the effect and wrap,
+  so a 4-frame character loop plays under a 20-frame explosion.
 
 ### Found while building the above — C
 
@@ -63,6 +68,14 @@ sliders and whatnots:
 - **`originX`/`originY` did nothing until now** — `renderFrames` centred the origin, exactly
   cancelling them. Fixed; that's what made Rain and Snow able to fall from the top of the frame
   rather than spawning in the middle.
+- **Fixed particle angle** ✅ added while doing the above — `angle` + `angleVar`. `angleVar`
+  defaults to 1 (fully random), which is byte-identical to the old behaviour, so no preset moved.
+  Slash now sets `angleVar: 0` and points the same way every seed.
+- **A reference image must be loaded as a `data:` URL, never `URL.createObjectURL`.** A blob URL
+  inherits the document's origin, which is *opaque* under `file://` — drawing it taints the
+  canvas, and then `toBlob` and `getImageData` both throw `SecurityError`, killing every export
+  path. Since running from a plain unzipped folder is a core promise of this app, that would have
+  been a nasty one to find in the wild. There's a regression test pinning it.
 
 ---
 

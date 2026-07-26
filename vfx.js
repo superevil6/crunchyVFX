@@ -110,7 +110,7 @@ function simulate(st) {
     psize[g] = Math.max(0.5, st.size * shotScale * (1 + st.sizeVar * rndS(seed, g, 3)));
     phue[g] = st.hue + st.hueVar * 180 * rndS(seed, g, 4);
     pspin[g] = (st.spin * (1 + st.spinVar * rndS(seed, g, 5))) * DEG;
-    pang[g] = rnd(seed, g, 6) * Math.PI * 2;
+    pang[g] = st.angle * DEG + st.angleVar * rnd(seed, g, 6) * Math.PI * 2;
 
     // emitter geometry: where it starts and which way it goes
     let ang, sx = ox, sy = oy;

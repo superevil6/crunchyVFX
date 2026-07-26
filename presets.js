@@ -149,7 +149,7 @@ window.PRESETS = {
   "Slash": {
     shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
     life: 0.22, lifeVar: 0.2, size: 78, sizeVar: 0.15, grow: 0.5, fadeOut: 0.6,
-    spin: 190, crescentArc: 0.34, crescentThick: 0.13,
+    spin: 190, angle: 200, angleVar: 0, crescentArc: 0.34, crescentThick: 0.13,
     hue: 200, hueLife: 20, sat: 0.22, coreWhite: 0.92,
     glow: 0.55, glowRadius: 8, duration: 0.3, fps: 30,
   },

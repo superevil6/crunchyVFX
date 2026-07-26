@@ -12,9 +12,12 @@
 <div class="controls">
   <div class="controls-left">
     <button class="primary" id="playBtn">⏸ Pause</button>
+    <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
+    <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
     <button id="rand" class="accent2">🎲 Randomize</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
     <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
+    <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
   </div>
   <div class="controls-right">
     <button id="expSheet" class="export-btn" title="One PNG grid of every frame, plus a JSON sidecar">⬇ Sprite sheet</button>
@@ -46,9 +49,37 @@
         <button data-bg="checker" class="active">Checker</button><button data-bg="dark">Dark</button><button data-bg="light">Light</button>
       </span>
     </div>
-    <div class="hint stage-hint">The backdrop is preview-only — exports are always transparent.</div>
+    <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
+
+    <div class="refbox" id="refBox">
+      <div class="ref-head">
+        <span>Reference</span>
+        <button id="refLoad" title="Drop a character sprite or sprite sheet behind the effect to judge scale — and optionally bake it into the export">📂 Load image</button>
+      </div>
+      <div class="ref-body" id="refBody" hidden>
+        <div class="ref-name" id="refNameEl"></div>
+        <div class="ref-ctl"><span>Sheet</span>
+          <input type="number" id="refCols" min="1" max="64" value="1" title="Columns in the sheet"> ×
+          <input type="number" id="refRows" min="1" max="64" value="1" title="Rows in the sheet">
+          <span class="hint" id="refFrames">1 frame</span>
+        </div>
+        <div class="ref-ctl"><span>Scale</span>
+          <input type="range" id="refScale" min="0.1" max="6" step="0.05" value="1">
+          <span class="hint" id="refScaleV">1.00×</span>
+          <button id="refFit" title="Scale it to fill the frame">⤢</button>
+        </div>
+        <div class="ref-ctl"><span>Offset X</span><input type="range" id="refOffX" min="-0.5" max="0.5" step="0.01" value="0"></div>
+        <div class="ref-ctl"><span>Offset Y</span><input type="range" id="refOffY" min="-0.5" max="0.5" step="0.01" value="0"></div>
+        <div class="ref-toggles">
+          <label><input type="checkbox" id="refFront"> In front</label>
+          <label><input type="checkbox" id="refCombine"> Combine on export</label>
+          <button id="refClear">✕</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
+<input type="file" id="refFile" accept="image/*" hidden>
 
 <div class="workspace">
   <section class="ws-browser">
@@ -56,9 +87,24 @@
       <input type="text" id="presetSearch" placeholder="Search effects… (e.g. explosion)" autocomplete="off" spellcheck="false">
       <span id="presetCount" class="hint"></span>
     </div>
+    <div class="mypresets" id="mypresets">
+      <div class="mp-head">
+        <span>★ My Effects</span>
+        <span class="mp-head-btns">
+          <button id="mpSave" title="Save the current effect to your library (stored in this browser)">＋ Save current</button>
+          <button id="mpExport" title="Download your library as a .json file you can back up or share">⬇</button>
+          <button id="mpImport" title="Load a library or a single effect .json">📂</button>
+        </span>
+      </div>
+      <div class="mp-list" id="mpList"></div>
+    </div>
+    <input type="file" id="mpFile" accept="application/json,.json" hidden>
     <div class="presetbar" id="presets" style="margin-top:10px"></div>
   </section>
   <section class="ws-editor">
+    <div class="macro" id="macros">
+      <div class="macro-title">Quick shape — one slider each moves several controls at once</div>
+    </div>
     <div class="engine" id="shapeSection">
       <div class="engine-title"><span>Particle shape</span></div>
       <div class="engine-grid" id="shapeGrid"></div>
@@ -112,6 +158,11 @@ const PARAMS = [
   ["turbSpeed",  "Turb speed",  0, 4, 0.05, 1, "",     "Motion"],
   ["spin",       "Spin",     -720, 720, 5, 0, "°/s",   "Motion"],
   ["spinVar",    "Spin var",    0, 1, 0.01, 0, "",     "Motion"],
+  // Start rotation. angleVar defaults to 1 = fully random, which is exactly what every particle
+  // did before these existed — so no preset changes. Drop it to 0 and every particle points the
+  // same way, which is what a slash, an arrow or a directional glyph needs.
+  ["angle",      "Angle",       0, 360, 1, 0, "°",     "Motion"],
+  ["angleVar",   "Angle var",   0, 1, 0.01, 1, "",     "Motion"],
   // Life & size — the envelope analog
   ["life",       "Lifetime",    0.05, 3, 0.01, 0.5, "s","Life"],
   ["lifeVar",    "Life var",    0, 1, 0.01, 0.3, "",   "Life"],
@@ -250,9 +301,39 @@ function drawStage() {
   if (!rendered) return;
   const cv = rendered.canvases[frameIdx];
   sctx.clearRect(0, 0, stage.width, stage.height);
+  if (!ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   if (cv) sctx.drawImage(cv, 0, 0);
+  if (ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   scrub.value = String(frameIdx);
   scrubVal.textContent = frameIdx + " / " + (rendered.canvases.length - 1);
+}
+
+// ---------- Reference underlay ----------
+// Two jobs in one feature. First: judge scale and read. An effect that looks great alone is
+// often the wrong size next to the character it's meant to hit, and there was previously no way
+// to see that. Second: with "Combine on export" the reference is baked into every exported
+// frame, so a character sheet plus an effect comes out as one finished sheet.
+//
+// Session state, not patch state — an imported image has no business travelling in a share link
+// or a saved preset.
+const ref = { img: null, name: "", cols: 1, rows: 1, scale: 1, offX: 0, offY: 0, front: false, combine: false };
+
+function refFrameCount() { return Math.max(1, ref.cols * ref.rows); }
+
+// Draw reference frame `i` into a w×h context. Sprite-sheet frames cycle in step with the
+// effect and wrap, so a 4-frame character loop plays under a 20-frame explosion.
+function drawRefFrame(g, i, w, h) {
+  if (!ref.img) return;
+  const cols = Math.max(1, ref.cols), rows = Math.max(1, ref.rows);
+  const fw = ref.img.naturalWidth / cols, fh = ref.img.naturalHeight / rows;
+  const idx = ((i % refFrameCount()) + refFrameCount()) % refFrameCount();
+  const sx = (idx % cols) * fw, sy = Math.floor(idx / cols) * fh;
+  const dw = fw * ref.scale, dh = fh * ref.scale;
+  const dx = (w - dw) / 2 + ref.offX * w, dy = (h - dh) / 2 + ref.offY * h;
+  const smooth = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;     // reference art is usually pixel art; don't blur it
+  g.drawImage(ref.img, sx, sy, fw, fh, Math.round(dx), Math.round(dy), Math.round(dw), Math.round(dh));
+  g.imageSmoothingEnabled = smooth;
 }
 
 function applyZoom() {
@@ -313,7 +394,7 @@ for (const [group, ps] of Object.entries(groups)) {
       const el = row.querySelector("select");
       el.value = state[key];
       inputs[key] = el;
-      el.addEventListener("change", () => { state[key] = +el.value; rerender(); });
+      el.addEventListener("change", () => { state[key] = +el.value; commitHistory(); rerender(); });
     } else {
       const row = document.createElement("div");
       row.className = "row";
@@ -327,8 +408,11 @@ for (const [group, ps] of Object.entries(groups)) {
       input.addEventListener("input", () => {
         state[key] = +input.value;
         out.textContent = fmt(p, state[key]);
+        updateMacros();          // a hand edit must move the macro that owns this param
         scheduleRender();
       });
+      // one history entry per drag, not per pixel of movement
+      input.addEventListener("change", () => commitHistory());
     }
   }
   panels.appendChild(panel);
@@ -363,6 +447,7 @@ let glyphInput = null;
       b.addEventListener("click", () => {
         state.glyph = ch;
         glyphInput.value = ch;
+        commitHistory();
         rerender();
       });
       picks.appendChild(b);
@@ -378,16 +463,64 @@ function updateShapePanels() {
   }
 }
 
-function syncUI() {
+// Split in two: applyMacro needs the sliders to move WITHOUT re-running the macro sync that
+// called it (that path recurses), so the param half stands alone.
+function syncParamInputs() {
   for (const p of PARAMS) {
     const el = inputs[p[0]];
     if (!el) continue;
     el.value = state[p[0]];
     if (outputs[p[0]]) outputs[p[0]].textContent = fmt(p, state[p[0]]);
   }
+}
+function syncUI() {
+  syncParamInputs();
   if (glyphInput) glyphInput.value = state.glyph;
   syncShapeButtons();
   updateShapePanels();
+  updateMacros();
+}
+
+// ---------- Undo / redo ----------
+// A snapshot per committed edit. Commit points are deliberate — slider RELEASE, not every pixel
+// of a drag — so one gesture is one undo step.
+let editHistory = [], histPos = -1, restoringHistory = false;
+const EDIT_HIST_MAX = 80;
+function snapshotState() {
+  const s = {};
+  for (const p of PARAMS) s[p[0]] = state[p[0]];
+  s.glyph = state.glyph;
+  return s;
+}
+function sameSnapshot(a, b) {
+  for (const p of PARAMS) if (a[p[0]] !== b[p[0]]) return false;
+  return a.glyph === b.glyph;
+}
+function commitHistory() {
+  if (restoringHistory) return;
+  const snap = snapshotState();
+  if (histPos >= 0 && sameSnapshot(editHistory[histPos], snap)) return;
+  editHistory = editHistory.slice(0, histPos + 1);
+  editHistory.push(snap);
+  if (editHistory.length > EDIT_HIST_MAX) editHistory.shift();
+  histPos = editHistory.length - 1;
+  updateUndoRedoUI();
+}
+function restoreEdit(snap) {
+  restoringHistory = true;
+  for (const p of PARAMS) state[p[0]] = snap[p[0]];
+  state.glyph = snap.glyph;
+  syncUI();
+  rerender();
+  restoringHistory = false;
+  updateUndoRedoUI();
+}
+function undoEdit() { if (histPos > 0) { histPos--; restoreEdit(editHistory[histPos]); } }
+function redoEdit() { if (histPos < editHistory.length - 1) { histPos++; restoreEdit(editHistory[histPos]); } }
+function updateUndoRedoUI() {
+  const u = document.getElementById("undoBtn"), r = document.getElementById("redoBtn");
+  if (u) u.disabled = histPos <= 0;
+  if (r) r.disabled = histPos >= editHistory.length - 1;
 }
 
 // ---------- Shape picker (hero section) ----------
@@ -409,7 +542,7 @@ for (const [cat, names] of SHAPE_CATS) {
     const b = document.createElement("button");
     b.className = "engine-btn";
     b.textContent = name;
-    b.addEventListener("click", () => { state.shape = i; syncShapeButtons(); updateShapePanels(); rerender(); });
+    b.addEventListener("click", () => { state.shape = i; syncShapeButtons(); updateShapePanels(); commitHistory(); rerender(); });
     box.appendChild(b);
     shapeBtns[i] = b;
   }
@@ -451,23 +584,137 @@ for (const [name, patch] of PALETTES) {
   b.addEventListener("click", () => {
     for (const k in patch) state[k] = patch[k];
     if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
-    syncUI(); rerender();
+    syncUI(); commitHistory(); rerender();
   });
   paletteGrid.appendChild(b);
+}
+
+// ---------- Quick shape (macros) ----------
+// Plain-language sliders that each move several real params at once — the CrunchySFX MACROS
+// pattern. `to(v)` writes the params; `from()` reads ONE representative param back so the macro
+// slider stays honest after you edit the underlying controls by hand. Without from(), the macros
+// drift out of sync with the patch and start lying to you.
+const lerpN = (a, b, v) => a + (b - a) * v;
+const inv = (x, a, b) => clamp01((x - a) / (b - a));
+const MACROS = [
+  { name: "Violence", id: "mViolence", left: "gentle", right: "brutal",
+    to(v) {
+      state.count = Math.round(lerpN(20, 600, v));
+      state.speed = Math.round(lerpN(70, 620, v));
+      state.speedVar = lerpN(0.2, 0.7, v);
+      state.drag = lerpN(0.6, 0.25, v);
+      state.flash = v < 0.15 ? 0 : lerpN(0, 1, v);
+      state.wave = v < 0.3 ? 0 : lerpN(0, 0.7, v);
+      state.shake = v < 0.55 ? 0 : lerpN(0, 0.45, v);
+    },
+    from() { return inv(state.speed, 70, 620); } },
+  { name: "Softness", id: "mSoftness", left: "hard", right: "hazy",
+    to(v) {
+      state.fadeIn = lerpN(0, 0.3, v);
+      state.fadeOut = lerpN(0.15, 0.85, v);
+      state.glow = lerpN(0, 0.7, v);
+      state.sizeVar = lerpN(0.15, 0.65, v);
+      state.smokeSoft = lerpN(0.3, 0.95, v);
+      state.alphaCut = lerpN(0.55, 0, v);          // hard edges live at the LOW end
+      state.outline = v < 0.3 ? 1 : 0;
+    },
+    from() { return inv(state.fadeOut, 0.15, 0.85); } },
+  { name: "Chunkiness", id: "mChunk", left: "smooth", right: "8-bit",
+    to(v) {
+      state.pixelate = Math.max(1, Math.round(lerpN(1, 8, v)));
+      state.posterize = Math.round(lerpN(32, 5, v));
+      state.alphaCut = v < 0.1 ? 0 : lerpN(0, 0.55, v);
+      state.outline = v > 0.6 ? 1 : 0;
+      state.dither = v > 0.35 ? lerpN(0, 0.6, v) : 0;
+      state.fps = Math.round(lerpN(24, 12, v));    // low frame rates ARE part of the pixel look
+    },
+    from() { return inv(state.pixelate, 1, 8); } },
+  { name: "Weight", id: "mWeight", left: "floaty", right: "heavy",
+    to(v) {
+      state.gravity = Math.round(lerpN(-120, 900, v));
+      state.drag = lerpN(0.55, 0.15, v);
+      state.life = lerpN(1.4, 0.4, v);
+      state.grow = lerpN(0.3, -0.7, v);
+    },
+    from() { return inv(state.gravity, -120, 900); } },
+  { name: "Heat", id: "mHeat", left: "cold", right: "white-hot",
+    to(v) {
+      state.coreWhite = lerpN(0, 0.95, v);
+      state.glow = lerpN(0, 0.65, v);
+      state.hueLife = Math.round(lerpN(20, -55, v));
+      state.bright = lerpN(0.7, 1, v);
+      state.sat = lerpN(0.55, 1, v);
+    },
+    from() { return inv(state.coreWhite, 0, 0.95); } },
+  { name: "Swirl", id: "mSwirl", left: "straight", right: "vortex",
+    to(v) {
+      state.swirl = Math.round(lerpN(0, 520, v));
+      state.turb = lerpN(0, 0.65, v);
+      state.turbSpeed = lerpN(0.5, 2, v);
+      state.spin = Math.round(lerpN(0, 320, v));
+    },
+    from() { return inv(state.swirl, 0, 520); } },
+];
+
+const macroBox = document.getElementById("macros");
+const macroInputs = {};
+for (const m of MACROS) {
+  const row = document.createElement("div");
+  row.className = "macro-row";
+  row.innerHTML = '<span class="macro-name">' + m.name + "</span>" +
+    '<span class="macro-end">' + m.left + "</span>" +
+    '<input type="range" id="' + m.id + '" min="0" max="1" step="0.01" value="0">' +
+    '<span class="macro-end macro-end-r">' + m.right + "</span>";
+  macroBox.appendChild(row);
+  const input = row.querySelector("input");
+  macroInputs[m.id] = input;
+  input.addEventListener("input", () => { applyMacro(m, +input.value); scheduleRender(); });
+  input.addEventListener("change", () => commitHistory());
+}
+
+function applyMacro(m, v) {
+  m.to(clamp01(v));
+  syncParamInputs();     // the real sliders have to visibly move, or the macro feels like magic
+  updateMacros();
+}
+function updateMacros() {
+  for (const m of MACROS) {
+    const el = macroInputs[m.id];
+    if (el) el.value = clamp01(m.from());
+  }
 }
 
 // ---------- Presets ----------
 const PRESETS = window.PRESETS || {};
 const PRESET_CATEGORIES = window.PRESET_CATEGORIES || [];
 
+// Pixel lock: if you're building assets you want them all the same size and crunch, and having a
+// preset silently reset your 64px pixel-art settings to its own 128px smooth ones is the single
+// most annoying thing this tool could do.
+//
+// The subtlety: locking outright would break the showcase presets on a fresh load (Pixel Burst
+// would arrive un-pixelated). So the lock only preserves keys you've actually MOVED off their
+// default — "keep my settings" rather than "ignore the preset". Untouched keys still take the
+// preset's values.
+const LOCK_KEYS = ["frameSize", "pixelate", "posterize", "dither", "alphaCut", "outline", "outlineTone"];
+const LOCK_PREF = "crunchyvfx.lockpixels.v1";
+let pixelLock = true;
+try { const v = localStorage.getItem(LOCK_PREF); if (v !== null) pixelLock = v === "1"; } catch (e) { /* private mode */ }
+
 function applyPreset(obj, label) {
+  const keep = {};
+  if (pixelLock) {
+    for (const k of LOCK_KEYS) if (state[k] !== PARAM_BY_KEY[k][5]) keep[k] = state[k];
+  }
   for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
   state.glyph = GLYPH_DEFAULT;                  // non-PARAMS patch fields reset too, or they leak
   for (const k in obj) if (k in state) state[k] = obj[k];
+  for (const k in keep) state[k] = keep[k];
   if (label) effectLabel = label;
   syncUI();
   frameIdx = 0;
   rerender();
+  commitHistory();
 }
 
 const presetBar = document.getElementById("presets");
@@ -509,6 +756,135 @@ presetSearch.addEventListener("input", () => {
   }
 });
 
+// ---------- My Effects (saved library) ----------
+// Everything you make is otherwise lost the moment you click another preset, which is a bad deal
+// for a tool people are meant to play in. Stored in localStorage; the ⬇/📂 buttons move the whole
+// library through a .json file so it can be backed up or handed to someone else.
+const UP_KEY = "crunchyvfx.userpresets.v1";
+let userEffects = [];   // [{ id, name, state }]
+let upSeq = 0;
+const mpList = document.getElementById("mpList");
+const thumbCache = new Map();   // id -> dataURL; a saved effect never changes, so cache forever
+
+// Run fn with a temporary state, then restore. The CrunchySFX withState, needed for rendering a
+// library entry's thumbnail without disturbing the editor.
+function withState(snap, fn) {
+  const backup = snapshotState();
+  for (const p of PARAMS) state[p[0]] = (p[0] in snap) ? snap[p[0]] : p[5];
+  state.glyph = snap.glyph !== undefined ? snap.glyph : GLYPH_DEFAULT;
+  try { return fn(); } finally {
+    for (const p of PARAMS) state[p[0]] = backup[p[0]];
+    state.glyph = backup.glyph;
+  }
+}
+
+function saveUserEffects() {
+  try { localStorage.setItem(UP_KEY, JSON.stringify({ seq: upSeq, items: userEffects })); }
+  catch (e) { msg.textContent = "Couldn't save (storage full or blocked)"; }
+}
+function loadUserEffects() {
+  try {
+    const raw = localStorage.getItem(UP_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    userEffects = Array.isArray(d.items) ? d.items : [];
+    upSeq = d.seq || userEffects.length;
+  } catch (e) { userEffects = []; }
+}
+
+// A still frame ~40% through the animation — far enough in that a burst has actually bloomed.
+function effectThumb(item) {
+  if (thumbCache.has(item.id)) return thumbCache.get(item.id);
+  let url = "";
+  try {
+    const r = withState(item.state, () => renderFrames(state, { size: 44, fit: true }));
+    const cv = r.canvases[Math.min(r.canvases.length - 1, Math.round(r.canvases.length * 0.4))];
+    url = cv.toDataURL("image/png");
+  } catch (e) { /* a corrupt entry shouldn't take the list down */ }
+  thumbCache.set(item.id, url);
+  return url;
+}
+
+function renderMyEffects() {
+  mpList.innerHTML = "";
+  if (!userEffects.length) {
+    mpList.innerHTML = '<div class="mp-empty">Nothing saved yet — make something you like and hit “Save current”.</div>';
+    return;
+  }
+  for (const item of userEffects) {
+    const el = document.createElement("div");
+    el.className = "up-item";
+    el.innerHTML =
+      '<img class="up-thumb" alt="" title="Load into the editor">' +
+      '<input class="up-name" spellcheck="false">' +
+      '<button class="up-use" title="Load into the editor">✎</button>' +
+      '<button class="up-del" title="Delete">✕</button>';
+    const img = el.querySelector(".up-thumb");
+    const url = effectThumb(item);
+    if (url) img.src = url;
+    const nameInput = el.querySelector(".up-name");
+    nameInput.value = item.name;
+    const load = () => applyPreset(item.state, item.name);
+    img.addEventListener("click", load);
+    el.querySelector(".up-use").addEventListener("click", load);
+    el.querySelector(".up-del").addEventListener("click", () => {
+      userEffects = userEffects.filter((x) => x.id !== item.id);
+      thumbCache.delete(item.id);
+      saveUserEffects();
+      renderMyEffects();
+    });
+    nameInput.addEventListener("change", () => {
+      item.name = nameInput.value.trim() || item.name;
+      nameInput.value = item.name;
+      saveUserEffects();
+    });
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nameInput.blur(); });
+    mpList.appendChild(el);
+  }
+}
+
+function saveCurrentEffect() {
+  const base = effectLabel && effectLabel !== "random" ? effectLabel : "My effect";
+  let name = base, n = 2;
+  while (userEffects.some((x) => x.name === name)) name = base + " " + n++;
+  userEffects.unshift({ id: ++upSeq, name, state: snapshotState() });
+  saveUserEffects();
+  renderMyEffects();
+  msg.textContent = 'Saved "' + name + '"';
+}
+document.getElementById("mpSave").addEventListener("click", saveCurrentEffect);
+
+document.getElementById("mpExport").addEventListener("click", () => {
+  const payload = { app: "crunchyvfx", version: 1, effects: userEffects.map((e) => ({ name: e.name, state: e.state })) };
+  download(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }), "crunchyvfx-effects.json");
+});
+
+const mpFile = document.getElementById("mpFile");
+document.getElementById("mpImport").addEventListener("click", () => mpFile.click());
+mpFile.addEventListener("change", async () => {
+  const f = mpFile.files && mpFile.files[0];
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    // Accept a full library, or a bare single effect (so a patch pasted from anywhere works)
+    const incoming = Array.isArray(data.effects) ? data.effects
+      : (data.state ? [data] : [{ name: f.name.replace(/\.json$/i, ""), state: data }]);
+    let added = 0;
+    for (const e of incoming) {
+      if (!e || typeof e.state !== "object") continue;
+      userEffects.unshift({ id: ++upSeq, name: String(e.name || "Imported"), state: e.state });
+      added++;
+    }
+    saveUserEffects();
+    renderMyEffects();
+    msg.textContent = added ? "Imported " + added + " effect" + (added > 1 ? "s" : "") : "Nothing importable in that file";
+  } catch (e) { msg.textContent = "Couldn't read that file: " + e.message; }
+  mpFile.value = "";
+});
+
+loadUserEffects();
+renderMyEffects();
+
 // ---------- Randomize ----------
 // Not a uniform roll over every slider — that reliably produces mush. Randomize the handful of
 // params that define an effect's character, leave the finishing stage alone.
@@ -535,6 +911,7 @@ function randomize() {
   syncUI();
   frameIdx = 0;
   rerender();
+  commitHistory();
 }
 
 // ---------- Controls ----------
@@ -546,7 +923,7 @@ playBtn.addEventListener("click", () => {
 document.getElementById("rand").addEventListener("click", randomize);
 document.getElementById("reroll").addEventListener("click", () => {
   state.seed = 1 + Math.floor(Math.random() * 9999);
-  syncUI(); rerender();
+  syncUI(); commitHistory(); rerender();
 });
 const fitBtn = document.getElementById("fitBtn");
 fitBtn.addEventListener("click", () => {
@@ -554,6 +931,18 @@ fitBtn.addEventListener("click", () => {
   fitBtn.classList.toggle("on", fitOn);
   rerender();
 });
+const lockBtn = document.getElementById("lockBtn");
+function updateLockBtn() {
+  lockBtn.classList.toggle("on", pixelLock);
+  lockBtn.textContent = pixelLock ? "🔒 Lock pixels" : "🔓 Lock pixels";
+}
+lockBtn.addEventListener("click", () => {
+  pixelLock = !pixelLock;
+  try { localStorage.setItem(LOCK_PREF, pixelLock ? "1" : "0"); } catch (e) { /* private mode */ }
+  updateLockBtn();
+});
+document.getElementById("undoBtn").addEventListener("click", undoEdit);
+document.getElementById("redoBtn").addEventListener("click", redoEdit);
 scrub.addEventListener("input", () => { playing = false; playBtn.textContent = "▶ Play"; frameIdx = +scrub.value; drawStage(); });
 document.getElementById("zoomGroup").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
@@ -567,12 +956,103 @@ document.getElementById("bgGroup").addEventListener("click", (e) => {
   [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
 });
 addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+    e.preventDefault();
+    if (e.shiftKey) redoEdit(); else undoEdit();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redoEdit(); return; }
   if (e.target.matches("input,select,textarea")) return;
   if (e.code === "Space") { e.preventDefault(); playBtn.click(); }
   if (e.key === "r" || e.key === "R") randomize();
 });
 
+// ---------- Reference controls ----------
+const refBody = document.getElementById("refBody");
+const refFile = document.getElementById("refFile");
+const refCtl = {
+  cols: document.getElementById("refCols"), rows: document.getElementById("refRows"),
+  scale: document.getElementById("refScale"), scaleV: document.getElementById("refScaleV"),
+  offX: document.getElementById("refOffX"), offY: document.getElementById("refOffY"),
+  front: document.getElementById("refFront"), combine: document.getElementById("refCombine"),
+  nameEl: document.getElementById("refNameEl"), frames: document.getElementById("refFrames"),
+};
+function refSync() {
+  refCtl.scaleV.textContent = ref.scale.toFixed(2) + "×";
+  const n = refFrameCount();
+  refCtl.frames.textContent = n + (n === 1 ? " frame" : " frames");
+  refBody.hidden = !ref.img;
+  refCtl.nameEl.textContent = ref.img ? ref.name + " (" + ref.img.naturalWidth + "×" + ref.img.naturalHeight + ")" : "";
+  drawStage();
+}
+document.getElementById("refLoad").addEventListener("click", () => refFile.click());
+refFile.addEventListener("change", () => {
+  const f = refFile.files && refFile.files[0];
+  if (!f) return;
+  // FileReader → data: URL, deliberately NOT URL.createObjectURL. A blob: URL inherits the
+  // document's origin, which is opaque under file://, so drawing it would TAINT the canvas and
+  // every export (toBlob, getImageData for the GIF encoder) would throw SecurityError. A data:
+  // URL is always same-origin, so combine-on-export works from a plain unzipped folder too.
+  const reader = new FileReader();
+  const img = new Image();
+  img.onload = () => {
+    ref.img = img; ref.name = f.name;
+    // A sheet wider than it is tall is usually a horizontal strip — guess the columns from the
+    // aspect ratio so the common case needs no fiddling. Wrong guesses are one click to fix.
+    const ar = img.naturalWidth / img.naturalHeight;
+    ref.cols = ar >= 2 ? Math.round(ar) : 1;
+    ref.rows = 1;
+    refCtl.cols.value = ref.cols; refCtl.rows.value = ref.rows;
+    refFitScale();
+    msg.textContent = "Reference loaded — " + f.name;
+  };
+  img.onerror = () => { msg.textContent = "Couldn't read that image"; };
+  reader.onload = () => { img.src = reader.result; };
+  reader.onerror = () => { msg.textContent = "Couldn't read that file"; };
+  reader.readAsDataURL(f);
+  refFile.value = "";
+});
+function refFitScale() {
+  if (!ref.img || !rendered) return refSync();
+  const fw = ref.img.naturalWidth / Math.max(1, ref.cols), fh = ref.img.naturalHeight / Math.max(1, ref.rows);
+  ref.scale = Math.min(rendered.w / fw, rendered.h / fh) * 0.9;
+  refCtl.scale.value = ref.scale;
+  refSync();
+}
+document.getElementById("refFit").addEventListener("click", refFitScale);
+document.getElementById("refClear").addEventListener("click", () => {
+  ref.img = null; ref.name = ""; ref.combine = false;
+  refCtl.combine.checked = false;
+  refSync();
+});
+refCtl.cols.addEventListener("input", () => { ref.cols = Math.max(1, +refCtl.cols.value || 1); refSync(); });
+refCtl.rows.addEventListener("input", () => { ref.rows = Math.max(1, +refCtl.rows.value || 1); refSync(); });
+refCtl.scale.addEventListener("input", () => { ref.scale = +refCtl.scale.value; refSync(); });
+refCtl.offX.addEventListener("input", () => { ref.offX = +refCtl.offX.value; refSync(); });
+refCtl.offY.addEventListener("input", () => { ref.offY = +refCtl.offY.value; refSync(); });
+refCtl.front.addEventListener("change", () => { ref.front = refCtl.front.checked; refSync(); });
+refCtl.combine.addEventListener("change", () => {
+  ref.combine = refCtl.combine.checked;
+  msg.textContent = ref.combine ? "Exports will include the reference" : "Exports are effect-only again";
+});
+
 // ---------- Export ----------
+// Every export path goes through this, so "Combine on export" applies to the sheet, the PNG
+// sequence and the GIF alike rather than only the one it was written for.
+function outputCanvases() {
+  if (!rendered) return [];
+  if (!ref.img || !ref.combine) return rendered.canvases;
+  return rendered.canvases.map((cv, i) => {
+    const out = document.createElement("canvas");
+    out.width = cv.width; out.height = cv.height;
+    const g = out.getContext("2d");
+    if (!ref.front) drawRefFrame(g, i, out.width, out.height);
+    g.drawImage(cv, 0, 0);
+    if (ref.front) drawRefFrame(g, i, out.width, out.height);
+    return out;
+  });
+}
+
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
 const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 
@@ -586,12 +1066,13 @@ function download(blob, name) {
 
 // Pack every frame into one PNG grid + a JSON sidecar an engine can read.
 function buildSheet() {
-  const n = rendered.canvases.length, w = rendered.w, h = rendered.h;
+  const frames = outputCanvases();
+  const n = frames.length, w = rendered.w, h = rendered.h;
   const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
   const cv = document.createElement("canvas");
   cv.width = cols * w; cv.height = rows * h;
   const g = cv.getContext("2d");
-  for (let i = 0; i < n; i++) g.drawImage(rendered.canvases[i], (i % cols) * w, Math.floor(i / cols) * h);
+  for (let i = 0; i < n; i++) g.drawImage(frames[i], (i % cols) * w, Math.floor(i / cols) * h);
   return { cv, cols, rows, n, w, h };
 }
 
@@ -645,8 +1126,9 @@ document.getElementById("expFrames").addEventListener("click", async () => {
   const base = sanitize(effectLabel);
   msg.textContent = "Encoding…";
   const files = [];
-  for (let i = 0; i < rendered.canvases.length; i++) {
-    const blob = await canvasBlob(rendered.canvases[i]);
+  const frames = outputCanvases();
+  for (let i = 0; i < frames.length; i++) {
+    const blob = await canvasBlob(frames[i]);
     files.push({ name: base + "_" + String(i).padStart(3, "0") + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
   }
   download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-frames.zip");
@@ -727,6 +1209,7 @@ gifModal.querySelector("#gifPrep").addEventListener("click", () => {
   if (state.alphaCut !== before.alphaCut) changed.push("Alpha cut → " + state.alphaCut);
   if (state.fps !== before.fps) changed.push("FPS → " + state.fps);
   syncUI();
+  commitHistory();
   rerender();
   refreshGifInfo();
   gifMsg.textContent = changed.length ? changed.join(", ") : "Already GIF-ready";
@@ -738,7 +1221,7 @@ gifModal.querySelector("#gifGo").addEventListener("click", () => {
   // yield a frame so the label paints before the encoder blocks the thread
   setTimeout(() => {
     const t0 = performance.now();
-    const bytes = encodeGif(rendered.canvases, state.fps);
+    const bytes = encodeGif(outputCanvases(), state.fps);
     const ms = Math.round(performance.now() - t0);
     download(new Blob([bytes], { type: "image/gif" }), sanitize(effectLabel) + ".gif");
     const kb = Math.round(bytes.length / 1024);
@@ -748,7 +1231,8 @@ gifModal.querySelector("#gifGo").addEventListener("click", () => {
 });
 
 // ---------- Boot ----------
+updateLockBtn();
 syncUI();
 const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];
-if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else rerender();
+if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else { rerender(); commitHistory(); }
 </script>

@@ -380,7 +380,8 @@ so it was a redundant mode.
 1. ~~**`vfx.js` core + live preview**~~ — **done.** `simulate`/`drawFrame`/`renderFrames`, 8 shape
    sprites, the full post-FX chain, the `PARAMS`→UI generator, the looping stage, 15 presets.
 2. **Export** — PNG sheet + JSON ✅, frame-sequence ZIP ✅, GIF89a ✅ (`gif.js`).
-3. **Ported machinery** — presets + categories, randomize, share links, history, breed /
-   variations, macros. All proven code from CrunchySFX; port one at a time.
+3. **Ported machinery** — presets + categories ✅, randomize ✅, macros ✅ (6 Quick-shape
+   sliders), undo/redo ✅, My Effects library ✅ (localStorage + JSON export/import).
+   **Still to port:** share links, breed / variations, Foundry, custom categories.
 4. **Desktop** — Tauri wrapper, drag-out, itch CI, update checker.
 5. Then the deferred items above.
