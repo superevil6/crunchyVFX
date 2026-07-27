@@ -914,3 +914,18 @@
     border-top: 1px solid var(--line); padding-top: 12px; }
   .exp-note p { margin: 0 0 6px; }
   .exp-note b { color: var(--ink); }
+
+  .bubble-pick { font-size: 11px !important; min-width: 0 !important; padding: 3px 7px !important; }
+
+  /* Palette lock */
+  .pal-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .pal-sws { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 6px; min-height: 4px; }
+  .pal-sw { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(0,0,0,.5); display: block; }
+  .pal-info { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin-bottom: 8px; }
+  .pal-btns { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .pal-btns button { padding: 3px 8px; font-size: 11px; }
+  .pal-paste {
+    width: 100%; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 8px; font: inherit; font-size: 11px; margin-top: 2px;
+  }
+  .pal-paste:focus { outline: none; border-color: var(--accent2); }

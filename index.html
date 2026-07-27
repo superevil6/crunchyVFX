@@ -239,6 +239,19 @@ const PARAMS = [
   ["alphaCut",   "Alpha cut",   0, 1, 0.01, 0, "",     "Crunch"],
   ["outline",    "Outline",     0, 3, 1, 0, "px",      "Crunch"],
   ["outlineTone","Outline tone",0, 1, 0.01, 0, "",     "Crunch"],
+  // Speech bubble / emote frame — a LAYER, not a particle. bubble at 0 = off.
+  ["bubble",     "Bubble",      0, 1, 0.01, 0, "",     "Bubble"],
+  ["bubbleSize", "Text size",   0.2, 1.5, 0.01, 0.6, "","Bubble"],
+  ["bubbleLife", "Bubble life", 0.1, 3, 0.01, 0.9, "s","Bubble"],
+  ["bubblePop",  "Pop",         0, 1, 0.01, 0.6, "",   "Bubble"],
+  ["bubbleTail", "Tail",        0, 1, 0.01, 0.5, "",   "Bubble"],
+  ["bubbleRound","Roundness",   0, 1, 0.01, 0.5, "",   "Bubble"],
+  ["bubbleOutline","Outline",   0, 4, 0.5, 2, "px",    "Bubble"],
+  ["bubbleY",    "Height",      0, 1, 0.01, 0.3, "",   "Bubble"],
+  // Ground plane — bounce at 0 is off, so no collision test runs for mid-air effects.
+  ["bounce",     "Bounce",      0, 1, 0.01, 0, "",     "Ground"],
+  ["groundY",    "Ground line", 0, 1, 0.01, 0.9, "",   "Ground"],
+  ["friction",   "Friction",    0, 1, 0.01, 0.2, "",   "Ground"],
   // Sub-emitter — each particle spawns children as it dies. Default 0 = off.
   ["subCount",   "Children",    0, 12, 1, 0, "",       "Sub-emitter"],
   ["subSpeed",   "Child speed", 0, 600, 5, 140, "px/s","Sub-emitter"],
@@ -272,7 +285,7 @@ const GLYPH_DEFAULT = "★";
 // Non-PARAMS patch fields: text and image data that can't live in a numeric slider row. They have
 // to be threaded through EVERY state operation (reset, snapshot, undo, withState, encode) or they
 // leak between effects — one table so a new one can't be half-wired.
-const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", ramp: "" };
+const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", ramp: "", bubbleText: "", paletteLock: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -469,6 +482,168 @@ let glyphInput = null;
         glyphInput.value = ch;
         commitHistory();
         rerender();
+      });
+      picks.appendChild(b);
+    }
+  }
+}
+
+// ---------- Palette lock ----------
+// Load a .hex (Lospec), .gpl (GIMP/Aseprite) or .txt (paint.net) palette — or pull one out of the
+// effect itself — and every pixel snaps to it. This is what makes the output belong to someone's
+// game rather than merely resemble it.
+const BUILTIN_PALETTES = {
+  "Sweetie 16": "1a1c2c,5d275d,b13e53,ef7d57,ffcd75,a7f070,38b764,257179,29366f,3b5dc9,41a6f6,73eff7,f4f4f4,94b0c2,566c86,333c57",
+  "PICO-8": "000000,1d2b53,7e2553,008751,ab5236,5f574f,c2c3c7,fff1e8,ff004d,ffa300,ffec27,00e436,29adff,83769c,ff77a8,ffccaa",
+  "Game Boy": "0f380f,306230,8bac0f,9bbc0f",
+  "CGA": "000000,55ffff,ff55ff,ffffff",
+  "Grayscale 8": "000000,242424,484848,6d6d6d,919191,b6b6b6,dadada,ffffff",
+};
+// Lospec .hex = bare 6-hex per line · GIMP .gpl = "R G B name" after a header · paint.net .txt =
+// AARRGGBB with ";" comments. One parser handles all three plus anything pasted.
+function parsePaletteFile(text) {
+  const isGpl = /^GIMP Palette/i.test(text.trim());
+  const cols = [];
+  const push = (hex) => { const h = hex.toLowerCase(); if (cols.indexOf(h) < 0) cols.push(h); };
+  for (let ln of text.split(/\r?\n/)) {
+    ln = ln.trim();
+    if (!ln || ln.startsWith(";")) continue;
+    if (isGpl) {
+      if (ln.startsWith("#") || /^(name|columns)\s*:/i.test(ln) || /^GIMP Palette/i.test(ln)) continue;
+      const m = /^(\d+)\s+(\d+)\s+(\d+)/.exec(ln);
+      if (m) push(((+m[1]) << 16 | (+m[2]) << 8 | (+m[3])).toString(16).padStart(6, "0"));
+      continue;
+    }
+    for (const tok of ln.split(/[,\s]+/)) {
+      const m8 = /^([0-9a-fA-F]{8})$/.exec(tok);          // paint.net: AARRGGBB
+      if (m8) { push(m8[1].slice(2)); continue; }
+      const m6 = /^#?([0-9a-fA-F]{6})$/.exec(tok);
+      if (m6) push(m6[1]);
+    }
+  }
+  return cols;
+}
+let palSwatches = null, palInfo = null, palPasteEl = null;
+function setPalette(list, label) {
+  state.paletteLock = (list || []).join(",");
+  clearSpriteCache();
+  syncPaletteUI();
+  rerender();
+  commitHistory();
+  if (label) msg.textContent = list.length ? label + " — " + list.length + " colours" : "Palette cleared";
+}
+function syncPaletteUI() {
+  if (!palSwatches) return;
+  const cols = state.paletteLock ? state.paletteLock.split(",") : [];
+  palSwatches.innerHTML = "";
+  for (const c of cols) {
+    const s = document.createElement("i");
+    s.className = "pal-sw";
+    s.style.background = "#" + c;
+    s.title = "#" + c;
+    palSwatches.appendChild(s);
+  }
+  if (!cols.length) {
+    palInfo.textContent = "No palette locked. Load one, paste hex codes, or pull one out of the effect.";
+    return;
+  }
+  // Exactness depends on alpha: see the KNOWN LIMIT note in vfx.js. Rather than let someone
+  // export a "16-colour" sheet with 200 colours in its soft edges, say so and name the fix.
+  palInfo.textContent = cols.length + " colours — every pixel snaps to these (Colour steps is bypassed)."
+    + (state.alphaCut > 0 ? "" :
+       " Soft edges will still land between palette colours — raise Alpha cut for an exactly-N-colour sprite.");
+}
+{
+  const panel = panels.querySelector('[data-group="Crunch"]');
+  if (panel) {
+    const box = document.createElement("div");
+    box.className = "pal-box";
+    box.innerHTML =
+      '<div class="ramp-head"><span>Palette lock</span></div>' +
+      '<div class="pal-sws" id="palSws"></div>' +
+      '<div class="pal-info" id="palInfo"></div>' +
+      '<div class="pal-btns" id="palBuiltins"></div>' +
+      '<div class="pal-btns">' +
+        '<button id="palLoad" title="Lospec .hex, GIMP/Aseprite .gpl, or paint.net .txt">📂 Load</button>' +
+        '<button id="palGrab8">⚗ Take 8</button><button id="palGrab16">⚗ Take 16</button>' +
+        '<button id="palClear">✕ Clear</button>' +
+      '</div>' +
+      '<input id="palPaste" class="pal-paste" type="text" placeholder="…or paste hex codes: 1a1c2c, 5d275d, …" spellcheck="false">' +
+      '<input type="file" id="palFile" accept=".hex,.gpl,.txt,.pal,text/plain" hidden>';
+    panel.appendChild(box);
+    palSwatches = box.querySelector("#palSws");
+    palInfo = box.querySelector("#palInfo");
+    palPasteEl = box.querySelector("#palPaste");
+    const palFile = box.querySelector("#palFile");
+    for (const name in BUILTIN_PALETTES) {
+      const b = document.createElement("button");
+      b.textContent = name;
+      b.addEventListener("click", () => setPalette(BUILTIN_PALETTES[name].split(","), name));
+      box.querySelector("#palBuiltins").appendChild(b);
+    }
+    box.querySelector("#palLoad").addEventListener("click", () => palFile.click());
+    palFile.addEventListener("change", async () => {
+      const f = palFile.files && palFile.files[0];
+      if (!f) return;
+      const cols = parsePaletteFile(await f.text());
+      if (cols.length) setPalette(cols, f.name);
+      else msg.textContent = "No colours found in " + f.name;
+      palFile.value = "";
+    });
+    // Pull a palette out of the effect itself, using the GIF encoder's median-cut quantizer.
+    const grab = (n) => {
+      if (!rendered) return;
+      const datas = rendered.canvases.map((cv) => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data);
+      const pal = gifMedianCut(gifSamples(datas), n);
+      setPalette(pal.map((c) => ((c[0] << 16 | c[1] << 8 | c[2]) >>> 0).toString(16).padStart(6, "0")),
+                 "Extracted " + n);
+    };
+    box.querySelector("#palGrab8").addEventListener("click", () => grab(8));
+    box.querySelector("#palGrab16").addEventListener("click", () => grab(16));
+    box.querySelector("#palClear").addEventListener("click", () => setPalette([], "cleared"));
+    palPasteEl.addEventListener("change", () => {
+      const cols = parsePaletteFile(palPasteEl.value);
+      if (cols.length) { setPalette(cols, "Pasted"); palPasteEl.value = ""; }
+      else msg.textContent = "Couldn't find any hex colours in that";
+    });
+    syncPaletteUI();
+  }
+}
+
+// ---------- Speech bubble text ----------
+// Text, so it lives in PATCH_EXTRAS rather than a slider row. "|" splits lines, because a single
+// -line <input> can't hold a newline and "!|?" is a lot less annoying than a textarea here.
+let bubbleInput = null;
+const BUBBLE_PICKS = ["!", "?", "!?", "…", "Hey!", "+10", "CRIT!", "Level up!", "z z z", "♥|♥|♥"];
+{
+  const panel = panels.querySelector('[data-group="Bubble"]');
+  if (panel) {
+    const row = document.createElement("div");
+    row.className = "glyph-row";
+    row.innerHTML = '<label for="bubbleInput">Text — use | for a line break</label>' +
+      '<input id="bubbleInput" type="text" maxlength="60" autocomplete="off" spellcheck="false" placeholder="Hey!">' +
+      '<div class="glyph-picks"></div>';
+    panel.insertBefore(row, panel.firstChild.nextSibling);
+    bubbleInput = row.querySelector("#bubbleInput");
+    bubbleInput.value = state.bubbleText;
+    bubbleInput.addEventListener("input", () => {
+      state.bubbleText = bubbleInput.value;
+      // A bubble with no text can't render, so typing the first character should turn it on
+      // rather than leaving you staring at an empty preview wondering what's broken.
+      if (state.bubbleText && state.bubble === 0) { state.bubble = 1; syncParamInputs(); }
+      scheduleRender();
+    });
+    bubbleInput.addEventListener("change", () => commitHistory());
+    const picks = row.querySelector(".glyph-picks");
+    for (const txt of BUBBLE_PICKS) {
+      const b = document.createElement("button");
+      b.textContent = txt;
+      b.className = "bubble-pick";
+      b.addEventListener("click", () => {
+        state.bubbleText = txt;
+        bubbleInput.value = txt;
+        if (state.bubble === 0) state.bubble = 1;
+        syncParamInputs(); rerender(); commitHistory();
       });
       picks.appendChild(b);
     }
@@ -837,6 +1012,8 @@ function syncParamInputs() {
 function syncUI() {
   syncParamInputs();
   if (glyphInput) glyphInput.value = state.glyph;
+  if (bubbleInput) bubbleInput.value = state.bubbleText;
+  syncPaletteUI();
   if (window.syncCustomSprite) window.syncCustomSprite();
   if (window.syncRampUI) window.syncRampUI();
   updateImageSpriteUI();

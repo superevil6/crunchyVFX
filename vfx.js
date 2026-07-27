@@ -201,6 +201,10 @@ function simulate(st) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
 
   const ramp = parseRamp(st.ramp);
+  // Ground plane. `bounce` at 0 is the off switch — no collision test runs at all — so this costs
+  // nothing for the 90% of effects that happen in mid-air.
+  const bounceOn = st.bounce > 0;
+  const groundPx = st.groundY * fs;
   const dragK = st.drag * 6;
   const turb = st.turb, turbScale = Math.max(0.01, st.turbScale), turbSpeed = st.turbSpeed;
   const nSteps = nFrames * SUB;
@@ -353,6 +357,15 @@ function simulate(st) {
       vx[g] *= damp; vy[g] *= damp;
       px[g] += vx[g] * dt; py[g] += vy[g] * dt;
       pang[g] += pspin[g] * dt;
+      // Floor: reflect, lose energy, and scrub horizontal speed against the ground. Settling to a
+      // stop matters as much as the bounce — debris that slides forever reads as ice.
+      if (bounceOn && py[g] > groundPx && vy[g] > 0) {
+        py[g] = groundPx;
+        vy[g] = -vy[g] * st.bounce;
+        vx[g] *= 1 - st.friction;
+        pspin[g] *= 1 - st.friction;
+        if (Math.abs(vy[g]) < 8) vy[g] = 0;          // stop micro-bouncing on the last few pixels
+      }
     }
   }
 
@@ -781,6 +794,116 @@ function drawRays(g, x, y, sz, st, hue, a) {
   g.restore();
 }
 
+// ---------- palette lock ----------
+// Pixel artists work INSIDE a palette, not around one. "Make this effect use my 16 colours" turns
+// a generic particle sim into something that drops straight into their game. Stored in the patch
+// as a comma-separated hex list, so it travels in share links and saved effects.
+let palCacheSrc = null, palCacheArr = null;
+function parsePalette(src) {
+  if (!src) return null;
+  if (palCacheSrc === src) return palCacheArr;
+  const out = [];
+  for (const tok of String(src).split(/[,\s]+/)) {
+    const m = /^#?([0-9a-fA-F]{6})$/.exec(tok.trim());
+    if (m) out.push([parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)]);
+  }
+  palCacheSrc = src;
+  palCacheArr = out.length ? out : null;
+  return palCacheArr;
+}
+
+// ---------- speech bubble / emote frame ----------
+// The odd one out in this tool: a bubble is a stretched box with a tail and text in it, not a
+// particle. So it's a LAYER — drawn once per frame from `t`, with no simulation behind it.
+//
+// It's drawn after the glow (a bright box blooming into a haze looks like a mistake) but before
+// pixelate/posterize/outline, so it still takes on the art style rather than sitting on top of it
+// looking like a different program.
+function roundRectPath(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.lineTo(x + w - r, y); g.quadraticCurveTo(x + w, y, x + w, y + r);
+  g.lineTo(x + w, y + h - r); g.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  g.lineTo(x + r, y + h); g.quadraticCurveTo(x, y + h, x, y + h - r);
+  g.lineTo(x, y + r); g.quadraticCurveTo(x, y, x + r, y);
+  g.closePath();
+}
+function drawBubble(g, st, t, out) {
+  if (st.bubble <= 0 || !st.bubbleText) return;
+  const u = t / st.bubbleLife;
+  if (u < 0 || u >= 1) return;
+
+  // Pop in with an over-shoot (easeOutBack), hold, then fade. The overshoot is what makes it feel
+  // like a comic panel rather than a fading rectangle.
+  const inT = 0.2, outT = 0.25;
+  let scale = 1, alpha = 1;
+  if (u < inT) {
+    const k = u / inT, c1 = 1.70158 * st.bubblePop, c3 = c1 + 1;
+    scale = 1 + c3 * Math.pow(k - 1, 3) + c1 * Math.pow(k - 1, 2);
+    alpha = Math.min(1, k * 2.5);
+  } else if (u > 1 - outT) {
+    alpha = (1 - u) / outT;
+  }
+  scale = Math.max(0.01, scale);
+  alpha = clamp01(alpha) * st.bubble;
+
+  const lines = String(st.bubbleText).split("|").map((s) => s.trim()).filter(Boolean);
+  if (!lines.length) return;
+  const fontPx = Math.max(6, out * st.bubbleSize * 0.19);
+  g.save();
+  g.globalCompositeOperation = "source-over";   // never additive — a bubble is opaque UI, not light
+  g.globalAlpha = alpha;
+  g.font = "600 " + fontPx.toFixed(1) + 'px system-ui, "Segoe UI", sans-serif';
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+
+  let textW = 0;
+  for (const ln of lines) textW = Math.max(textW, g.measureText(ln).width);
+  const padX = fontPx * 0.7, padY = fontPx * 0.45;
+  const boxW = textW + padX * 2, boxH = lines.length * fontPx * 1.2 + padY * 2;
+  const cx = out / 2, cy = st.bubbleY * out;
+
+  g.translate(cx, cy);
+  g.scale(scale, scale);
+
+  const fill = hsl(st.hue, st.sat * 0.12, clamp01(0.95 * st.bright));
+  const ink = hsl(st.hue, st.sat * 0.45, 0.15);
+  const x = -boxW / 2, y = -boxH / 2;
+  roundRectPath(g, x, y, boxW, boxH, boxH * 0.5 * st.bubbleRound);
+  g.fillStyle = fill;
+  g.fill();
+  if (st.bubbleTail > 0) {                       // a tail below, pointing at whoever is speaking
+    const tw = boxH * 0.32 * st.bubbleTail, th = boxH * 0.45 * st.bubbleTail;
+    g.beginPath();
+    g.moveTo(-tw / 2, y + boxH - 1);
+    g.lineTo(tw / 2, y + boxH - 1);
+    g.lineTo(-tw * 0.1, y + boxH + th);
+    g.closePath();
+    g.fill();
+  }
+  if (st.bubbleOutline > 0) {
+    g.lineWidth = st.bubbleOutline;
+    g.strokeStyle = ink;
+    g.lineJoin = "round";
+    roundRectPath(g, x, y, boxW, boxH, boxH * 0.5 * st.bubbleRound);
+    g.stroke();
+    if (st.bubbleTail > 0) {
+      const tw = boxH * 0.32 * st.bubbleTail, th = boxH * 0.45 * st.bubbleTail;
+      g.beginPath();
+      g.moveTo(-tw / 2, y + boxH - 1);
+      g.lineTo(-tw * 0.1, y + boxH + th);
+      g.lineTo(tw / 2, y + boxH - 1);
+      g.stroke();
+    }
+  }
+  g.fillStyle = ink;
+  lines.forEach((ln, i) => {
+    g.fillText(ln, 0, y + padY + fontPx * 0.6 + i * fontPx * 1.2);
+  });
+  g.restore();
+}
+
 // ---------- post-processing ----------
 // All of it hand-rolled over ImageData. Deliberately NOT ctx.filter: blur via ctx.filter is
 // unreliable in the Tauri WebKitGTK webview, and offline rendering means cost is irrelevant.
@@ -820,7 +943,7 @@ function blurPass(src, dst, w, h, r, horiz) {
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 // The finishing chain, in the order the params read top-to-bottom in the Crunch panel.
-function postProcess(cv, st) {
+function postProcess(cv, st, overlay) {
   const w = cv.width, h = cv.height, g = cv.getContext("2d");
 
   if (st.glow > 0) {
@@ -842,6 +965,10 @@ function postProcess(cv, st) {
     g.putImageData(img, 0, 0);
   }
 
+  // The overlay (speech bubble) lands here: past the glow so it isn't bloomed, ahead of the
+  // pixel-art stages so it gets crunched with everything else.
+  if (overlay) overlay(g);
+
   if (st.pixelate > 1) {   // nearest-neighbour down + up
     const p = Math.round(st.pixelate);
     const sw = Math.max(1, Math.round(w / p)), sh = Math.max(1, Math.round(h / p));
@@ -856,7 +983,8 @@ function postProcess(cv, st) {
     g.imageSmoothingEnabled = true;
   }
 
-  const needsPixelPass = st.alphaCut > 0 || st.posterize < 32 || st.outline > 0;
+  const pal = parsePalette(st.paletteLock);
+  const needsPixelPass = st.alphaCut > 0 || st.posterize < 32 || st.outline > 0 || pal;
   if (!needsPixelPass) return cv;
 
   const img = g.getImageData(0, 0, w, h), d = img.data;
@@ -864,8 +992,45 @@ function postProcess(cv, st) {
     const cut = st.alphaCut * 255;
     for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= cut ? 255 : 0;
   }
-  if (st.posterize < 32) {         // the bitcrush analog
-    const lv = Math.max(2, Math.round(st.posterize)), q = 255 / (lv - 1);
+  if (pal) {
+    // Snap every visible pixel to its nearest palette entry. A 15-bit cache makes this "one search
+    // per distinct colour" instead of per pixel. Dither biases the colour BEFORE the lookup, which
+    // keeps the cache valid — a biased colour is just another colour.
+    //
+    // KNOWN LIMIT: exact only where alpha is 255. Canvas stores colour premultiplied, so writing
+    // an on-palette RGB at alpha 8 and reading it back returns something up to ~60/255 away — the
+    // precision simply isn't there at low alpha. Soft edges therefore land between palette
+    // colours. Raising `alphaCut` removes partial alpha entirely and the palette becomes exact,
+    // which is what a pixel-art workflow wants anyway; the UI says so.
+    const cache = new Int16Array(32768).fill(-1);
+    const n = pal.length, dith = st.dither;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] === 0) continue;
+      let r = d[i], g2 = d[i + 1], b = d[i + 2];
+      if (dith > 0) {
+        const p = (i >> 2), bx = p % w, by = (p / w) | 0;
+        const bias = (BAYER4[(by & 3) * 4 + (bx & 3)] / 16 - 0.5) * 40 * dith;
+        r = Math.max(0, Math.min(255, r + bias));
+        g2 = Math.max(0, Math.min(255, g2 + bias));
+        b = Math.max(0, Math.min(255, b + bias));
+      }
+      const key = ((r >> 3) << 10) | ((g2 >> 3) << 5) | (b >> 3);
+      let idx = cache[key];
+      if (idx < 0) {
+        let bd = Infinity, bi = 0;
+        for (let c = 0; c < n; c++) {
+          const pc = pal[c];
+          const dr = r - pc[0], dg = g2 - pc[1], db = b - pc[2];
+          const dist = dr * dr * 2 + dg * dg * 4 + db * db;
+          if (dist < bd) { bd = dist; bi = c; }
+        }
+        idx = bi; cache[key] = idx;
+      }
+      const pc = pal[idx];
+      d[i] = pc[0]; d[i + 1] = pc[1]; d[i + 2] = pc[2];
+    }
+  } else if (st.posterize < 32) {   // the bitcrush analog — skipped entirely when a palette is set,
+    const lv = Math.max(2, Math.round(st.posterize)), q = 255 / (lv - 1);   // since both quantize colour
     const dith = st.dither;
     for (let i = 0; i < d.length; i += 4) {
       const p = (i >> 2), bx = p % w, by = (p / w) | 0;
@@ -953,7 +1118,7 @@ function renderFrames(st, opt) {
       echoCv.width = echoCv.height = out;
       echoCv.getContext("2d").drawImage(cv, 0, 0);
     }
-    postProcess(cv, st);
+    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, out));
     canvases[f] = cv;
   }
 

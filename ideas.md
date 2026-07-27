@@ -40,9 +40,11 @@ sliders and whatnots:
 - **emote / emoji, "!" above a head** ✅ **glyph** shape — renders any character or emoji as the
   particle, with a text box and quick picks (★ ♥ ✦ ! ? 💥 🔥 ❄ ⚡ …). `glyphTint` at 0 keeps an
   emoji's own colours; at 1 it tints like any other particle. → Emote Pop, Emoji Burst.
-- **text bubble** ❌ not yet, and it's the odd one out: a bubble is a *stretched box with a tail*,
-  not a particle — it needs a 9-slice primitive and a text layout pass. Doable, but it's a
-  different kind of object than everything else in the tool. Worth talking about.
+- **text bubble** ✅ **done** — and it stayed the odd one out: it's a **layer**, drawn once per
+  frame from `t` with no simulation behind it. Rounded box, tail, easeOutBack pop-in, `|` for a
+  line break, quick picks (!, ?, CRIT!, +10, z z z). Drawn *after* the glow so it isn't bloomed
+  into a haze, but *before* pixelate/posterize/outline so it takes on the art style instead of
+  sitting on top looking like a different program.
 - **hue** ✅ Hue, Hue shift, Hue var + **18** palette buttons
 - **pixel thickness** ✅ Pixelate (block size) and Outline (edge width)
 - **macro sliders (CrunchySFX-style)** ✅ **done** — six: Violence, Softness, Chunkiness, Weight,
@@ -81,6 +83,12 @@ sliders and whatnots:
   `audiblePatch()`. A wide mutation trivially produces `opacity: 0` or a 2px particle — valid and
   completely invisible. `visibleGenome()` renders candidates at 40px, counts lit pixels and
   retries, which took the foundry from ~3 of 8 dead cells to ~1.
+- **A locked palette is exact only where alpha is 255.** Canvas stores colour premultiplied, so
+  writing an on-palette RGB at alpha 8 and reading it back returns something up to ~60/255 away —
+  the precision isn't there at low alpha. Opaque pixels: exactly N colours. Soft edges: hundreds.
+  This looked like a broken snap for a while; it isn't, and `alphaCut` removes it entirely. The
+  palette panel now says so rather than quietly shipping a "16-colour" sprite with 200 colours in
+  its edges.
 - **Children are born hot.** A sub-emitter's children reset to `u = 0`, so `coreWhite` flashes them
   white at birth. It reads well for fireworks and embers but it does make children look
   disconnected from their parents when that isn't wanted — turn `Hot core` down. If it proves
@@ -178,9 +186,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - **Console styles** — S [port]. The `CONSOLES` pattern: NES / GB / GBA / PS1 / Modern buttons
   that clamp resolution, framerate, palette size and dither in one click. This is the crunchy
   brand in a button, and it's just a patch per style.
-- **Import a palette** (.hex / .gpl / Lospec) and quantize to it — M. Pixel artists work *inside*
-  a fixed palette; "make this effect use my 16 colours" is a genuine unlock and the posterize
-  machinery is already there.
+- ~~**Import a palette**~~ ✅ **done** — Lospec `.hex`, GIMP/Aseprite `.gpl`, paint.net `.txt`, or
+  pasted hex. Five built-ins (Sweetie 16, PICO-8, Game Boy, CGA, Grayscale 8) and **⚗ Take 8/16**
+  to pull a palette out of the effect itself via the GIF encoder's median-cut. Posterize is
+  bypassed while a palette is locked — both quantise colour, running both is meaningless.
 - ~~**Foundry**~~ ✅ **done** — 6 archetypes (Explosion / Impact / Magic / Smoke / Pickup /
   Weather) × 4 art styles (Anything / NES / GBA / Modern). Generates 8 candidates; ✎ loads one,
   ★ keeps it in My Effects.
@@ -199,7 +208,9 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - **Curl noise** — S. Divergence-free turbulence looks dramatically more like fluid than the
   current value-noise force. Cheap swap in the same slot.
 - **Attractors / repulsors** — S. Implosions, vortex pulls, magic gathering inward.
-- **Ground collision + bounce** — M. Deferred once already; the first param implying a *scene*.
+- ~~**Ground collision + bounce**~~ ✅ **done** — `bounce` at 0 is the off switch, so no collision
+  test runs for the mid-air majority. Friction scrubs horizontal speed *and* spin on contact, and
+  a small velocity floor stops the micro-bouncing that otherwise buzzes forever on the last pixel.
 - **Frost/crystal growth primitive** — M. Covers Alex's "ice": a shape that extends outward from a
   seed instead of travelling. Also gives cracks, vines, web, lightning-on-glass.
 
