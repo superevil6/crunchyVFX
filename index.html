@@ -208,6 +208,14 @@ const PARAMS = [
   // Start rotation. angleVar defaults to 1 = fully random, which is exactly what every particle
   // did before these existed — so no preset changes. Drop it to 0 and every particle points the
   // same way, which is what a slash, an arrow or a directional glyph needs.
+  // Curl turbulence: blends the plain noise force toward a divergence-free curl field. 0 = the
+  // old behaviour exactly, so no preset moves.
+  ["turbCurl",   "Curl",        0, 1, 0.01, 0, "",     "Motion"],
+  // Point attractor/repulsor — arbitrary point, unlike `radial` which works from the emitter.
+  ["attract",    "Attract",  -900, 900, 5, 0, "px/s²", "Attractor"],
+  ["attractX",   "Point X",     0, 1, 0.01, 0.5, "",   "Attractor"],
+  ["attractY",   "Point Y",     0, 1, 0.01, 0.5, "",   "Attractor"],
+  ["attractFalloff", "Falloff", 0, 1, 0.01, 0.5, "",   "Attractor"],
   ["angle",      "Angle",       0, 360, 1, 0, "°",     "Motion"],
   ["angleVar",   "Angle var",   0, 1, 0.01, 1, "",     "Motion"],
   // Life & size — the envelope analog
@@ -294,6 +302,37 @@ const PARAMS = [
   ["bubbleRound","Roundness",   0, 1, 0.01, 0.5, "",   "Bubble"],
   ["bubbleOutline","Outline",   0, 4, 0.5, 2, "px",    "Bubble"],
   ["bubbleY",    "Height",      0, 1, 0.01, 0.3, "",   "Bubble"],
+  // ---- Structure layers: not particles, but shapes with their own generators. All default 0. ----
+  // Growth — a branching structure revealed outward over time. Frost, cracks, vines, circuitry.
+  ["growth",     "Growth",      0, 1, 0.01, 0, "",     "Growth"],
+  ["growSeeds",  "Seeds",       1, 8, 1, 3, "",        "Growth"],
+  ["growBranch", "Branching",   0, 1, 0.01, 0.5, "",   "Growth"],
+  ["growAngle",  "Branch angle",0, 90, 1, 28, "°",     "Growth"],
+  ["growLen",    "Reach",       0.05, 0.6, 0.01, 0.28, "","Growth"],
+  ["growWidth",  "Thickness",   0.5, 8, 0.1, 2, "px",  "Growth"],
+  ["growTaper",  "Taper",       0, 1, 0.01, 0.35, "",  "Growth"],
+  ["growTime",   "Grow over",   0.05, 1, 0.01, 0.6, "","Growth"],
+  ["growDir",    "Direction",   0, 360, 1, 0, "°",     "Growth"],
+  ["growSpread", "Spread",      0, 360, 1, 360, "°",   "Growth"],
+  // Beam — anchored at the origin, extending outward. Lasers, bolts, breath weapons.
+  ["beam",       "Beam",        0, 1, 0.01, 0, "",     "Beam"],
+  ["beamLen",    "Length",      0.1, 1.5, 0.01, 0.8, "","Beam"],
+  ["beamWidth",  "Width",       1, 40, 0.5, 8, "px",   "Beam"],
+  ["beamAngle",  "Angle",       0, 360, 1, 0, "°",     "Beam"],
+  ["beamTaper",  "Taper",       0, 1, 0.01, 0.3, "",   "Beam"],
+  ["beamCore",   "Hot core",    0, 1, 0.01, 0.7, "",   "Beam"],
+  ["beamScroll", "Scroll",      0, 8, 0.1, 2, "",      "Beam"],
+  ["beamGrow",   "Extend over", 0, 1, 0.01, 0.25, "",  "Beam"],
+  ["beamFlicker","Flicker",     0, 1, 0.01, 0.3, "",   "Beam"],
+  // Ribbon — one connected strip along an arc. Slashes, comet tails, whips.
+  ["ribbon",     "Ribbon",      0, 1, 0.01, 0, "",     "Ribbon"],
+  ["ribbonArc",  "Arc",         0, 1, 0.01, 0.4, "",   "Ribbon"],
+  ["ribbonRadius","Radius",     0.05, 0.6, 0.01, 0.3, "","Ribbon"],
+  ["ribbonWidth","Width",       1, 40, 0.5, 12, "px",  "Ribbon"],
+  ["ribbonTaper","Taper",       0.1, 3, 0.05, 0.8, "", "Ribbon"],
+  ["ribbonSpin", "Start angle", 0, 360, 1, 0, "°",     "Ribbon"],
+  ["ribbonSweep","Sweep over",  0.05, 1, 0.01, 0.5, "","Ribbon"],
+  ["ribbonTrail","Trail",       0.02, 1, 0.01, 0.6, "","Ribbon"],
   // Ground plane — bounce at 0 is off, so no collision test runs for mid-air effects.
   ["bounce",     "Bounce",      0, 1, 0.01, 0, "",     "Ground"],
   ["groundY",    "Ground line", 0, 1, 0.01, 0.9, "",   "Ground"],
@@ -960,11 +999,12 @@ const RAMP_PRESETS = {
   Rainbow: [[0, 0, 1, 0.6, 1], [0.25, 90, 1, 0.6, 1], [0.5, 180, 1, 0.6, 1], [0.75, 270, 1, 0.6, 1], [1, 359, 1, 0.6, 0.7]],
 };
 const rampToString = () => rampStops.map((s) =>
-  [+s.p.toFixed(3), Math.round(s.h), +s.s.toFixed(3), +s.l.toFixed(3), +s.a.toFixed(3)].join(",")).join("|");
+  [+s.p.toFixed(3), Math.round(s.h), +s.s.toFixed(3), +s.l.toFixed(3), +s.a.toFixed(3),
+   +(s.z === undefined ? 1 : s.z).toFixed(3)].join(",")).join("|");
 function rampFromString(str) {
   const st = (str || "").split("|").map((s) => {
     const n = s.split(",").map(Number);
-    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4] };
+    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4], z: Number.isFinite(n[5]) ? n[5] : 1 };
   }).filter((s) => Number.isFinite(s.p) && Number.isFinite(s.h));
   return st.sort((a, b) => a.p - b.p);
 }
@@ -973,9 +1013,9 @@ function rampFromClassic() {
   const h0 = state.hue, h1 = state.hue + state.hueLife;
   const w = state.coreWhite;
   return [
-    { p: 0, h: h0, s: state.sat * (1 - w * 0.85), l: clamp01(state.bright * (0.5 + 0.5 * w)), a: 1 },
-    { p: 0.5, h: (h0 + h1) / 2, s: state.sat, l: clamp01(state.bright * 0.55), a: 1 },
-    { p: 1, h: h1, s: state.sat, l: clamp01(state.bright * 0.35), a: 1 },
+    { p: 0, h: h0, s: state.sat * (1 - w * 0.85), l: clamp01(state.bright * (0.5 + 0.5 * w)), a: 1, z: 1 },
+    { p: 0.5, h: (h0 + h1) / 2, s: state.sat, l: clamp01(state.bright * 0.55), a: 1, z: 1 },
+    { p: 1, h: h1, s: state.sat, l: clamp01(state.bright * 0.35), a: 1, z: 1 },
   ];
 }
 {
@@ -993,6 +1033,7 @@ function rampFromClassic() {
         '<div class="ramp-ctl"><span>Sat</span><input type="range" id="rS" min="0" max="1" step="0.01"><span class="hint" id="rSV"></span></div>' +
         '<div class="ramp-ctl"><span>Light</span><input type="range" id="rL" min="0" max="1" step="0.01"><span class="hint" id="rLV"></span></div>' +
         '<div class="ramp-ctl"><span>Alpha</span><input type="range" id="rA" min="0" max="1" step="0.01"><span class="hint" id="rAV"></span></div>' +
+        '<div class="ramp-ctl"><span>Size</span><input type="range" id="rZ" min="0" max="3" step="0.01"><span class="hint" id="rZV"></span></div>' +
         '<div class="ramp-btns"><button id="rampDel">✕ Delete stop</button>' +
           '<span class="ramp-presets" id="rampPresets"></span></div>' +
       '</div>';
@@ -1000,8 +1041,10 @@ function rampFromClassic() {
     rampCanvas = box.querySelector("#rampCanvas");
     const rampBody = box.querySelector("#rampBody");
     const toggle = box.querySelector("#rampToggle");
-    rampCtl = { h: box.querySelector("#rH"), s: box.querySelector("#rS"), l: box.querySelector("#rL"), a: box.querySelector("#rA"),
-                hv: box.querySelector("#rHV"), sv: box.querySelector("#rSV"), lv: box.querySelector("#rLV"), av: box.querySelector("#rAV") };
+    rampCtl = { h: box.querySelector("#rH"), s: box.querySelector("#rS"), l: box.querySelector("#rL"),
+                a: box.querySelector("#rA"), z: box.querySelector("#rZ"),
+                hv: box.querySelector("#rHV"), sv: box.querySelector("#rSV"), lv: box.querySelector("#rLV"),
+                av: box.querySelector("#rAV"), zv: box.querySelector("#rZV") };
 
     function drawRamp() {
       const g = rampCanvas.getContext("2d");
@@ -1019,6 +1062,19 @@ function rampFromClassic() {
             Math.round(clamp01(c.l) * 100) + "%," + clamp01(c.a) + ")";
           g.fillRect(x, 0, 1, hgt);
         }
+      }
+      // Size curve drawn over the gradient — a number in a slider tells you nothing about shape.
+      if (rampStops.some((s) => (s.z === undefined ? 1 : s.z) !== 1)) {
+        const stops = rampFromString(rampToString());
+        g.strokeStyle = "rgba(255,255,255,0.75)";
+        g.lineWidth = 1.5;
+        g.beginPath();
+        for (let x = 0; x < w; x++) {
+          const z = sampleRamp(stops, x / (w - 1)).z;
+          const y = hgt - 4 - clamp01(z / 3) * (hgt - 10);
+          if (x) g.lineTo(x, y); else g.moveTo(x, y);
+        }
+        g.stroke();
       }
       rampStops.forEach((s, i) => {
         const x = Math.round(s.p * (w - 1));
@@ -1039,13 +1095,16 @@ function rampFromClassic() {
     function syncRampCtl() {
       const s = rampStops[rampSel];
       if (!s) return;
-      rampCtl.h.value = s.h; rampCtl.s.value = s.s; rampCtl.l.value = s.l; rampCtl.a.value = s.a;
+      if (s.z === undefined) s.z = 1;
+      rampCtl.h.value = s.h; rampCtl.s.value = s.s; rampCtl.l.value = s.l;
+      rampCtl.a.value = s.a; rampCtl.z.value = s.z;
       rampCtl.hv.textContent = Math.round(s.h) + "°";
       rampCtl.sv.textContent = s.s.toFixed(2);
       rampCtl.lv.textContent = s.l.toFixed(2);
       rampCtl.av.textContent = s.a.toFixed(2);
+      rampCtl.zv.textContent = s.z.toFixed(2) + "×";
     }
-    for (const [k, prop] of [["h", "h"], ["s", "s"], ["l", "l"], ["a", "a"]]) {
+    for (const [k, prop] of [["h", "h"], ["s", "s"], ["l", "l"], ["a", "a"], ["z", "z"]]) {
       rampCtl[k].addEventListener("input", () => {
         const s = rampStops[rampSel];
         if (!s) return;
@@ -1066,7 +1125,7 @@ function rampFromClassic() {
       rampStops.forEach((s, i) => { const d = Math.abs(s.p - p); if (d < best) { best = d; hit = i; } });
       if (hit < 0) {                                   // clicked empty space → add a stop there
         const c = sampleRamp(rampFromString(rampToString()), p);
-        rampStops.push({ p, h: c.h, s: c.s, l: c.l, a: c.a });
+        rampStops.push({ p, h: c.h, s: c.s, l: c.l, a: c.a, z: c.z === undefined ? 1 : c.z });
         rampStops.sort((a, b) => a.p - b.p);
         hit = rampStops.findIndex((s) => s.p === p);
       }
@@ -2095,6 +2154,31 @@ function buildSheet(opts) {
   return { cv, cols, rows, n, w, h, trim, pivot, srcW, srcH, frames };
 }
 
+// ---------- Emissive mask ----------
+// A lit 2D game can't use a baked-in bloom: the engine wants to apply its own, which means it
+// needs to know WHICH pixels emit. This is that channel as a second sheet — the same >threshold
+// mask the glow pass already computes, exported un-blurred so the engine blurs it itself.
+//
+// Alpha is preserved from the source so the mask lines up pixel-for-pixel with the colour sheet;
+// non-emissive pixels go black rather than transparent, because most shaders multiply by this and
+// black is "no contribution" while transparent is ambiguous.
+function emissiveFrames(frames, st) {
+  const thr = st.glowThresh * 255;
+  return frames.map((src) => {
+    const out = document.createElement("canvas");
+    out.width = src.width; out.height = src.height;
+    const g = out.getContext("2d");
+    const img = src.getContext("2d").getImageData(0, 0, src.width, src.height);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = (d[i] * 0.3 + d[i + 1] * 0.6 + d[i + 2] * 0.1) * (d[i + 3] / 255);
+      if (lum < thr) { d[i] = d[i + 1] = d[i + 2] = 0; }
+    }
+    g.putImageData(img, 0, 0);
+    return out;
+  });
+}
+
 // ---------- Engine sidecars ----------
 // Only formats whose shape I can state with confidence. Godot and Unity want editor-version-
 // specific resource files that I can't verify without the editor, so they're deliberately absent
@@ -2167,6 +2251,7 @@ expModal.innerHTML =
       '<div class="exp-row"><span>Sizes</span><span class="exp-scales" id="expScales"></span></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
       '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
+      '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expEmis" title="A second sheet holding only the pixels that emit light, for engines that apply their own bloom"> Also export an emissive mask</label></div>' +
       '<div class="exp-note" id="expNote"></div>' +
     '</div>' +
     '<div class="modal-foot">' +
@@ -2184,6 +2269,7 @@ const expFormat = expModal.querySelector("#expFormat");
 const expLayout = expModal.querySelector("#expLayout");
 const expMetaSel = expModal.querySelector("#expMeta");
 const expTrim = expModal.querySelector("#expTrim");
+const expEmis = expModal.querySelector("#expEmis");
 const expPot = expModal.querySelector("#expPot");
 const expMsg = expModal.querySelector("#expMsg");
 const expNote = expModal.querySelector("#expNote");
@@ -2218,9 +2304,14 @@ function refreshExpInfo() {
     bits.push("One PNG per frame, zipped — full alpha, the friendliest thing to hand Aseprite.");
   }
   if (scales.length > 1) bits.push("Exporting " + scales.length + " sizes (" + scales.join("×, ") + "×) as one .zip.");
+  if (expEmis.checked) {
+    bits.push(state.glow > 0
+      ? "Plus an <b>_emissive</b> sheet: only the pixels above Glow thresh, un-blurred, for your engine to bloom itself."
+      : "Plus an <b>_emissive</b> sheet — but Glow is off, so the threshold is all this patch has to go on. Raise Glow thresh to choose what counts as emitting.");
+  }
   expNote.innerHTML = bits.map((b) => "<p>" + b + "</p>").join("");
 }
-for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot]) el.addEventListener("change", refreshExpInfo);
+for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot, expEmis]) el.addEventListener("change", refreshExpInfo);
 document.getElementById("expOpen").addEventListener("click", () => {
   if (!rendered) return;
   expMsg.textContent = "";
@@ -2248,6 +2339,13 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
         if (expMetaSel.value !== "none") {
           files.push({ name: base + suffix + ".json",
             data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
+        }
+        if (expEmis.checked) {
+          // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
+          // doesn't line up with its colour sheet is worse than no mask.
+          const em = buildSheet({ frames: emissiveFrames(sh.frames, state), layout: expLayout.value, pot: expPot.checked });
+          const eb = await canvasBlob(em.cv);
+          files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
         }
       } else if (fmt === "apng") {
         let out = frames;

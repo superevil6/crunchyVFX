@@ -21,6 +21,7 @@ sliders and whatnots:
 
 - import a sprite sheet so the user can overlay the effect in browser, and then combine the two layer and export them as a single sprite sheet.
 
+- Similar to CrunchySFX, let's hid irrelevant control panels. If possible.
 
 
 ### Status of the above — C
@@ -37,10 +38,33 @@ bubble — which has since been edited out above but is all built.)*
   **The transport was rebuilt for this**, as predicted: frame position now comes from elapsed time
   rather than a per-tick counter, and one restart drives picture and sound together. Without that
   the two drift apart over a loop.
-  **Route (b) — synthesising the sound from the pasted link — is still open**, and still the thing
-  that would make the two apps feel like one product. It needs CrunchySFX's `dsp.js` *and* its
-  ~550-line `render()`, hand-synced. Worth doing once the shared `core.js` split happens; not worth
-  a one-off copy before then.
+  **Route (b) — synthesising the sound from the pasted link — is AGREED WORTH DOING, on hold.**
+  (Alex, 2026-07-26.) Notes so it doesn't need re-deriving:
+
+  - Linking `dsp.js` live from the sibling repo doesn't work. `<script src="../crunchyfx/dsp.js">`
+    runs locally but is unshippable (Cloudflare deploy, Tauri bundle, anyone else's checkout);
+    fetching it from crunchysfx.com needs network and breaks `file://`. More to the point, **it
+    wouldn't help**: `dsp.js` is only the engines. The part that turns a patch into audio is
+    `render()`, which lives inside CrunchySFX's `index.html` — **546 lines, reading `state.` 133
+    times**, plus four module-level globals (`sampleBuf`, `customIR`, `customTable`,
+    `normalizeOut`). A live `dsp.js` would still leave the hard part to hand-copy.
+  - "Always up to date" is also the wrong target: if VFX tracked SFX's latest automatically, a
+    change over there could silently break audio here with no signal. Pinned + a drift warning is
+    better — you find out when you look, not when a user does.
+
+  **Plan when it's picked up:**
+  1. *In the CrunchySFX repo:* extract `render()` from `index.html` into `synth.js`, taking a patch
+     object instead of the global `state`. Worth doing for SFX on its own — it makes the DSP core
+     testable and matches the "pure functions, no app state" discipline `dsp.js` already follows.
+     Verify it there, with SFX's own harness.
+  2. *Then here:* vendor `dsp.js` + `synth.js` with a sync script that stamps the source commit and
+     a checksum, plus a regression assertion that fails when they drift. Two files with a tripwire,
+     rather than 1300 hand-copied lines and hope.
+
+  Cost/benefit, plainly: route (a) already works — export a WAV from CrunchySFX, load it here.
+  Route (b) removes two clicks and makes "paste a link, hear and see it" a demo you can show. That
+  demo is the bundle pitch, which is why it's worth a 546-line port; it isn't worth starting before
+  step 1 exists.
 - **resize the preview to the available width** ✅ **done** — an **Auto** zoom (now the default)
   that picks the largest whole-number multiple fitting the column and re-picks on window resize.
   Whole numbers only, as argued: a fractional zoom resamples pixel art into mush and would quietly
@@ -183,8 +207,12 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**Multi-resolution export**~~ ✅ **done** — 1×/2×/3×/4× checkboxes, zipped together. Exactly
   as cheap as predicted: re-rasterises the same sim, so every size is the same effect rather than
   a similar one.
-- **Emissive / glow mask as a second sheet** — M. Lit 2D games want the bloom channel separately
-  instead of baked in. We already compute the >threshold mask inside the glow pass.
+- ~~**Emissive / glow mask**~~ ✅ **done** — a checkbox in the export dialog writes a second
+  `_emissive` sheet: the same >threshold pixels the glow pass already finds, exported **un-blurred**
+  so the engine applies its own bloom. Built from the already-trimmed frames so the two sheets are
+  pixel-aligned — a mask that doesn't line up with its colour sheet is worse than no mask — and
+  non-emitting pixels go **black rather than transparent**, since most shaders multiply by this and
+  black means "no contribution" where transparent is ambiguous.
 - **Normal map from the sprite** — L, speculative, but a genuine differentiator: nobody generates
   normals for VFX sprites. Probably only meaningful for smoke/debris, not additive fire.
 - **Drag-out to Aseprite / the engine** — S [port]. The tauri-plugin-drag path already works for
@@ -203,8 +231,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   Opt-in: an empty ramp runs the classic hue/hueLife/coreWhite path, so nothing existing moved.
   Hue interpolates the *short* way round the wheel — otherwise every red→magenta ramp becomes a
   rainbow.
-- **Curve editor for SIZE over life** — M. Alpha is now a ramp channel, so this is the remaining
-  half: `grow` is still a single linear number where a curve belongs. Same panel as the ramp.
+- ~~**Size over life**~~ ✅ **done** — a sixth channel on the ramp stops, drawn as a curve over the
+  gradient so the shape is readable at a glance rather than hiding in a slider. It **multiplies**
+  `grow` rather than replacing it, so turning the ramp on never silently discards a grow value you
+  already set. Five-value ramps (every link and preset written before today) parse as size 1.
 - ~~**Reference underlay**~~ ✅ **done** — see the sprite-sheet entry above; it does double duty as
   the scale reference and the compositing source.
 - ~~**Pixel-grid overlay + safe-frame guides**~~ ✅ **done** — plus onion skin. The grid uses the
@@ -258,9 +288,13 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   `imgLoops` (plays per lifetime) and `stagger` so a hundred sprites don't play in lockstep, which
   reads as one flickering object rather than a hundred separate ones. Strip size is guessed from
   the aspect ratio on load.
-- **Curl noise** — S. Divergence-free turbulence looks dramatically more like fluid than the
-  current value-noise force. Cheap swap in the same slot.
-- **Attractors / repulsors** — S. Implosions, vortex pulls, magic gathering inward.
+- ~~**Curl noise**~~ ✅ **done** — a `Curl` blend on the turbulence force, 0 = the old behaviour
+  exactly. Curl of a scalar noise field is divergence-free, so particles swirl around each other
+  instead of piling into the field's sources and sinks — which is precisely why plain value noise
+  reads as "jittery" and this reads as "fluid".
+- ~~**Attractors / repulsors**~~ ✅ **done** — a point with a force and a falloff. Distinct from
+  `radial`, which always works from the emitter: this is an arbitrary point to fall into or be
+  blown away from. Negative force repels.
 - ~~**Ground collision + bounce**~~ ✅ **done** — `bounce` at 0 is the off switch, so no collision
   test runs for the mid-air majority. Friction scrubs horizontal speed *and* spin on contact, and
   a small velocity floor stops the micro-bouncing that otherwise buzzes forever on the last pixel.
@@ -294,6 +328,11 @@ That list is done. Collision and sub-emitters — which I'd deliberately left *o
 have since been built too; the reasoning still holds, they just stopped being the expensive ones
 once the cheap wins ran out.
 
-**What I'd pick now:** (1) synthesise the matched sound in-app (route b above) — the last piece of
-"one product"; (2) the size-over-life curve, the last single number standing in for a curve;
-(3) the emissive/glow mask sheet, since lit 2D games can't use a baked-in bloom.
+**What I'd pick now:** (1) synthesise the matched sound in-app (route b above) — still the last
+piece of "one product", and now the only large thing left on the list; (2) the Tauri desktop
+wrapper, which is the whole of build-order step 4 and currently untouched; (3) pointer-based
+drag-to-organize for the categories, the last outstanding piece of the ported machinery.
+
+Worth saying out loud: the cheap wins are gone. Everything remaining is either a big port, a
+platform, or speculative (normal maps, frost growth). A good moment to stop adding and start
+sanding — the name red-flag pass, a CLAUDE.md, and a real pass over defaults and preset quality.

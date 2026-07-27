@@ -229,7 +229,10 @@ function simulate(st) {
         const age = t - pbirth[g];
         const u = clamp01(age / plife[g]);
         const o = n * P_STRIDE;
-        const size = Math.max(0.1, psize[g] * (1 + st.grow * u));
+        // `grow` stays the simple linear control; a ramp's size channel multiplies on top, so
+        // turning the ramp on never silently discards the grow value you already set.
+        const rampZ = ramp ? sampleRamp(ramp, u).z : 1;
+        const size = Math.max(0.1, psize[g] * (1 + st.grow * u) * rampZ);
         scratch[o + P_X] = px[g]; scratch[o + P_Y] = py[g];
         scratch[o + P_SIZE] = size;
         scratch[o + P_ANG] = pang[g];
@@ -359,8 +362,31 @@ function simulate(st) {
       }
       if (turb > 0) {
         const nx = px[g] / (fs / turbScale), ny = py[g] / (fs / turbScale), nt = t * turbSpeed;
-        ax += vnoise(seed, nx, ny, nt) * turb * 900;
-        ay += vnoise(seed + 7717, nx, ny, nt) * turb * 900;
+        if (st.turbCurl > 0) {
+          // Curl of a scalar noise field: (∂N/∂y, −∂N/∂x). Divergence-free, so particles swirl
+          // around each other instead of piling into the field's sources and sinks — the reason
+          // plain value noise reads as "jittery" and curl reads as "fluid".
+          const e = 0.35;
+          const dNdy = (vnoise(seed, nx, ny + e, nt) - vnoise(seed, nx, ny - e, nt)) / (2 * e);
+          const dNdx = (vnoise(seed, nx + e, ny, nt) - vnoise(seed, nx - e, ny, nt)) / (2 * e);
+          const k = st.turbCurl;
+          ax += (dNdy * k + vnoise(seed, nx, ny, nt) * (1 - k)) * turb * 900;
+          ay += (-dNdx * k + vnoise(seed + 7717, nx, ny, nt) * (1 - k)) * turb * 900;
+        } else {
+          ax += vnoise(seed, nx, ny, nt) * turb * 900;
+          ay += vnoise(seed + 7717, nx, ny, nt) * turb * 900;
+        }
+      }
+      // Point attractor / repulsor. Unlike `radial`, which always works from the emitter, this is
+      // an arbitrary point — a black hole to fall into, or a wind source to be blown away from.
+      if (st.attract !== 0) {
+        const dx = st.attractX * fs - px[g], dy = st.attractY * fs - py[g];
+        const d = Math.hypot(dx, dy) || 1e-3;
+        // falloff 0 = constant pull at any distance, 1 = inverse-square-ish (only bites up close)
+        const near = fs * 0.5;
+        const fall = 1 / (1 + st.attractFalloff * (d / near) * (d / near) * 8);
+        ax += (dx / d) * st.attract * fall;
+        ay += (dy / d) * st.attract * fall;
       }
       vx[g] += ax * dt; vy[g] += ay * dt;
       const damp = 1 - dragK * dt;
@@ -379,6 +405,16 @@ function simulate(st) {
     }
   }
 
+  // The structure layers aren't in the particle table, so widen the box by their reach —
+  // otherwise Fit scales to the particles alone and crops the beam or the frost clean off.
+  if (st.growth > 0 || st.beam > 0 || st.ribbon > 0) {
+    const reach = Math.max(
+      st.growth > 0 ? st.growLen * fs : 0,
+      st.beam > 0 ? st.beamLen * fs : 0,
+      st.ribbon > 0 ? (st.ribbonRadius * fs + st.ribbonWidth) : 0);
+    bx0 = Math.min(bx0, ox - reach); bx1 = Math.max(bx1, ox + reach);
+    by0 = Math.min(by0, oy - reach); by1 = Math.max(by1, oy + reach);
+  }
   if (!isFinite(bx0)) { bx0 = by0 = 0; bx1 = by1 = fs; }
   return { frames, counts, nFrames, fps, fs, bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 } };
 }
@@ -393,7 +429,8 @@ function parseRamp(src) {
   if (rampCacheSrc === src) return rampCacheStops;
   const stops = src.split("|").map((s) => {
     const n = s.split(",").map(Number);
-    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4] };
+    // 6th value is the size multiplier; ramps written before it existed have five and mean 1.
+    return { p: n[0], h: n[1], s: n[2], l: n[3], a: n[4], z: Number.isFinite(n[5]) ? n[5] : 1 };
   }).filter((s) => Number.isFinite(s.p) && Number.isFinite(s.h)).sort((x, y) => x.p - y.p);
   rampCacheSrc = src;
   rampCacheStops = stops.length ? stops : null;
@@ -412,7 +449,8 @@ function sampleRamp(stops, u) {
     // entire spectrum and every ramp turns into a rainbow.
     let dh = b.h - a.h;
     if (dh > 180) dh -= 360; else if (dh < -180) dh += 360;
-    return { h: a.h + dh * k, s: a.s + (b.s - a.s) * k, l: a.l + (b.l - a.l) * k, a: a.a + (b.a - a.a) * k };
+    return { h: a.h + dh * k, s: a.s + (b.s - a.s) * k, l: a.l + (b.l - a.l) * k,
+             a: a.a + (b.a - a.a) * k, z: a.z + (b.z - a.z) * k };
   }
   return last;
 }
@@ -742,6 +780,15 @@ function drawFrame(sim, f, g, st, xf) {
   g.globalCompositeOperation = st.blend === 1 ? "source-over" : (st.blend === 2 ? "screen" : "lighter");
   const shape = Math.round(st.shape);
   const trail = st.trail;
+  // Structure layers draw first, so sparks and debris land on top of the beam/growth rather than
+  // behind it. They share the blend mode, so an additive patch gets an additive beam.
+  {
+    const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
+    const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
+    drawGrowth(g, st, t, xf, fs, ox, oy, seed);
+    drawBeam(g, st, t, xf, fs, ox, oy, seed);
+    drawRibbon(g, st, t, xf, fs, ox, oy);
+  }
   for (let i = 0; i < n; i++) {
     const o = i * P_STRIDE;
     const a = arr[o + P_ALPHA];
@@ -806,6 +853,171 @@ function drawRays(g, x, y, sz, st, hue, a) {
     g.lineTo(Math.cos(ang) * sz * 0.9, Math.sin(ang) * sz * 0.9);
     g.stroke();
   }
+  g.restore();
+}
+
+// ============================================================================================
+// Structure layers — growth, beam, ribbon.
+//
+// Everything else in this file is INDEPENDENT POINTS THAT TRAVEL. These three aren't: a frost
+// crystal is a structure that persists and extends, a beam is a shape anchored at both ends, a
+// ribbon is one connected strip. None of them can be expressed as particles, which is why they're
+// layers with their own generators (the same conclusion the speech bubble reached).
+//
+// They draw in WORLD space through the same transform as the particles, so Fit / Scale / shake
+// apply — which in turn means simulate() has to widen its bounding box for them, or Fit would
+// measure only the particles and crop the structure.
+// ============================================================================================
+
+// Shared colour for the layers: honours the ramp when there is one, the classic hue/sat/bright
+// path when there isn't, so a ramp'd patch doesn't have two colour systems fighting.
+function layerColour(st, u, whiteBias) {
+  const ramp = parseRamp(st.ramp);
+  if (ramp) {
+    const c = sampleRamp(ramp, clamp01(u));
+    return { css: hsl(c.h, c.s, clamp01(c.l * st.bright)), a: c.a };
+  }
+  const w = clamp01(whiteBias);
+  return {
+    css: hsl(st.hue + st.hueLife * u, st.sat * (1 - w * 0.85), clamp01(st.bright * (0.45 + 0.55 * w))),
+    a: 1,
+  };
+}
+
+// ---------- growth ----------
+// A branching structure generated ONCE from the seed and then revealed outward over time. Doing
+// it that way (rather than growing it frame by frame) keeps it deterministic — reroll still means
+// something — costs nothing per frame, and lets the reveal be smooth: the segment straddling the
+// growth front is drawn partially, so tips creep rather than pop.
+let growthKey = null, growthSegs = null;
+function growthSegments(st, fs, seed) {
+  const key = [seed, st.growSeeds, st.growBranch, st.growAngle, st.growLen, st.growSpread, st.growDir, fs].join(",");
+  if (growthKey === key) return growthSegs;
+  const segs = [];
+  const total = Math.max(4, st.growLen * fs);
+  const step = Math.max(2, total / 14);
+  const spread = st.growSpread * DEG, ang0 = (st.growDir - 90) * DEG;
+  const nSeeds = Math.max(1, Math.round(st.growSeeds));
+  let idx = 0;
+  // Explicit stack rather than recursion: a dense branch pattern nests deeper than is comfortable
+  // and a blown stack in a render loop is a terrible way to find out.
+  const stack = [];
+  for (let i = 0; i < nSeeds; i++) {
+    stack.push({ x: 0, y: 0, ang: ang0 + (rnd(seed, i, 21) - 0.5) * spread, dist: 0, depth: 0 });
+  }
+  while (stack.length && segs.length < 1400) {
+    const n = stack.pop();
+    if (n.dist >= total || n.depth > 6) continue;
+    const wobble = rndS(seed, idx++, 3) * st.growAngle * DEG * 0.45;
+    const a = n.ang + wobble;
+    const nx = n.x + Math.cos(a) * step, ny = n.y + Math.sin(a) * step;
+    segs.push({ x0: n.x, y0: n.y, x1: nx, y1: ny, a: n.dist / total, b: (n.dist + step) / total, depth: n.depth });
+    stack.push({ x: nx, y: ny, ang: a, dist: n.dist + step, depth: n.depth });     // keep growing
+    if (rnd(seed, idx++, 7) < st.growBranch * 0.45 && n.depth < 6) {               // …and split
+      const side = rnd(seed, idx++, 11) < 0.5 ? 1 : -1;
+      stack.push({ x: nx, y: ny, ang: a + side * st.growAngle * DEG, dist: n.dist + step, depth: n.depth + 1 });
+    }
+  }
+  growthKey = key; growthSegs = segs;
+  return segs;
+}
+function drawGrowth(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.growth <= 0) return;
+  const segs = growthSegments(st, fs, seed);
+  const u = clamp01(t / Math.max(0.01, st.duration * st.growTime));
+  const base = Math.max(0.5, st.growWidth);
+  g.save();
+  g.lineCap = "round";
+  for (const s of segs) {
+    if (s.a > u) continue;
+    // Partial draw for the segment the growth front is currently crossing.
+    const k = s.b <= u ? 1 : (u - s.a) / Math.max(1e-6, s.b - s.a);
+    const c = layerColour(st, s.a, 1 - s.a * 0.8);
+    g.globalAlpha = st.growth * c.a;
+    g.strokeStyle = c.css;
+    g.lineWidth = Math.max(0.4, base * Math.pow(1 - st.growTaper, s.depth) * (1 - s.a * st.growTaper * 0.6));
+    g.beginPath();
+    g.moveTo(ox + s.x0 * xf.k, oy + s.y0 * xf.k);
+    g.lineTo(ox + (s.x0 + (s.x1 - s.x0) * k) * xf.k, oy + (s.y0 + (s.y1 - s.y0) * k) * xf.k);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- beam ----------
+// A laser / bolt / breath weapon: anchored at the origin, extending outward. Faking this with a
+// cone of particles has always looked like a cone of particles.
+function drawBeam(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.beam <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const grow = st.beamGrow > 0 ? clamp01(t / Math.max(0.01, st.duration * st.beamGrow)) : 1;
+  const len = st.beamLen * fs * xf.k * grow;
+  if (len < 1) return;
+  const ang = (st.beamAngle - 90) * DEG;
+  const w0 = st.beamWidth * xf.k;
+  const flick = 1 - st.beamFlicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 47 + rnd(seed, 1, 5) * 10));
+  const c = layerColour(st, u, 0.35);
+  const core = layerColour(st, u, 0.95);
+  g.save();
+  g.translate(ox, oy);
+  g.rotate(ang);
+  g.globalAlpha = st.beam * c.a * flick;
+  // The beam is drawn as a strip of quads so its width can breathe along its length — a single
+  // trapezoid reads as a shape, a noise-modulated strip reads as energy.
+  const steps = 24;
+  for (let pass = 0; pass < 2; pass++) {          // pass 0 = outer glow body, pass 1 = hot core
+    const wide = pass === 0 ? 1 : st.beamCore * 0.55;
+    g.fillStyle = pass === 0 ? c.css : core.css;
+    g.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const s = i / steps;
+      const n = st.beamScroll > 0 ? vnoise(seed, s * 6, t * st.beamScroll, 0) * 0.35 : 0;
+      const w = w0 * wide * (1 - st.beamTaper * s) * (1 + n);
+      g.lineTo(s * len, -w / 2);
+    }
+    for (let i = steps; i >= 0; i--) {
+      const s = i / steps;
+      const n = st.beamScroll > 0 ? vnoise(seed + 91, s * 6, t * st.beamScroll, 0) * 0.35 : 0;
+      const w = w0 * wide * (1 - st.beamTaper * s) * (1 + n);
+      g.lineTo(s * len, w / 2);
+    }
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+}
+
+// ---------- ribbon ----------
+// One connected strip following an arc, with a head that sweeps and a tail that follows. The
+// crescent SHAPE approximates this and can't curve along motion; this is the real thing.
+function drawRibbon(g, st, t, xf, fs, ox, oy) {
+  if (st.ribbon <= 0) return;
+  const head = clamp01(t / Math.max(0.01, st.duration * st.ribbonSweep));
+  if (head <= 0) return;
+  const tail = Math.max(0.02, st.ribbonTrail);
+  const from = Math.max(0, head - tail);
+  const arc = st.ribbonArc * Math.PI * 2;
+  const a0 = (st.ribbonSpin - 90) * DEG;
+  const R = st.ribbonRadius * fs * xf.k;
+  const w0 = st.ribbonWidth * xf.k;
+  const c = layerColour(st, head, 0.6);
+  const steps = 40;
+  g.save();
+  g.globalAlpha = st.ribbon * c.a;
+  g.fillStyle = c.css;
+  g.beginPath();
+  const pt = (s, side) => {
+    const ang = a0 + arc * s;
+    // Width tapers toward the tail so the strip reads as motion with a direction, not a worm.
+    const local = (s - from) / Math.max(1e-6, head - from);
+    const w = w0 * (0.15 + 0.85 * Math.pow(local, st.ribbonTaper)) / 2;
+    const r = R + side * w;
+    return [ox + Math.cos(ang) * r, oy + Math.sin(ang) * r];
+  };
+  for (let i = 0; i <= steps; i++) { const p = pt(from + (head - from) * (i / steps), 1); g.lineTo(p[0], p[1]); }
+  for (let i = steps; i >= 0; i--) { const p = pt(from + (head - from) * (i / steps), -1); g.lineTo(p[0], p[1]); }
+  g.closePath();
+  g.fill();
   g.restore();
 }
 

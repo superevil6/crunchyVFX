@@ -145,6 +145,51 @@ window.PRESETS = {
     originY: 0.85, glow: 0.5, duration: 1.8, fps: 24, loopBlend: 0.7,
   },
 
+  // ---------- Structures (growth / beam / ribbon layers, not particles) ----------
+  "Frost Growth": {
+    shape: 0, count: 1, opacity: 0,
+    growth: 1, growSeeds: 5, growBranch: 0.75, growAngle: 34, growLen: 0.42, growWidth: 2.4,
+    growTaper: 0.3, growTime: 0.75,
+    hue: 190, hueLife: 14, sat: 0.45, bright: 1, coreWhite: 0.9,
+    glow: 0.4, glowRadius: 7, duration: 1.3, fps: 24, frameSize: 5,
+  },
+  "Cracks": {
+    shape: 0, count: 1, opacity: 0,
+    growth: 1, growSeeds: 2, growBranch: 0.55, growAngle: 22, growLen: 0.5, growWidth: 2.6,
+    growTaper: 0.5, growTime: 0.45, growDir: 180, growSpread: 60,
+    hue: 26, sat: 0.18, bright: 0.92, coreWhite: 0.2, blend: 1,
+    duration: 1.0, fps: 24, frameSize: 5,
+  },
+  "Laser": {
+    shape: 0, count: 1, opacity: 0,
+    beam: 1, beamLen: 0.95, beamWidth: 14, beamAngle: 90, beamTaper: 0.25, beamCore: 0.8,
+    beamScroll: 3, beamGrow: 0.18, beamFlicker: 0.4,
+    hue: 0, hueLife: 16, sat: 1, bright: 1, coreWhite: 0.9,
+    flash: 0.5, flashSize: 0.22, flashLife: 0.1,
+    glow: 0.6, glowRadius: 9, duration: 0.8, fps: 30, frameSize: 5,
+  },
+  "Magic Bolt": {
+    shape: 0, count: 1, opacity: 0,
+    beam: 1, beamLen: 0.7, beamWidth: 22, beamAngle: 45, beamTaper: 0.7, beamCore: 0.6,
+    beamScroll: 6, beamGrow: 0.35, beamFlicker: 0.8,
+    hue: 280, hueLife: 30, sat: 0.9, bright: 1, coreWhite: 0.8,
+    glow: 0.55, duration: 0.9, fps: 30, frameSize: 5,
+  },
+  "Sword Slash": {
+    shape: 0, count: 1, opacity: 0,
+    ribbon: 1, ribbonArc: 0.42, ribbonRadius: 0.32, ribbonWidth: 20, ribbonTaper: 1.2,
+    ribbonSpin: 200, ribbonSweep: 0.35, ribbonTrail: 0.5,
+    hue: 200, hueLife: 20, sat: 0.22, bright: 1, coreWhite: 0.9,
+    glow: 0.55, duration: 0.6, fps: 30, frameSize: 5,
+  },
+  "Comet Arc": {
+    shape: 0, count: 1, opacity: 0,
+    ribbon: 1, ribbonArc: 0.8, ribbonRadius: 0.34, ribbonWidth: 10, ribbonTaper: 2.2,
+    ribbonSweep: 0.85, ribbonTrail: 0.35,
+    hue: 35, hueLife: -20, sat: 1, bright: 1, coreWhite: 0.6,
+    glow: 0.5, duration: 1.2, fps: 24, frameSize: 5,
+  },
+
   // ---------- More impacts ----------
   "Slash": {
     shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
@@ -295,7 +340,8 @@ window.PRESETS = {
 // [category, [preset names…]] — the collapsible layout of the browser.
 window.PRESET_CATEGORIES = [
   ["Explosions", ["Explosion", "Big Boom", "Shockwave", "Fire Jet", "Ember Rise"]],
-  ["Ice & Frost",["Ice Blast", "Frost Nova"]],
+  ["Ice & Frost",["Ice Blast", "Frost Nova", "Frost Growth"]],
+  ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc"]],
   ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud"]],
   ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle"]],

@@ -336,6 +336,135 @@
     ok(dock.hidden, "turning the dock off hides it");
     dockOn = true;
     delete stageBox.getBoundingClientRect;      // restore the real one
+
+    // ---------------------------------------------------------------- size over lifetime
+    // 5-value stops predate the size channel and must still mean "no size change"
+    const old5 = parseRamp("0,30,1,0.5,1|1,30,1,0.5,1");
+    ok(old5[0].z === 1 && old5[1].z === 1, "a 5-value ramp defaults to size 1 (old links still work)");
+    const withZ = parseRamp("0,30,1,0.5,1,0.2|1,30,1,0.5,1,2");
+    ok(withZ[0].z === 0.2 && withZ[1].z === 2, "a 6-value ramp carries the size channel");
+    ok(Math.abs(sampleRamp(withZ, 0.5).z - 1.1) < 0.01, "size interpolates between stops",
+       sampleRamp(withZ, 0.5).z.toFixed(2));
+    const sizeAt = (rampStr, frame) => {
+      applyPreset({ shape: 0, count: 20, size: 20, speed: 0, life: 1.0, lifeVar: 0, grow: 0,
+                    duration: 1.0, fps: 24, sizeVar: 0, ramp: rampStr }, "z");
+      const sm = simulate(state);
+      return sm.counts[frame] ? sm.frames[frame][P_SIZE] : -1;
+    };
+    const zSmall = sizeAt("0,30,1,0.5,1,0.25|1,30,1,0.5,1,0.25", 3);
+    const zBig = sizeAt("0,30,1,0.5,1,2|1,30,1,0.5,1,2", 3);
+    ok(zBig > zSmall * 3, "the size channel actually scales particles",
+       zSmall.toFixed(1) + "px vs " + zBig.toFixed(1) + "px");
+    // grow must still apply on top rather than being replaced
+    applyPreset({ shape: 0, count: 20, size: 20, speed: 0, life: 1.0, lifeVar: 0, grow: -0.5,
+                  duration: 1.0, fps: 24, sizeVar: 0, ramp: "0,30,1,0.5,1,1|1,30,1,0.5,1,1" }, "g");
+    const gs = simulate(state);
+    ok(gs.frames[1][P_SIZE] > gs.frames[18][P_SIZE], "grow still shrinks over life alongside a ramp",
+       gs.frames[1][P_SIZE].toFixed(1) + " → " + gs.frames[18][P_SIZE].toFixed(1));
+
+    // ---------------------------------------------------------------- curl + attractor
+    const spread = (patch) => {
+      applyPreset(Object.assign({ shape: 0, count: 120, size: 8, speed: 40, drag: 0.2, life: 1.2,
+                                  lifeVar: 0, duration: 1.0, fps: 24, turb: 0.8, turbScale: 2,
+                                  frameSize: 4 }, patch), "m");
+      const sm = simulate(state);
+      const f = sm.nFrames - 2;
+      let sx = 0, sy = 0, n = sm.counts[f];
+      for (let i = 0; i < n; i++) { sx += sm.frames[f][i * P_STRIDE]; sy += sm.frames[f][i * P_STRIDE + 1]; }
+      const cx = sx / n, cy = sy / n;
+      let v = 0;
+      for (let i = 0; i < n; i++) {
+        v += Math.hypot(sm.frames[f][i * P_STRIDE] - cx, sm.frames[f][i * P_STRIDE + 1] - cy);
+      }
+      return { spread: v / n, cx, cy };
+    };
+    const plainTurb = spread({ turbCurl: 0 }), curlTurb = spread({ turbCurl: 1 });
+    ok(Math.abs(plainTurb.spread - curlTurb.spread) > 0.5, "curl produces different motion to plain noise",
+       plainTurb.spread.toFixed(1) + " vs " + curlTurb.spread.toFixed(1));
+    ok(PARAM_BY_KEY.turbCurl[5] === 0, "curl defaults to off (no preset moves)");
+    // an attractor at a corner must actually drag the cloud toward it
+    const free = spread({ turb: 0, attract: 0 });
+    const pulled = spread({ turb: 0, attract: 600, attractX: 0.9, attractY: 0.9, attractFalloff: 0 });
+    ok(pulled.cx > free.cx + 4 && pulled.cy > free.cy + 4, "an attractor pulls the cloud toward its point",
+       "(" + free.cx.toFixed(0) + "," + free.cy.toFixed(0) + ") → (" + pulled.cx.toFixed(0) + "," + pulled.cy.toFixed(0) + ")");
+    const pushed = spread({ turb: 0, attract: -600, attractX: 0.9, attractY: 0.9, attractFalloff: 0 });
+    ok(pushed.cx < free.cx - 2 && pushed.cy < free.cy - 2, "a negative value repels instead",
+       "(" + pushed.cx.toFixed(0) + "," + pushed.cy.toFixed(0) + ")");
+    ok(PARAM_BY_KEY.attract[5] === 0, "the attractor defaults to off");
+
+    // ---------------------------------------------------------------- emissive mask
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    state.glowThresh = 0.5; rerender();
+    const em = emissiveFrames(rendered.canvases, state);
+    ok(em.length === rendered.canvases.length, "one mask frame per source frame");
+    const srcD = rendered.canvases[3].getContext("2d").getImageData(0, 0, rendered.w, rendered.h).data;
+    const emD = em[3].getContext("2d").getImageData(0, 0, rendered.w, rendered.h).data;
+    let alphaSame = true, brightKept = 0, dimZeroed = 0, dimLeaked = 0;
+    for (let i = 0; i < srcD.length; i += 4) {
+      if (srcD[i + 3] !== emD[i + 3]) { alphaSame = false; break; }
+      const lum = (srcD[i] * 0.3 + srcD[i + 1] * 0.6 + srcD[i + 2] * 0.1) * (srcD[i + 3] / 255);
+      if (lum >= 0.5 * 255) { if (emD[i] === srcD[i]) brightKept++; }
+      else if (srcD[i + 3] > 8) { if (emD[i] === 0 && emD[i + 1] === 0 && emD[i + 2] === 0) dimZeroed++; else dimLeaked++; }
+    }
+    ok(alphaSame, "the mask keeps the source alpha (so the two sheets line up)");
+    ok(brightKept > 50, "emitting pixels keep their colour", brightKept + " px");
+    ok(dimZeroed > 50 && dimLeaked === 0, "non-emitting pixels go black, not transparent",
+       dimZeroed + " zeroed, " + dimLeaked + " leaked");
+
+    // ---------------------------------------------------------------- structure layers
+    const layerLit = (patch, frac) => {
+      applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                  frameSize: 4 }, patch), "layer");
+      const r = renderFrames(state, { size: 128 });
+      const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+      return lit(cv);
+    };
+    // growth: nothing at the start, more as it grows, and it must GROW rather than appear
+    const gEarly = layerLit({ growth: 1, growLen: 0.4, growTime: 0.9 }, 0.1);
+    const gLate = layerLit({ growth: 1, growLen: 0.4, growTime: 0.9 }, 0.9);
+    ok(gLate > gEarly * 3, "growth accumulates over time", gEarly + " → " + gLate + " px");
+    ok(layerLit({ growth: 0 }, 0.5) === 0, "growth at 0 draws nothing");
+    // deterministic structure: same seed, same tree
+    applyPreset({ shape: 0, count: 1, opacity: 0, growth: 1, duration: 0.8, seed: 42 }, "g1");
+    const r1 = renderFrames(state, { size: 96 });
+    const r2 = renderFrames(state, { size: 96 });
+    ok(lit(r1.canvases[6]) === lit(r2.canvases[6]), "the same seed grows the same structure");
+    state.seed = 7; const r3 = renderFrames(state, { size: 96 });
+    ok(lit(r3.canvases[6]) !== lit(r1.canvases[6]), "a different seed grows a different one");
+    // more branching = more structure
+    const gPlain = layerLit({ growth: 1, growBranch: 0, growSeeds: 1, growTime: 0.5 }, 0.9);
+    const gBushy = layerLit({ growth: 1, growBranch: 1, growSeeds: 1, growTime: 0.5 }, 0.9);
+    ok(gBushy > gPlain, "branching adds structure", gPlain + " → " + gBushy + " px");
+
+    // beam: extends over time, and its angle actually points somewhere
+    ok(layerLit({ beam: 1, beamGrow: 0.9 }, 0.15) < layerLit({ beam: 1, beamGrow: 0.9 }, 0.95),
+       "the beam extends over time");
+    ok(layerLit({ beam: 0 }, 0.5) === 0, "beam at 0 draws nothing");
+    const beamSide = (deg) => {
+      applyPreset({ shape: 0, count: 1, opacity: 0, beam: 1, beamAngle: deg, beamLen: 0.9,
+                    beamGrow: 0, duration: 0.5, frameSize: 4 }, "b");
+      const r = renderFrames(state, { size: 128 });
+      const d = r.canvases[2].getContext("2d").getImageData(0, 0, 128, 128).data;
+      let sx = 0, n = 0;
+      for (let p = 0; p < 128 * 128; p++) if (d[p * 4 + 3] > 20) { sx += p % 128; n++; }
+      return n ? sx / n : 64;
+    };
+    ok(beamSide(90) > 70 && beamSide(270) < 58, "beam angle aims it (90° right, 270° left)",
+       beamSide(90).toFixed(0) + " vs " + beamSide(270).toFixed(0));
+
+    // ribbon: sweeps, and the trail bounds how much is on screen at once
+    ok(layerLit({ ribbon: 1, ribbonSweep: 0.9 }, 0.1) < layerLit({ ribbon: 1, ribbonSweep: 0.9 }, 0.85),
+       "the ribbon sweeps out over time");
+    ok(layerLit({ ribbon: 0 }, 0.5) === 0, "ribbon at 0 draws nothing");
+    ok(layerLit({ ribbon: 1, ribbonTrail: 1, ribbonSweep: 0.5 }, 0.9) >
+       layerLit({ ribbon: 1, ribbonTrail: 0.1, ribbonSweep: 0.5 }, 0.9), "a longer trail shows more of the path");
+
+    // Fit has to see the layers, or it scales to the particles and crops them
+    applyPreset({ shape: 0, count: 1, opacity: 0, beam: 1, beamLen: 1.2, beamAngle: 90,
+                  beamGrow: 0, duration: 0.5, frameSize: 4 }, "fitbeam");
+    const bsim = simulate(state);
+    ok(bsim.bbox.x1 - bsim.bbox.x0 > 100, "the bounding box includes the structure layers",
+       Math.round(bsim.bbox.x1 - bsim.bbox.x0) + "px wide");
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);
