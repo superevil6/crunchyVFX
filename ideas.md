@@ -8,7 +8,9 @@ exists and works in CrunchySFX, so it's mostly copy + adapt — the cheapest win
 
 ## Alex's list
 Generate visual effects based on sound effect works but can we import the sound to be played as well so it matches up?
+Resize (visually) the animation in the editor based on available width, so ultra wide screens will automatically show it bigger. 
 
+Let's dock the preview window, so if the user scrolls down to click on a slider, the preview itself is never out of view.
 
 sliders and whatnots:
 
@@ -23,6 +25,35 @@ sliders and whatnots:
 
 ### Status of the above — C
 
+*(Covers every ask in this section, including the earlier list — ice, charm, spiral, emote, text
+bubble — which has since been edited out above but is all built.)*
+
+- **play the sound alongside the effect** ✅ **done (route a)** — a Sound panel beside the stage:
+  load a `.wav`/`.mp3`, and it restarts in lockstep with the animation loop, with volume, an
+  offset slider (±500ms) for nudging alignment, and a line telling you plainly whether the clip is
+  longer or shorter than the loop and what to set Duration to so they match. Web Audio rather than
+  an `<audio>` element, because restarting an element has tens of ms of slop and tens of ms is
+  exactly what you're judging.
+  **The transport was rebuilt for this**, as predicted: frame position now comes from elapsed time
+  rather than a per-tick counter, and one restart drives picture and sound together. Without that
+  the two drift apart over a loop.
+  **Route (b) — synthesising the sound from the pasted link — is still open**, and still the thing
+  that would make the two apps feel like one product. It needs CrunchySFX's `dsp.js` *and* its
+  ~550-line `render()`, hand-synced. Worth doing once the shared `core.js` split happens; not worth
+  a one-off copy before then.
+- **resize the preview to the available width** ✅ **done** — an **Auto** zoom (now the default)
+  that picks the largest whole-number multiple fitting the column and re-picks on window resize.
+  Whole numbers only, as argued: a fractional zoom resamples pixel art into mush and would quietly
+  undo everything the Crunch panel is for. A 64px effect now shows at 4× instead of a postage stamp;
+  1×/2×/4×/8× remain as manual overrides.
+- **dock the preview so it's never out of view** ✅ **done** — a small copy pins itself under the
+  toolbar the moment the real stage slips behind it, showing the animation, the frame counter and a
+  ↑ to jump back; clicking the picture does the same. It appears when the stage passes *under the
+  sticky toolbar*, not when it fully leaves the viewport — waiting for the latter would hand it to
+  you too late to be useful. It deliberately omits the guides (a 1px grid scaled to 150px is noise,
+  not information) and follows your backdrop choice so transparency reads the same in both. On a
+  phone it parks bottom-left, out of the thumb's way. There's a 📌 toggle, persisted, because a
+  floating panel you can't dismiss is a nuisance.
 - **explosions** ✅ Explosion, Big Boom, Shockwave, Fire Jet, Ember Rise
 - **fire** ✅ Fire Jet + Ember Rise (both loop)
 - **ice** ✅ **snowflake** shape (arms + branches) → Ice Blast, Frost Nova, Snow
@@ -56,16 +87,6 @@ sliders and whatnots:
   so a 4-frame character loop plays under a 20-frame explosion.
 
 ### Found while building the above — C
-
-- **The regression suites now live in `tests/`, not a scratchpad.** They used to sit in a temp
-  directory and a stray `rm -rf` with an unset shell variable deleted all ten of them. Verification
-  that can be destroyed by accident isn't verification. `python3 tests/build.py` concatenates
-  `index.html` with a suite (it has to concatenate — the app is one inline `<script>` and `fetch`
-  is CORS-blocked on `file://`), then Firefox headless runs it. 92 assertions across two files.
-- **A refactor silently deleted `makeZip`** and every zip path broke at once — PNG frames,
-  multi-resolution, variations pack, batch export. Nothing caught it because no suite had ever
-  exercised an actual zip, only the sheet and GIF. There are now assertions on all four paths plus
-  the writer's signatures.
 
 - **No fixed particle angle.** Every particle gets a random start rotation, so a one-off directional
   shape (the Slash crescent) points somewhere different per seed. Needs an `angle` + `angleVar`
@@ -111,6 +132,27 @@ sliders and whatnots:
   renders one frame without it, then corrects itself when `Image.onload` fires and triggers a
   re-render. Unavoidable with `Image`, harmless in practice, but it makes any *synchronous* test
   of that path fail misleadingly — prime the element first, or await the load.
+- **An "only update on change" guard that was inverted.** The dock's visibility check read
+  `if (dock.hidden === !show)` — which is true only when the state is *already correct*, so the
+  dock never appeared. It looked right at a glance and the fix was to drop the cleverness: assign
+  the state unconditionally and use the previous value only to decide whether to repaint. Caught by
+  a test, not by reading.
+- **Inline the test suite; don't `<script src>` it.** Under `file://` every file is its own
+  origin, so an error inside a linked script surfaces as an opaque `Script error. @ 0` with no line
+  number — a one-line typo becomes a hunt. `build.py` now inlines the suite into the generated
+  page, and the very next failure named itself (`redeclaration of const z`, exact line).
+- **The regression suites live in `tests/`, not a scratchpad.** They used to sit in a temp directory
+  and a stray `rm -rf` with an unset shell variable deleted all ten of them. Verification that can
+  be destroyed by accident isn't verification. `python3 tests/build.py` concatenates `index.html`
+  with a suite (concatenation is required — the app is one inline `<script>` and `fetch` is
+  CORS-blocked on `file://`), then Firefox headless runs it. 92 assertions across two files; the
+  async one writes `results.txt` because `--screenshot` fires at `window.load` and would miss
+  anything behind an `await`.
+- **A refactor silently deleted `makeZip`** and every zip path broke at once — PNG frames,
+  multi-resolution, variations pack, batch export. Nothing caught it because no suite had ever
+  exercised an actual zip, only sheets and GIF. There are now assertions on all four paths plus the
+  writer's local-header and end-of-central-directory signatures. The lesson isn't "be careful with
+  refactors", it's that a whole category of output had no test at all.
 - **A reference image must be loaded as a `data:` URL, never `URL.createObjectURL`.** A blob URL
   inherits the document's origin, which is *opaque* under `file://` — drawing it taints the
   canvas, and then `toBlob` and `getImageData` both throw `SecurityError`, killing every export
@@ -149,7 +191,9 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   WAVs; swap the payload for a sheet PNG.
 - ~~**Copy sheet to clipboard as PNG**~~ ✅ **done**. Note: the async clipboard API needs a secure
   context, so it fails under `file://` — the dialog says so and points at the localhost launcher.
-- **Batch export the whole library** — S [port]. "Export all presets" exists in SFX.
+- ~~**Batch export the whole library**~~ ✅ **done** — every preset and/or saved effect as one zip
+  of sheets + sidecars, with a manifest, duplicate-name disambiguation, and the editor restored
+  afterwards. Yields between effects so the progress line actually updates.
 - ~~**Power-of-two padding toggle**~~ ✅ **done**.
 
 ## Authoring & editing — C
@@ -161,9 +205,11 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   rainbow.
 - **Curve editor for SIZE over life** — M. Alpha is now a ramp channel, so this is the remaining
   half: `grow` is still a single linear number where a curve belongs. Same panel as the ramp.
-- **Reference underlay** — S, high payoff per hour. Drop a character sprite behind the preview to
-  judge scale and read. Artists eyeball this constantly and currently can't.
-- **Pixel-grid overlay + safe-frame guides** — S. Matters the moment you're working at 32/48px.
+- ~~**Reference underlay**~~ ✅ **done** — see the sprite-sheet entry above; it does double duty as
+  the scale reference and the compositing source.
+- ~~**Pixel-grid overlay + safe-frame guides**~~ ✅ **done** — plus onion skin. The grid uses the
+  current Pixelate block size, so it shows the grid your art will actually land on. Guides draw on
+  the stage only and there's a test asserting they never reach a render.
 - ~~**Custom drawn particle sprite**~~ ✅ **done** — a 16×16 alpha grid you paint, with shape
   helpers (dot/ring/square/cross/shard/speckle) and an eraser. Alpha-only, so a drawn sprite
   still responds to Hue and the palettes. ~344 base64 chars, small enough to ride in a share link.
@@ -177,7 +223,8 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**Share links**~~ ✅ **done** — the whole effect in a `?e=` URL as a URL-safe base64 diff from
   the defaults. Diff, not dump: 23 keys instead of 97, and a link made today still loads after
   new params are added because anything absent falls back to its default.
-- **A/B compare** — S. Hold a second patch and toggle between them in the preview.
+- ~~**A/B compare**~~ ✅ **done** — Hold A, then Swap. It's a genuine swap rather than a one-way
+  restore, so you can flip back and forth as many times as you like while tuning.
 
 ## Procedural & generative — C
 
@@ -207,8 +254,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   their own speed/life/size/spread and an inherit-velocity knob. Children live in the same arrays
   after the parents, so the integrator handles them unchanged. **One generation only** — children
   never spawn grandchildren, which would be an unbounded population.
-- **Per-particle flipbook** — M. Each particle plays its own small animation. This is how real
-  smoke/explosion sheets are made and would let imported sprite strips work as particles.
+- ~~**Per-particle flipbook**~~ ✅ **done** — an imported strip animates per particle, with
+  `imgLoops` (plays per lifetime) and `stagger` so a hundred sprites don't play in lockstep, which
+  reads as one flickering object rather than a hundred separate ones. Strip size is guessed from
+  the aspect ratio on load.
 - **Curl noise** — S. Divergence-free turbulence looks dramatically more like fluid than the
   current value-noise force. Cheap swap in the same slot.
 - **Attractors / repulsors** — S. Implosions, vortex pulls, magic gathering inward.
@@ -220,10 +269,14 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## Quality of life — C
 
-- **Render in a Web Worker** — M. At 3000 particles the UI stutters on a slider drag. The
-  simulate/rasterize split makes this clean to move off-thread.
+- **Render in a Web Worker** — ❌ **ruled out, not deferred.** `new Worker()` is blocked under
+  `file://`, so it would break the default launch config and the "runs from a plain unzipped
+  folder" promise — the thing the whole no-build architecture exists to protect. If the stutter at
+  3000 particles becomes a real complaint, the fix is chunking the render across animation frames
+  with a progress bar, not a worker.
 - **Ping-pong loop preview** — S.
-- **"Prep for GIF" button** — S. Sets alphaCut/posterize/fps to GIF-friendly values in one click.
+- ~~**"Prep for GIF" button**~~ ✅ **done** — raises alphaCut and snaps fps to a rate GIF can
+  actually represent. Deliberately doesn't touch colour: posterizing is a look, not a fix.
 - **Sheet-size warning** — S. Tell people a 60fps × 3s × 256px effect is a 14×14 grid *before*
   they export it.
 
@@ -237,5 +290,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 4. ~~**"Match the sound"**~~ ✅ done
 5. ~~**Import a PNG as the particle**~~ ✅ done
 
-Deliberately *not* in my five: normal maps, collision, sub-emitters. All good; none of them change
-who can use the tool tomorrow.
+That list is done. Collision and sub-emitters — which I'd deliberately left *out* of the five —
+have since been built too; the reasoning still holds, they just stopped being the expensive ones
+once the cheap wins ran out.
+
+**What I'd pick now:** (1) synthesise the matched sound in-app (route b above) — the last piece of
+"one product"; (2) the size-over-life curve, the last single number standing in for a curve;
+(3) the emissive/glow mask sheet, since lit 2D games can't use a baked-in bloom.

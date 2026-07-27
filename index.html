@@ -44,7 +44,13 @@
     <div class="stage-ctl">
       <span class="stage-lbl">Zoom</span>
       <span class="zoomgroup" id="zoomGroup">
-        <button data-z="1" class="active">1×</button><button data-z="2">2×</button><button data-z="4">4×</button>
+        <button data-z="auto" class="active">Auto</button><button data-z="1">1×</button><button data-z="2">2×</button><button data-z="4">4×</button><button data-z="8">8×</button>
+      </span>
+    </div>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Dock</span>
+      <span class="zoomgroup" id="dockGroup">
+        <button id="dockToggle" title="Keep a small preview pinned under the toolbar when you scroll away from the stage">📌 Dock preview</button>
       </span>
     </div>
     <div class="stage-ctl">
@@ -69,6 +75,26 @@
       </span>
     </div>
     <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
+
+    <div class="refbox" id="sndBox">
+      <div class="ref-head">
+        <span>Sound</span>
+        <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together">📂 Load sound</button>
+      </div>
+      <div class="ref-body" id="sndBody" hidden>
+        <div class="ref-name" id="sndName"></div>
+        <div class="ref-ctl"><span>Volume</span><input type="range" id="sndVol" min="0" max="1" step="0.01" value="0.8"></div>
+        <div class="ref-ctl"><span>Offset</span>
+          <input type="range" id="sndOff" min="-500" max="500" step="5" value="0">
+          <span class="hint" id="sndOffV">0 ms</span>
+        </div>
+        <div class="ref-toggles">
+          <label><input type="checkbox" id="sndOn" checked> Play with preview</label>
+          <button id="sndClear">✕</button>
+        </div>
+        <div class="hint stage-hint" id="sndFit"></div>
+      </div>
+    </div>
 
     <div class="refbox" id="refBox">
       <div class="ref-head">
@@ -323,7 +349,7 @@ const PANEL_SHAPES = {
 
 // ---------- Render + preview ----------
 let rendered = null;      // { canvases, w, h, fps }
-let frameIdx = 0, playing = true, lastTick = 0, zoom = 1;
+let frameIdx = 0, playing = true, lastTick = 0;
 const stage = document.getElementById("stage");
 const sctx = stage.getContext("2d");
 const stageWrap = document.getElementById("stageWrap");
@@ -346,6 +372,8 @@ function rerender() {
   scrub.max = String(n - 1);
   if (frameIdx >= n) frameIdx = 0;
   statFrames.textContent = n + " frames · " + rendered.w + "px · " + rendered.fps + " fps · " + ms + " ms";
+  if (typeof syncSoundUI === "function") syncSoundUI();   // the loop length may have moved
+  if (typeof sizeDock === "function") { sizeDock(); updateDock(); }
   drawStage();
 }
 
@@ -397,8 +425,185 @@ function drawStage() {
   if (cv) sctx.drawImage(cv, 0, 0);
   if (ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   drawGuides(sctx, stage.width, stage.height);
+  paintDock();
   scrub.value = String(frameIdx);
   scrubVal.textContent = frameIdx + " / " + (rendered.canvases.length - 1);
+}
+
+// ---------- Docked preview ----------
+// Every control worth tweaking is below the fold, so the moment you reach for a slider the thing
+// you're judging scrolls off the top. This pins a small copy under the controls bar as soon as the
+// real stage leaves view, so a change never lands somewhere you can't see it.
+//
+// The dock deliberately omits the guides: a 1px grid scaled down to 150px is noise, not
+// information. It shows the frame (and the reference, if combined) and nothing else.
+const DOCK_PREF = "crunchyvfx.dock.v1";
+let dockOn = true;
+try { const v = localStorage.getItem(DOCK_PREF); if (v !== null) dockOn = v === "1"; } catch (e) { /* private mode */ }
+
+const dock = document.createElement("div");
+dock.className = "prevdock";
+dock.hidden = true;
+dock.innerHTML = '<div class="dock-wrap bg-checker"><canvas id="dockCv"></canvas></div>' +
+  '<div class="dock-bar"><span id="dockInfo"></span><button id="dockUp" title="Jump back to the stage">↑</button></div>';
+document.body.appendChild(dock);
+const dockCv = dock.querySelector("#dockCv");
+const dockCtx = dockCv.getContext("2d");
+const dockWrap = dock.querySelector(".dock-wrap");
+const dockInfo = dock.querySelector("#dockInfo");
+const stageBox = document.querySelector(".stage-box");
+const controlsEl = document.querySelector(".controls");
+
+function sizeDock() {
+  if (!rendered) return;
+  dockCv.width = rendered.w; dockCv.height = rendered.h;
+  // Whole-number multiple again, for the same reason Auto zoom uses one.
+  const target = 150;
+  const z = rendered.w >= target ? 1 : Math.max(1, Math.floor(target / rendered.w));
+  const shown = Math.min(target, rendered.w * z);
+  dockCv.style.width = shown + "px";
+  dockCv.style.height = Math.round(shown * (rendered.h / rendered.w)) + "px";
+}
+function paintDock() {
+  if (dock.hidden || !rendered) return;
+  dockCtx.clearRect(0, 0, dockCv.width, dockCv.height);
+  if (!ref.front) drawRefFrame(dockCtx, frameIdx, dockCv.width, dockCv.height);
+  const cv = rendered.canvases[frameIdx];
+  if (cv) dockCtx.drawImage(cv, 0, 0);
+  if (ref.front) drawRefFrame(dockCtx, frameIdx, dockCv.width, dockCv.height);
+  dockInfo.textContent = frameIdx + "/" + (rendered.canvases.length - 1);
+}
+function updateDock() {
+  if (!rendered) return;
+  const bar = controlsEl ? controlsEl.offsetHeight : 0;
+  // "Out of view" means out from under the sticky controls bar, not merely off the viewport —
+  // otherwise the dock only appears once the stage is fully gone, which is too late to be useful.
+  const r = stageBox.getBoundingClientRect();
+  const gone = r.bottom < bar + 28;
+  const show = dockOn && gone;
+  const wasHidden = dock.hidden;
+  dock.hidden = !show;
+  if (show && wasHidden) { sizeDock(); paintDock(); }   // first frame after it appears
+  if (show) dock.style.top = (bar + 10) + "px";
+}
+addEventListener("scroll", updateDock, { passive: true });
+addEventListener("resize", updateDock);
+const dockToggle = document.getElementById("dockToggle");
+function updateDockBtn() {
+  dockToggle.classList.toggle("active", dockOn);
+  dockToggle.textContent = (dockOn ? "📌" : "📍") + " Dock preview";
+}
+dockToggle.addEventListener("click", () => {
+  dockOn = !dockOn;
+  try { localStorage.setItem(DOCK_PREF, dockOn ? "1" : "0"); } catch (e) { /* private mode */ }
+  updateDockBtn();
+  updateDock();
+});
+updateDockBtn();
+
+dock.querySelector("#dockUp").addEventListener("click", () => {
+  stageBox.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+// Clicking the picture itself is the obvious gesture, so make that work too.
+dockWrap.addEventListener("click", () => {
+  stageBox.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+// ---------- Sound ----------
+// Matching a sound is guesswork until you can hear them together: the effect that looked right in
+// silence is routinely a beat too slow next to the actual hit. This loads a .wav/.mp3 and restarts
+// it in lockstep with the animation loop, with an offset so you can nudge the alignment.
+//
+// Web Audio rather than an <audio> element, because restarting an element has tens of ms of slop
+// and the whole point here is judging tens of ms.
+const snd = { ctx: null, buf: null, name: "", src: null, gain: null, volume: 0.8, offsetMs: 0, on: true };
+function ensureAudio() {
+  if (!snd.ctx) {
+    snd.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    snd.gain = snd.ctx.createGain();
+    snd.gain.gain.value = snd.volume;
+    snd.gain.connect(snd.ctx.destination);
+  }
+  if (snd.ctx.state === "suspended") snd.ctx.resume();   // browsers need a gesture first
+  return snd.ctx;
+}
+function stopSound() {
+  if (snd.src) { try { snd.src.stop(); } catch (e) { /* already ended */ } snd.src = null; }
+}
+// Start the clip at `atSec` into the animation loop. Positive offset delays the sound; negative
+// starts it partway in, which is how you compensate for a slow attack.
+function playSound(atSec) {
+  if (!snd.buf || !snd.on || !snd.ctx) return;
+  stopSound();
+  const off = snd.offsetMs / 1000;
+  const into = (atSec || 0) - off;
+  const src = snd.ctx.createBufferSource();
+  src.buffer = snd.buf;
+  src.connect(snd.gain);
+  if (into >= 0) {
+    if (into < snd.buf.duration) src.start(snd.ctx.currentTime, into);
+  } else {
+    src.start(snd.ctx.currentTime - into);                // still ahead of us: schedule it
+  }
+  snd.src = src;
+}
+const sndBody = document.getElementById("sndBody");
+const sndNameEl = document.getElementById("sndName");
+const sndFitEl = document.getElementById("sndFit");
+function syncSoundUI() {
+  sndBody.hidden = !snd.buf;
+  if (!snd.buf) return;
+  sndNameEl.textContent = snd.name + " · " + snd.buf.duration.toFixed(2) + "s";
+  // Say plainly how the two lengths relate — it's the first thing you want to know, and the fix
+  // (change Duration) is one slider away.
+  const loop = loopSeconds();
+  const d = snd.buf.duration;
+  sndFitEl.textContent = Math.abs(d - loop) < 0.05
+    ? "Same length as the animation."
+    : d > loop
+      ? "Sound is " + (d - loop).toFixed(2) + "s longer than the loop — it'll be cut off. Raise Duration to " + d.toFixed(2) + "s to match."
+      : "Sound is " + (loop - d).toFixed(2) + "s shorter than the loop — it finishes early. Lower Duration to " + d.toFixed(2) + "s to match.";
+}
+{
+  const sndFile = document.createElement("input");
+  sndFile.type = "file";
+  sndFile.accept = "audio/*,.wav,.mp3,.ogg,.flac";
+  sndFile.hidden = true;
+  document.body.appendChild(sndFile);
+  document.getElementById("sndLoad").addEventListener("click", () => sndFile.click());
+  sndFile.addEventListener("change", async () => {
+    const f = sndFile.files && sndFile.files[0];
+    if (!f) return;
+    try {
+      const ctx = ensureAudio();
+      snd.buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      snd.name = f.name;
+      syncSoundUI();
+      restartLoop(0);
+      msg.textContent = "Sound: " + f.name + " (" + snd.buf.duration.toFixed(2) + "s)";
+    } catch (e) {
+      msg.textContent = "Couldn't decode that audio: " + e.message;
+    }
+    sndFile.value = "";
+  });
+  document.getElementById("sndClear").addEventListener("click", () => {
+    stopSound(); snd.buf = null; snd.name = "";
+    syncSoundUI();
+  });
+  document.getElementById("sndVol").addEventListener("input", (e) => {
+    snd.volume = +e.target.value;
+    if (snd.gain) snd.gain.gain.value = snd.volume;
+  });
+  const offV = document.getElementById("sndOffV");
+  document.getElementById("sndOff").addEventListener("input", (e) => {
+    snd.offsetMs = +e.target.value;
+    offV.textContent = snd.offsetMs + " ms";
+  });
+  document.getElementById("sndOff").addEventListener("change", () => restartLoop(frameIdx));
+  document.getElementById("sndOn").addEventListener("change", (e) => {
+    snd.on = e.target.checked;
+    if (!snd.on) stopSound(); else restartLoop(frameIdx);
+  });
 }
 
 // ---------- Reference underlay ----------
@@ -429,20 +634,47 @@ function drawRefFrame(g, i, w, h) {
   g.imageSmoothingEnabled = smooth;
 }
 
+// Auto zoom: the largest WHOLE-NUMBER multiple that fits the space available. Whole numbers
+// specifically — a fractional zoom resamples pixel art into mush, which would quietly undo
+// everything the Crunch panel is for. On an ultrawide a 32px effect gets to be 8× instead of a
+// postage stamp.
+let zoomMode = "auto";
+function autoZoom() {
+  if (!rendered) return 1;
+  const row = document.querySelector(".stagerow");
+  const side = document.querySelector(".stage-side");
+  if (!row) return 1;
+  const avail = row.clientWidth - (side ? side.offsetWidth : 0) - 72;   // gap + box padding
+  const availH = Math.max(220, innerHeight * 0.62);
+  return Math.max(1, Math.min(8, Math.floor(Math.min(avail / rendered.w, availH / rendered.h))));
+}
 function applyZoom() {
   if (!rendered) return;
-  stage.style.width = (rendered.w * zoom) + "px";
-  stage.style.height = (rendered.h * zoom) + "px";
+  const z = zoomMode === "auto" ? autoZoom() : zoomMode;
+  stage.style.width = (rendered.w * z) + "px";
+  stage.style.height = (rendered.h * z) + "px";
 }
+addEventListener("resize", () => { if (zoomMode === "auto") applyZoom(); });
 
-function tick(ts) {
+// ---------- Transport ----------
+// Frame position comes from ELAPSED TIME, not "advance one frame per tick". With sound in play
+// that stops mattering subtly and starts mattering a lot: a per-tick counter drifts against the
+// audio clock, and a 2-second loop drifting even 50ms reads as the effect being out of sync.
+let loopStart = 0;
+function loopSeconds() { return rendered ? rendered.canvases.length / rendered.fps : 0; }
+function restartLoop(fromFrame) {
+  const at = (fromFrame || 0) / (rendered ? rendered.fps : 24);
+  loopStart = performance.now() / 1000 - at;
+  playSound(at);
+}
+function tick() {
   requestAnimationFrame(tick);
   if (!playing || !rendered) return;
-  const step = 1000 / rendered.fps;
-  if (ts - lastTick < step) return;
-  lastTick = ts;
-  frameIdx = (frameIdx + 1) % rendered.canvases.length;
-  drawStage();
+  const n = rendered.canvases.length, dur = loopSeconds();
+  let t = performance.now() / 1000 - loopStart;
+  if (t >= dur || t < 0) { restartLoop(0); t = 0; }       // one restart drives BOTH picture and sound
+  const idx = Math.min(n - 1, Math.floor(t * rendered.fps));
+  if (idx !== frameIdx) { frameIdx = idx; drawStage(); }
 }
 requestAnimationFrame(tick);
 
@@ -1577,6 +1809,8 @@ const playBtn = document.getElementById("playBtn");
 playBtn.addEventListener("click", () => {
   playing = !playing;
   playBtn.textContent = playing ? "⏸ Pause" : "▶ Play";
+  // Resume from where you paused rather than snapping to frame 0, and bring the sound with it.
+  if (playing) { ensureAudio(); restartLoop(frameIdx); } else stopSound();
 });
 document.getElementById("rand").addEventListener("click", randomize);
 document.getElementById("reroll").addEventListener("click", () => {
@@ -1608,10 +1842,13 @@ lockBtn.addEventListener("click", () => {
 });
 document.getElementById("undoBtn").addEventListener("click", undoEdit);
 document.getElementById("redoBtn").addEventListener("click", redoEdit);
-scrub.addEventListener("input", () => { playing = false; playBtn.textContent = "▶ Play"; frameIdx = +scrub.value; drawStage(); });
+scrub.addEventListener("input", () => {
+  playing = false; playBtn.textContent = "▶ Play"; stopSound();
+  frameIdx = +scrub.value; drawStage();
+});
 document.getElementById("zoomGroup").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
-  zoom = +b.dataset.z;
+  zoomMode = b.dataset.z === "auto" ? "auto" : +b.dataset.z;
   [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
   applyZoom();
 });
@@ -1645,6 +1882,7 @@ abSwapBtn.addEventListener("click", () => {
 document.getElementById("bgGroup").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   stageWrap.className = "stage-wrap bg-" + b.dataset.bg;
+  dockWrap.className = "dock-wrap bg-" + b.dataset.bg;
   [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
 });
 addEventListener("keydown", (e) => {

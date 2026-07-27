@@ -21,5 +21,9 @@ for js in ("presets.js", "vfx.js", "gif.js", "apng.js"):
 for suite, out in (("regression.js", "run.html"), ("regression-async.js", "run-async.html")):
     if not (HERE / suite).exists():
         continue
-    (HERE / out).write_text(APP + '\n<script src="%s"></script>\n' % suite)
-    print("wrote tests/%s  (%s)" % (out, suite))
+    # INLINE the suite rather than <script src>. Under file:// every file is its own origin, so an
+    # error inside a linked script is reported as an opaque "Script error. @ 0" with no line number
+    # — which turns a one-line typo into a hunt. Inlined, failures name themselves.
+    body = (HERE / suite).read_text()
+    (HERE / out).write_text(APP + "\n<script>\n" + body + "\n</script>\n")
+    print("wrote tests/%s  (%s, inlined)" % (out, suite))

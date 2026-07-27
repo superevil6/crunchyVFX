@@ -267,6 +267,75 @@
     rerender();
     ok(lit(rendered.canvases[3]) === beforeGuides, "guides never leak into a render");
     guides.grid = guides.safe = guides.onion = false;
+
+    // ---------------------------------------------------------------- transport + auto zoom
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(Math.abs(loopSeconds() - rendered.canvases.length / rendered.fps) < 1e-9,
+       "loop length is frames / fps", loopSeconds().toFixed(3) + "s");
+    // The transport must derive the frame from elapsed time, not a per-tick counter — that's what
+    // keeps picture and sound from drifting apart over a loop.
+    playing = true;
+    restartLoop(0);
+    // Aim at the MIDDLE of frame 5, not its boundary: `now - x` then re-adding loses enough
+    // precision that an exact boundary lands a hair either side and floor() flips.
+    loopStart = performance.now() / 1000 - (5.5 / rendered.fps);
+    tick();
+    ok(frameIdx === 5, "frame position comes from elapsed time", "frame " + frameIdx);
+    loopStart = performance.now() / 1000 - loopSeconds() - 0.01; // past the end
+    tick();
+    ok(frameIdx === 0, "passing the end restarts the loop (picture and sound together)");
+    playing = false;
+
+    // auto zoom picks whole multiples only — a fractional zoom resamples pixel art into mush
+    zoomMode = "auto";
+    const zoomLevel = autoZoom();
+    ok(zoomLevel === Math.floor(zoomLevel) && zoomLevel >= 1, "auto zoom is a whole number", zoomLevel + "×");
+    applyZoom();
+    ok(parseFloat(stage.style.width) === rendered.w * zoomLevel, "the stage is sized to that multiple",
+       stage.style.width);
+    zoomMode = 3; applyZoom();
+    ok(parseFloat(stage.style.width) === rendered.w * 3, "an explicit zoom overrides auto");
+    zoomMode = "auto";
+
+    // sound: no clip loaded must be entirely inert (this runs headless with no audio device)
+    ok(!snd.buf, "no sound loaded by default");
+    stopSound(); playSound(0);
+    ok(!snd.src, "playSound with no clip is a no-op, not a crash");
+
+    // ---------------------------------------------------------------- docked preview
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    dockOn = true;
+    // stage in view -> no dock
+    stageBox.getBoundingClientRect = () => ({ bottom: 9999, top: 0 });
+    updateDock();
+    ok(dock.hidden, "no dock while the stage is in view");
+    // scrolled past -> dock appears, and appears BEFORE the stage is fully gone (it must clear the
+    // sticky toolbar, or it arrives too late to be useful)
+    const barH = controlsEl.offsetHeight;
+    stageBox.getBoundingClientRect = () => ({ bottom: barH + 5, top: -300 });
+    updateDock();
+    ok(!dock.hidden, "dock appears once the stage slips under the toolbar", "bar " + barH + "px");
+    ok(parseInt(dock.style.top, 10) >= barH, "dock sits below the toolbar, not behind it", dock.style.top);
+    sizeDock(); paintDock();
+    ok(dockCv.width === rendered.w && dockCv.height === rendered.h, "dock canvas matches the render size");
+    const dz = parseFloat(dockCv.style.width) / rendered.w;
+    ok(dz === Math.floor(dz) || rendered.w >= 150, "dock scale is a whole multiple", dz + "×");
+    let dockLit = 0;
+    const dd = dockCtx.getImageData(0, 0, dockCv.width, dockCv.height).data;
+    for (let i = 3; i < dd.length; i += 4) if (dd[i] > 8) dockLit++;
+    ok(dockLit > 0, "the dock actually paints the current frame", dockLit + " px");
+    // guides are deliberately NOT mirrored into the dock (a 1px grid at 150px is noise)
+    guides.grid = true;
+    drawStage();
+    const withGrid = dockCtx.getImageData(0, 0, dockCv.width, dockCv.height).data;
+    let n2 = 0;
+    for (let i = 3; i < withGrid.length; i += 4) if (withGrid[i] > 8) n2++;
+    ok(n2 === dockLit, "guides are not mirrored into the dock", dockLit + " vs " + n2);
+    guides.grid = false;
+    dockOn = false; updateDock();
+    ok(dock.hidden, "turning the dock off hides it");
+    dockOn = true;
+    delete stageBox.getBoundingClientRect;      // restore the real one
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);
@@ -275,6 +344,11 @@
   const box = document.createElement("div");
   box.style.cssText = "position:fixed;inset:0;z-index:99999;overflow:auto;background:" +
     (fails ? "#7a1020" : "#0d3a1e") + ";color:#fff;font:12px ui-monospace,monospace;padding:12px;white-space:pre-line";
-  box.textContent = (fails ? "✗ " + fails + " FAILURES" : "✓ ALL PASS (" + lines.length + ")") + NL + lines.join(NL);
+  // Failures first: the box scrolls, and a failure 60 lines down is a failure you won't see in a
+  // screenshot.
+  const bad = lines.filter((l) => l.indexOf("FAIL") === 0);
+  const good = lines.filter((l) => l.indexOf("FAIL") !== 0);
+  box.textContent = (fails ? "✗ " + fails + " FAILURES" : "✓ ALL PASS (" + lines.length + ")") +
+    NL + bad.concat(good).join(NL);
   document.body.appendChild(box);
 })();
