@@ -619,6 +619,142 @@
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.dissolve === 0, "dissolve is off by default");
 
+    // ---------------------------------------------------------------- hold sound
+    // Matching a sound and then picking a preset used to throw away everything the sound gave
+    // you. The hold is what makes the preset browser a "change type" control, so the assertions
+    // are about the SPLIT: the sound keeps timing + intensity, the preset takes the look.
+    {
+      clearSoundHold();
+      ok(Object.keys(heldSoundValues()).length === 0, "nothing is held before a match");
+
+      const matched = { duration: 1.7, life: 1.1, count: 400, speed: 520, shake: 0.4,
+                        shape: 0, hue: 20, glow: 0.6 };
+      captureSoundHold(matched, "boom.wav");
+      ok(soundHold.on, "matching a sound turns the hold on by itself");
+      // The look is emphatically NOT held — otherwise "change type" could never change the type.
+      const held = heldSoundValues();
+      ok(!("shape" in held) && !("hue" in held) && !("glow" in held),
+         "the look is not held — the preset still owns it", Object.keys(held).join(", "));
+
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      ok(state.duration === 1.7 && state.life === 1.1,
+         "loading a preset keeps the sound's length", state.duration + "s / life " + state.life);
+      ok(state.count === 400 && state.speed === 520 && state.shake === 0.4,
+         "…and its intensity", state.count + " @ " + state.speed);
+      ok(state.shape === PRESETS["Ice Blast"].shape && state.hue === PRESETS["Ice Blast"].hue,
+         "…while the preset still changes the look", "shape " + state.shape + ", hue " + state.hue);
+
+      // Each group can be dropped on its own.
+      soundHold.intensity = false;
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      ok(state.duration === 1.7, "length alone can be held");
+      ok(state.count === PRESETS["Ice Blast"].count,
+         "…with the preset's own intensity back", "count " + state.count);
+      soundHold.intensity = true;
+
+      // Turning it off, and clearing the sound, both stop it completely.
+      soundHold.on = false;
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      ok(state.duration === PRESETS["Ice Blast"].duration, "turning the hold off releases it");
+      soundHold.on = true;
+      clearSoundHold();
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      ok(state.duration === PRESETS["Ice Blast"].duration && !soundHold.on,
+         "clearing the sound clears the hold — it can't outlive what it describes");
+
+      // Undo must restore exactly; the hold is applied by applyPreset, not by history.
+      captureSoundHold(matched, "boom.wav");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const beforeUndo = state.duration;
+      state.duration = 0.3; commitHistory();
+      undoEdit();
+      ok(state.duration === beforeUndo, "undo is not distorted by the hold",
+         beforeUndo + " vs " + state.duration);
+      clearSoundHold();
+    }
+
+    // ---------------------------------------------------------------- sigil / orbit / tumble
+    // Each of the three must draw, must be off by default, and must actually do the thing that
+    // justifies it being its own engine rather than a preset of an existing one.
+    ok(state.sigil === 0 && state.orbit === 0 && state.tumble === 0,
+       "the three new engines default to off");
+    ok(lay({ sigil: 0 }, 0.5) === 0, "sigil at 0 draws nothing");
+    ok(lay({ sigil: 1, sigilLife: 2 }, 0.4) > 100, "the sigil draws",
+       lay({ sigil: 1, sigilLife: 2 }, 0.4) + " px");
+    // Draw-on: it scales up rather than appearing at full size.
+    {
+      const box = (patch, frac) => {
+        applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                    frameSize: 4 }, patch), "sg");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+        }
+        return x1 < 0 ? 0 : x1 - x0;
+      };
+      const early = box({ sigil: 1, sigilGrow: 0.6, sigilLife: 2, sigilSpin: 0 }, 0.08);
+      const late = box({ sigil: 1, sigilGrow: 0.6, sigilLife: 2, sigilSpin: 0 }, 0.5);
+      ok(late > early * 1.3, "the sigil draws on rather than popping in at full size",
+         early + "px → " + late + "px");
+      // Squash turns the circle into a ground-plane ellipse: width holds, height collapses.
+      const hgt = (patch) => {
+        applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, frameSize: 4,
+                                    sigil: 1, sigilGrow: 0, sigilSpin: 0, sigilLife: 2 }, patch), "sq");
+        const r = renderFrames(state, { size: 128 });
+        const d = r.canvases[3].getContext("2d").getImageData(0, 0, 128, 128).data;
+        let y0 = 999, y1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        }
+        return y1 < 0 ? 0 : y1 - y0;
+      };
+      ok(hgt({ sigilSquash: 0.9 }) < hgt({ sigilSquash: 0 }) * 0.5,
+         "squash flattens the sigil to a ground plane",
+         hgt({ sigilSquash: 0 }) + "px → " + hgt({ sigilSquash: 0.9 }) + "px");
+    }
+
+    ok(lay({ orbit: 0 }, 0.5) === 0, "orbit at 0 draws nothing");
+    ok(lay({ orbit: 1 }, 0.5) > 20, "the orbit draws", lay({ orbit: 1 }, 0.5) + " px");
+    // The bodies must MOVE along the path — a static ring would satisfy "it draws" just as well.
+    {
+      const at = (frac) => {
+        applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                      orbit: 1, orbitCount: 3, orbitSpeed: 1, orbitTilt: 0, orbitSize: 12 }, "or");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+      };
+      const a = at(0), b = at(0.3);
+      let diff = 0;
+      for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) diff++;
+      ok(diff > 50, "the bodies travel around the path", diff + " px changed");
+    }
+
+    ok(lay({ tumble: 0 }, 0.5) === 0, "tumble at 0 draws nothing");
+    ok(lay({ tumble: 1, tumbleStagger: 0 }, 0.3) > 50, "the tumble draws",
+       lay({ tumble: 1, tumbleStagger: 0 }, 0.3) + " px");
+    // Falling is the point: the cloud's centre of mass must descend over time.
+    {
+      const cy = (frac) => {
+        applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.2, fps: 24, frameSize: 4,
+                      tumble: 1, tumbleCount: 60, tumbleStagger: 0, tumbleFall: 1.2,
+                      tumbleSpread: 0.15, tumbleDrift: 0 }, "tu");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let sum = 0, n = 0;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) { sum += y; n++; }
+        }
+        return n ? sum / n : -1;
+      };
+      const top = cy(0.1), bottom = cy(0.6);
+      ok(top >= 0 && bottom > top + 5, "the pieces fall", top.toFixed(0) + " → " + bottom.toFixed(0) + " px");
+    }
+
     // ---------------------------------------------------------------- shatter / lines / merge
     const lay2 = (patch, frac) => {
       applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,

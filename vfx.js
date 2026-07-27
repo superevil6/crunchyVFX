@@ -800,13 +800,18 @@ function drawFrame(sim, f, g, st, xf) {
     const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
     drawGrowth(g, st, t, xf, fs, ox, oy, seed);
     drawVortex(g, st, t, xf, fs, ox, oy);
+    drawSigil(g, st, t, xf, fs, ox, oy, seed);
     drawBeam(g, st, t, xf, fs, ox, oy, seed);
     drawRibbon(g, st, t, xf, fs, ox, oy);
     drawArc(g, st, t, xf, fs, ox, oy, seed);
     drawShatter(g, st, t, xf, fs, ox, oy, seed);
     drawLines(g, st, t, xf, fs, ox, oy, seed);
     drawRipples(g, st, t, xf, fs, ox, oy);
+    drawTumble(g, st, t, xf, fs, ox, oy, seed);
     drawPathTrails(g, sim, f, st, xf);
+    // Orbit draws LAST of the structure layers: its whole point is that things pass in front of
+    // the subject, so it has to sit above the beam/growth it is orbiting.
+    drawOrbit(g, st, t, xf, fs, ox, oy, seed);
   }
   for (let i = 0; i < n; i++) {
     const o = i * P_STRIDE;
@@ -1234,6 +1239,183 @@ function drawRipples(g, st, t, xf, fs, ox, oy) {
     g.beginPath();
     g.arc(0, 0, r, 0, Math.PI * 2);
     g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- sigil ----------
+// A magic circle: concentric rings, a tick ring, and radial spokes, each ring counter-rotating
+// against its neighbour. Rings alone read as a target; it's the OPPOSING rotation plus the tick
+// marks that read as arcane machinery, which is why the spin alternates by index rather than
+// giving every ring the same direction. Draws flat by default and squashes to a ground plane —
+// summoning circles are almost always seen in perspective.
+function drawSigil(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.sigil <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.sigilLife));
+  if (u >= 1) return;
+  const rings = Math.max(1, Math.round(st.sigilRings));
+  const R = st.sigilRadius * fs * xf.k;
+  // Scale in from nothing, hold, then fade — a sigil that simply appears at full size reads as a
+  // static overlay rather than something being cast.
+  const grow = st.sigilGrow > 0 ? Math.min(1, u / st.sigilGrow) : 1;
+  const fade = u > 0.75 ? 1 - (u - 0.75) / 0.25 : 1;
+  const scale = grow * (0.6 + 0.4 * grow);
+  if (R * scale < 1) return;
+  // Lower white-bias than the other ring layers on purpose: a summoning circle lives on its
+  // colour, and at vortex's 0.55 it washes to lavender-white and loses the arcane read.
+  const c = layerColour(st, u, 0.35);
+  g.save();
+  g.translate(ox, oy);
+  g.scale(1, 1 - st.sigilSquash * 0.85);
+  g.globalAlpha = st.sigil * c.a * clamp01(fade);
+  g.strokeStyle = c.css;
+  g.lineCap = "butt";
+  for (let i = 0; i < rings; i++) {
+    const rr = R * scale * (0.35 + 0.65 * ((i + 1) / rings));
+    if (rr < 0.5) continue;
+    const dir = i % 2 ? -1 : 1;                       // counter-rotation is the whole read
+    const spin = dir * st.sigilSpin * DEG * t + i * 1.7;
+    g.lineWidth = Math.max(0.5, st.sigilWidth * xf.k);
+    if (st.sigilGap > 0) {
+      const arcs = 2 + i * 2;
+      const span = (Math.PI * 2 / arcs) * (1 - st.sigilGap * 0.8);
+      for (let d = 0; d < arcs; d++) {
+        const a0 = spin + (d / arcs) * Math.PI * 2;
+        g.beginPath(); g.arc(0, 0, rr, a0, a0 + span); g.stroke();
+      }
+    } else {
+      g.beginPath(); g.arc(0, 0, rr, 0, Math.PI * 2); g.stroke();
+    }
+    // Tick marks on the outermost ring only — on every ring it turns to mush at small sizes.
+    if (i === rings - 1 && st.sigilTicks > 0) {
+      const ticks = Math.round(st.sigilTicks);
+      const len = R * scale * 0.12;
+      g.lineWidth = Math.max(0.5, st.sigilWidth * xf.k * 0.8);
+      for (let d = 0; d < ticks; d++) {
+        const a = spin + (d / ticks) * Math.PI * 2;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        // Vary tick length off a hashed draw so the ring reads as inscribed, not machined.
+        const L = len * (0.5 + rnd(seed, d, 71));
+        g.beginPath();
+        g.moveTo(ca * rr, sa * rr);
+        g.lineTo(ca * (rr + L), sa * (rr + L));
+        g.stroke();
+      }
+    }
+  }
+  if (st.sigilSpokes > 0) {
+    const sp = Math.round(st.sigilSpokes);
+    const rOut = R * scale;
+    const spin = st.sigilSpin * DEG * t * 0.5;
+    g.lineWidth = Math.max(0.5, st.sigilWidth * xf.k * 0.7);
+    for (let d = 0; d < sp; d++) {
+      const a = spin + (d / sp) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(Math.cos(a) * rOut * 0.3, Math.sin(a) * rOut * 0.3);
+      g.lineTo(Math.cos(a) * rOut, Math.sin(a) * rOut);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- orbit ----------
+// Satellites on a tilted ellipse around the origin. The particle system can't express this: an
+// orbit needs a body to keep returning to the same path, whereas a particle is born, flies and
+// dies. The tilt is what sells it — a circle of dots reads as a ring, but an ellipse whose
+// members shrink and dim on the far side reads as something going AROUND the subject. Shields,
+// auras, buffs, orbiting sparks.
+function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.orbit <= 0) return;
+  const n = Math.max(1, Math.round(st.orbitCount));
+  const R = st.orbitRadius * fs * xf.k;
+  if (R < 0.5) return;
+  const squash = 1 - st.orbitTilt * 0.92;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.4);
+  const tilt = st.orbitAngle * DEG;
+  const ct = Math.cos(tilt), stt = Math.sin(tilt);
+  g.save();
+  g.globalAlpha = st.orbit * c.a;
+  g.fillStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    // Evenly spaced, plus a hashed wobble so they don't look mechanically placed.
+    const phase = i / n + t * st.orbitSpeed + rnd(seed, i, 81) * st.orbitScatter;
+    const a = phase * Math.PI * 2;
+    const ex = Math.cos(a) * R;
+    const ey = Math.sin(a) * R * squash;
+    // depth: +1 near side (front, big/bright), -1 far side
+    const depth = Math.sin(a);
+    const scale = 1 + depth * st.orbitDepth * 0.6;
+    const x = ox + ex * ct - ey * stt;
+    const y = oy + ex * stt + ey * ct;
+    const rr = Math.max(0.4, st.orbitSize * xf.k * 0.5 * scale);
+    g.globalAlpha = st.orbit * c.a * clamp01(0.35 + 0.65 * (0.5 + depth * 0.5 * st.orbitDepth));
+    g.beginPath();
+    g.arc(x, y, rr, 0, Math.PI * 2);
+    g.fill();
+    if (st.orbitTrail > 0) {
+      // A short arc swept BEHIND each body along its own path — a straight streak would betray
+      // that these are dots being moved rather than things travelling a curve.
+      const steps = 6;
+      g.strokeStyle = c.css;
+      g.lineWidth = rr * 1.1;
+      g.lineCap = "round";
+      g.beginPath();
+      for (let s = 0; s <= steps; s++) {
+        const back = a - (s / steps) * st.orbitTrail * 1.2;
+        const bx = Math.cos(back) * R, by = Math.sin(back) * R * squash;
+        const px = ox + bx * ct - by * stt, py = oy + bx * stt + by * ct;
+        if (s === 0) g.moveTo(px, py); else g.lineTo(px, py);
+      }
+      g.globalAlpha *= 0.4;
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- tumble ----------
+// Flat pieces falling and turning over in pseudo-3D: confetti, petals, leaves, paper, coins. The
+// trick is that scaleY passes through zero — that instant of zero width IS the edge-on frame, and
+// it's what separates "a card flipping" from "a sprite spinning". Everything else in the app is a
+// billboard that always faces the viewer, so this is the one engine with a sense of facing.
+function drawTumble(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.tumble <= 0) return;
+  const n = Math.max(1, Math.round(st.tumbleCount));
+  const spread = st.tumbleSpread * fs * xf.k;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.25);
+  const sz = st.tumbleSize * xf.k;
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const life = st.duration * (0.6 + rnd(seed, i, 91) * 0.4);
+    const age = t - rnd(seed, i, 92) * st.tumbleStagger * st.duration;
+    if (age <= 0) continue;
+    const p = age / life;
+    if (p >= 1) continue;
+    // Ballistic fall with sideways drift; drift direction is hashed per piece so the cloud
+    // spreads instead of moving as a block.
+    const drift = rndS(seed, i, 93);
+    const x = ox + rndS(seed, i, 94) * spread + drift * st.tumbleDrift * fs * xf.k * age;
+    const y = oy + rndS(seed, i, 95) * spread * 0.3 +
+              0.5 * st.tumbleFall * fs * xf.k * age * age;
+    // Each piece turns at its own rate, about its own axis phase.
+    const flip = (rnd(seed, i, 96) + age * st.tumbleFlip * (0.5 + rnd(seed, i, 97))) * Math.PI * 2;
+    const roll = rndS(seed, i, 98) * st.tumbleRoll * DEG * age;
+    const fade = p > 0.7 ? 1 - (p - 0.7) / 0.3 : 1;
+    const w = sz * (0.6 + rnd(seed, i, 99) * 0.8);
+    const h = w * st.tumbleAspect;
+    g.save();
+    g.translate(x, y);
+    g.rotate(roll);
+    g.scale(1, Math.cos(flip));            // through zero = edge-on
+    // Dim the back face so a flip reads as a turn rather than a squash.
+    const facing = Math.cos(flip) < 0 ? 0.55 : 1;
+    g.globalAlpha = st.tumble * c.a * clamp01(fade) * facing;
+    g.fillStyle = c.css;
+    g.fillRect(-w * 0.5, -h * 0.5, w, h);
+    g.restore();
   }
   g.restore();
 }

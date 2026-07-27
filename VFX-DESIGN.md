@@ -459,3 +459,37 @@ Upstream (`crunchyfx/`) has the other half: `synth.js` (the extracted engine —
 app globals), `tools/export-synth.py` (which refuses to export if that stops being true), and
 `tools/verify-synth.html`, which renders all 736 presets through both the app's engine and the
 bundle and asserts they are identical.
+
+## 10. Hold sound — the preset browser as a "change type" control
+
+Matching a sound derives a whole effect from it. Then loading any preset reset everything, so you
+lost the length and the punch the sound gave you purely to change what it looked like — and since
+most matches land somewhere explosion-shaped, "change the type" was the first thing anyone wanted
+to do and the one thing that destroyed the match.
+
+The match's output is split three ways, in `SOUND_HOLD_KEYS`:
+
+| group | keys | owned by |
+|---|---|---|
+| timing | `duration`, `life`, `lifeVar`, `fadeIn`, `fadeOut`, `shots`, `shotDelay`, `reverse` | the sound |
+| intensity | `count`, `size`, `speed`, `radial`, `shake`, `turb`, `emitSpread` | the sound |
+| look | `shape`, `hue`, `sat`, `glow`, `flash`, `wave`, the crunch chain… | the **preset** |
+
+`applyPreset` already overlaid a `keep` map after the preset for the pixel lock; the held sound
+values are simply a second overlay after that. So the mechanism is a few lines, and **every one of
+the 59 presets becomes a "change type" button** — no separate curated list to maintain, and
+browsing works exactly as it always did.
+
+Deliberate calls:
+
+- **The look is never held.** Holding `shape` or `hue` would mean "change type" could not change
+  the type. That is the whole split.
+- **A toolbar toggle beside Lock pixels**, not a new panel — same mental model as the lock the app
+  already has, auto-enabled by a match, and it costs no UI surface until there is a sound to hold.
+- **Not persisted**, unlike the pixel lock. A hold describes one specific loaded sound; one that
+  outlived its sound would silently distort the next thing you made. Clearing or replacing the
+  sound clears the hold.
+- **Values are snapshotted at match time**, not read live from `state`, so later hand-edits don't
+  quietly redefine what the sound "said".
+- Undo/redo goes through `restoreEdit`, not `applyPreset`, so history restores exactly and is
+  unaffected by the hold. There is a regression assertion pinning that.

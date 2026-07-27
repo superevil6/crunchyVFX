@@ -22,6 +22,7 @@
     <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
     <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
+    <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you">🔊 Hold sound</button>
   </div>
   <div class="controls-right">
     <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution">⬇ Export…</button>
@@ -92,6 +93,11 @@
           <label><input type="checkbox" id="sndOn" checked> Play with preview</label>
           <button id="sndClear">✕</button>
         </div>
+        <div class="ref-toggles" id="sndHoldRow" hidden>
+          <label title="Duration, particle life, fades, burst count and spacing, reverse — the sound's shape in time"><input type="checkbox" id="holdTiming" checked> Hold length</label>
+          <label title="Count, size, speed, radial push, shake, turbulence, spread — how hard the sound hits"><input type="checkbox" id="holdIntensity" checked> Hold intensity</label>
+        </div>
+        <div class="hint stage-hint" id="sndHoldMsg"></div>
         <div class="hint stage-hint" id="sndFit"></div>
       </div>
     </div>
@@ -407,6 +413,43 @@ const PARAMS = [
   ["rippleWidth","Thickness",   0.5, 20, 0.5, 3, "px", "Ripples"],
   ["rippleSquash","Squash",     0, 1, 0.01, 0, "",     "Ripples"],
   ["rippleLife", "Cycle",       0.1, 3, 0.01, 0.8, "s","Ripples"],
+
+  // Sigil — a magic circle: concentric counter-rotating rings, tick marks, radial spokes.
+  ["sigil",      "Sigil",       0, 1, 0.01, 0, "",     "Sigil"],
+  ["sigilRings", "Rings",       1, 5, 1, 3, "",        "Sigil"],
+  ["sigilRadius","Radius",      0.05, 0.6, 0.01, 0.35, "","Sigil"],
+  ["sigilSpin",  "Spin",     -360, 360, 5, 60, "°/s",  "Sigil"],
+  ["sigilGap",   "Ring gaps",   0, 1, 0.01, 0.5, "",   "Sigil"],
+  ["sigilTicks", "Tick marks",  0, 48, 1, 12, "",      "Sigil"],
+  ["sigilSpokes","Spokes",      0, 12, 1, 0, "",       "Sigil"],
+  ["sigilWidth", "Line width",  0.5, 8, 0.5, 2, "px",  "Sigil"],
+  ["sigilSquash","Squash",      0, 1, 0.01, 0, "",     "Sigil"],
+  ["sigilGrow",  "Draw-on",     0, 1, 0.01, 0.25, "",  "Sigil"],
+  ["sigilLife",  "Cycle",       0.1, 3, 0.01, 1, "s",  "Sigil"],
+
+  // Orbit — satellites on a tilted ellipse. Shields, auras, buffs, orbiting sparks.
+  ["orbit",      "Orbit",       0, 1, 0.01, 0, "",     "Orbit"],
+  ["orbitCount", "Bodies",      1, 24, 1, 5, "",       "Orbit"],
+  ["orbitRadius","Radius",      0.05, 0.6, 0.01, 0.3, "","Orbit"],
+  ["orbitSpeed", "Speed",    -4, 4, 0.05, 1, "rev/s",  "Orbit"],
+  ["orbitTilt",  "Tilt",        0, 1, 0.01, 0.6, "",   "Orbit"],
+  ["orbitAngle", "Rotation",    0, 360, 1, 0, "°",     "Orbit"],
+  ["orbitSize",  "Body size",   1, 40, 0.5, 8, "px",   "Orbit"],
+  ["orbitDepth", "Depth",       0, 1, 0.01, 0.6, "",   "Orbit"],
+  ["orbitTrail", "Trail",       0, 1, 0.01, 0, "",     "Orbit"],
+  ["orbitScatter","Scatter",    0, 1, 0.01, 0, "",     "Orbit"],
+
+  // Tumble — flat pieces turning over as they fall. Confetti, petals, leaves, paper, coins.
+  ["tumble",     "Tumble",      0, 1, 0.01, 0, "",     "Tumble"],
+  ["tumbleCount","Pieces",      1, 200, 1, 30, "",     "Tumble"],
+  ["tumbleSize", "Size",        1, 40, 0.5, 7, "px",   "Tumble"],
+  ["tumbleAspect","Aspect",     0.1, 3, 0.05, 1.6, "", "Tumble"],
+  ["tumbleSpread","Spread",     0, 0.8, 0.01, 0.4, "", "Tumble"],
+  ["tumbleFall", "Fall",     -3, 3, 0.05, 0.8, "",     "Tumble"],
+  ["tumbleDrift","Drift",       0, 2, 0.01, 0.3, "",   "Tumble"],
+  ["tumbleFlip", "Flip rate",   0, 6, 0.05, 1.2, "/s", "Tumble"],
+  ["tumbleRoll", "Roll",        0, 720, 5, 120, "°/s", "Tumble"],
+  ["tumbleStagger","Stagger",   0, 1, 0.01, 0.5, "",   "Tumble"],
   // Glitch — banded displacement + RGB split. Digital corruption, damage, teleport interference.
   ["glitch",     "Glitch",      0, 1, 0.01, 0, "",     "Glitch"],
   ["glitchSlices","Bands",      1, 24, 1, 6, "",       "Glitch"],
@@ -729,6 +772,7 @@ function syncSoundUI() {
       const ctx = ensureAudio();
       snd.buf = await ctx.decodeAudioData(await f.arrayBuffer());
       synthSound = null;   // a loaded file replaces any synthesised audio; don't export the old WAV
+      clearSoundHold();    // …and it isn't the matched sound the hold was describing either
       snd.name = f.name;
       syncSoundUI();
       restartLoop(0);
@@ -739,7 +783,8 @@ function syncSoundUI() {
     sndFile.value = "";
   });
   document.getElementById("sndClear").addEventListener("click", () => {
-    stopSound(); snd.buf = null; snd.name = "";
+    stopSound(); snd.buf = null; snd.name = ""; synthSound = null;
+    clearSoundHold();     // the hold describes THIS sound; it must not outlive it
     syncSoundUI();
   });
   document.getElementById("sndVol").addEventListener("input", (e) => {
@@ -1513,6 +1558,9 @@ const LAYER_GROUPS = [
   { g: "Merge",       is: () => state.merge > 0,      on: () => { state.merge = 1; } },
   { g: "Path trail",  is: () => state.pathTrail > 0,  on: () => { state.pathTrail = 1; } },
   { g: "Ripples",     is: () => state.ripple > 0,     on: () => { state.ripple = 1; } },
+  { g: "Sigil",       is: () => state.sigil > 0,      on: () => { state.sigil = 1; } },
+  { g: "Orbit",       is: () => state.orbit > 0,      on: () => { state.orbit = 1; } },
+  { g: "Tumble",      is: () => state.tumble > 0,     on: () => { state.tumble = 1; } },
   { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
 ];
 const layerBar = document.getElementById("layerBar");
@@ -1888,6 +1936,52 @@ function saveLockPref() {
 }
 // Called whenever the user moves one of these controls by hand (slider, dropdown, or a macro that
 // writes them) — that's the signal that this value is theirs and should survive preset loads.
+// ---------- Hold sound ----------
+// Matching a sound derives a whole effect from it, and then loading any preset threw all of that
+// away — you'd lose the length and the punch the sound gave you just to change what it looks
+// like. So the match's output is split three ways: TIMING and INTENSITY are things the SOUND
+// owns, and everything else (shape, hue, glow, the crunch chain…) is what a preset is FOR.
+// While a hold is active those two groups are re-applied after the preset, which turns the whole
+// preset browser into a "change type" control — no separate list to maintain, and every one of
+// the 59 effects works with it.
+//
+// Deliberately NOT persisted like the pixel lock: it describes a specific loaded sound, and a
+// hold that outlived the sound it came from would silently distort the next thing you made.
+const SOUND_HOLD_KEYS = {
+  timing: ["duration", "life", "lifeVar", "fadeIn", "fadeOut", "shots", "shotDelay", "reverse"],
+  intensity: ["count", "size", "speed", "radial", "shake", "turb", "emitSpread"],
+};
+const soundHold = { on: false, timing: true, intensity: true, values: {}, name: "" };
+
+// Snapshot the matched values so later hand-edits to the effect don't quietly redefine what the
+// sound "said" — the hold means THIS sound's numbers, not whatever is in state right now.
+function captureSoundHold(patch, name) {
+  soundHold.values = {};
+  for (const g in SOUND_HOLD_KEYS) {
+    for (const k of SOUND_HOLD_KEYS[g]) if (k in patch) soundHold.values[k] = patch[k];
+  }
+  soundHold.on = Object.keys(soundHold.values).length > 0;
+  soundHold.name = name || "the matched sound";
+  updateHoldUI();
+}
+
+function heldSoundValues() {
+  if (!soundHold.on) return {};
+  const out = {};
+  for (const g in SOUND_HOLD_KEYS) {
+    if (!soundHold[g]) continue;
+    for (const k of SOUND_HOLD_KEYS[g]) if (k in soundHold.values) out[k] = soundHold.values[k];
+  }
+  return out;
+}
+
+function clearSoundHold() {
+  soundHold.on = false;
+  soundHold.values = {};
+  soundHold.name = "";
+  updateHoldUI();
+}
+
 function noteLockEdit(key) {
   if (LOCK_KEYS.indexOf(key) < 0) return;
   lockedValues[key] = state[key];
@@ -1902,6 +1996,10 @@ function applyPreset(obj, label) {
   for (const k in obj) if (k in state) state[k] = obj[k];
   applyImageSprite(state.imageSprite);
   for (const k in keep) state[k] = keep[k];
+  // …then the matched sound's own properties, last, so a preset changes the LOOK without
+  // discarding what the sound dictated. See soundHold.
+  const held = heldSoundValues();
+  for (const k in held) state[k] = held[k];
   if (label) effectLabel = label;
   syncUI();
   frameIdx = 0;
@@ -1933,7 +2031,12 @@ for (const [cat, names] of PRESET_CATEGORIES) {
   presetBar.appendChild(sec);
   presetSections.push({ sec, buttons });
 }
-document.getElementById("presetCount").textContent = Object.keys(PRESETS).length + " effects";
+// Counted, never hard-coded, so the figure can't drift out of date. "systems" rather than
+// "engines" because LAYER_GROUPS also covers post passes (glow, dissolve, glitch) and modifiers
+// (ground, attractor) — calling those engines would be a number that doesn't survive scrutiny.
+// Breadth is the pitch, so it's worth saying out loud next to the preset count.
+document.getElementById("presetCount").textContent =
+  Object.keys(PRESETS).length + " effects · " + LAYER_GROUPS.length + " systems";
 
 const presetSearch = document.getElementById("presetSearch");
 presetSearch.addEventListener("input", () => {
@@ -2152,6 +2255,46 @@ lockBtn.addEventListener("click", () => {
   saveLockPref();
   updateLockBtn();
 });
+
+const holdBtn = document.getElementById("holdBtn");
+const holdTimingEl = document.getElementById("holdTiming");
+const holdIntensityEl = document.getElementById("holdIntensity");
+const sndHoldRow = document.getElementById("sndHoldRow");
+const sndHoldMsg = document.getElementById("sndHoldMsg");
+function updateHoldUI() {
+  // The button only exists once there's a sound to hold — an inert toggle for a thing you
+  // haven't done yet is just clutter in the toolbar.
+  const any = Object.keys(soundHold.values).length > 0;
+  holdBtn.hidden = !any;
+  sndHoldRow.hidden = !any;
+  if (!any) { sndHoldMsg.textContent = ""; return; }
+  const n = Object.keys(heldSoundValues()).length;
+  holdBtn.classList.toggle("on", soundHold.on);
+  holdBtn.textContent = (soundHold.on ? "🔊" : "🔇") + " Hold sound" + (soundHold.on && n ? " (" + n + ")" : "");
+  holdBtn.title = soundHold.on
+    ? "Loading a preset will change the look but keep " +
+      [soundHold.timing ? "length" : null, soundHold.intensity ? "intensity" : null].filter(Boolean).join(" and ") +
+      " from “" + soundHold.name + "”. Click to turn off."
+    : "Off — a preset will replace everything, including what the sound gave you.";
+  holdTimingEl.checked = soundHold.timing;
+  holdIntensityEl.checked = soundHold.intensity;
+  sndHoldMsg.textContent = soundHold.on && n
+    ? "Pick any effect to change the look — " + n + " properties from this sound are held."
+    : "Not holding anything from this sound; presets will replace it entirely.";
+}
+holdBtn.addEventListener("click", () => {
+  soundHold.on = !soundHold.on;
+  updateHoldUI();
+});
+for (const [el, group] of [[holdTimingEl, "timing"], [holdIntensityEl, "intensity"]]) {
+  el.addEventListener("change", () => {
+    soundHold[group] = el.checked;
+    // Unticking both is the same intent as turning the hold off; re-ticking either revives it.
+    if (!soundHold.timing && !soundHold.intensity) soundHold.on = false;
+    else if (!soundHold.on) soundHold.on = true;
+    updateHoldUI();
+  });
+}
 document.getElementById("undoBtn").addEventListener("click", undoEdit);
 document.getElementById("redoBtn").addEventListener("click", redoEdit);
 scrub.addEventListener("input", () => {
@@ -3692,6 +3835,9 @@ matchModal.querySelector("#matchClose").addEventListener("click", () => { matchM
 matchModal.addEventListener("click", (e) => { if (e.target === matchModal) matchModal.hidden = true; });
 matchApplyBtn.addEventListener("click", () => {
   if (!matchResult) return;
+  // Capture BEFORE applying, so the hold records what the sound asked for rather than whatever
+  // survived the pixel lock on the way in.
+  captureSoundHold(matchResult.patch, matchResult.name);
   applyPreset(matchResult.patch, matchResult.name);
   matchModal.hidden = true;
   let extra = "";
@@ -3720,6 +3866,7 @@ loadUserEffects();
 loadUserCats();
 renderMyEffects();   // also renders the categories
 updateLockBtn();
+updateHoldUI();
 syncUI();
 if (!loadSharedEffect()) {
   const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];

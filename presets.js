@@ -429,6 +429,60 @@ window.PRESETS = {
     hue: 220, sat: 0.1, bright: 0.7, coreWhite: 0, blend: 1, opacity: 0.55,
     smokeSoft: 0.9, duration: 1.5, fps: 20,
   },
+  // ---- Sigil ----
+  "Rune Circle": {
+    shape: 0, count: 1, opacity: 0,
+    sigil: 1, sigilRings: 3, sigilRadius: 0.36, sigilSpin: 55, sigilGap: 0.55,
+    sigilTicks: 16, sigilSpokes: 6, sigilWidth: 2, sigilGrow: 0.3, sigilLife: 2,
+    hue: 265, hueLife: 20, sat: 0.85, bright: 1, coreWhite: 0.35,
+    glow: 0.5, glowRadius: 8, duration: 2, fps: 24, frameSize: 5, loopBlend: 0.6,
+  },
+  "Summon Seal": {
+    shape: 0, count: 40, opacity: 0.7, emitter: 2, emitRadius: 0.3, emitTime: 0.8,
+    speed: 30, gravity: -90, drag: 0.4, size: 5, sizeVar: 0.6, life: 0.9, lifeVar: 0.4,
+    fadeIn: 0.15, fadeOut: 0.6,
+    sigil: 1, sigilRings: 4, sigilRadius: 0.42, sigilSpin: -40, sigilGap: 0.65,
+    sigilTicks: 24, sigilSpokes: 0, sigilWidth: 2.5, sigilSquash: 0.8, sigilGrow: 0.35,
+    sigilLife: 2.2,
+    hue: 40, hueLife: 15, sat: 0.95, bright: 1, coreWhite: 0.5,
+    glow: 0.55, glowRadius: 10, duration: 2.2, fps: 24, frameSize: 5,
+  },
+
+  // ---- Orbit ----
+  "Shield Orbit": {
+    shape: 0, count: 1, opacity: 0,
+    orbit: 1, orbitCount: 6, orbitRadius: 0.32, orbitSpeed: 0.9, orbitTilt: 0.65,
+    orbitAngle: 0, orbitSize: 10, orbitDepth: 0.7, orbitTrail: 0.35,
+    hue: 195, hueLife: 15, sat: 0.85, bright: 1, coreWhite: 0.45,
+    glow: 0.5, glowRadius: 8, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.7,
+  },
+  "Power Rings": {
+    shape: 0, count: 1, opacity: 0,
+    orbit: 1, orbitCount: 14, orbitRadius: 0.38, orbitSpeed: -1.4, orbitTilt: 0.85,
+    orbitAngle: 25, orbitSize: 6, orbitDepth: 0.85, orbitTrail: 0.6, orbitScatter: 0.15,
+    sigil: 0.55, sigilRings: 1, sigilRadius: 0.4, sigilSpin: 30, sigilGap: 0.7,
+    sigilTicks: 0, sigilWidth: 1.5, sigilSquash: 0.85, sigilGrow: 0.2, sigilLife: 1.8,
+    hue: 285, hueLife: 40, sat: 0.9, bright: 1, coreWhite: 0.4,
+    glow: 0.6, glowRadius: 10, duration: 1.8, fps: 24, frameSize: 5, loopBlend: 0.7,
+  },
+
+  // ---- Tumble ----
+  "Confetti Toss": {
+    shape: 0, count: 1, opacity: 0,
+    tumble: 1, tumbleCount: 60, tumbleSize: 7, tumbleAspect: 1.8, tumbleSpread: 0.45,
+    tumbleFall: 0.9, tumbleDrift: 0.5, tumbleFlip: 1.8, tumbleRoll: 200, tumbleStagger: 0.6,
+    ramp: "0,0,0.95,0.6,1,1|0.3,50,0.95,0.6,1,1|0.6,140,0.9,0.55,1,1|1,215,0.9,0.6,1,1",
+    hueVar: 1, sat: 0.95, bright: 1, coreWhite: 0, blend: 1,
+    duration: 1.8, fps: 24, frameSize: 5,
+  },
+  "Leaf Fall": {
+    shape: 0, count: 1, opacity: 0,
+    tumble: 1, tumbleCount: 22, tumbleSize: 11, tumbleAspect: 0.7, tumbleSpread: 0.55,
+    tumbleFall: 0.35, tumbleDrift: 0.9, tumbleFlip: 0.7, tumbleRoll: 70, tumbleStagger: 0.85,
+    ramp: "0,28,0.85,0.45,1,1|0.5,38,0.8,0.5,1,1|1,18,0.75,0.38,1,1",
+    sat: 0.8, bright: 0.9, coreWhite: 0, blend: 1,
+    duration: 2.4, fps: 20, frameSize: 5,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -440,9 +494,10 @@ window.PRESET_CATEGORIES = [
                   "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob",
                   "Firework", "Water Ripple", "Sonar Ping", "Glitch Out"]],
   ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat"]],
-  ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud"]],
-  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle"]],
+  ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud",
+                  "Rune Circle", "Summon Seal", "Shield Orbit", "Power Rings"]],
+  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss"]],
   ["Emotes",     ["Emote Pop", "Emoji Burst"]],
-  ["Weather",    ["Rain", "Snow", "Fireflies"]],
+  ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash"]],
 ];
