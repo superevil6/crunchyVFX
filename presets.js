@@ -252,6 +252,34 @@ window.PRESETS = {
     duration: 1.2, fps: 24, frameSize: 5,
   },
 
+  "Firework": {
+    shape: 0, emitter: 0, count: 26, size: 7, sizeVar: 0.4, speed: 300, speedVar: 0.5,
+    drag: 0.45, gravity: 220, life: 1.0, lifeVar: 0.3, grow: -0.4, fadeOut: 0.5,
+    hue: 45, hueLife: -40, hueVar: 0.15, coreWhite: 0.8,
+    pathTrail: 1, pathLen: 18, pathWidth: 2.5, pathTaper: 0.85, pathFade: 0.6,
+    flash: 0.6, flashSize: 0.2, flashLife: 0.08,
+    glow: 0.5, glowRadius: 9, duration: 1.3, fps: 24, frameSize: 5,
+  },
+  "Water Ripple": {
+    shape: 0, count: 1, opacity: 0,
+    ripple: 1, rippleCount: 4, rippleSpeed: 0.9, rippleWidth: 3, rippleSquash: 0.7, rippleLife: 1.0,
+    hue: 200, hueLife: -10, sat: 0.6, bright: 0.95, coreWhite: 0.5,
+    glow: 0.35, duration: 1.4, fps: 24, frameSize: 5, loopBlend: 0.9,
+  },
+  "Sonar Ping": {
+    shape: 0, count: 1, opacity: 0,
+    ripple: 1, rippleCount: 2, rippleSpeed: 1.2, rippleWidth: 2, rippleLife: 0.7,
+    hue: 130, hueLife: 15, sat: 0.9, bright: 1, coreWhite: 0.6,
+    glow: 0.5, duration: 1.4, fps: 24, frameSize: 5, loopBlend: 0.9,
+  },
+  "Glitch Out": {
+    shape: 4, emitter: 0, count: 70, size: 10, speed: 200, speedVar: 0.6, drag: 0.5,
+    life: 0.5, lifeVar: 0.4, grow: -0.4, fadeOut: 0.5,
+    hue: 300, hueLife: 70, hueVar: 0.3, sat: 1, coreWhite: 0.4,
+    glitch: 1, glitchSlices: 8, glitchShift: 0.1, glitchRGB: 0.9, glitchRate: 12,
+    pixelate: 3, duration: 0.8, fps: 20, frameSize: 5,
+  },
+
   // ---------- More impacts ----------
   "Slash": {
     shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
@@ -339,13 +367,17 @@ window.PRESETS = {
   // ---------- Emotes ----------
   // The glyph shape means an emote is just a one-particle effect with a character in it.
   "Emote Pop": {
-    shape: 18, glyph: "!", emitter: 0, count: 1, emitSpread: 0, speed: 95, drag: 0.88,
+    // angleVar 0 keeps the glyph UPRIGHT. At the default of 1 the single particle takes a random
+    // start rotation, which for most seeds renders the "!" tilted or upside down.
+    shape: 18, glyph: "!", emitter: 0, count: 1, emitSpread: 0, angleVar: 0, speed: 95, drag: 0.88,
     life: 0.9, size: 46, sizeVar: 0, grow: 0.06, fadeIn: 0.07, fadeOut: 0.2, alphaCurve: 0.5,
     hue: 48, sat: 0.95, bright: 1, coreWhite: 0.35, blend: 1,
     outline: 2, outlineTone: 0.04, originY: 0.62, duration: 0.9, fps: 24, frameSize: 3,
   },
   "Emoji Burst": {
-    shape: 18, glyph: "✨", glyphTint: 0, emitter: 0, count: 12,
+    // angleVar must come down with it: it defaults to 1 (fully random start rotation), which
+    // swamps `angle` entirely — setting the angle alone changes nothing you can see.
+    shape: 18, glyph: "✨", glyphTint: 0, emitter: 0, count: 12, angleVar: 0,
     speed: 210, speedVar: 0.6, drag: 0.45, gravity: 340, spin: 130, spinVar: 1,
     life: 0.8, lifeVar: 0.35, size: 26, sizeVar: 0.4, grow: -0.2, fadeOut: 0.35,
     blend: 1, duration: 1, fps: 24, frameSize: 4,
@@ -405,7 +437,8 @@ window.PRESET_CATEGORIES = [
   ["Ice & Frost",["Ice Blast", "Frost Nova", "Frost Growth"]],
   ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc",
                   "Portal", "Summon Circle", "Chain Lightning", "Teleport Out",
-                  "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob"]],
+                  "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob",
+                  "Firework", "Water Ripple", "Sonar Ping", "Glitch Out"]],
   ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud"]],
   ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle"]],

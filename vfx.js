@@ -20,7 +20,7 @@ const BLENDS   = ["additive", "alpha", "screen"];
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
 
 // ---------- constants ----------
-const P_STRIDE = 13;       // one particle per stride in the per-frame Float32Array
+const P_STRIDE = 14;       // one particle per stride in the per-frame Float32Array
 const P_X = 0, P_Y = 1, P_SIZE = 2, P_ANG = 3, P_ALPHA = 4;
 const P_HUE = 5, P_WHITE = 6, P_KIND = 7, P_VX = 8, P_VY = 9;
 // Colour is resolved at SIMULATE time, not draw time: with a ramp, hue/sat/light are a function
@@ -28,6 +28,10 @@ const P_HUE = 5, P_WHITE = 6, P_KIND = 7, P_VX = 8, P_VY = 9;
 const P_SAT = 10, P_LIGHT = 11;
 // Flipbook frame for the imported-sprite shape: which cell of the strip this particle is showing.
 const P_FRAME = 12;
+// Stable identity. The per-frame table packs only the ALIVE particles, so a given particle's index
+// moves around between frames — without an id there's no way to ask "where was this same particle
+// last frame", which is exactly what a path trail needs.
+const P_ID = 13;
 const K_PART = 0, K_FLASH = 1, K_WAVE = 2;   // P_KIND values
 
 const SUB = 2;                 // simulation substeps per frame — keeps motion stable at 8 fps
@@ -255,6 +259,7 @@ function simulate(st) {
           scratch[o + P_ALPHA] = lifeAlpha(st, u);
         }
         scratch[o + P_KIND] = K_PART;
+        scratch[o + P_ID] = g;
         // Flipbook cell from the particle's own life fraction. `imgLoops` runs the strip more than
         // once per lifetime; `imgStagger` offsets each particle so a hundred sprites don't play in
         // lockstep, which reads as one flickering object rather than a hundred separate ones.
@@ -289,6 +294,7 @@ function simulate(st) {
             scratch[o + P_SAT] = st.sat * 0.15;
             scratch[o + P_LIGHT] = clamp01(st.bright * 0.93);
             scratch[o + P_KIND] = K_FLASH;
+            scratch[o + P_ID] = -1;
             scratch[o + P_VX] = 0; scratch[o + P_VY] = 0;
             n++;
           }
@@ -309,6 +315,7 @@ function simulate(st) {
             scratch[o + P_SAT] = st.sat * (1 - ww * 0.85);
             scratch[o + P_LIGHT] = clamp01(st.bright * (0.5 + 0.5 * ww));
             scratch[o + P_KIND] = K_WAVE;
+            scratch[o + P_ID] = -1;
             scratch[o + P_VX] = 0; scratch[o + P_VY] = 0;
             n++;
             if (r > 1) {
@@ -408,7 +415,7 @@ function simulate(st) {
   // The structure layers aren't in the particle table, so widen the box by their reach —
   // otherwise Fit scales to the particles alone and crops the beam or the frost clean off.
   if (st.growth > 0 || st.beam > 0 || st.ribbon > 0 || st.vortex > 0 || st.arc > 0 ||
-      st.shatter > 0 || st.lines > 0) {
+      st.shatter > 0 || st.lines > 0 || st.ripple > 0) {
     const reach = Math.max(
       st.growth > 0 ? st.growLen * fs : 0,
       st.beam > 0 ? st.beamLen * fs : 0,
@@ -416,7 +423,8 @@ function simulate(st) {
       st.vortex > 0 ? (st.vortexRadius * fs + st.vortexWidth) : 0,
       st.arc > 0 ? Math.hypot(st.arcToX - st.originX, st.arcToY - st.originY) * fs : 0,
       st.shatter > 0 ? (st.shatterRadius * fs + st.shatterSpeed * st.duration * 0.5) : 0,
-      st.lines > 0 ? st.lineOuter * fs : 0);
+      st.lines > 0 ? st.lineOuter * fs : 0,
+      st.ripple > 0 ? st.rippleSpeed * fs * 0.5 : 0);
     bx0 = Math.min(bx0, ox - reach); bx1 = Math.max(bx1, ox + reach);
     by0 = Math.min(by0, oy - reach); by1 = Math.max(by1, oy + reach);
   }
@@ -797,6 +805,8 @@ function drawFrame(sim, f, g, st, xf) {
     drawArc(g, st, t, xf, fs, ox, oy, seed);
     drawShatter(g, st, t, xf, fs, ox, oy, seed);
     drawLines(g, st, t, xf, fs, ox, oy, seed);
+    drawRipples(g, st, t, xf, fs, ox, oy);
+    drawPathTrails(g, sim, f, st, xf);
   }
   for (let i = 0; i < n; i++) {
     const o = i * P_STRIDE;
@@ -1132,6 +1142,102 @@ function drawArc(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// ---------- path trails ----------
+// A ribbon behind each particle that follows the path it ACTUALLY took. The existing `trail`
+// stamps ghost copies backwards along the instantaneous velocity, which is a straight line — fine
+// for a fast spark, wrong for anything that curves, because the ghosts leave the arc. This walks
+// the frame table backwards by particle id and draws the real curve: firework tails, comet swarms,
+// swirling embers.
+//
+// The id→row maps are built once per render and cached, since every frame queries several
+// previous frames and rebuilding them per frame would be O(frames²).
+let pathMapsKey = null, pathMaps = null;
+function pathIndexMaps(sim) {
+  if (pathMapsKey === sim) return pathMaps;
+  const maps = new Array(sim.nFrames);
+  for (let f = 0; f < sim.nFrames; f++) {
+    const m = new Map();
+    const arr = sim.frames[f], n = sim.counts[f];
+    for (let i = 0; i < n; i++) {
+      const id = arr[i * P_STRIDE + P_ID];
+      if (id >= 0) m.set(id, i * P_STRIDE);
+    }
+    maps[f] = m;
+  }
+  pathMapsKey = sim; pathMaps = maps;
+  return maps;
+}
+function drawPathTrails(g, sim, f, st, xf) {
+  if (st.pathTrail <= 0) return;
+  const maps = pathIndexMaps(sim);
+  const back = Math.max(2, Math.round(st.pathLen));
+  const arr = sim.frames[f], n = sim.counts[f];
+  g.save();
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  for (let i = 0; i < n; i++) {
+    const o = i * P_STRIDE;
+    if (arr[o + P_KIND] !== K_PART) continue;
+    const id = arr[o + P_ID];
+    const alpha = arr[o + P_ALPHA];
+    if (alpha <= 0.01) continue;
+    // Walk back frame by frame; stop as soon as this particle wasn't alive, so a trail never
+    // jumps across a gap to some earlier life.
+    const pts = [[arr[o + P_X], arr[o + P_Y]]];
+    for (let k = 1; k <= back; k++) {
+      const pf = f - k;
+      if (pf < 0) break;
+      const off = maps[pf].get(id);
+      if (off === undefined) break;
+      pts.push([sim.frames[pf][off + P_X], sim.frames[pf][off + P_Y]]);
+    }
+    if (pts.length < 2) continue;
+    const c = hsl(arr[o + P_HUE], arr[o + P_SAT], arr[o + P_LIGHT]);
+    g.strokeStyle = c;
+    const w0 = Math.max(0.4, st.pathWidth * xf.k);
+    // Draw as separate tapering segments rather than one polyline: a single stroke can't vary its
+    // width along its length, and a trail of constant width reads as a wire.
+    for (let k = 0; k < pts.length - 1; k++) {
+      const s = k / (pts.length - 1);
+      g.globalAlpha = alpha * st.pathTrail * Math.pow(1 - s, st.pathFade * 3 + 0.2);
+      g.lineWidth = w0 * (1 - s * st.pathTaper);
+      g.beginPath();
+      g.moveTo(pts[k][0] * xf.k + xf.dx, pts[k][1] * xf.k + xf.dy);
+      g.lineTo(pts[k + 1][0] * xf.k + xf.dx, pts[k + 1][1] * xf.k + xf.dy);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- ripples ----------
+// Repeating expanding rings: water, sonar, pulses, heartbeat auras. The shockwave is ONE ring
+// fired once; this is a train of them, which is a different thing entirely and endlessly loopable.
+function drawRipples(g, st, t, xf, fs, ox, oy) {
+  if (st.ripple <= 0) return;
+  const n = Math.max(1, Math.round(st.rippleCount));
+  const life = Math.max(0.05, st.rippleLife);
+  const squash = 1 - st.rippleSquash * 0.85;
+  g.save();
+  g.translate(ox, oy);
+  g.scale(1, squash);
+  for (let i = 0; i < n; i++) {
+    // Rings are evenly phased through one lifetime and wrap, so the train is seamless — start it
+    // mid-cycle and there are already rings in flight rather than an empty frame.
+    const u = ((t / life) + i / n) % 1;
+    const r = st.rippleSpeed * fs * 0.5 * xf.k * u;
+    if (r < 1) continue;
+    const c = layerColour(st, u, 0.4);
+    g.globalAlpha = st.ripple * c.a * (1 - u) * Math.min(1, u * 6);
+    g.strokeStyle = c.css;
+    g.lineWidth = Math.max(0.4, st.rippleWidth * xf.k * (1 - u * 0.6));
+    g.beginPath();
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
 // ---------- shatter ----------
 // A shape that holds together, then breaks into fragments that fly apart. Glass, ice, stone,
 // shields. Particles can't do this: the pieces have to START as one object and be a partition of
@@ -1443,6 +1549,42 @@ function postProcess(cv, st, overlay, t) {
       }
     }
     g.putImageData(img, 0, 0);
+  }
+
+  if (st.glitch > 0) {
+    // Digital corruption: horizontal bands slide sideways and the colour channels separate. Both
+    // step in time (glitchRate) rather than changing every frame — a glitch that never repeats
+    // reads as static, while one that holds for a few frames reads as a fault.
+    const seed2 = Math.max(1, Math.round(st.seed)) | 0;
+    const step = Math.floor((t || 0) * Math.max(1, st.glitchRate));
+    const bands = Math.max(1, Math.round(st.glitchSlices));
+    const tmp = document.createElement("canvas");
+    tmp.width = w; tmp.height = h;
+    tmp.getContext("2d").drawImage(cv, 0, 0);
+    g.clearRect(0, 0, w, h);
+    for (let i = 0; i < bands; i++) {
+      const y0 = Math.floor(i * h / bands), y1 = Math.floor((i + 1) * h / bands);
+      // Only some bands displace; shifting every one just looks like a wobble.
+      const active = rnd(seed2 + step * 7919, i, 81) < 0.55;
+      const dx = active ? Math.round(rndS(seed2 + step * 7919, i, 82) * st.glitchShift * w * st.glitch) : 0;
+      g.drawImage(tmp, 0, y0, w, y1 - y0, dx, y0, w, y1 - y0);
+    }
+    if (st.glitchRGB > 0) {
+      const off = Math.max(1, Math.round(st.glitchRGB * st.glitch * w * 0.02));
+      const img = g.getImageData(0, 0, w, h), d = img.data;
+      const src = new Uint8ClampedArray(d);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const rx = Math.min(w - 1, Math.max(0, x - off)), bx = Math.min(w - 1, Math.max(0, x + off));
+          d[i] = src[(y * w + rx) * 4];              // red pulled one way…
+          d[i + 2] = src[(y * w + bx) * 4 + 2];      // …blue the other
+          // alpha takes the max of the three sample points, or the split shows as hard clipping
+          d[i + 3] = Math.max(src[i + 3], src[(y * w + rx) * 4 + 3], src[(y * w + bx) * 4 + 3]);
+        }
+      }
+      g.putImageData(img, 0, 0);
+    }
   }
 
   if (st.dissolve > 0) {

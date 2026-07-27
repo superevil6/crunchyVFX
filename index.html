@@ -159,6 +159,12 @@
       <div class="engine-title"><span>Palette</span></div>
       <div class="engine-cat-btns" id="paletteGrid"></div>
     </div>
+    <div class="engine" id="styleSection">
+      <div class="engine-title"><span>Era style</span>
+        <span class="hint">Clamps resolution, colour, dither and frame rate to what that era could show</span>
+      </div>
+      <div class="engine-cat-btns" id="styleGrid"></div>
+    </div>
     <div class="layerbar" id="layerBar"></div>
     <main id="panels"></main>
   </section>
@@ -383,6 +389,26 @@ const PARAMS = [
   ["merge",      "Merge",       0, 1, 0.01, 0, "",     "Merge"],
   ["mergeThreshold","Threshold",0.1, 0.9, 0.01, 0.45, "","Merge"],
   ["mergeSmooth","Smoothing",   1, 16, 1, 5, "px",     "Merge"],
+  // Path trail — a ribbon along the path each particle ACTUALLY took, unlike `trail` which
+  // stamps ghosts back along the instantaneous velocity (a straight line).
+  ["pathTrail",  "Path trail",  0, 1, 0.01, 0, "",     "Path trail"],
+  ["pathLen",    "Length",      2, 24, 1, 8, "frames", "Path trail"],
+  ["pathWidth",  "Thickness",   0.5, 12, 0.1, 3, "px", "Path trail"],
+  ["pathTaper",  "Taper",       0, 1, 0.01, 0.8, "",   "Path trail"],
+  ["pathFade",   "Fade",        0, 1, 0.01, 0.7, "",   "Path trail"],
+  // Ripples — a train of expanding rings. Water, sonar, pulses. Loops seamlessly.
+  ["ripple",     "Ripples",     0, 1, 0.01, 0, "",     "Ripples"],
+  ["rippleCount","Rings",       1, 8, 1, 3, "",        "Ripples"],
+  ["rippleSpeed","Reach",       0.1, 1.5, 0.01, 0.7, "","Ripples"],
+  ["rippleWidth","Thickness",   0.5, 20, 0.5, 3, "px", "Ripples"],
+  ["rippleSquash","Squash",     0, 1, 0.01, 0, "",     "Ripples"],
+  ["rippleLife", "Cycle",       0.1, 3, 0.01, 0.8, "s","Ripples"],
+  // Glitch — banded displacement + RGB split. Digital corruption, damage, teleport interference.
+  ["glitch",     "Glitch",      0, 1, 0.01, 0, "",     "Glitch"],
+  ["glitchSlices","Bands",      1, 24, 1, 6, "",       "Glitch"],
+  ["glitchShift","Shift",       0, 0.3, 0.005, 0.06, "","Glitch"],
+  ["glitchRGB",  "RGB split",   0, 1, 0.01, 0.5, "",   "Glitch"],
+  ["glitchRate", "Rate",        1, 30, 1, 8, "/s",     "Glitch"],
   // Ground plane — bounce at 0 is off, so no collision test runs for mid-air effects.
   ["bounce",     "Bounce",      0, 1, 0.01, 0, "",     "Ground"],
   ["groundY",    "Ground line", 0, 1, 0.01, 0.9, "",   "Ground"],
@@ -1449,6 +1475,9 @@ const LAYER_GROUPS = [
   { g: "Shatter",     is: () => state.shatter > 0,    on: () => { state.shatter = 1; } },
   { g: "Lines",       is: () => state.lines > 0,      on: () => { state.lines = 1; } },
   { g: "Merge",       is: () => state.merge > 0,      on: () => { state.merge = 1; } },
+  { g: "Path trail",  is: () => state.pathTrail > 0,  on: () => { state.pathTrail = 1; } },
+  { g: "Ripples",     is: () => state.ripple > 0,     on: () => { state.ripple = 1; } },
+  { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
 ];
 const layerBar = document.getElementById("layerBar");
 function updateLayerPanels() {
@@ -1722,6 +1751,74 @@ function updateMacros() {
   }
 }
 
+// Era styles — the CONSOLES pattern from CrunchySFX, and named the same way: evocative rather
+// than trademarked. Each clamps resolution, palette, dithering and frame rate to something that
+// era could actually display.
+//
+// Every style sets `paletteLock` explicitly (usually to "") because these are OVERLAYS onto the
+// current patch — without it, switching from Pocket to Super would leave the Game Boy palette
+// locked on and nothing would look right.
+//
+// Deliberately not one-per-console: Genesis vs SNES is a real visual difference (no alpha blending
+// on the Genesis, so transparency was faked with heavy dithering — hence Mega's dither and Super's
+// clean blend), but PC Engine has nothing to show that Super doesn't, so there's no Turbo button.
+const PAL_C64 = "000000,ffffff,880000,aaffee,cc44cc,00cc55,0000aa,eeee77," +
+                "dd8855,664400,ff7777,333333,777777,aaff66,0088ff,bbbbbb";
+const PAL_GB = "0f380f,306230,8bac0f,9bbc0f";
+const STYLES = [
+  { name: "Anything", hint: "no clamp", patch: {} },
+  { name: "Woodgrain", hint: "Atari-era: enormous pixels, almost no colour",
+    patch: { pixelate: 6, posterize: 3, dither: 0, alphaCut: 0.5, outline: 0, outlineTone: 0,
+             fps: 12, frameSize: 2, glow: 0, paletteLock: "" } },
+  { name: "SID", hint: "home-computer era: chunky, fixed 16-colour palette",
+    patch: { pixelate: 4, posterize: 32, dither: 0, alphaCut: 0.5, outline: 0,
+             fps: 12, frameSize: 2, glow: 0, paletteLock: PAL_C64 } },
+  { name: "8-bit", hint: "cartridge era: few colours, hard edges, outlined",
+    patch: { pixelate: 3, posterize: 4, dither: 0, alphaCut: 0.5, outline: 1, outlineTone: 0,
+             fps: 12, frameSize: 2, glow: 0, paletteLock: "" } },
+  { name: "Pocket", hint: "handheld: four shades of green",
+    patch: { pixelate: 3, posterize: 32, dither: 0, alphaCut: 0.5, outline: 0,
+             fps: 12, frameSize: 2, glow: 0, paletteLock: PAL_GB } },
+  { name: "Mega", hint: "16-bit without blending — dither stands in for transparency",
+    patch: { pixelate: 2, posterize: 8, dither: 0.9, alphaCut: 0.45, outline: 0,
+             fps: 15, frameSize: 3, glow: 0, paletteLock: "" } },
+  { name: "Super", hint: "16-bit with blending — clean gradients, no dither",
+    patch: { pixelate: 2, posterize: 12, dither: 0, alphaCut: 0, outline: 0,
+             fps: 15, frameSize: 3, glow: 0.25, paletteLock: "" } },
+  { name: "Advanced", hint: "late handheld: more colour, still small",
+    patch: { pixelate: 2, posterize: 16, dither: 0.3, alphaCut: 0.35, outline: 0,
+             fps: 20, frameSize: 3, glow: 0.2, paletteLock: "" } },
+  { name: "32-bit", hint: "disc era: dithered gradients at low resolution",
+    patch: { pixelate: 1, posterize: 16, dither: 0.6, alphaCut: 0, outline: 0,
+             fps: 24, frameSize: 4, glow: 0.35, paletteLock: "" } },
+  { name: "Modern", hint: "no clamp at all — full colour, smooth, high frame rate",
+    patch: { pixelate: 1, posterize: 32, dither: 0, alphaCut: 0, outline: 0,
+             fps: 30, frameSize: 5, glow: 0.5, paletteLock: "" } },
+];
+
+// Era-style buttons. Same STYLES table the Foundry uses — one source of truth, so a style can't
+// mean two different things in two places.
+{
+  const grid = document.getElementById("styleGrid");
+  for (const s of STYLES) {
+    if (s.name === "Anything") continue;          // "no clamp" isn't a button, it's just not pressing one
+    const b = document.createElement("button");
+    b.className = "engine-btn";
+    b.textContent = s.name;
+    b.title = s.hint;
+    b.addEventListener("click", () => {
+      for (const k in s.patch) if (k in state) state[k] = s.patch[k];
+      // an era style is a deliberate choice about output format — pin it like a hand edit
+      for (const k in s.patch) noteLockEdit(k);
+      syncUI();
+      rerender();
+      commitHistory();
+      msg.textContent = s.name + " — " + s.hint;
+    });
+    grid.appendChild(b);
+  }
+}
+
 // ---------- Presets ----------
 const PRESETS = window.PRESETS || {};
 const PRESET_CATEGORIES = window.PRESET_CATEGORIES || [];
@@ -1792,6 +1889,7 @@ for (const [cat, names] of PRESET_CATEGORIES) {
     b.textContent = name;
     b.addEventListener("click", () => applyPreset(PRESETS[name], name));
     b.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "b", n: name }, name));
+    ucDraggable(b, { t: "b", n: name }, name);
     box.appendChild(b);
     buttons.push(b);
   }
@@ -1902,6 +2000,7 @@ function renderMyEffects() {
     });
     nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") nameInput.blur(); });
     el.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "u", id: item.id }, item.name));
+    ucDraggable(el.querySelector(".up-thumb"), { t: "u", id: item.id }, item.name);
     mpList.appendChild(el);
   }
 }
@@ -2173,12 +2272,39 @@ function framesAtScale(mult) {
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
 const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 
+// Every export in the app funnels through here, so this is the only place that needs to know
+// which build it's running in. The web build triggers a browser download; the desktop (Tauri)
+// build has no download manager, so it pops a NATIVE Save dialog and writes the file itself.
+// Feature-detected — if the native path is missing or throws, it falls back to the browser one.
+const SAVE_FILTERS = {
+  png:  { name: "PNG image",  extensions: ["png"] },
+  gif:  { name: "GIF animation", extensions: ["gif"] },
+  zip:  { name: "ZIP archive", extensions: ["zip"] },
+  json: { name: "JSON file",  extensions: ["json"] },
+};
 function download(blob, name) {
+  const T = window.__TAURI__;
+  if (T && T.dialog && T.fs) { saveNative(T, blob, name); return; }   // async, fire-and-forget
+  downloadBrowser(blob, name);
+}
+function downloadBrowser(blob, name) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function saveNative(T, blob, name) {
+  try {
+    const ext = (String(name).match(/\.([a-z0-9]+)$/i) || [, ""])[1].toLowerCase();
+    const filter = SAVE_FILTERS[ext];
+    const path = await T.dialog.save({ defaultPath: name, filters: filter ? [filter] : [] });
+    if (!path) return;                                                // user cancelled
+    await T.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+  } catch (e) {
+    console.warn("crunchyvfx: native save failed, falling back to browser download —", e);
+    downloadBrowser(blob, name);
+  }
 }
 
 // ---------- ZIP writer ----------
@@ -2334,6 +2460,34 @@ function sidecarFor(kind, sh, name, fps) {
     }
     return JSON.stringify({ frames, meta }, null, 2);
   }
+  if (kind === "godot") {
+    // Godot 4 SpriteFrames: one AtlasTexture sub-resource per cell, referenced by the animation.
+    // NOTE: written from the documented .tres shape and NOT verified in the editor — see the
+    // dialog note. `load_steps` is a hint Godot recomputes, and the uid is omitted so it assigns
+    // one on import.
+    const subs = [];
+    const refs = [];
+    for (let i = 0; i < sh.n; i++) {
+      const c = cell(i);
+      // `margin` is exactly what AtlasTexture has for trimmed sprites: it re-expands the region
+      // back to the original frame size, so a trimmed sheet lines up in-engine with no pivot
+      // fiddling. Godot then reports the texture size as the UNTRIMMED size, which is what an
+      // AnimatedSprite2D wants.
+      const marg = sh.trim
+        ? "margin = Rect2(" + sh.trim.x + ", " + sh.trim.y + ", " +
+          (sh.srcW - sh.w) + ", " + (sh.srcH - sh.h) + ")\n"
+        : "";
+      subs.push('[sub_resource type="AtlasTexture" id="AtlasTexture_' + i + '"]\n' +
+                'atlas = ExtResource("1_tex")\n' +
+                "region = Rect2(" + c.x + ", " + c.y + ", " + c.w + ", " + c.h + ")\n" + marg);
+      refs.push('{\n"duration": 1.0,\n"texture": SubResource("AtlasTexture_' + i + '")\n}');
+    }
+    return '[gd_resource type="SpriteFrames" load_steps=' + (sh.n + 2) + ' format=3]\n\n' +
+      '[ext_resource type="Texture2D" path="res://' + name + '.png" id="1_tex"]\n\n' +
+      subs.join("\n") + "\n[resource]\nanimations = [{\n" +
+      '"frames": [' + refs.join(", ") + "],\n" +
+      '"loop": true,\n"name": &"default",\n"speed": ' + fps.toFixed(1) + "\n}]\n";
+  }
   // generic — everything an engine could want, in the plainest possible shape
   return JSON.stringify({
     name, frames: sh.n, fps, frameW: sh.w, frameH: sh.h,
@@ -2364,7 +2518,9 @@ expModal.innerHTML =
         '<option value="col">Vertical strip</option></select></div>' +
       '<div class="exp-row" data-only="sheet"><span>Metadata</span><select id="expMeta">' +
         '<option value="generic">Generic JSON</option><option value="aseprite">Aseprite JSON</option>' +
-        '<option value="phaser">Phaser 3 atlas</option><option value="none">None</option>' +
+        '<option value="phaser">Phaser 3 atlas</option>' +
+        '<option value="godot">Godot 4 SpriteFrames (.tres)</option>' +
+        '<option value="none">None</option>' +
       '</select></div>' +
       '<div class="exp-row"><span>Sizes</span><span class="exp-scales" id="expScales"></span></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
@@ -2422,6 +2578,12 @@ function refreshExpInfo() {
     bits.push("One PNG per frame, zipped — full alpha, the friendliest thing to hand Aseprite.");
   }
   if (scales.length > 1) bits.push("Exporting " + scales.length + " sizes (" + scales.join("×, ") + "×) as one .zip.");
+  if (expMetaSel.value === "godot") {
+    bits.push("Drops straight into Godot 4 as a <b>SpriteFrames</b> — set it on an AnimatedSprite2D. " +
+              (expTrim.checked
+                ? "Trimmed cells carry an AtlasTexture <b>margin</b>, so they line up in-engine exactly as if untrimmed."
+                : "Verified against Godot 4.7 for grid, strip and trimmed sheets."));
+  }
   if (expEmis.checked) {
     bits.push(state.glow > 0
       ? "Plus an <b>_emissive</b> sheet: only the pixels above Glow thresh, un-blurred, for your engine to bloom itself."
@@ -2455,7 +2617,8 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
         const blob = await canvasBlob(sh.cv);
         files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
         if (expMetaSel.value !== "none") {
-          files.push({ name: base + suffix + ".json",
+          const ext = expMetaSel.value === "godot" ? ".tres" : ".json";
+          files.push({ name: base + suffix + ext,
             data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
         }
         if (expEmis.checked) {
@@ -3063,13 +3226,6 @@ const ARCHETYPES = [
             speed: 240, gravity: 220, life: 1.4, size: 11, fadeIn: 0.08, fadeOut: 0.2,
             hue: 200, sat: 0.5, blend: 1, opacity: 0.7, duration: 1.5, loopBlend: 0.9 } },
 ];
-// Styles clamp the output to a platform's look — the CONSOLES pattern from CrunchySFX.
-const STYLES = [
-  { name: "Anything", patch: {} },
-  { name: "NES",      patch: { pixelate: 3, posterize: 4, dither: 0, alphaCut: 0.5, outline: 1, outlineTone: 0, fps: 12, frameSize: 2, glow: 0 } },
-  { name: "GBA",      patch: { pixelate: 2, posterize: 10, dither: 0.4, alphaCut: 0.45, fps: 15, frameSize: 3 } },
-  { name: "Modern",   patch: { pixelate: 1, posterize: 32, alphaCut: 0, outline: 0, fps: 30, frameSize: 5, glow: 0.5 } },
-];
 const archByName = (n) => ARCHETYPES.find((a) => a.name === n) || ARCHETYPES[0];
 const styleByName = (n) => STYLES.find((s) => s.name === n) || STYLES[0];
 
@@ -3170,10 +3326,17 @@ function ucAddItem(catId, item) {
 }
 function renderUserCats() {
   userCatsBox.innerHTML = "";
+  // Always present, but only visible mid-drag (see .uc-dragging in the CSS). Without it there is
+  // nowhere to drop when you have no categories yet, which is exactly when you need one.
+  const drop = document.createElement("div");
+  drop.className = "uc-newdrop";
+  drop.textContent = "＋ Drop here for a new category";
+  userCatsBox.appendChild(drop);
   if (!userCats.length) return;
   for (const cat of userCats) {
     const el = document.createElement("div");
     el.className = "uc-cat";
+    el.dataset.catId = cat.id;
     el.innerHTML = '<div class="uc-head"><input class="uc-name" spellcheck="false">' +
       '<span class="hint uc-count"></span><button class="uc-del" title="Delete this category">✕</button></div>' +
       '<div class="uc-items"></div>';
@@ -3206,7 +3369,66 @@ function renderUserCats() {
   }
 }
 
-// Right-click menu: the reliable way to file something. (A pointer-drag version is the natural
+// ---------- Drag to organise ----------
+// POINTER events, never HTML5 drag: native drag-and-drop is broken in the Tauri WebKitGTK webview,
+// so `dragstart`/`drop` would work in the browser and silently do nothing in the desktop build.
+// The pieces that make pointer-drag feel right: a ~6px threshold so a click is still a click, a
+// `pointer-events:none` ghost so elementFromPoint can see the drop target underneath it, and a
+// capture-phase click swallow so finishing a drag on a button doesn't also fire that button.
+let ucDrag = null;            // { payload, label, ghost, hot }
+let ucSwallowClick = false;
+function ucBeginDrag(e, payload, label) {
+  ucDrag = { payload, label, startX: e.clientX, startY: e.clientY, active: false, ghost: null, hot: null };
+}
+function ucDragMove(e) {
+  if (!ucDrag) return;
+  if (!ucDrag.active) {
+    if (Math.hypot(e.clientX - ucDrag.startX, e.clientY - ucDrag.startY) < 6) return;   // still a click
+    ucDrag.active = true;
+    const gh = document.createElement("div");
+    gh.className = "uc-ghost";
+    gh.textContent = ucDrag.label;
+    document.body.appendChild(gh);
+    ucDrag.ghost = gh;
+    document.body.classList.add("uc-dragging");     // reveals the "new category" drop zone
+  }
+  ucDrag.ghost.style.left = (e.clientX + 12) + "px";
+  ucDrag.ghost.style.top = (e.clientY + 12) + "px";
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const target = el && el.closest ? el.closest(".uc-cat, .uc-newdrop") : null;
+  if (ucDrag.hot && ucDrag.hot !== target) ucDrag.hot.classList.remove("uc-hot");
+  ucDrag.hot = target;
+  if (target) target.classList.add("uc-hot");
+}
+function ucDragEnd() {
+  if (!ucDrag) return;
+  const d = ucDrag;
+  ucDrag = null;
+  if (d.ghost) d.ghost.remove();
+  document.body.classList.remove("uc-dragging");
+  if (d.hot) d.hot.classList.remove("uc-hot");
+  if (!d.active) return;
+  ucSwallowClick = true;                            // don't let the drop also click something
+  setTimeout(() => { ucSwallowClick = false; }, 0);
+  if (!d.hot) return;
+  if (d.hot.classList.contains("uc-newdrop")) ucNewCategory(d.payload);
+  else ucAddItem(+d.hot.dataset.catId, d.payload);
+}
+addEventListener("pointermove", ucDragMove);
+addEventListener("pointerup", ucDragEnd);
+addEventListener("pointercancel", ucDragEnd);
+addEventListener("click", (e) => {
+  if (ucSwallowClick) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+// Make an element a drag source for a category payload.
+function ucDraggable(el, payload, label) {
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    ucBeginDrag(e, payload, label);
+  });
+}
+
+// Right-click menu: the other way to file something. (A pointer-drag version is the natural
 // follow-up — HTML5 drag is broken in the Tauri WebKitGTK webview, so it must be pointer-based.)
 let ucMenuEl = null;
 function closeUcMenu() { if (ucMenuEl) { ucMenuEl.remove(); ucMenuEl = null; } }

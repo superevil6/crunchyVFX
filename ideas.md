@@ -237,10 +237,14 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   per-frame crop: cropping each frame to its own box would make the sprite hop around inside its
   cell. Pivot records where the untrimmed centre went, so a trimmed sheet drops in exactly where
   the untrimmed one was.
-- **Engine sidecars** — ✅ **partly done**: generic JSON, Aseprite JSON-hash, Phaser 3 atlas.
-  **Deliberately not done:** Godot `.tres` and Unity `.meta` are editor-version-specific and I
-  can't verify them without the editor — a sidecar that *almost* imports is worse than none.
-  Worth adding once someone can test the output in the real tool.
+- **Engine sidecars** — generic JSON, Aseprite JSON-hash, Phaser 3 atlas ✅ verified. **Godot 4
+  SpriteFrames `.tres`** ✅ **verified in Godot 4.7 on this machine** — imported headless and loaded
+  via GDScript for grid, strip and trimmed sheets: correct class, animation, frame count, speed,
+  loop flag, regions and atlas path, no import errors. Trimmed cells also carry an AtlasTexture
+  **`margin`**, which is what that property is for: Godot then reports the untrimmed size, so a
+  trimmed sheet lines up in-engine with no pivot work. **Unity `.meta` still deliberately not done:**
+  it's GUID-based and version-specific, and a malformed one doesn't just fail to import, it can
+  disturb the project's asset database. That needs someone with the editor open.
 - ~~**Multi-resolution export**~~ ✅ **done** — 1×/2×/3×/4× checkboxes, zipped together. Exactly
   as cheap as predicted: re-rasterises the same sim, so every size is the same effect rather than
   a similar one.
@@ -285,8 +289,12 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**Undo / redo**~~ ✅ **done** — Ctrl+Z / Ctrl+Shift+Z, one entry per gesture.
 - ~~**My Presets + custom categories**~~ ✅ **done** — My Effects library (thumbnails, rename,
   delete, JSON export/import) plus custom categories holding built-ins and saved effects side by
-  side, filed via right-click. **Still pending:** the pointer-based drag-to-organize (HTML5 drag
-  is broken in WebKitGTK, so it has to be pointer events).
+  side, filed by right-click **or drag** ✅. The drag is pointer-driven, never HTML5: native drag
+  is broken in the Tauri WebKitGTK webview, so `dragstart`/`drop` would work in the browser and
+  silently do nothing in the desktop build. The three things that make it feel right — a 6px
+  threshold so a click stays a click, a `pointer-events:none` ghost so `elementFromPoint` can see
+  the target underneath, and a capture-phase click swallow so finishing a drag on a button doesn't
+  also press it — are each covered by a test.
 - ~~**Share links**~~ ✅ **done** — the whole effect in a `?e=` URL as a URL-safe base64 diff from
   the defaults. Diff, not dump: 23 keys instead of 97, and a link made today still loads after
   new params are added because anything absent falls back to its default.
@@ -301,9 +309,16 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   downsample→pixelate, reverb→glow, delay→echo + trail, repeats→chained bursts, reverse→reverse.
   It lists every mapping in the dialog before you apply it, because a sound has no single correct
   visual and pretending otherwise would be dishonest.
-- **Console styles** — S [port]. The `CONSOLES` pattern: NES / GB / GBA / PS1 / Modern buttons
-  that clamp resolution, framerate, palette size and dither in one click. This is the crunchy
-  brand in a button, and it's just a patch per style.
+- ~~**Era styles**~~ ✅ **done** — nine buttons in the editor (they were hidden inside the Foundry),
+  named the CrunchySFX way rather than after trademarks: **Woodgrain, SID, 8-bit, Pocket, Mega,
+  Super, Advanced, 32-bit, Modern**. Same STYLES table drives the Foundry, so a style can't come to
+  mean two things.
+  Two decisions: **Mega vs Super is a real distinction** — the Genesis had no alpha blending and
+  faked transparency with heavy dithering, the SNES could blend — so Mega dithers and Super is
+  clean. **There is no Turbo**, because PC Engine has nothing to show that Super doesn't and two
+  identical buttons is worse than one. Pocket and SID lock actual period palettes; every style sets
+  `paletteLock` explicitly (usually to "") or switching away from Pocket would leave everything
+  green, which there's now a test for.
 - ~~**Import a palette**~~ ✅ **done** — Lospec `.hex`, GIMP/Aseprite `.gpl`, paint.net `.txt`, or
   pasted hex. Five built-ins (Sweetie 16, PICO-8, Game Boy, CGA, Grayscale 8) and **⚗ Take 8/16**
   to pull a palette out of the effect itself via the GIF encoder's median-cut. Posterize is
@@ -316,6 +331,21 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   sidecars. All grid thumbnails animate — a still frame is a terrible way to judge a VFX.
 
 ## Simulation — C
+
+- ~~**Path trails**~~ ✅ **done** — a ribbon along the path each particle *actually took*. The
+  existing `trail` stamps ghost copies backwards along the instantaneous velocity, which is a
+  straight line: fine for a fast spark, wrong for anything that curves, because the ghosts leave the
+  arc. This walks the frame table backwards by particle id. Needed a new `P_ID` slot — the per-frame
+  table packs only the ALIVE particles, so an index moves around between frames and there was no way
+  to ask "where was this same particle last frame". The analytic layers get id −1 so trails skip
+  them. Firework tails, comet swarms, swirling embers.
+- ~~**Ripples**~~ ✅ **done** — a train of expanding rings, evenly phased and wrapping, so it loops
+  seamlessly and starts mid-cycle with rings already in flight. The shockwave is ONE ring fired
+  once; this is a different thing. Water, sonar, pulses, heartbeat auras.
+- ~~**Glitch**~~ ✅ **done** — banded horizontal displacement plus RGB channel split, both stepping
+  in time rather than changing every frame: a glitch that never repeats reads as static, one that
+  holds for a few frames reads as a fault. Only ~55% of bands displace per step, because shifting
+  every band just looks like a wobble.
 
 - ~~**Shatter**~~ ✅ **done** — a disc cut into wedges that holds, then breaks and tumbles under
   gravity. Particles genuinely can't do this: the pieces have to *start as one object and be a

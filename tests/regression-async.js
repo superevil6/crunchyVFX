@@ -155,6 +155,51 @@
       ok(names.some((n) => n.indexOf("alpha-2/") === 0), "the duplicate name was disambiguated");
       ok(names.indexOf("index.json") >= 0, "the pack has a manifest");
 
+      // ------------------------------------------------------- desktop (Tauri) save path
+      // download() is the single choke point every export funnels through, and on desktop it
+      // must route to the native Save dialog rather than an <a download> (Tauri has no download
+      // manager, so the browser path silently does nothing there). Stub __TAURI__ and check all
+      // three branches: save, cancel, and failure-falls-back. Only reachable in the desktop
+      // build, so nothing else in either suite would notice if it broke.
+      {
+        const realTauri = window.__TAURI__, realClick = HTMLAnchorElement.prototype.click;
+        let asked = null, wrote = null, clicked = 0, mode = "save";
+        HTMLAnchorElement.prototype.click = function () { clicked++; };
+        window.__TAURI__ = {
+          dialog: { save: async (o) => {
+            asked = o;
+            if (mode === "throw") throw new Error("dialog unavailable");
+            return mode === "cancel" ? null : "/tmp/out/" + o.defaultPath;
+          } },
+          fs: { writeFile: async (p, b) => { wrote = { p: p, b: b }; } },
+        };
+        const settle = () => new Promise((r) => setTimeout(r, 20));
+        try {
+          download(new Blob([new Uint8Array([1, 2, 3])], { type: "image/gif" }), "boom.gif");
+          await settle();
+          ok(asked && asked.defaultPath === "boom.gif", "desktop export opens the native Save dialog");
+          ok(asked && asked.filters[0].extensions[0] === "gif",
+             "the file-type filter follows the extension", asked && asked.filters[0].name);
+          ok(clicked === 0, "no browser download is triggered on desktop");
+          ok(wrote && /boom\.gif$/.test(wrote.p), "it writes to the path the dialog returned");
+          ok(wrote && wrote.b.length === 3 && wrote.b[0] === 1 && wrote.b[2] === 3,
+             "the bytes written are the blob's, intact");
+
+          mode = "cancel"; wrote = null;
+          download(new Blob([new Uint8Array([9])]), "cancelled.zip");
+          await settle();
+          ok(wrote === null && clicked === 0, "cancelling the dialog writes nothing");
+
+          mode = "throw"; wrote = null;
+          download(new Blob([new Uint8Array([9])]), "broken.png");
+          await settle();
+          ok(clicked === 1, "if the native path fails it falls back to a browser download");
+        } finally {
+          window.__TAURI__ = realTauri;
+          HTMLAnchorElement.prototype.click = realClick;
+        }
+      }
+
       // -------------------------------------------------------------- A/B compare
       applyPreset(PRESETS["Explosion"], "Explosion");
       const hueA = state.hue;

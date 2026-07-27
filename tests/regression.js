@@ -135,9 +135,33 @@
     seedBreedGrid();
     ok(breedGenomes.length === 9 && breedGrid.children.length === 9, "breed grid builds 9 cells");
     ok(sameSnapshot(breedGenomes[0], snapshotState()), "cell 1 is the current effect");
-    const made = Array.from({ length: 8 }, () => foundryGenerate("Impact", "NES"));
+    const made = Array.from({ length: 8 }, () => foundryGenerate("Impact", "8-bit"));
     ok(made.every((m) => archByName("Impact").shapes.indexOf(m.shape) >= 0), "foundry respects its archetype");
-    ok(made.every((m) => m.pixelate === 3 && m.fps === 12), "the NES style clamps the look");
+    ok(made.every((m) => m.pixelate === 3 && m.fps === 12), "the 8-bit style clamps the look");
+    // every era style must be a complete overlay: one that omits paletteLock would leave the
+    // previous style's palette locked on, so switching Pocket -> Super would still look green.
+    const missing = STYLES.filter((st2) => st2.name !== "Anything" && !("paletteLock" in st2.patch));
+    ok(!missing.length, "every era style sets paletteLock explicitly",
+       missing.map((m2) => m2.name).join(",") || "clean");
+    ok(STYLES.every((st2) => Object.keys(st2.patch).every((k) => k in state)),
+       "every era style only writes real params");
+    // the Godot sidecar at least has to be structurally a .tres referencing every cell
+    applyPreset(PRESETS["Hit Spark"], "Hit Spark");
+    const gsh = buildSheet({});
+    const tres = sidecarFor("godot", gsh, "fx", 24);
+    ok(tres.indexOf('[gd_resource type="SpriteFrames"') === 0, "Godot sidecar declares its type");
+    ok((tres.match(/sub_resource type="AtlasTexture"/g) || []).length === gsh.n,
+       "one AtlasTexture per frame", gsh.n + " cells");
+    ok(tres.indexOf('path="res://fx.png"') > 0 && tres.indexOf('"speed": 24.0') > 0,
+       "…and points at the sheet with the right frame rate");
+    // Trimmed cells must carry an AtlasTexture margin, or a trimmed sheet sits offset in-engine.
+    // Verified in Godot 4.7: with the margin, get_size() reports the UNTRIMMED size.
+    const gtrim = buildSheet({ trim: true });
+    const ttres = sidecarFor("godot", gtrim, "fx", 24);
+    ok(!gtrim.trim || ttres.indexOf("margin = Rect2(") > 0,
+       "a trimmed Godot sheet carries the AtlasTexture margin");
+    ok(sidecarFor("godot", buildSheet({ trim: false }), "fx", 24).indexOf("margin") < 0,
+       "…and an untrimmed one doesn't");
     ok(genomePixels(Object.assign(snapshotState(), { opacity: 0, flash: 0, wave: 0 })) === 0,
        "an invisible genome scores 0 (the visibility guard's basis)");
 
@@ -154,9 +178,11 @@
 
     // ---------------------------------------------------------------- undo
     applyPreset(PRESETS["Explosion"], "Explosion");
-    const c0 = state.count, h0 = histPos;
+    const c0 = state.count;
     state.count = 999; commitHistory();
-    ok(histPos === h0 + 1, "commit adds one entry");
+    // NB: not "histPos advanced" — the history caps at EDIT_HIST_MAX and by this point in the
+    // suite it's full, so the index legitimately stops moving while entries shift off the front.
+    ok(sameSnapshot(editHistory[histPos], snapshotState()), "commit records the current state");
     undoEdit(); ok(state.count === c0, "undo restores");
     redoEdit(); ok(state.count === 999, "redo re-applies");
     const before = histPos; commitHistory();
@@ -647,6 +673,123 @@
        coloured + " coloured, " + black + " black");
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.merge === 0 && state.shatter === 0 && state.lines === 0, "all three default to off");
+
+    // ---------------------------------------------------------------- path trails / ripples / glitch
+    // A path trail must follow the CURVE the particle took. With a strong swirl, ghost-trails stay
+    // near the particle (they're stamped along the instantaneous velocity) while a path trail
+    // sweeps the whole arc — so it should cover far more of the frame.
+    const swirly = { shape: 0, count: 14, size: 9, speed: 240, drag: 0.25, swirl: 420, life: 1.0,
+                     lifeVar: 0, duration: 1.0, fps: 24, frameSize: 4, coreWhite: 0.6 };
+    applyPreset(Object.assign({}, swirly), "plainpath");
+    const bare = lit(renderFrames(state, { size: 128 }).canvases[14]);
+    applyPreset(Object.assign({}, swirly, { pathTrail: 1, pathLen: 16, pathWidth: 3 }), "path");
+    const trailed = lit(renderFrames(state, { size: 128 }).canvases[14]);
+    ok(trailed > bare * 2, "a path trail draws the whole arc behind each particle",
+       bare + " → " + trailed + " px");
+    // it must not attach to the flash/shockwave layers, which have no motion history
+    applyPreset({ shape: 0, count: 1, opacity: 0, flash: 1, flashLife: 0.5, wave: 1,
+                  pathTrail: 1, pathLen: 10, duration: 0.6, fps: 24, frameSize: 4 }, "nolayer");
+    const layerSim = simulate(state);
+    let layerIds = 0;
+    for (let i = 0; i < layerSim.counts[3]; i++) {
+      if (layerSim.frames[3][i * P_STRIDE + P_ID] === -1) layerIds++;
+    }
+    ok(layerIds > 0, "the analytic layers are marked with id -1 so trails skip them", layerIds + " marked");
+    // particle identity must be stable across frames — that's what the whole feature rests on
+    applyPreset(Object.assign({}, swirly), "ids");
+    const idSim = simulate(state);
+    const idsAt = (f) => new Set(Array.from({ length: idSim.counts[f] },
+      (_, i) => idSim.frames[f][i * P_STRIDE + P_ID]));
+    const setA = idsAt(3), setB = idsAt(6);
+    let shared = 0;
+    setA.forEach((id) => { if (setB.has(id)) shared++; });
+    ok(shared > setA.size * 0.8, "particle ids are stable between frames", shared + "/" + setA.size);
+
+    ok(lit(lay2({ ripple: 0 }, 0.5)) === 0, "ripples at 0 draw nothing");
+    ok(lit(lay2({ ripple: 1, rippleLife: 1 }, 0.5)) > 50, "ripples draw");
+    // more rings = more ink, and the train is continuous rather than one-shot
+    const r1c = lit(lay2({ ripple: 1, rippleCount: 1, rippleLife: 1 }, 0.6));
+    const r4c = lit(lay2({ ripple: 1, rippleCount: 4, rippleLife: 1 }, 0.6));
+    ok(r4c > r1c, "more rings draw more", r1c + " → " + r4c + " px");
+    ok(lit(lay2({ ripple: 1, rippleLife: 0.3 }, 0.95)) > 0,
+       "the ripple train keeps going (it cycles, unlike the one-shot shockwave)");
+
+    // glitch changes the image, and holds its pattern within a step
+    // A STATIC source: every frame is identical without the glitch, so any difference between
+    // frames is the glitch pattern and nothing else.
+    // Truly static needs more pinning than it looks: grow, hueLife and coreWhite all drift with
+    // particle AGE by default, so a motionless particle still changes size and colour every frame.
+    const staticPatch = { shape: 4, count: 40, size: 16, sizeVar: 0, speed: 0, life: 9, lifeVar: 0,
+                          fadeIn: 0, fadeOut: 0, grow: 0, hueLife: 0, coreWhite: 0,
+                          duration: 1.0, fps: 24, frameSize: 4, emitter: 6, emitRadius: 0.3 };
+    const sigOf = (cv) => { const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+      let s2 = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) s2 += i; return s2; };
+    applyPreset(Object.assign({}, staticPatch), "static");
+    const stillFrames = renderFrames(state, { size: 128 });
+    ok(sigOf(stillFrames.canvases[1]) === sigOf(stillFrames.canvases[6]),
+       "the control source really is static");
+    const preGlitch = sigOf(stillFrames.canvases[4]);
+    applyPreset(Object.assign({}, staticPatch, { glitch: 1, glitchSlices: 8, glitchShift: 0.12,
+                                                 glitchRGB: 0, glitchRate: 3 }), "glitchy");
+    const glitched = renderFrames(state, { size: 128 });
+    ok(sigOf(glitched.canvases[4]) !== preGlitch, "glitch displaces the image");
+    // rate 3/s at 24fps = one pattern per 8 frames, so 1 and 2 share a step and 1 and 14 don't
+    ok(sigOf(glitched.canvases[1]) === sigOf(glitched.canvases[2]),
+       "the pattern holds within a step (a fault, not static)");
+    ok(sigOf(glitched.canvases[1]) !== sigOf(glitched.canvases[14]), "…and changes on the next step");
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(state.glitch === 0 && state.ripple === 0 && state.pathTrail === 0, "all three default to off");
+
+    // ---------------------------------------------------------------- drag to organise
+    // Driven through the real pointer handlers. elementFromPoint is stubbed because headless
+    // layout can't be relied on to put a category under a synthetic coordinate.
+    userCats = []; ucSeq = 0;
+    const cat = ucNewCategory(null);
+    renderUserCats();
+    const catEl = userCatsBox.querySelector(".uc-cat");
+    const realEFP = document.elementFromPoint.bind(document);
+    const pe = (type, x, y) => new PointerEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
+    const presetBtn = [...document.querySelectorAll(".presetbar button")]
+      .find((b2) => b2.textContent === "Explosion");
+    ok(!!presetBtn && !!catEl, "a preset button and a category exist to drag between");
+
+    // a short movement is a CLICK, not a drag — otherwise every preset click files the preset
+    document.elementFromPoint = () => catEl;
+    presetBtn.dispatchEvent(pe("pointerdown", 100, 100));
+    dispatchEvent(pe("pointermove", 103, 102));
+    dispatchEvent(pe("pointerup", 103, 102));
+    ok(cat.items.length === 0, "a 3px wobble stays a click, not a drag");
+
+    // past the threshold it becomes a drag, and dropping on a category files it
+    presetBtn.dispatchEvent(pe("pointerdown", 100, 100));
+    dispatchEvent(pe("pointermove", 140, 130));
+    ok(document.querySelector(".uc-ghost") !== null, "a ghost follows the pointer once dragging");
+    ok(document.body.classList.contains("uc-dragging"), "the new-category drop zone is revealed");
+    ok(catEl.classList.contains("uc-hot"), "the category under the pointer highlights");
+    dispatchEvent(pe("pointerup", 140, 130));
+    ok(cat.items.length === 1 && cat.items[0].n === "Explosion", "dropping files the preset",
+       JSON.stringify(cat.items));
+    ok(document.querySelector(".uc-ghost") === null, "the ghost is cleaned up");
+    ok(!document.body.classList.contains("uc-dragging"), "…and the drag class with it");
+
+    // dropping on empty space creates a category, so this works with none set up yet
+    userCats = []; renderUserCats();
+    document.elementFromPoint = () => userCatsBox.querySelector(".uc-newdrop");
+    presetBtn.dispatchEvent(pe("pointerdown", 100, 100));
+    dispatchEvent(pe("pointermove", 200, 200));
+    dispatchEvent(pe("pointerup", 200, 200));
+    ok(userCats.length === 1 && userCats[0].items.length === 1,
+       "dropping on empty space makes a new category with the item in it");
+
+    // dropping on nothing is a no-op rather than an error
+    const before2 = userCats.length;
+    document.elementFromPoint = () => document.body;
+    presetBtn.dispatchEvent(pe("pointerdown", 100, 100));
+    dispatchEvent(pe("pointermove", 300, 300));
+    dispatchEvent(pe("pointerup", 300, 300));
+    ok(userCats.length === before2, "dropping on nothing changes nothing");
+    document.elementFromPoint = realEFP;
+    userCats = []; renderUserCats();
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);

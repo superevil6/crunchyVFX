@@ -13,12 +13,22 @@
   //  • "Web app (Chrome/Edge)" — for machines with a Chromium browser. Nothing Chromium-based
   //    is installed on this box, so it will fail here; kept for portability.
   //
-  //  • Desktop (Tauri) — DEFERRED. There is no src-tauri/ in this repo yet. The config is
-  //    parked at the bottom of this file, commented out; uncomment it once the Tauri wrapper
-  //    is scaffolded (it needs the rust-analyzer + CodeLLDB extensions, and on Windows the
-  //    "type" becomes "cppvsdbg"). See VFX-DESIGN.md §7 step 4.
+  //  • "Desktop app (Tauri)" — builds and runs the native app under a debugger. Needs the
+  //    rust-analyzer + CodeLLDB extensions and a working Rust toolchain; no Tauri CLI required,
+  //    it builds via cargo directly. src-tauri/build.rs copies the frontend into dist/ first,
+  //    so the binary always embeds the current index.html. On WINDOWS: change "type" to
+  //    "cppvsdbg" (from the C/C++ extension). For hot reload use the "Desktop: tauri dev" task.
   "version": "0.2.0",
   "configurations": [
+    {
+      "name": "Desktop app (Tauri)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": ["build", "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"]
+      },
+      "cwd": "${workspaceFolder}"
+    },
     {
       "name": "Web app (file://)",
       "type": "firefox",
@@ -46,15 +56,5 @@
       "webRoot": "${workspaceFolder}",
       "preLaunchTask": "Web: serve"
     }
-    // ---- DEFERRED: uncomment once src-tauri/ exists ------------------------------------
-    // ,{
-    //   "name": "Desktop app (Tauri)",
-    //   "type": "lldb",
-    //   "request": "launch",
-    //   "cargo": {
-    //     "args": ["build", "--manifest-path=${workspaceFolder}/src-tauri/Cargo.toml"]
-    //   },
-    //   "cwd": "${workspaceFolder}"
-    // }
   ]
 }

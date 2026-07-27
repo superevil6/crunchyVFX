@@ -388,5 +388,38 @@ so it was a redundant mode.
 3. ~~**Ported machinery**~~ — **done.** Presets + categories, randomize, macros (6 Quick-shape
    sliders), undo/redo, My Effects library, share links, breed, variations pack, Foundry, custom
    categories. Only the pointer-based drag-to-organize is outstanding.
-4. **Desktop** — Tauri wrapper, drag-out, itch CI, update checker.
+4. **Desktop** — Tauri wrapper ✅, drag-out, itch CI, update checker. See §8.
 5. Then the deferred items above.
+
+## 8. Desktop build (Tauri v2)
+
+`src-tauri/` wraps the same buildless frontend — there is no bundler and no separate desktop
+codebase. `build.rs` copies `index.html`, `presets.js`, `vfx.js`, `gif.js`, `apng.js` and
+`styles.css` into `dist/` (gitignored) with a `cargo:rerun-if-changed` on each, so a normal
+`cargo build` always embeds the current frontend and `cargo tauri dev` picks up edits.
+
+```sh
+cargo build --manifest-path src-tauri/Cargo.toml   # debug binary, no CLI needed
+cargo tauri dev                                    # hot reload (needs tauri-cli ^2)
+cargo tauri build                                  # nsis / deb / appimage
+```
+
+In VS Code: F5 → "Desktop app (Tauri)" (needs rust-analyzer + CodeLLDB; on Windows change
+`"type"` to `"cppvsdbg"`), or the "Desktop: tauri dev" task for hot reload.
+
+**The one frontend difference is `download()`.** Tauri has no download manager, so an
+`<a download>` silently does nothing there. `download()` feature-detects `window.__TAURI__` and
+routes to a native Save dialog + `fs.writeFile`, falling back to the browser path if that throws.
+Every export in the app — sheet, frame ZIP, GIF, pack, batch, effects JSON — funnels through
+that single function, so nothing else needs to know which build it is running in. The desktop
+branch is covered by 7 assertions in `regression-async.js` (stubbed `__TAURI__`: saves, cancels,
+and falls back), since the browser suites otherwise never reach it.
+
+Icons in `src-tauri/icons/` were rendered by the app itself — 8 tapered `lines` spokes around a
+white-hot `flash` core, ramp stop 0 set to the brand accent `#ff7a45`. Note that `drawLines`
+samples the ramp at the *layer's lifetime* position, not along the spoke, so with a long
+`lineLife` every spoke takes stop 0; that is why the icon's colour lives there.
+
+Still outstanding for desktop: drag-out of a sheet into a file manager/engine (the
+`tauri-plugin-drag` dep and `drag:default` capability are already wired, matching CrunchySFX's
+proven `start_drag` invoke shape), itch.io CI, and the update checker.

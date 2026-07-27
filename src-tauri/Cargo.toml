@@ -1,0 +1,25 @@
+[package]
+name = "crunchyvfx"
+version = "0.1.0"
+description = "CrunchyVFX — a from-scratch sprite VFX generator"
+authors = ["Alex Cassells"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"   # native Save dialog for sheet / zip / GIF / APNG export
+tauri-plugin-fs = "2"       # write the chosen file to disk
+tauri-plugin-drag = "2"     # native drag-OUT of a sheet PNG into the OS / a game engine
+
+# NOTE: no webkit2gtk dependency here, unlike CrunchySFX. That exists there purely to grant the
+# microphone permission for its Record button; this app never touches getUserMedia.
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

@@ -20,16 +20,17 @@
         }
       },
       "presentation": { "reveal": "silent", "panel": "dedicated" }
+    },
+    {
+      // Hot-reloading desktop dev. Needs the Tauri CLI: cargo install tauri-cli --version "^2"
+      // Edits to index.html/*.js are picked up because build.rs re-copies them into dist/ and
+      // declares cargo:rerun-if-changed on each one.
+      "label": "Desktop: tauri dev",
+      "type": "shell",
+      "command": "cargo tauri dev",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
     }
-    // ---- DEFERRED: hot-reloading desktop dev, once src-tauri/ exists --------------------
-    // Needs the Tauri CLI:  cargo install tauri-cli --version "^2"
-    // ,{
-    //   "label": "Desktop: tauri dev",
-    //   "type": "shell",
-    //   "command": "cargo tauri dev",
-    //   "options": { "cwd": "${workspaceFolder}" },
-    //   "problemMatcher": [],
-    //   "presentation": { "reveal": "always", "panel": "dedicated" }
-    // }
   ]
 }
