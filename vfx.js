@@ -13,8 +13,32 @@
 // The render core owns these; index.html builds PARAMS from them (SHAPES is the WAVES analog).
 // Indices are part of the patch format — APPEND ONLY, never reorder, or every saved preset and
 // share link shifts under us.
+// ============================================================================================
+// ARTWORK RULE: everything here is drawn from scratch, in code. No bundled asset may enter this
+// project unless it is CC0 / public domain.
+//
+// The reason is specific to what this tool DOES: the artwork ends up baked into the sprite sheet
+// a user exports and ships in their commercial game. Any obligation attached to it propagates to
+// THEM, not just to us. CC-BY would hand every user a credits-screen requirement they'll never
+// know about; CC-BY-SA (OpenMoji) would arguably make their sprite sheet share-alike, which is
+// poison for a commercial release. No major emoji set is CC0 — checked 2026-07-27: Twemoji is
+// CC-BY-4.0, OpenMoji CC-BY-SA-4.0, Fluent MIT, Noto Apache-2.0.
+//
+// Drawing them also sidesteps a technical problem: shapes here are white masks tinted in one
+// source-in pass, so a full-colour bitmap can only be pasted, never tinted — it would sit outside
+// hue, hue-shift, saturation, hot-core, the ramp and palette lock. `glyphTint` exists precisely
+// as that escape hatch. A drawn shape is ~15 lines, CC0 by construction, tints properly and
+// survives being crunched to 8px.
+//
+// Users can still bring their own art via the `image` shape; that licence is theirs and knowing.
+// ============================================================================================
+//
+// APPEND ONLY. `shape` is stored as an index in every preset, share link and saved effect, so
+// inserting in the middle would silently turn every saved heart into a cross.
 const SHAPES   = ["glow", "spark", "ring", "star", "pixel", "smoke", "shard", "bolt", "custom", "image",
-                  "heart", "cross", "diamond", "crescent", "snowflake", "blob", "teardrop", "spiral", "glyph"];
+                  "heart", "cross", "diamond", "crescent", "snowflake", "blob", "teardrop", "spiral", "glyph",
+                  "flower", "leaf", "hexagon", "arrow", "gear", "note",
+                  "flame", "triangle", "plus", "bubble", "claw", "gem"];
 const EMITTERS = ["burst", "cone", "ring", "disc", "line", "spiral", "box"];
 const BLENDS   = ["additive", "alpha", "screen"];
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
@@ -732,6 +756,189 @@ function makeSprite(shape, hue, sat, lum, st, frame) {
       g.fillText(st.glyph || "★", R, R + SPRITE_PX * 0.03);
       break;
     }
+    case 19: {  // flower — petals round a bright centre. Nature, spring, healing, charm pickups.
+      const petals = Math.max(3, Math.round(st.flowerPetals));
+      const reach = R * 0.94, wide = R * st.flowerWidth;
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < petals; i++) {
+        g.save();
+        g.rotate((i / petals) * Math.PI * 2);
+        // Each petal is an ellipse pushed out from the centre, so they overlap into a rosette
+        // rather than sitting as separate blobs.
+        g.beginPath();
+        g.ellipse(0, -reach * 0.5, wide, reach * 0.5, 0, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+      }
+      // A brighter core, the same trick the cross uses — it stops the middle reading as a hole
+      // where all the petals overlap.
+      const fc = R * Math.max(0.05, st.flowerCore);
+      const grd = g.createRadialGradient(0, 0, 0, 0, 0, fc);
+      grd.addColorStop(0, "#fff");
+      grd.addColorStop(1, "rgba(255,255,255,0.35)");
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(0, 0, fc, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 20: {  // leaf — a pointed oval with a cut midrib. Falls, nature, poison, forest.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -R + 1);
+      g.quadraticCurveTo(R * 0.9, 0, 0, R - 1);
+      g.quadraticCurveTo(-R * 0.9, 0, 0, -R + 1);
+      g.closePath(); g.fill();
+      // Cut the vein out rather than drawing it: the sprite is a white mask that gets tinted in
+      // one pass later, so a "darker" line isn't available — a hole is.
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = Math.max(1, R * 0.09);
+      g.beginPath(); g.moveTo(0, -R * 0.8); g.lineTo(0, R * 0.8); g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 21: {  // hexagon — shields, honeycomb, tech, energy cells. Reads clean at small sizes.
+      g.save(); g.translate(R, R); g.rotate(Math.PI / 6);
+      g.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const x = Math.cos(a) * (R - 1), y = Math.sin(a) * (R - 1);
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 22: {  // arrow — a chevron with a tail. Directional: buffs, boosts, speed, UI juice.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -R + 1);
+      g.lineTo(R - 1, R * 0.15);
+      g.lineTo(R * 0.34, R * 0.15);
+      g.lineTo(R * 0.34, R - 1);
+      g.lineTo(-R * 0.34, R - 1);
+      g.lineTo(-R * 0.34, R * 0.15);
+      g.lineTo(-R + 1, R * 0.15);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 23: {  // gear — teeth round a hub with a bored centre. Machines, steampunk, clockwork.
+      const teeth = 8, rOut = R - 1, rIn = R * 0.72;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i < teeth * 2; i++) {
+        const a = (i / (teeth * 2)) * Math.PI * 2;
+        const rr = i % 2 ? rIn : rOut;
+        const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(0, 0, R * 0.28, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 24: {  // note — a musical eighth note. `glyph` can already render ♪, but that depends on
+      // whichever font the machine has and lands at a different weight and size on every OS; this
+      // is drawn, so it's identical everywhere and survives being crunched down to 8px.
+      g.save(); g.translate(R, R);
+      const hr = R * 0.4;                       // head radius
+      const hx = -R * 0.3, hy = R * 0.46;       // head centre
+      const stemX = hx + hr * 0.82, stemW = Math.max(1, R * 0.13);
+      g.fillRect(stemX, -R * 0.88, stemW, hy + R * 0.88);
+      // Flag: two curves back to the stem, so it fills as one solid shape.
+      g.beginPath();
+      g.moveTo(stemX + stemW, -R * 0.88);
+      g.quadraticCurveTo(R * 0.82, -R * 0.5, R * 0.34, -R * 0.02);
+      g.quadraticCurveTo(R * 0.62, -R * 0.46, stemX + stemW, -R * 0.44);
+      g.closePath(); g.fill();
+      // Head last, tilted like real notation.
+      g.save(); g.translate(hx, hy); g.rotate(-0.34);
+      g.beginPath(); g.ellipse(0, 0, hr, hr * 0.72, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+      g.restore();
+      break;
+    }
+    case 25: {  // flame — a fire tongue, and the fiddliest shape in the set: get it merely
+      // pointed-and-round and you have drawn `teardrop` upside down. Three things separate the
+      // two. The tip is SHARP (both edges leave it near-vertically; splayed control points round
+      // it into a blob). The trailing edge is CONCAVE. And the base is NOTCHED into two lobes —
+      // that notch is what the eye actually reads as fire rather than liquid.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -R + 1);
+      g.bezierCurveTo(R * 0.16, -R * 0.64, R * 0.72, -R * 0.02, R * 0.4, R * 0.6);   // right edge
+      g.quadraticCurveTo(R * 0.26, R * 0.94, R * 0.06, R * 0.86);                    // right lobe
+      g.quadraticCurveTo(-R * 0.06, R * 0.44, -R * 0.2, R * 0.72);                   // the notch
+      g.quadraticCurveTo(-R * 0.36, R * 0.94, -R * 0.46, R * 0.5);                   // left lobe
+      g.bezierCurveTo(-R * 0.62, R * 0.06, -R * 0.34, -R * 0.14, -R * 0.22, -R * 0.5);
+      g.quadraticCurveTo(-R * 0.1, -R * 0.8, 0, -R + 1);                             // into the tip
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 26:    // triangle — the primitive the set was missing. Directional, and the cheapest
+      // shape that still reads at 4px.
+      g.beginPath();
+      g.moveTo(R, 1); g.lineTo(R * 2 - 1, R * 2 - 1); g.lineTo(1, R * 2 - 1);
+      g.closePath(); g.fill();
+      break;
+    case 27: {  // plus — heals, buffs, medkits. Distinct from `cross`, which is a twinkle/star.
+      const arm = R * 0.32;
+      g.save(); g.translate(R, R);
+      g.fillRect(-arm, -(R - 1), arm * 2, (R - 1) * 2);
+      g.fillRect(-(R - 1), -arm, (R - 1) * 2, arm * 2);
+      g.restore();
+      break;
+    }
+    case 28: {  // bubble — a ring with a specular highlight. Water, potions, underwater, soap.
+      // The highlight is what separates it from `ring`: without it a circle outline reads as a
+      // shockwave, with it the eye reads a sphere.
+      g.save(); g.translate(R, R);
+      g.lineWidth = Math.max(1, R * 0.16);
+      g.beginPath(); g.arc(0, 0, R - g.lineWidth * 0.6, 0, Math.PI * 2); g.stroke();
+      g.beginPath();
+      g.ellipse(-R * 0.34, -R * 0.38, R * 0.2, R * 0.13, -0.7, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+      break;
+    }
+    case 29: {  // claw — three tapered gashes. Melee hits, monster attacks, rends.
+      g.save(); g.translate(R, R); g.rotate(-0.3);
+      for (let i = 0; i < 3; i++) {
+        const off = (i - 1) * R * 0.52;
+        // Each gash is a lens: two curves meeting at points, so it tapers at both ends the way a
+        // cut does rather than being a rounded stroke.
+        g.beginPath();
+        g.moveTo(off, -R + 1);
+        g.quadraticCurveTo(off + R * 0.34, 0, off + R * 0.12, R - 1);
+        g.quadraticCurveTo(off + R * 0.1, 0, off, -R + 1);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+      break;
+    }
+    case 30: {  // gem — a faceted crystal. Loot, ice, mana, shards of magic.
+      g.save(); g.translate(R, R);
+      const tw = R * 0.52, ty = -R * 0.34;
+      g.beginPath();
+      g.moveTo(-tw, ty); g.lineTo(tw, ty);
+      g.lineTo(R * 0.86, -R * 0.04); g.lineTo(0, R - 1); g.lineTo(-R * 0.86, -R * 0.04);
+      g.closePath(); g.fill();
+      // Facet lines cut out, same reason the leaf's vein is: the sprite is a white mask, so a
+      // darker line isn't available — only a hole.
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = Math.max(1, R * 0.07);
+      g.beginPath();
+      g.moveTo(-tw, ty); g.lineTo(0, R - 1); g.lineTo(tw, ty);
+      g.moveTo(-R * 0.86, -R * 0.04); g.lineTo(R * 0.86, -R * 0.04);
+      g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
     case 8: {   // custom — the 16×16 grid you drew, blown up with hard edges
       const data = decodeSpriteAlpha(st.customSprite);
       if (!data) break;                       // nothing drawn yet → an empty sprite, not a crash
@@ -824,8 +1031,10 @@ function drawFrame(sim, f, g, st, xf) {
     drawShatter(g, st, t, xf, fs, ox, oy, seed);
     drawLines(g, st, t, xf, fs, ox, oy, seed);
     drawRipples(g, st, t, xf, fs, ox, oy);
+    drawRift(g, st, t, xf, fs, ox, oy, seed);
     drawTumble(g, st, t, xf, fs, ox, oy, seed);
     drawPathTrails(g, sim, f, st, xf);
+    drawWeb(g, sim, f, st, xf);
     // Orbit draws LAST of the structure layers: its whole point is that things pass in front of
     // the subject, so it has to sit above the beam/growth it is orbiting.
     drawOrbit(g, st, t, xf, fs, ox, oy, seed);
@@ -1256,6 +1465,122 @@ function drawRipples(g, st, t, xf, fs, ox, oy) {
     g.beginPath();
     g.arc(0, 0, r, 0, Math.PI * 2);
     g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- web ----------
+// Lines between particles that are near each other. Every other layer draws a THING; this one
+// draws the RELATIONSHIPS between things already on screen, which is why it can't be a shape or a
+// preset — it needs the whole particle table, and what it looks like depends entirely on how the
+// particles happen to be arranged that frame. Constellations, nanotech, spider web, energy nets,
+// chain lightning between shards.
+//
+// O(n²) in the particle count, so it works on a capped prefix. 3000 particles would be 4.5M pairs
+// per frame; the cap keeps it bounded and the effect reads the same, because a web of 5000 links
+// is a solid fill anyway.
+const WEB_MAX_NODES = 140;
+function drawWeb(g, sim, f, st, xf) {
+  if (st.web <= 0) return;
+  const arr = sim.frames[f], n = Math.min(sim.counts[f], WEB_MAX_NODES);
+  if (n < 2) return;
+  const reach = st.webReach * frameRefPx(g.canvas.width, g.canvas.height);
+  if (reach < 1) return;
+  const reach2 = reach * reach;
+  const u = clamp01((f / sim.fps) / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.3);
+  g.save();
+  g.lineCap = "round";
+  g.strokeStyle = c.css;
+  const xs = new Float32Array(n), ys = new Float32Array(n), as = new Float32Array(n);
+  let m = 0;
+  for (let i = 0; i < n; i++) {
+    const o = i * P_STRIDE;
+    if (arr[o + P_KIND] !== K_PART) continue;
+    const a = arr[o + P_ALPHA];
+    if (a <= 0.02) continue;
+    xs[m] = arr[o + P_X] * xf.k + xf.dx;
+    ys[m] = arr[o + P_Y] * xf.k + xf.dy;
+    as[m] = a;
+    m++;
+  }
+  for (let i = 0; i < m; i++) {
+    for (let j = i + 1; j < m; j++) {
+      const dx = xs[i] - xs[j], dy = ys[i] - ys[j];
+      const d2 = dx * dx + dy * dy;
+      if (d2 > reach2) continue;
+      // Fade with distance so links dissolve as they stretch instead of snapping off at the
+      // radius — a hard cutoff makes the whole web flicker as particles drift.
+      const fall = 1 - Math.sqrt(d2) / reach;
+      g.globalAlpha = st.web * c.a * fall * fall * Math.min(as[i], as[j]);
+      g.lineWidth = Math.max(0.3, st.webWidth * xf.k * fall);
+      g.beginPath();
+      g.moveTo(xs[i], ys[i]);
+      g.lineTo(xs[j], ys[j]);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- rift ----------
+// A tear in space: a tall lens that opens, holds and closes, with a jagged edge and a bright
+// inner core. The silhouette is the point — vortex and sigil are made of rings and read as flat
+// discs, whereas a rift reads as an opening with something behind it. Teleports, portals,
+// dimensional tears, sword-slash gashes.
+function drawRift(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.rift <= 0) return;
+  const life = Math.max(0.01, st.riftLife);
+  const u = clamp01(t / life);
+  if (u >= 1) return;
+  // Open fast, hold, close fast. A symmetric sine would spend most of its time half-open, which
+  // reads as a slow pulse rather than something being torn open.
+  const open = u < st.riftOpen
+    ? u / Math.max(0.001, st.riftOpen)
+    : (u > 1 - st.riftClose ? (1 - u) / Math.max(0.001, st.riftClose) : 1);
+  const w = st.riftWidth * fs * xf.k * clamp01(open);
+  const h = st.riftHeight * fs * xf.k;
+  if (w < 0.3 || h < 1) return;
+  const segs = Math.max(4, Math.round(st.riftJagged > 0 ? 18 : 8));
+  const c = layerColour(st, u, 0.25);
+  const step = Math.floor(t * Math.max(1, st.riftFlicker));   // stepped, like the arc layer
+  g.save();
+  g.translate(ox, oy);
+  g.rotate(st.riftAngle * DEG);
+  g.globalAlpha = st.rift * c.a;
+  g.fillStyle = c.css;
+  // One closed lens: down the right edge, back up the left, each vertex pushed out by a hashed
+  // jitter so the tear has a torn edge rather than a vector-perfect one.
+  g.beginPath();
+  for (let side = 0; side < 2; side++) {
+    for (let i = 0; i <= segs; i++) {
+      const s = side === 0 ? i / segs : 1 - i / segs;
+      const y = (s - 0.5) * h;
+      const taper = Math.pow(Math.sin(s * Math.PI), 0.6);       // widest at the middle
+      const j = 1 + rndS(seed + step * 17, i + side * 64, 41) * st.riftJagged * 0.6;
+      const x = (side === 0 ? 1 : -1) * w * 0.5 * taper * j;
+      if (side === 0 && i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+  }
+  g.closePath();
+  g.fill();
+  // A brighter core inside the tear sells "something is coming through" rather than "a hole".
+  if (st.riftCore > 0) {
+    const cc = layerColour(st, u * 0.4, 0.85);
+    g.globalAlpha = st.rift * cc.a * st.riftCore;
+    g.fillStyle = cc.css;
+    g.beginPath();
+    for (let side = 0; side < 2; side++) {
+      for (let i = 0; i <= segs; i++) {
+        const s = side === 0 ? i / segs : 1 - i / segs;
+        const y = (s - 0.5) * h * 0.9;
+        const taper = Math.pow(Math.sin(s * Math.PI), 0.6);
+        const x = (side === 0 ? 1 : -1) * w * 0.5 * taper * 0.35;
+        if (side === 0 && i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+    }
+    g.closePath();
+    g.fill();
   }
   g.restore();
 }
@@ -1695,6 +2020,42 @@ const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 // The finishing chain, in the order the params read top-to-bottom in the Crunch panel.
 function postProcess(cv, st, overlay, t) {
   const w = cv.width, h = cv.height, g = cv.getContext("2d");
+
+  // ---------- haze ----------
+  // Heat shimmer: displace each pixel by a scrolling wave instead of changing its colour. Every
+  // other post pass is a per-pixel COLOUR operation (blur, threshold, quantize); this one moves
+  // pixels, which is a category the chain didn't have — and it's what makes fire, jets and
+  // explosions read as hot rather than merely orange.
+  //
+  // Runs FIRST so everything after it (glow, crunch, outline) sees the displaced image; warping
+  // an already-outlined sprite would tear the outline off its edge.
+  if (st.haze > 0) {
+    const src = g.getImageData(0, 0, w, h);
+    const sd = src.data;
+    const dst = g.createImageData(w, h);
+    const dd = dst.data;
+    const amp = st.haze * st.hazeAmount * frameRefPx(w, h) * 0.06;
+    const scale = Math.max(0.5, st.hazeScale) * 0.06;
+    const phase = t * st.hazeSpeed * 6.283;
+    for (let y = 0; y < h; y++) {
+      // Two waves at different frequencies per axis — a single sine reads as a rolling banner,
+      // whereas beating frequencies read as turbulent air.
+      const ox = (Math.sin(y * scale + phase) + Math.sin(y * scale * 2.3 + phase * 1.7) * 0.5) * amp;
+      for (let x = 0; x < w; x++) {
+        const oy = (Math.sin(x * scale * 1.3 + phase * 0.8) +
+                    Math.sin(x * scale * 2.9 + phase * 1.3) * 0.5) * amp * 0.6;
+        // Clamp rather than wrap: wrapping drags the opposite edge into frame, which on a
+        // transparent sprite sheet shows up as stray pixels on the far side.
+        let sx = Math.round(x + ox), sy = Math.round(y + oy);
+        if (sx < 0) sx = 0; else if (sx >= w) sx = w - 1;
+        if (sy < 0) sy = 0; else if (sy >= h) sy = h - 1;
+        const si = (sy * w + sx) * 4, di = (y * w + x) * 4;
+        dd[di] = sd[si]; dd[di + 1] = sd[si + 1];
+        dd[di + 2] = sd[si + 2]; dd[di + 3] = sd[si + 3];
+      }
+    }
+    g.putImageData(dst, 0, 0);
+  }
 
   if (st.glow > 0) {
     const img = g.getImageData(0, 0, w, h), d = img.data;

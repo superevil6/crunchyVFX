@@ -757,6 +757,49 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- shape picker coverage
+    // The picker only builds a button for shapes listed in SHAPE_CATS, so a shape missing from it
+    // is unreachable no matter how well it's implemented. `custom` and `image` sat like that —
+    // the drawing grid and the PNG import both worked and were covered by this very suite, but
+    // nothing in the UI could select them and no preset did either. Assert every shape has a way
+    // in, so that can't happen again silently.
+    {
+      const noButton = [];
+      for (let s = 0; s < SHAPES.length; s++) if (!shapeBtns[s]) noButton.push(s + " " + SHAPES[s]);
+      ok(noButton.length === 0, "every shape has a button in the picker", noButton.join(", "));
+      const listed = SHAPE_CATS.reduce((n, c) => n + c[1].length, 0);
+      ok(listed === SHAPES.length, "SHAPE_CATS covers the whole SHAPES list",
+         listed + " of " + SHAPES.length);
+      // Clicking a picker button must actually select that shape.
+      shapeBtns[19].click();
+      ok(Math.round(state.shape) === 19, "clicking a shape button selects it", SHAPES[Math.round(state.shape)]);
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- preset coverage
+    // Presets are how people actually discover the systems: load one and that layer's panel
+    // appears WITH the effect on screen, which teaches far better than a tooltip. That only holds
+    // if every system is reachable that way — a system no preset uses is discoverable only by
+    // guessing at a chip in the "Add a layer" bar. Five had fallen through exactly that gap
+    // (Trails, Bubble, Sub-emitter, Ground, Attractor), so this is the check that stops a new
+    // engine shipping without one.
+    {
+      const uses = {};
+      for (const L of LAYER_GROUPS) uses[L.g] = 0;
+      for (const name of Object.keys(PRESETS)) {
+        applyPreset(PRESETS[name], name);
+        for (const L of LAYER_GROUPS) if (L.is()) uses[L.g]++;
+      }
+      const orphans = Object.keys(uses).filter((g) => uses[g] === 0);
+      ok(orphans.length === 0, "every system is reachable through at least one preset",
+         orphans.join(", "));
+      const thin = Object.keys(uses).filter((g) => uses[g] === 1);
+      // Not a failure — one preset is enough to be discoverable — but worth surfacing, because a
+      // single showcase is one rename away from none.
+      ok(true, "systems carried by a single preset: " + (thin.length || "none"), thin.join(", "));
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- remove a layer
     // removeLayer() is derived from PARAMS (reset the group to its defaults) rather than a
     // hand-written off() per group, so the thing worth pinning is that the derivation actually
@@ -940,6 +983,88 @@
       };
       const top = cy(0.1), bottom = cy(0.6);
       ok(top >= 0 && bottom > top + 5, "the pieces fall", top.toFixed(0) + " → " + bottom.toFixed(0) + " px");
+    }
+
+    // ---------------------------------------------------------------- web / rift / haze
+    {
+      ok(state.web === 0 && state.rift === 0 && state.haze === 0,
+         "web, rift and haze default to off");
+
+      // Web is RELATIONAL — it draws links between particles, so it needs particles that are
+      // near each other. One particle can never produce a link, and that's the property that
+      // separates it from every other layer.
+      const webbed = (patch) => {
+        applyPreset(Object.assign({ shape: 0, count: 40, opacity: 1, emitter: 3,
+                                    emitRadius: 0.3, speed: 5, duration: 1.0, fps: 24,
+                                    frameSize: 4, glow: 0, size: 2 }, patch), "w");
+        const r = renderFrames(state, { size: 128 });
+        return lit(r.canvases[Math.floor(r.canvases.length * 0.4)]);
+      };
+      const noWeb = webbed({ web: 0 });
+      const withWeb = webbed({ web: 1, webReach: 0.3 });
+      ok(withWeb > noWeb * 1.2, "the web adds links between particles",
+         noWeb + " → " + withWeb + " px");
+      const lonely = webbed({ web: 1, webReach: 0.3, count: 1 });
+      const lonelyOff = webbed({ web: 0, count: 1 });
+      ok(lonely === lonelyOff, "a single particle has nothing to link to", lonely + " px");
+      // Reach controls how far a link can stretch, so a tiny reach should link almost nothing.
+      ok(webbed({ web: 1, webReach: 0.02 }) < withWeb,
+         "shrinking the reach removes links");
+
+      // Rift opens, holds, then closes — a tear that just sat there would be a static shape.
+      const riftW = (frac) => {
+        applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                      rift: 1, riftOpen: 0.3, riftClose: 0.3, riftLife: 1, riftJagged: 0,
+                      riftFlicker: 0, glow: 0 }, "rf");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+        }
+        return x1 < 0 ? 0 : x1 - x0 + 1;
+      };
+      const early = riftW(0.05), mid = riftW(0.5), late = riftW(0.95);
+      ok(mid > early && mid > late, "the rift opens, holds, then closes",
+         early + " → " + mid + " → " + late + " px");
+      ok(lay({ rift: 0 }, 0.5) === 0, "rift at 0 draws nothing");
+
+      // Haze displaces pixels rather than recolouring them: the image changes, but it neither
+      // brightens nor erases the sprite the way a colour pass would.
+      const hazeShot = (patch) => {
+        applyPreset(Object.assign({ shape: 5, count: 40, opacity: 0.8, emitter: 3,
+                                    emitRadius: 0.2, speed: 40, size: 18, duration: 1.0,
+                                    fps: 24, frameSize: 4, glow: 0 }, patch), "hz");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.floor(r.canvases.length * 0.5)];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 10) n++;
+        return { data: d, n: n };
+      };
+      const flat = hazeShot({ haze: 0 });
+      const weak = hazeShot({ haze: 1, hazeAmount: 0.2, hazeScale: 3 });
+      const strong = hazeShot({ haze: 1, hazeAmount: 1.6, hazeScale: 3 });
+      // Total alpha difference rather than a count over some threshold: the test sprite is soft
+      // smoke, so displacing it moves a lot of pixels a little rather than a few pixels a lot,
+      // and a fixed per-pixel threshold measures the sprite's softness more than the effect.
+      const drift = (a, b) => {
+        let s = 0;
+        for (let i = 3; i < a.length; i += 4) s += Math.abs(a[i] - b[i]);
+        return s;
+      };
+      const dWeak = drift(flat.data, weak.data), dStrong = drift(flat.data, strong.data);
+      ok(dWeak > 0, "haze displaces the image", "Σ|Δalpha| " + dWeak);
+      // The property worth pinning is that the knob drives it — a hard-coded warp would pass a
+      // "something changed" check just as well.
+      ok(dStrong > dWeak * 2, "…and Strength controls how far", dWeak + " → " + dStrong);
+      const hazed = strong;
+      // Displacement preserves roughly how much is drawn — if this collapsed, the pass would be
+      // eating the sprite rather than warping it.
+      ok(Math.abs(hazed.n - flat.n) < flat.n * 0.5,
+         "…without destroying it", flat.n + " → " + hazed.n + " lit px");
+      applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
     // ---------------------------------------------------------------- shatter / lines / merge

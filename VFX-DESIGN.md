@@ -541,3 +541,32 @@ things would move that, both still open:
    them. That turns ~1.3 GB into roughly one frame's worth regardless of length, and is what would
    make 4K genuinely safe rather than merely slow. It works for the sheet, frame-sequence and GIF
    paths (Fit's bbox comes from the sim, not the canvases, so it is unaffected).
+
+## 12. Artwork licensing — CC0 only
+
+**No bundled asset enters this project unless it is CC0 / public domain.** Every particle shape is
+drawn from scratch in `makeSprite`.
+
+This is stricter than "use open source art", and deliberately so. The artwork is baked into the
+sprite sheet a user exports and **ships in their commercial game**, so any obligation attached to
+it propagates to *them*, not just to us:
+
+| licence | what it would cost a user shipping a game |
+|---|---|
+| CC0 | nothing — the only acceptable answer |
+| MIT / Apache-2.0 | keep a notice file; tolerable but still an obligation we imposed |
+| CC-BY | a credits-screen requirement they will never know they took on |
+| CC-BY-SA | their sprite sheet is arguably share-alike — unusable commercially |
+
+Checked 2026-07-27: **no major emoji set is CC0.** Twemoji is CC-BY-4.0, OpenMoji CC-BY-SA-4.0,
+Fluent Emoji MIT, Noto Emoji Apache-2.0. Kenney's packs *are* genuinely CC0 but are game-UI icons,
+not VFX primitives.
+
+There is also a technical reason drawing wins. Shapes are rendered as white masks and tinted in a
+single `source-in` pass, so a full-colour bitmap can only be pasted, never tinted — it would fall
+outside hue, hue-shift, saturation, hot core, the colour ramp and palette lock. `glyphTint` exists
+solely as that escape hatch for system emoji. A drawn shape is roughly fifteen lines, tints
+correctly, and survives being crunched to 8px.
+
+Users who want specific third-party art can still supply it through the `image` shape — that
+licence is theirs, and knowingly taken on.

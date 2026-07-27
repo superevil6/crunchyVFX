@@ -25,6 +25,8 @@ sliders and whatnots:
 
 We have the add a layer option, but we should also be able to subtract a layer. There are essential panels like color, but for non-essential ones we should add a (-) or (x) button to be able to delete the layer easily.
 
+-Randomize seems to only include the first run of systems/effects. When all effects/system are finished, it should be updated to utilize all systems/effects
+
 > ✅ **Done 2026-07-27.** Every panel with a `LAYER_GROUPS` entry gets a quiet ✕ in its heading;
 > essential panels (Color, Motion, Output, Emitter…) have none, because there is no meaningful
 > "off" for them. Removing resets the whole group to its PARAMS defaults — derived from the
@@ -447,3 +449,18 @@ a quality pass over the 53 presets and the defaults.
 Worth saying out loud: the cheap wins are gone. Everything remaining is either a big port, a
 platform, or speculative (normal maps, frost growth). A good moment to stop adding and start
 sanding — the name red-flag pass, a CLAUDE.md, and a real pass over defaults and preset quality.
+
+## Engine log
+
+Kept so "how many can it do" has an answer that isn't a guess. The header counts these live from
+`LAYER_GROUPS`, so it can't drift.
+
+- **2026-07-27** — Sigil (counter-rotating magic circle), Orbit (satellites on a tilted ellipse),
+  Tumble (flat pieces turning over in pseudo-3D).
+- **2026-07-27** — Web (links between nearby particles — the first *relational* layer), Rift (a
+  tear that opens, holds and closes), Haze (heat shimmer — the first *displacement* post pass;
+  every other one recolours pixels, this moves them).
+
+Each was picked to be a different KIND rather than a variation: a new silhouette, a new motion
+model, or a new category in the chain. Adding a seventh ring-based layer would raise the count
+without raising what anyone can actually make.
