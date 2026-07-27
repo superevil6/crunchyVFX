@@ -5,9 +5,12 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 6] = [
+const FRONTEND: [&str; 7] = [
     "index.html",
     "presets.js",
+    // Vendored CrunchySFX synthesis engine (tools/pull-synth.py) — the desktop build
+    // must carry it or the app loses in-app sound.
+    "crunchysfx-synth.js",
     "vfx.js",
     "gif.js",
     "apng.js",

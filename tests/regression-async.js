@@ -155,6 +155,73 @@
       ok(names.some((n) => n.indexOf("alpha-2/") === 0), "the duplicate name was disambiguated");
       ok(names.indexOf("index.json") >= 0, "the pack has a manifest");
 
+      // ------------------------------------------------- vendored CrunchySFX synth engine
+      // The engine is a generated file pulled in by tools/pull-synth.py. These assertions are the
+      // in-app half of the tripwire: pull-synth.py --check proves the BYTES are an unmodified
+      // export, and this proves the app can actually drive it. A silently-missing engine would
+      // otherwise just mean "Match a sound quietly stopped making sound".
+      ok(typeof CrunchySynth !== "undefined", "the vendored synth engine is loaded");
+      if (typeof CrunchySynth !== "undefined") {
+        ok(/^\d+\.\d+\.\d+$/.test(CrunchySynth.VERSION), "it reports an upstream version",
+           CrunchySynth.VERSION + " @ " + CrunchySynth.BUILT);
+        ok(SFX_DEFAULTS === CrunchySynth.DEFAULTS,
+           "the app reads the engine's canonical defaults, not its own stale copy");
+        ok(Object.keys(SFX_DEFAULTS).length > Object.keys(SFX_DEFAULTS_FALLBACK).length,
+           "the canonical table is the fuller one",
+           Object.keys(SFX_DEFAULTS).length + " vs " + Object.keys(SFX_DEFAULTS_FALLBACK).length);
+
+        // A patch in, audible stereo audio out — the whole point of vendoring it.
+        const s = synthesizePatch({ wave: 0, freq: 220, duration: 0.4, decay: 0.2, release: 0.1 }, "T");
+        ok(s && s.L.length === Math.floor(0.4 * CrunchySynth.SR),
+           "rendering a patch yields the requested duration", s ? s.L.length + " samples" : "null");
+        let peak = 0;
+        for (let i = 0; i < s.L.length; i++) peak = Math.max(peak, Math.abs(s.L[i]));
+        ok(peak > 0.01, "the rendered audio is not silence", "peak " + peak.toFixed(3));
+
+        // Same engine as CrunchySFX means the WAV is the one that app would have written.
+        const wav = new Uint8Array(CrunchySynth.encodeWav(s.L, s.R, { rate: s.rate, depth: 16, channels: 2 }));
+        const tag = String.fromCharCode(wav[0], wav[1], wav[2], wav[3]) +
+                    String.fromCharCode(wav[8], wav[9], wav[10], wav[11]);
+        ok(tag === "RIFFWAVE", "it encodes a real WAV", tag + ", " + wav.length + " bytes");
+
+        // The real user path: a share link decodes to a patch that the engine can render, so
+        // "Match a sound" produces the actual sound and not just the visual mapping.
+        const payload = { v: 1, t: "Link Test", s: { wave: 2, freq: 660, duration: 0.3, decay: 0.15 } };
+        const b64 = btoa(JSON.stringify(payload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        const decoded = decodeSfxLink("https://crunchysfx.com/?s=" + b64);
+        ok(decoded !== null, "a share link still decodes");
+        const m = decoded && matchSound(decoded);
+        ok(m && m.sfx && m.sfx.freq === 660, "the raw sound patch is carried through the match");
+        const s2 = m && synthesizePatch(m.sfx, m.name);
+        ok(s2 && s2.L.length === Math.floor(0.3 * CrunchySynth.SR),
+           "the matched link synthesises at its own duration");
+
+        // …and it reaches the export: a sheet plus the WAV you actually heard, in one zip.
+        synthesizePatch({ wave: 2, freq: 440, duration: 0.25, decay: 0.1 }, "Export Test");
+        refreshExpInfo();
+        ok(!expSoundRow.hidden, "the export dialog offers the sound once one exists");
+        const withWav = await grab(async () => {
+          expModal.querySelector("#expGo").click();
+          await new Promise((r) => setTimeout(r, 1500));
+        });
+        let names = [];
+        if (withWav) {
+          const zb = new Uint8Array(await withWav.arrayBuffer());
+          const zdv = new DataView(zb.buffer);
+          for (let i = 0; i + 30 < zb.length && zdv.getUint32(i, true) === 0x04034b50;) {
+            const nlen = zdv.getUint16(i + 26, true), sz = zdv.getUint32(i + 18, true);
+            names.push(String.fromCharCode.apply(null, zb.subarray(i + 30, i + 30 + nlen)));
+            i += 30 + nlen + sz;
+          }
+        }
+        ok(names.some((n) => /\.wav$/.test(n)), "the synthesised sound ships beside the sheet",
+           names.join(", "));
+
+        synthSound = null;   // leave the editor as we found it
+        refreshExpInfo();
+        ok(expSoundRow.hidden, "and the option hides again when there is no sound");
+      }
+
       // ------------------------------------------------------- desktop (Tauri) save path
       // download() is the single choke point every export funnels through, and on desktop it
       // must route to the native Save dialog rather than an <a download> (Tauri has no download

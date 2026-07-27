@@ -423,3 +423,39 @@ samples the ramp at the *layer's lifetime* position, not along the spoke, so wit
 Still outstanding for desktop: drag-out of a sheet into a file manager/engine (the
 `tauri-plugin-drag` dep and `drag:default` capability are already wired, matching CrunchySFX's
 proven `start_drag` invoke shape), itch.io CI, and the update checker.
+
+## 9. The sound engine (vendored from CrunchySFX)
+
+`crunchysfx-synth.js` is CrunchySFX's synthesis engine, **generated — never edit it here.** Change
+the CrunchySFX sources and re-pull:
+
+```sh
+python3 tools/pull-synth.py            # regenerate upstream, verify, vendor, record the manifest
+python3 tools/pull-synth.py --check    # verify the vendored copy only (what the suite calls)
+```
+
+One command does the whole chain because it runs the upstream exporter itself — "pull" always
+means *what CrunchySFX looks like right now*, not *whatever was last left in its output folder*.
+
+**Why vendored rather than referenced.** This app has to run from an unzipped folder on `file://`,
+so a path into a sibling repo is not an option. Pinning a copy also means an upstream edit can
+never silently change the sounds this app ships. `synth-manifest.json` records the version, the
+upstream commit and a sha256; `--check` fails if the copy was hand-edited or the manifest is
+stale, and the async suite asserts the app can actually drive the engine.
+
+**Why it's namespaced.** The bundle exposes exactly one global, `CrunchySynth`. Both apps are
+buildless classic scripts sharing one scope, and they genuinely collide — VFX ported SFX's undo
+machinery, so both define `withState`, `undoEdit`, `EDIT_HIST_MAX` and others. A plain
+concatenation would clobber undo/redo here.
+
+What it gives us: a CrunchySFX share link already carries the whole patch, so "Match a sound" now
+renders the actual audio in-app (`CrunchySynth.render(patch)` → an AudioBuffer on the existing
+playback path) and writes it beside the sheet on export via `CrunchySynth.encodeWav` — the same
+engine and encoder CrunchySFX itself uses, so it is the same WAV. It also supplies the canonical
+`DEFAULTS`; the hand-copied `SFX_DEFAULTS_FALLBACK` covered 25 of 106 parameters and could only
+ever drift, so it is now just a fallback for when the engine is absent.
+
+Upstream (`crunchyfx/`) has the other half: `synth.js` (the extracted engine — pure, no DOM, no
+app globals), `tools/export-synth.py` (which refuses to export if that stops being true), and
+`tools/verify-synth.html`, which renders all 736 presets through both the app's engine and the
+bundle and asserts they are identical.

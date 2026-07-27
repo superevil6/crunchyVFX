@@ -424,10 +424,15 @@ That list is done. Collision and sub-emitters — which I'd deliberately left *o
 have since been built too; the reasoning still holds, they just stopped being the expensive ones
 once the cheap wins ran out.
 
-**What I'd pick now:** (1) synthesise the matched sound in-app (route b above) — still the last
-piece of "one product", and now the only large thing left on the list; (2) the Tauri desktop
-wrapper, which is the whole of build-order step 4 and currently untouched; (3) pointer-based
-drag-to-organize for the categories, the last outstanding piece of the ported machinery.
+**What I'd pick now:** ~~(1) synthesise the matched sound in-app (route b)~~ ✅ **done
+2026-07-27** — CrunchySFX's engine is extracted to `synth.js` upstream, exported as one namespaced
+bundle and vendored here; "Match a sound" now renders the real audio and ships it beside the
+sheet. ~~(2) the Tauri desktop wrapper~~ ✅ **done 2026-07-27** (build-order step 4; drag-out, itch
+CI and the update checker are still open). (3) pointer-based drag-to-organize for the categories
+remains the last outstanding piece of the ported machinery.
+
+With both of those landed, what's left really is sanding: the name red-flag pass, a CLAUDE.md, and
+a quality pass over the 53 presets and the defaults.
 
 Worth saying out loud: the cheap wins are gone. Everything remaining is either a big port, a
 platform, or speculative (normal maps, frost growth). A good moment to stop adding and start

@@ -177,6 +177,10 @@
 </footer>
 
 <script src="presets.js"></script>
+<!-- The CrunchySFX synthesis engine, vendored. GENERATED — never edit it here; change the
+     CrunchySFX sources and run `python3 tools/pull-synth.py`. Exposes one global, CrunchySynth.
+     Optional: if it's missing the app still runs, minus in-app sound synthesis. -->
+<script src="crunchysfx-synth.js"></script>
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
 <script src="apng.js"></script>
@@ -663,6 +667,37 @@ function playSound(atSec) {
   }
   snd.src = src;
 }
+// ---------- In-app synthesis (the vendored CrunchySFX engine) ----------
+// A CrunchySFX share link carries the whole patch, so once the engine is here there is no reason
+// to make anyone export a WAV in one tab and import it in another: paste the link and the sound
+// is rendered right here, in sync with the sprite, and ships beside the sheet on export.
+const synthAvailable = () => typeof CrunchySynth !== "undefined" && !!CrunchySynth.render;
+
+// The rendered audio for the current effect, kept so exports can write the exact WAV you heard.
+let synthSound = null;   // { patch, name, L, R, rate }
+
+// A patch is a flat key/value object — the same shape as a decoded link's `s`, overlaid on the
+// engine's canonical defaults.
+function synthesizePatch(patch, name) {
+  if (!synthAvailable()) return null;
+  const full = Object.assign({}, CrunchySynth.DEFAULTS, patch);
+  const r = CrunchySynth.render(full);
+  synthSound = { patch: full, name: name || "Sound", L: r.L, R: r.R, rate: CrunchySynth.SR };
+  return synthSound;
+}
+
+// Hand rendered audio to the existing playback path, which already handles offset/looping.
+function loadSynthIntoPlayer(s) {
+  if (!s) return false;
+  const ctx = ensureAudio();
+  const buf = ctx.createBuffer(2, s.L.length, s.rate);
+  buf.copyToChannel(s.L, 0);
+  buf.copyToChannel(s.R, 1);
+  snd.buf = buf;
+  snd.name = s.name;
+  return true;
+}
+
 const sndBody = document.getElementById("sndBody");
 const sndNameEl = document.getElementById("sndName");
 const sndFitEl = document.getElementById("sndFit");
@@ -693,6 +728,7 @@ function syncSoundUI() {
     try {
       const ctx = ensureAudio();
       snd.buf = await ctx.decodeAudioData(await f.arrayBuffer());
+      synthSound = null;   // a loaded file replaces any synthesised audio; don't export the old WAV
       snd.name = f.name;
       syncSoundUI();
       restartLoop(0);
@@ -2526,6 +2562,7 @@ expModal.innerHTML =
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
       '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expEmis" title="A second sheet holding only the pixels that emit light, for engines that apply their own bloom"> Also export an emissive mask</label></div>' +
+      '<div class="exp-row" id="expSoundRow" hidden><span></span><label class="exp-chk"><input type="checkbox" id="expSound" checked title="The synthesised sound, written as a 16-bit stereo WAV beside the sheet"> Also export the sound (.wav)</label></div>' +
       '<div class="exp-note" id="expNote"></div>' +
     '</div>' +
     '<div class="modal-foot">' +
@@ -2544,6 +2581,8 @@ const expLayout = expModal.querySelector("#expLayout");
 const expMetaSel = expModal.querySelector("#expMeta");
 const expTrim = expModal.querySelector("#expTrim");
 const expEmis = expModal.querySelector("#expEmis");
+const expSound = expModal.querySelector("#expSound");
+const expSoundRow = expModal.querySelector("#expSoundRow");
 const expPot = expModal.querySelector("#expPot");
 const expMsg = expModal.querySelector("#expMsg");
 const expNote = expModal.querySelector("#expNote");
@@ -2563,6 +2602,9 @@ function refreshExpInfo() {
   if (!rendered) return;
   const fmt = expFormat.value;
   for (const el of expModal.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== fmt;
+  // Only offered when there's actually a synthesised sound to write — an unticked box for a file
+  // that can't exist reads as a broken feature.
+  expSoundRow.hidden = !synthSound;
   const scales = chosenScales();
   const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
   expModal.querySelector("#expStat").textContent =
@@ -2591,7 +2633,7 @@ function refreshExpInfo() {
   }
   expNote.innerHTML = bits.map((b) => "<p>" + b + "</p>").join("");
 }
-for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot, expEmis]) el.addEventListener("change", refreshExpInfo);
+for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", refreshExpInfo);
 document.getElementById("expOpen").addEventListener("click", () => {
   if (!rendered) return;
   expMsg.textContent = "";
@@ -2640,6 +2682,19 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
           const blob = await canvasBlob(out[i]);
           files.push({ name: base + suffix + "_" + String(i).padStart(3, "0") + ".png",
                        data: new Uint8Array(await blob.arrayBuffer()) });
+        }
+      }
+      // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
+      // (same engine, same encoder), so what you drop into an engine is a matched pair rather
+      // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
+      // doesn't change with the sprite's resolution.
+      if (synthSound && expSound.checked && mult === 1 && typeof CrunchySynth !== "undefined") {
+        try {
+          const wav = CrunchySynth.encodeWav(synthSound.L, synthSound.R,
+                                             { rate: synthSound.rate, depth: 16, channels: 2 });
+          files.push({ name: base + ".wav", data: new Uint8Array(wav) });
+        } catch (e) {
+          console.warn("crunchyvfx: could not encode the synthesised sound —", e);
         }
       }
       expMsg.textContent = "Rendering… " + mult + "×";
@@ -3469,12 +3524,20 @@ addEventListener("scroll", closeUcMenu, true);
 //
 // CrunchySFX link format: ?s=<base64url> of { v:1, s:{param diff}, t:"name" }.
 // ============================================================================================
-const SFX_DEFAULTS = {
+// A share link carries only the params that differ from CrunchySFX's defaults, so reading one
+// means knowing those defaults. The vendored engine ships the canonical table (all 106 of them,
+// straight from PARAMS), which is strictly better than the hand-copied subset below it: that
+// subset silently goes stale every time CrunchySFX changes a default, and a stale default is
+// invisible — the link still decodes, it just decodes to slightly the wrong sound. The literal
+// is kept only as a fallback for when the engine isn't present.
+const SFX_DEFAULTS_FALLBACK = {
   duration: 0.4, freq: 440, sweep: 0, noise: 0, boom: 0, drive: 0.1, bitcrush: 16, downsample: 1,
   reverb: 0, convMix: 0, delay: 0, attack: 0.005, decay: 0.12, release: 0.1, sustain: 0,
   repeat: 1, rate: 10, reverse: 0, wave: 2, width: 0.4, vibDepth: 0, ringMod: 0, cutoff: 8000,
   limiter: 0, transient: 0,
 };
+const SFX_DEFAULTS = (typeof CrunchySynth !== "undefined" && CrunchySynth.DEFAULTS)
+  ? CrunchySynth.DEFAULTS : SFX_DEFAULTS_FALLBACK;
 // SFX engine index → the VFX shape that reads most like it.
 const SFX_WAVE_SHAPE = {
   8: 1, 10: 3, 11: 4, 13: 15, 14: 2, 15: 0, 16: 0, 17: 18, 19: 1, 20: 5,
@@ -3571,7 +3634,9 @@ function matchSound(obj) {
   if (d("limiter") > 0.1 || d("transient") > 0.2) { p.shake = clamp01(Math.max(d("limiter"), d("transient")) * 0.4); note("limiter/transient → shake"); }
   p.emitSpread = Math.round(120 + d("width") * 240);
 
-  return { patch: p, notes, name: obj.t || "Matched effect" };
+  // `sfx` is the raw sound patch, carried through so the caller can synthesise the actual audio
+  // rather than only the visual mapping derived from it.
+  return { patch: p, notes, name: obj.t || "Matched effect", sfx: sfx };
 }
 
 const matchModal = document.createElement("div");
@@ -3629,7 +3694,25 @@ matchApplyBtn.addEventListener("click", () => {
   if (!matchResult) return;
   applyPreset(matchResult.patch, matchResult.name);
   matchModal.hidden = true;
-  msg.textContent = "Matched “" + matchResult.name + "” — " + matchResult.notes.length + " mappings applied";
+  let extra = "";
+  // The link already carries the full patch, so synthesise it here rather than making anyone
+  // round-trip a WAV through the other tab. Non-fatal: if the engine is missing or the patch
+  // uses something it can't render, the visual match still stands on its own.
+  if (matchResult.sfx && synthAvailable()) {
+    try {
+      const s = synthesizePatch(matchResult.sfx, matchResult.name);
+      if (s && loadSynthIntoPlayer(s)) {
+        syncSoundUI();
+        restartLoop(0);
+        extra = ", sound synthesised (" + (s.L.length / s.rate).toFixed(2) + "s)";
+      }
+    } catch (e) {
+      console.warn("crunchyvfx: could not synthesise the matched sound —", e);
+      extra = " (sound could not be synthesised — see console)";
+    }
+  }
+  msg.textContent = "Matched “" + matchResult.name + "” — " + matchResult.notes.length +
+                    " mappings applied" + extra;
 });
 
 // ---------- Boot ----------
