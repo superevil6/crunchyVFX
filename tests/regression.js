@@ -535,6 +535,118 @@
     ok(!panelOf("Growth").hidden, "a panel does not vanish mid-drag when its master hits 0");
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(panelOf("Growth").hidden, "…it hides on the next preset load instead");
+
+    // ---------------------------------------------------------------- vortex / arc / dissolve
+    const lay = (patch, frac) => {
+      applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                  frameSize: 4 }, patch), "l");
+      const r = renderFrames(state, { size: 128 });
+      return lit(r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))]);
+    };
+    ok(lay({ vortex: 0 }, 0.5) === 0, "vortex at 0 draws nothing");
+    ok(lay({ vortex: 1 }, 0.5) > 100, "the vortex draws", lay({ vortex: 1 }, 0.5) + " px");
+    // squash makes it an ellipse — measure the drawn extent, not the parameter
+    const extent = (patch) => {
+      applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 0.5, frameSize: 4,
+                                  vortex: 1, vortexSpin: 0, vortexScroll: 0 }, patch), "e");
+      const r = renderFrames(state, { size: 128 });
+      const d = r.canvases[3].getContext("2d").getImageData(0, 0, 128, 128).data;
+      let x0 = 999, x1 = -1, y0 = 999, y1 = -1;
+      for (let p2 = 0; p2 < 128 * 128; p2++) {
+        if (d[p2 * 4 + 3] <= 8) continue;
+        const x = p2 % 128, y = (p2 / 128) | 0;
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+      return { w: x1 - x0, h: y1 - y0 };
+    };
+    const round0 = extent({ vortexSquash: 0 }), flat = extent({ vortexSquash: 1 });
+    ok(Math.abs(round0.w - round0.h) < 6, "squash 0 is a circle", round0.w + "×" + round0.h);
+    ok(flat.h < round0.h * 0.5, "squash 1 flattens it to a ground-plane ellipse",
+       flat.w + "×" + flat.h);
+
+    ok(lay({ arc: 0 }, 0.3) === 0, "arc at 0 draws nothing");
+    ok(lay({ arc: 1, arcLife: 0.9 }, 0.3) > 20, "the arc draws");
+    ok(lay({ arc: 1, arcLife: 0.3 }, 0.9) === 0, "the arc stops after arcLife");
+    // it must re-randomise in STEPS, not per frame: same flicker window = same shape
+    applyPreset({ shape: 0, count: 1, opacity: 0, arc: 1, arcRate: 2, arcJitter: 0.9,
+                  arcLife: 2, duration: 1.0, fps: 24, frameSize: 4 }, "arcstep");
+    const ar = renderFrames(state, { size: 128 });
+    const sig = (cv) => { const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+      let s2 = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) s2 += i; return s2; };
+    ok(sig(ar.canvases[1]) === sig(ar.canvases[2]),
+       "the arc holds its shape within a flicker step (electricity, not noise)");
+    ok(sig(ar.canvases[1]) !== sig(ar.canvases[14]), "…and changes on the next step");
+
+    // dissolve erases over time, and materialise runs the other way
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    const solidMid = lit(rendered.canvases[Math.floor(rendered.canvases.length * 0.55)]);
+    state.dissolve = 1; state.dissolveTime = 1; state.dissolveEdge = 0; rerender();
+    const dissolvedMid = lit(rendered.canvases[Math.floor(rendered.canvases.length * 0.55)]);
+    ok(dissolvedMid < solidMid * 0.85, "dissolve erases the frame over time",
+       solidMid + " → " + dissolvedMid + " px");
+    state.dissolveDir = 1; rerender();
+    const early = lit(rendered.canvases[1]);
+    state.dissolveDir = 0; rerender();
+    const earlySolid = lit(rendered.canvases[1]);
+    ok(early < earlySolid, "materialise hides it early instead", earlySolid + " → " + early + " px");
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(state.dissolve === 0, "dissolve is off by default");
+
+    // ---------------------------------------------------------------- shatter / lines / merge
+    const lay2 = (patch, frac) => {
+      applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                  frameSize: 4 }, patch), "l2");
+      const r = renderFrames(state, { size: 128 });
+      return r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+    };
+    ok(lit(lay2({ shatter: 0 }, 0.5)) === 0, "shatter at 0 draws nothing");
+    // it must HOLD, then break — the "it was whole a moment ago" reading is the whole point
+    const spanOf = (cv) => {
+      const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+      let x0 = 999, x1 = -1;
+      for (let p2 = 0; p2 < 128 * 128; p2++) if (d[p2 * 4 + 3] > 8) { const x = p2 % 128; if (x < x0) x0 = x; if (x > x1) x1 = x; }
+      return x1 - x0;
+    };
+    const held = spanOf(lay2({ shatter: 1, shatterHold: 0.5, shatterSpeed: 300, shatterFade: 0.2 }, 0.2));
+    const flung = spanOf(lay2({ shatter: 1, shatterHold: 0.5, shatterSpeed: 300, shatterFade: 0.2 }, 0.75));
+    ok(flung > held * 1.4, "shatter holds, then the pieces fly apart", held + "px → " + flung + "px");
+    ok(lit(lay2({ shatter: 1, shatterPieces: 20 }, 0.1)) > lit(lay2({ shatter: 1, shatterPieces: 20 }, 0.95)),
+       "the pieces fade out");
+
+    ok(lit(lay2({ lines: 0 }, 0.3)) === 0, "impact lines at 0 draw nothing");
+    ok(lit(lay2({ lines: 1, lineLife: 0.9 }, 0.3)) > 50, "impact lines draw");
+    ok(lit(lay2({ lines: 1, lineLife: 0.25 }, 0.9)) === 0, "…and stop after lineLife");
+    // the inner radius must leave an actual hole in the middle
+    const holeCv = lay2({ lines: 1, lineInner: 0.3, lineOuter: 0.6, lineLife: 0.9, lineJitter: 0 }, 0.6);
+    const hd = holeCv.getContext("2d").getImageData(0, 0, 128, 128).data;
+    let centreLit = 0;
+    for (let y = 58; y < 70; y++) for (let x = 58; x < 70; x++) if (hd[(y * 128 + x) * 4 + 3] > 8) centreLit++;
+    ok(centreLit === 0, "the inner radius leaves a gap in the middle", centreLit + " px in the centre");
+
+    // merge: overlapping soft particles must FUSE, not stay separate blobs
+    const gooPatch = { shape: 0, count: 20, size: 34, speed: 60, drag: 0.6, life: 1.0,
+                       duration: 0.8, blend: 1, opacity: 0.9, coreWhite: 0, frameSize: 4 };
+    applyPreset(Object.assign({}, gooPatch), "goo0");
+    const loose = renderFrames(state, { size: 128 }).canvases[3];
+    applyPreset(Object.assign({}, gooPatch, { merge: 1, mergeThreshold: 0.4, mergeSmooth: 6 }), "goo1");
+    const fused = renderFrames(state, { size: 128 }).canvases[3];
+    // count fully-opaque pixels: merging hardens the body, soft overlapping circles never reach 255
+    const solid = (cv) => { const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+      let n2 = 0; for (let i = 3; i < d.length; i += 4) if (d[i] === 255) n2++; return n2; };
+    ok(solid(fused) > solid(loose) * 3, "merge hardens overlapping particles into a solid body",
+       solid(loose) + " → " + solid(fused) + " opaque px");
+    // and the bridges between blobs must be coloured, not black
+    const fd = fused.getContext("2d").getImageData(0, 0, 128, 128).data;
+    let black = 0, coloured = 0;
+    for (let i = 0; i < fd.length; i += 4) {
+      if (fd[i + 3] !== 255) continue;
+      if (fd[i] + fd[i + 1] + fd[i + 2] < 12) black++; else coloured++;
+    }
+    ok(coloured > 100 && black === 0, "merged bridges take a colour, not black",
+       coloured + " coloured, " + black + " black");
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(state.merge === 0 && state.shatter === 0 && state.lines === 0, "all three default to off");
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);

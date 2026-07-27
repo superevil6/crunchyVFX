@@ -190,6 +190,68 @@ window.PRESETS = {
     glow: 0.5, duration: 1.2, fps: 24, frameSize: 5,
   },
 
+  "Portal": {
+    shape: 0, count: 1, opacity: 0,
+    vortex: 1, vortexRings: 5, vortexRadius: 0.34, vortexWidth: 7, vortexSpin: 150,
+    vortexSquash: 0.65, vortexScroll: 0.35, vortexGap: 0.5,
+    hue: 280, hueLife: 40, sat: 0.85, bright: 1, coreWhite: 0.6,
+    glow: 0.5, glowRadius: 9, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.7,
+  },
+  "Summon Circle": {
+    shape: 0, count: 1, opacity: 0,
+    vortex: 1, vortexRings: 3, vortexRadius: 0.4, vortexWidth: 4, vortexSpin: -90,
+    vortexSquash: 0.85, vortexScroll: 0, vortexGap: 0.7,
+    hue: 45, hueLife: 10, sat: 0.9, bright: 1, coreWhite: 0.5,
+    glow: 0.45, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.8,
+  },
+  "Chain Lightning": {
+    shape: 0, count: 1, opacity: 0,
+    arc: 1, arcToX: 0.9, arcToY: 0.2, arcWidth: 2.5, arcJitter: 0.6, arcSegs: 16,
+    arcBranch: 0.5, arcRate: 14, arcLife: 0.7,
+    hue: 205, hueLife: 45, sat: 0.65, bright: 1, coreWhite: 0.95,
+    flash: 0.4, flashSize: 0.2, flashLife: 0.08,
+    glow: 0.6, glowRadius: 9, duration: 0.8, fps: 30, frameSize: 5,
+  },
+  "Teleport Out": {
+    shape: 3, emitter: 3, count: 60, emitRadius: 0.2, emitTime: 0.3,
+    speed: 40, drag: 0.5, gravity: -140, life: 0.7, lifeVar: 0.4,
+    size: 10, sizeVar: 0.5, grow: -0.4, fadeIn: 0.1, fadeOut: 0.5,
+    starPoints: 4, starInner: 0.3, hue: 265, hueLife: 40, sat: 0.85, coreWhite: 0.8,
+    dissolve: 1, dissolveScale: 5, dissolveEdge: 0.5, dissolveTime: 0.9,
+    glow: 0.5, duration: 1.0, fps: 24, frameSize: 5,
+  },
+
+  "Glass Shatter": {
+    shape: 0, count: 1, opacity: 0,
+    shatter: 1, shatterPieces: 18, shatterRadius: 0.22, shatterSpeed: 200, shatterSpin: 260,
+    shatterGravity: 500, shatterHold: 0.12, shatterFade: 0.45,
+    hue: 195, hueLife: 10, sat: 0.35, bright: 1, coreWhite: 0.8,
+    glow: 0.35, duration: 1.0, fps: 24, frameSize: 5,
+  },
+  "Ice Shatter": {
+    shape: 0, count: 1, opacity: 0,
+    shatter: 1, shatterPieces: 9, shatterRadius: 0.26, shatterSpeed: 110, shatterSpin: 120,
+    shatterGravity: 250, shatterHold: 0.3, shatterFade: 0.4,
+    hue: 188, hueLife: 12, sat: 0.5, bright: 1, coreWhite: 0.9,
+    glow: 0.45, duration: 1.2, fps: 24, frameSize: 5,
+  },
+  "Impact Lines": {
+    shape: 0, count: 1, opacity: 0,
+    lines: 1, lineCount: 20, lineInner: 0.16, lineOuter: 0.5, lineWidth: 4, lineTaper: 0.85,
+    lineJitter: 0.5, lineLife: 0.4,
+    hue: 45, hueLife: -18, sat: 0.5, bright: 1, coreWhite: 0.9,
+    flash: 0.5, flashSize: 0.2, flashLife: 0.08,
+    glow: 0.4, duration: 0.5, fps: 30, frameSize: 5,
+  },
+  "Slime Blob": {
+    shape: 0, emitter: 3, count: 26, emitRadius: 0.1, size: 34, sizeVar: 0.4,
+    speed: 120, speedVar: 0.6, drag: 0.5, gravity: -40,
+    life: 1.0, lifeVar: 0.3, grow: -0.2, fadeIn: 0.1, fadeOut: 0.4,
+    hue: 100, hueLife: -18, sat: 0.9, bright: 0.95, coreWhite: 0.1, blend: 1, opacity: 0.9,
+    merge: 1, mergeThreshold: 0.4, mergeSmooth: 6,
+    duration: 1.2, fps: 24, frameSize: 5,
+  },
+
   // ---------- More impacts ----------
   "Slash": {
     shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
@@ -341,7 +403,9 @@ window.PRESETS = {
 window.PRESET_CATEGORIES = [
   ["Explosions", ["Explosion", "Big Boom", "Shockwave", "Fire Jet", "Ember Rise"]],
   ["Ice & Frost",["Ice Blast", "Frost Nova", "Frost Growth"]],
-  ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc"]],
+  ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc",
+                  "Portal", "Summon Circle", "Chain Lightning", "Teleport Out",
+                  "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob"]],
   ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud"]],
   ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle"]],

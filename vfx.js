@@ -407,11 +407,16 @@ function simulate(st) {
 
   // The structure layers aren't in the particle table, so widen the box by their reach —
   // otherwise Fit scales to the particles alone and crops the beam or the frost clean off.
-  if (st.growth > 0 || st.beam > 0 || st.ribbon > 0) {
+  if (st.growth > 0 || st.beam > 0 || st.ribbon > 0 || st.vortex > 0 || st.arc > 0 ||
+      st.shatter > 0 || st.lines > 0) {
     const reach = Math.max(
       st.growth > 0 ? st.growLen * fs : 0,
       st.beam > 0 ? st.beamLen * fs : 0,
-      st.ribbon > 0 ? (st.ribbonRadius * fs + st.ribbonWidth) : 0);
+      st.ribbon > 0 ? (st.ribbonRadius * fs + st.ribbonWidth) : 0,
+      st.vortex > 0 ? (st.vortexRadius * fs + st.vortexWidth) : 0,
+      st.arc > 0 ? Math.hypot(st.arcToX - st.originX, st.arcToY - st.originY) * fs : 0,
+      st.shatter > 0 ? (st.shatterRadius * fs + st.shatterSpeed * st.duration * 0.5) : 0,
+      st.lines > 0 ? st.lineOuter * fs : 0);
     bx0 = Math.min(bx0, ox - reach); bx1 = Math.max(bx1, ox + reach);
     by0 = Math.min(by0, oy - reach); by1 = Math.max(by1, oy + reach);
   }
@@ -786,8 +791,12 @@ function drawFrame(sim, f, g, st, xf) {
     const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
     const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
     drawGrowth(g, st, t, xf, fs, ox, oy, seed);
+    drawVortex(g, st, t, xf, fs, ox, oy);
     drawBeam(g, st, t, xf, fs, ox, oy, seed);
     drawRibbon(g, st, t, xf, fs, ox, oy);
+    drawArc(g, st, t, xf, fs, ox, oy, seed);
+    drawShatter(g, st, t, xf, fs, ox, oy, seed);
+    drawLines(g, st, t, xf, fs, ox, oy, seed);
   }
   for (let i = 0; i < n; i++) {
     const o = i * P_STRIDE;
@@ -1025,6 +1034,211 @@ function drawRibbon(g, st, t, xf, fs, ox, oy) {
   g.restore();
 }
 
+// ---------- vortex ----------
+// Concentric rotating rings: portals, summoning circles, drains, tractor beams. Distinct from the
+// shockwave, which is ONE ring expanding once — these persist, spin, and drift.
+function drawVortex(g, st, t, xf, fs, ox, oy) {
+  if (st.vortex <= 0) return;
+  const rings = Math.max(1, Math.round(st.vortexRings));
+  const spin = st.vortexSpin * DEG * t;
+  const squash = 1 - st.vortexSquash * 0.85;
+  g.save();
+  g.translate(ox, oy);
+  g.scale(1, squash);                       // a ground-plane portal is an ellipse, not a circle
+  g.lineCap = "butt";
+  for (let i = 0; i < rings; i++) {
+    // Rings drift inward or outward and wrap, so the thing reads as continuous motion rather than
+    // a fixed set of circles rotating in place.
+    const phase = (i / rings + t * st.vortexScroll) % 1;
+    const p = phase < 0 ? phase + 1 : phase;
+    const r = st.vortexRadius * fs * xf.k * (0.25 + 0.75 * p);
+    if (r < 1) continue;
+    // fade at both ends of the drift so rings appear and vanish instead of popping
+    const edgeFade = Math.min(1, p / 0.15, (1 - p) / 0.2);
+    const c = layerColour(st, p, 0.5);
+    g.globalAlpha = st.vortex * c.a * clamp01(edgeFade);
+    g.strokeStyle = c.css;
+    g.lineWidth = Math.max(0.5, st.vortexWidth * xf.k * (0.4 + 0.6 * p));
+    const off = spin + i * 2.4;
+    if (st.vortexGap > 0) {                 // dashed rings read as rotation; solid ones don't
+      const dashes = 3 + i;
+      const span = (Math.PI * 2 / dashes) * (1 - st.vortexGap * 0.7);
+      for (let d = 0; d < dashes; d++) {
+        const a0 = off + (d / dashes) * Math.PI * 2;
+        g.beginPath(); g.arc(0, 0, r, a0, a0 + span); g.stroke();
+      }
+    } else {
+      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- arc ----------
+// Lightning from the origin to a point, with branches. The `bolt` SHAPE is a particle that
+// travels; this is an arc anchored at both ends, which is what chain lightning and tesla coils
+// actually are. It re-randomises in discrete steps (arcRate) rather than every frame, because
+// continuous jitter reads as noise while stepped jitter reads as electricity.
+function drawArc(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.arc <= 0) return;
+  const u = t / Math.max(0.01, st.arcLife);
+  if (u >= 1) return;
+  const step = Math.floor(t * Math.max(1, st.arcRate));   // which "flash" we're on
+  const tx = ox + (st.arcToX - st.originX) * fs * xf.k;
+  const ty = oy + (st.arcToY - st.originY) * fs * xf.k;
+  const segs = Math.max(3, Math.round(st.arcSegs));
+  const dx = tx - ox, dy = ty - oy;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;                     // perpendicular, for the jitter
+  const c = layerColour(st, u, 0.9);
+  const fade = 1 - u * u;
+
+  const path = (jit, spread) => {
+    g.beginPath();
+    g.moveTo(ox, oy);
+    for (let i = 1; i <= segs; i++) {
+      const s = i / segs;
+      // taper the jitter to zero at both ends so the arc actually meets its endpoints
+      const amp = Math.sin(s * Math.PI) * spread * len * 0.18;
+      const j = rndS(seed + step * 977, i, jit) * amp;
+      g.lineTo(ox + dx * s + nx * j, oy + dy * s + ny * j);
+    }
+    g.stroke();
+  };
+  g.save();
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.globalAlpha = st.arc * c.a * fade;
+  g.strokeStyle = c.css;
+  g.lineWidth = Math.max(0.5, st.arcWidth * xf.k);
+  path(3, st.arcJitter);
+  if (st.arcBranch > 0) {
+    g.globalAlpha = st.arc * c.a * fade * 0.6;
+    g.lineWidth = Math.max(0.4, st.arcWidth * xf.k * 0.55);
+    const n = Math.round(st.arcBranch * 4);
+    for (let b = 0; b < n; b++) {
+      const s = 0.2 + rnd(seed + step * 977, b, 31) * 0.6;
+      const amp = Math.sin(s * Math.PI) * st.arcJitter * len * 0.18;
+      const jx = ox + dx * s + nx * rndS(seed + step * 977, Math.round(s * segs), 3) * amp;
+      const jy = oy + dy * s + ny * rndS(seed + step * 977, Math.round(s * segs), 3) * amp;
+      const bl = len * (0.12 + rnd(seed + step * 977, b, 41) * 0.25);
+      const ba = Math.atan2(dy, dx) + rndS(seed + step * 977, b, 51) * 1.2;
+      g.beginPath();
+      g.moveTo(jx, jy);
+      g.lineTo(jx + Math.cos(ba) * bl, jy + Math.sin(ba) * bl);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+// ---------- shatter ----------
+// A shape that holds together, then breaks into fragments that fly apart. Glass, ice, stone,
+// shields. Particles can't do this: the pieces have to START as one object and be a partition of
+// it, or the "it was whole a moment ago" reading is lost. So it's a generator — a disc cut into
+// wedges, each wedge given its own velocity, spin and centroid to rotate about.
+function drawShatter(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.shatter <= 0) return;
+  const hold = st.duration * st.shatterHold;
+  const n = Math.max(3, Math.round(st.shatterPieces));
+  const R = st.shatterRadius * fs * xf.k;
+  const age = Math.max(0, t - hold);
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const fade = st.shatterFade > 0 ? clamp01(1 - (u - (1 - st.shatterFade)) / st.shatterFade) : 1;
+  if (fade <= 0) return;
+  const c = layerColour(st, u, 0.5);
+  g.save();
+  g.globalAlpha = st.shatter * c.a * clamp01(fade);
+  g.fillStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2;
+    const rOut = R * (0.75 + rnd(seed, i, 61) * 0.25);
+    const rIn = R * rnd(seed, i, 62) * 0.35;
+    const mid = (a0 + a1) / 2;
+    // Each piece flies along its own bearing, so the break radiates rather than scattering.
+    const sp = st.shatterSpeed * (0.6 + rnd(seed, i, 63) * 0.8) * xf.k;
+    const px2 = Math.cos(mid) * sp * age;
+    const py2 = Math.sin(mid) * sp * age + 0.5 * st.shatterGravity * xf.k * age * age;
+    const spin = rndS(seed, i, 64) * st.shatterSpin * DEG * age;
+    // rotate about the piece's own centroid, not the origin — otherwise it orbits instead of tumbling
+    const cx = Math.cos(mid) * (rIn + rOut) / 2, cy = Math.sin(mid) * (rIn + rOut) / 2;
+    g.save();
+    g.translate(ox + px2, oy + py2);
+    g.translate(cx, cy);
+    g.rotate(spin);
+    g.translate(-cx, -cy);
+    g.beginPath();
+    g.moveTo(Math.cos(a0) * rIn, Math.sin(a0) * rIn);
+    g.lineTo(Math.cos(a0) * rOut, Math.sin(a0) * rOut);
+    g.lineTo(Math.cos(a1) * rOut, Math.sin(a1) * rOut);
+    g.lineTo(Math.cos(a1) * rIn, Math.sin(a1) * rIn);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+  g.restore();
+}
+
+// ---------- impact lines ----------
+// The anime hit-emphasis ring: tapered spokes radiating from a gap in the middle. `flashRays`
+// gestures at this with uniform spokes from a point; this has an inner radius, per-spoke length
+// jitter, taper and its own life, which is the difference between "a star" and "an impact".
+function drawLines(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.lines <= 0) return;
+  const u = t / Math.max(0.01, st.lineLife);
+  if (u >= 1) return;
+  const n = Math.max(3, Math.round(st.lineCount));
+  const grow = st.lineDir ? 1 - u : u;                    // outward, or converging inward
+  const inner = st.lineInner * fs * xf.k * (0.4 + 0.6 * grow);
+  const outer = st.lineOuter * fs * xf.k * (0.4 + 0.6 * grow);
+  const spin = st.lineSpin * DEG * t;
+  const c = layerColour(st, u, 0.8);
+  g.save();
+  g.translate(ox, oy);
+  g.globalAlpha = st.lines * c.a * (1 - u * u);
+  g.fillStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + spin;
+    const jit = 1 - rnd(seed, i, 71) * st.lineJitter;
+    const r0 = inner, r1 = inner + (outer - inner) * jit;
+    if (r1 <= r0) continue;
+    const wOut = st.lineWidth * xf.k * 0.5;
+    const wIn = wOut * (1 - st.lineTaper);
+    const ca = Math.cos(a), sa = Math.sin(a), px2 = -sa, py2 = ca;   // perpendicular
+    g.beginPath();
+    g.moveTo(ca * r0 + px2 * wIn, sa * r0 + py2 * wIn);
+    g.lineTo(ca * r1 + px2 * wOut, sa * r1 + py2 * wOut);
+    g.lineTo(ca * r1 - px2 * wOut, sa * r1 - py2 * wOut);
+    g.lineTo(ca * r0 - px2 * wIn, sa * r0 - py2 * wIn);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+}
+
+// ---------- dissolve ----------
+// A noise threshold that erases (or reveals) the WHOLE frame over time — burn-away, materialise,
+// teleport-out. Unlike everything else here it isn't a thing that draws, it's a post pass over
+// whatever else drew, which is why it composes with every effect in the tool.
+//
+// The noise field is computed ONCE per render and reused for every frame: per-pixel value noise
+// on 29 frames would be a million lattice lookups, and a dissolve pattern that changed per frame
+// would sparkle instead of dissolve.
+let dissolveKey = null, dissolveField = null;
+function dissolveNoise(seed, scale, w, h) {
+  const key = seed + "," + scale + "," + w + "," + h;
+  if (dissolveKey === key) return dissolveField;
+  const f = new Float32Array(w * h);
+  const s = Math.max(0.5, scale);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      f[y * w + x] = clamp01((vnoise(seed, x / w * s, y / h * s, 0) + 1) / 2);
+    }
+  }
+  dissolveKey = key; dissolveField = f;
+  return f;
+}
+
 // ---------- palette lock ----------
 // Pixel artists work INSIDE a palette, not around one. "Make this effect use my 16 colours" turns
 // a generic particle sim into something that drops straight into their game. Stored in the patch
@@ -1174,7 +1388,7 @@ function blurPass(src, dst, w, h, r, horiz) {
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 // The finishing chain, in the order the params read top-to-bottom in the Crunch panel.
-function postProcess(cv, st, overlay) {
+function postProcess(cv, st, overlay, t) {
   const w = cv.width, h = cv.height, g = cv.getContext("2d");
 
   if (st.glow > 0) {
@@ -1199,6 +1413,63 @@ function postProcess(cv, st, overlay) {
   // The overlay (speech bubble) lands here: past the glow so it isn't bloomed, ahead of the
   // pixel-art stages so it gets crunched with everything else.
   if (overlay) overlay(g);
+
+  if (st.merge > 0) {
+    // Metaballs the cheap way: blur the field, then threshold it. Two soft particles whose halos
+    // overlap sum above the threshold and fuse into one blob with a single smooth outline — which
+    // is what separates slime, mercury and lava from "a pile of circles".
+    //
+    // Blurred RGB is carried alongside so newly-solid pixels BETWEEN particles have a colour to
+    // take; without that the bridges between blobs come out black.
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const src = new Uint8ClampedArray(d);
+    const blurred = boxBlur(src, w, h, Math.max(1, Math.round(st.mergeSmooth)));
+    const thr = st.mergeThreshold * 255;
+    const mix = st.merge;
+    for (let i = 0; i < d.length; i += 4) {
+      const ba = blurred[i + 3];
+      const inside = ba >= thr;
+      const wasOpaque = d[i + 3] > 8;
+      if (inside && !wasOpaque) {                    // a bridge between two blobs
+        const k = blurred[i + 3] ? 255 / blurred[i + 3] : 0;   // un-premultiply the blurred colour
+        d[i] = d[i] + (Math.min(255, blurred[i] * k) - d[i]) * mix;
+        d[i + 1] = d[i + 1] + (Math.min(255, blurred[i + 1] * k) - d[i + 1]) * mix;
+        d[i + 2] = d[i + 2] + (Math.min(255, blurred[i + 2] * k) - d[i + 2]) * mix;
+        d[i + 3] = d[i + 3] + (255 - d[i + 3]) * mix;
+      } else if (!inside && wasOpaque) {             // a lone wisp below the threshold
+        d[i + 3] = d[i + 3] * (1 - mix);
+      } else if (inside) {
+        d[i + 3] = d[i + 3] + (255 - d[i + 3]) * mix;   // harden the body
+      }
+    }
+    g.putImageData(img, 0, 0);
+  }
+
+  if (st.dissolve > 0) {
+    const u = clamp01(t / Math.max(0.01, st.duration * st.dissolveTime));
+    // Direction: erase over time, or materialise. Threshold sweeps the noise field either way.
+    const cut = st.dissolveDir ? 1 - u : u;
+    const field = dissolveNoise(Math.max(1, Math.round(st.seed)) | 0, st.dissolveScale, w, h);
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const edge = st.dissolveEdge * 0.35;
+    const ec = layerColour(st, u, 1);
+    // parse the edge colour once rather than per pixel
+    const probe = document.createElement("canvas").getContext("2d");
+    probe.fillStyle = ec.css; probe.fillRect(0, 0, 1, 1);
+    const px = probe.getImageData(0, 0, 1, 1).data;
+    for (let i = 0, p = 0; p < field.length; i += 4, p++) {
+      if (d[i + 3] === 0) continue;
+      const n = field[p];
+      if (n < cut * st.dissolve) { d[i + 3] = 0; continue; }          // gone
+      if (edge > 0 && n < cut * st.dissolve + edge) {                  // burning edge
+        const k = 1 - (n - cut * st.dissolve) / edge;
+        d[i] = d[i] + (px[0] - d[i]) * k;
+        d[i + 1] = d[i + 1] + (px[1] - d[i + 1]) * k;
+        d[i + 2] = d[i + 2] + (px[2] - d[i + 2]) * k;
+      }
+    }
+    g.putImageData(img, 0, 0);
+  }
 
   if (st.pixelate > 1) {   // nearest-neighbour down + up
     const p = Math.round(st.pixelate);
@@ -1366,7 +1637,7 @@ function renderFrames(st, opt) {
       echoCv.width = echoCv.height = out;
       echoCv.getContext("2d").drawImage(cv, 0, 0);
     }
-    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, out));
+    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, out), f / sim.fps);
     canvases[f] = cv;
   }
 

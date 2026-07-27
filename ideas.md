@@ -317,6 +317,35 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 
 ## Simulation — C
 
+- ~~**Shatter**~~ ✅ **done** — a disc cut into wedges that holds, then breaks and tumbles under
+  gravity. Particles genuinely can't do this: the pieces have to *start as one object and be a
+  partition of it*, or the "it was whole a moment ago" reading is lost. Each wedge rotates about
+  its own centroid, not the origin, or it orbits instead of tumbling. Glass, ice, stone, shields.
+- ~~**Impact lines**~~ ✅ **done** — the anime hit ring: tapered spokes with a gap in the middle,
+  radiating or converging, with per-spoke length jitter. `flashRays` gestures at this with uniform
+  spokes from a point; the inner radius and the jitter are the difference between "a star" and "an
+  impact".
+- ~~**Merge (metaballs)**~~ ✅ **done** — blur the field, then threshold it, so two soft particles
+  whose halos overlap fuse into one blob with a single smooth outline. That's what separates slime,
+  mercury and lava from "a pile of circles". The blurred RGB is carried alongside so the *bridges*
+  between blobs have a colour to take — without that they come out black, which was the first thing
+  I got wrong. Note it makes an effect end sooner: as particles spread and dim they drop below the
+  threshold and vanish, which is inherent to metaballs and arguably right.
+
+- ~~**Vortex**~~ ✅ **done** — concentric rings that spin, drift and wrap, with a squash for the
+  ground-plane look. Distinct from the shockwave, which is *one* ring expanding once. Portals,
+  summoning circles, drains. Dashed rings by default, because a solid ring gives no visual cue that
+  it's rotating.
+- ~~**Arc**~~ ✅ **done** — lightning anchored at BOTH ends, unlike the `bolt` shape which is a
+  particle that travels. The jitter re-randomises in **discrete steps** (`arcRate`) rather than
+  every frame: continuous jitter reads as noise, stepped jitter reads as electricity. Chain
+  lightning, tesla coils, arcs to a target.
+- ~~**Dissolve**~~ ✅ **done** — a noise threshold over the whole frame, erasing or materialising,
+  with an optional burning edge. It's the first primitive that isn't a thing that *draws* — it's a
+  post pass over whatever else drew, so it composes with every effect in the tool. The noise field
+  is computed once per render and reused across frames; regenerating it per frame would sparkle
+  instead of dissolve.
+
 - ~~**Sub-emitters**~~ ✅ **done** — each particle spawns `subCount` children as it dies, with
   their own speed/life/size/spread and an inherit-velocity knob. Children live in the same arrays
   after the parents, so the integrator handles them unchanged. **One generation only** — children
