@@ -112,6 +112,19 @@ bubble — which has since been edited out above but is all built.)*
 
 ### Found while building the above — C
 
+- **Hiding inert panels needed a different rule than CrunchySFX's.** SFX hides panels by ENGINE,
+  which is safe because its engines are mutually exclusive. Nothing here is — any layer can be
+  switched on at any moment — so that rule doesn't transfer (Alex spotted this before I built it).
+  The rule that *does* hold: every layer group has a master switch, and at zero the rest of the
+  group is inert. `growth: 0` makes nine sliders do nothing; across twelve groups that's ~54 dead
+  controls. Off groups now hide entirely and become chips in an "Add a layer" strip, which turns
+  them on **at a value that does something** — better discovery than a slider sitting at zero among
+  145 others.
+- **Panel visibility must not re-evaluate on a slider drag.** Dragging Growth down to 0 would make
+  its panel vanish under the cursor with no way to drag it back up. Visibility is recomputed only
+  in `syncUI()` — preset load, undo, randomize — so a panel you're editing stays put until you load
+  something else. There's a test for it.
+
 - **Where the render time actually goes** (measured, 1500 particles / 29 frames / 192px). Alex
   suspected the Pixelate slider; the profile said otherwise and was worth having:
   `simulate()` **1.3ms**, rasterising **60ms**, glow **+40ms**, `outline 3` **+33ms**, pixelate

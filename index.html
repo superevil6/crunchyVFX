@@ -159,6 +159,7 @@
       <div class="engine-title"><span>Palette</span></div>
       <div class="engine-cat-btns" id="paletteGrid"></div>
     </div>
+    <div class="layerbar" id="layerBar"></div>
     <main id="panels"></main>
   </section>
 </div>
@@ -1370,6 +1371,62 @@ function updateImageSpriteUI() {
   }
 }
 
+// ---------- Inert layer panels ----------
+// CrunchySFX hides panels by ENGINE, which works because its engines are mutually exclusive.
+// Nothing here is exclusive — any layer can be switched on at any moment — so that rule doesn't
+// transfer. The rule that does: every layer group has a master switch, and at zero the rest of the
+// group is inert. `growth: 0` makes nine sliders do literally nothing.
+//
+// So an off group hides ENTIRELY and becomes a chip in the bar above. That's better than leaving a
+// one-slider stub behind: it removes a dozen panels, and "＋ Growth" is a more discoverable way to
+// find the feature than a slider sitting at zero among 145 others. The chip turns it on at a value
+// that actually does something, so clicking it shows you the effect rather than more zeroes.
+const LAYER_GROUPS = [
+  { g: "Flash",       is: () => state.flash > 0,      on: () => { state.flash = 0.8; } },
+  { g: "Shockwave",   is: () => state.wave > 0,       on: () => { state.wave = 0.6; } },
+  { g: "Trails",      is: () => state.trail > 0 || state.echo > 0, on: () => { state.trail = 0.5; } },
+  { g: "Glow",        is: () => state.glow > 0,       on: () => { state.glow = 0.5; } },
+  { g: "Bubble",      is: () => state.bubble > 0,     on: () => { state.bubble = 1; if (!state.bubbleText) state.bubbleText = "!"; } },
+  { g: "Growth",      is: () => state.growth > 0,     on: () => { state.growth = 1; } },
+  { g: "Beam",        is: () => state.beam > 0,       on: () => { state.beam = 1; } },
+  { g: "Ribbon",      is: () => state.ribbon > 0,     on: () => { state.ribbon = 1; } },
+  { g: "Sub-emitter", is: () => state.subCount > 0,   on: () => { state.subCount = 4; } },
+  { g: "Ground",      is: () => state.bounce > 0,     on: () => { state.bounce = 0.5; } },
+  { g: "Attractor",   is: () => state.attract !== 0,  on: () => { state.attract = 400; } },
+  { g: "Burst",       is: () => state.shots > 1,      on: () => { state.shots = 2; } },
+];
+const layerBar = document.getElementById("layerBar");
+function updateLayerPanels() {
+  layerBar.innerHTML = "";
+  const off = [];
+  for (const L of LAYER_GROUPS) {
+    const panel = panels.querySelector('[data-group="' + L.g + '"]');
+    if (!panel) continue;
+    const active = L.is();
+    panel.hidden = !active;
+    if (!active) off.push(L);
+  }
+  if (!off.length) return;
+  const label = document.createElement("span");
+  label.className = "layerbar-label";
+  label.textContent = "Add a layer";
+  layerBar.appendChild(label);
+  for (const L of off) {
+    const b = document.createElement("button");
+    b.className = "layer-chip";
+    b.textContent = "＋ " + L.g;
+    b.title = "Turn on " + L.g + " and show its controls";
+    b.addEventListener("click", () => {
+      L.on();
+      syncUI();
+      rerender();
+      commitHistory();
+      msg.textContent = L.g + " on";
+    });
+    layerBar.appendChild(b);
+  }
+}
+
 function updateShapePanels() {
   const s = Math.round(state.shape);
   for (const [group, shapes] of Object.entries(PANEL_SHAPES)) {
@@ -1398,6 +1455,7 @@ function syncUI() {
   updateImageSpriteUI();
   syncShapeButtons();
   updateShapePanels();
+  updateLayerPanels();
   updateMacros();
 }
 

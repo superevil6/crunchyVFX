@@ -961,3 +961,16 @@
     .prevdock { right: auto; left: 10px; top: auto !important; bottom: 10px; padding: 6px; }
     .dock-wrap canvas { max-width: 96px; height: auto !important; }
   }
+
+  /* "Add a layer" strip — the off switches for every layer group that's currently inert */
+  .layerbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 14px 0 2px; }
+  .layerbar:empty { display: none; }
+  .layerbar-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--muted); margin-right: 4px;
+  }
+  .layer-chip {
+    padding: 4px 10px; font-size: 12px; color: var(--muted);
+    border-style: dashed;
+  }
+  .layer-chip:hover { color: var(--accent); border-color: var(--accent); border-style: solid; }

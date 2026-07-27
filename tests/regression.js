@@ -508,6 +508,33 @@
     const edgeR = renderFrames(state, { size: 96 });
     ok(lit(edgeR.canvases[1]) > 0, "a particle straddling the frame edge is still drawn",
        lit(edgeR.canvases[1]) + " px");
+
+    // ---------------------------------------------------------------- inert layer panels
+    const panelOf = (g) => panels.querySelector('[data-group="' + g + '"]');
+    applyPreset(PRESETS["Explosion"], "Explosion");      // flash + shockwave on, growth/beam off
+    ok(panelOf("Growth").hidden && panelOf("Beam").hidden, "inert layer panels are hidden");
+    ok(!panelOf("Flash").hidden, "an active layer keeps its panel", "flash=" + state.flash);
+    ok(!panelOf("Emitter").hidden && !panelOf("Crunch").hidden,
+       "always-relevant panels are never hidden");
+    const chips = [...layerBar.querySelectorAll(".layer-chip")].map((b) => b.textContent);
+    ok(chips.length > 4, "off layers become chips", chips.length + " chips");
+    ok(chips.some((c) => c.indexOf("Growth") >= 0), "…including Growth", chips.join(" "));
+    ok(!chips.some((c) => c.indexOf("Flash") >= 0), "…but not the active ones");
+    // a chip must turn the layer on AT A VALUE THAT DOES SOMETHING, not just reveal zeroes
+    const growChip = [...layerBar.querySelectorAll(".layer-chip")]
+      .find((b) => b.textContent.indexOf("Growth") >= 0);
+    growChip.click();
+    ok(state.growth > 0, "the chip turns the layer on", "growth=" + state.growth);
+    ok(!panelOf("Growth").hidden, "…and reveals its panel");
+    ok(litAll(rendered) > 0, "…and the effect actually renders something");
+    // Visibility must NOT re-evaluate on a slider drag: dragging Growth to 0 mid-edit would make
+    // the panel vanish under the cursor with no way to drag it back up.
+    state.growth = 0;
+    inputs.growth.value = 0;
+    inputs.growth.dispatchEvent(new Event("input", { bubbles: true }));
+    ok(!panelOf("Growth").hidden, "a panel does not vanish mid-drag when its master hits 0");
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(panelOf("Growth").hidden, "…it hides on the next preset load instead");
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);
