@@ -53,6 +53,21 @@
         <button data-bg="checker" class="active">Checker</button><button data-bg="dark">Dark</button><button data-bg="light">Light</button>
       </span>
     </div>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Guides</span>
+      <span class="zoomgroup" id="guideGroup">
+        <button data-guide="grid" title="Pixel grid at the current Pixelate block size">▦ Grid</button>
+        <button data-guide="safe" title="Safe frame — keep the effect inside this and it won't clip when scaled">⬚ Safe</button>
+        <button data-guide="onion" title="Ghost the previous and next frames">◑ Onion</button>
+      </span>
+    </div>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Compare</span>
+      <span class="zoomgroup">
+        <button id="abHold" title="Remember this effect as A">⎘ Hold A</button>
+        <button id="abSwap" title="Swap between the held effect and the current one" disabled>⇄ Swap</button>
+      </span>
+    </div>
     <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
 
     <div class="refbox" id="refBox">
@@ -214,6 +229,11 @@ const PARAMS = [
   ["spiralThick","Thickness",   0.02, 0.4, 0.01, 0.12, "","Spiral"],
   ["glyphTint",  "Tint amount", 0, 1, 0.01, 1, "",     "Glyph"],
   ["imgTint",    "Tint amount", 0, 1, 0.01, 0, "",     "Image sprite"],
+  // Flipbook: an imported strip animates per particle. 1×1 = a single still image (the default).
+  ["imgCols",    "Strip cols",  1, 16, 1, 1, "",       "Image sprite"],
+  ["imgRows",    "Strip rows",  1, 16, 1, 1, "",       "Image sprite"],
+  ["imgLoops",   "Plays / life",0.25, 8, 0.25, 1, "x", "Image sprite"],
+  ["imgStagger", "Stagger",     0, 1, 0.01, 0, "",     "Image sprite"],
   // Extra layers — default 0 = off, exactly like SFX's noise/subOsc/boom
   ["flash",      "Flash",       0, 1, 0.01, 0, "",     "Flash"],
   ["flashSize",  "Flash size",  0, 1, 0.01, 0.5, "",   "Flash"],
@@ -329,13 +349,54 @@ function rerender() {
   drawStage();
 }
 
+// Preview-only guides. Everything here draws on the stage canvas AFTER the effect and is never
+// part of a render, so it can't leak into an export.
+const guides = { grid: false, safe: false, onion: false };
+function drawGuides(g, w, h) {
+  if (guides.safe) {
+    // 10% inset. Effects that touch this edge clip when someone scales or rotates the sprite.
+    const m = Math.round(w * 0.1);
+    g.save();
+    g.strokeStyle = "rgba(255,122,69,0.55)";
+    g.lineWidth = 1;
+    g.setLineDash([4, 3]);
+    g.strokeRect(m + 0.5, m + 0.5, w - m * 2 - 1, h - m * 2 - 1);
+    g.restore();
+  }
+  if (guides.grid) {
+    // At the Pixelate block size, so you can see the grid your art will actually land on.
+    const step = state.pixelate > 1 ? Math.round(state.pixelate) : 8;
+    if (step >= 2 && w / step <= 256) {
+      g.save();
+      g.strokeStyle = "rgba(120,200,255,0.22)";
+      g.lineWidth = 1;
+      g.beginPath();
+      for (let x = step; x < w; x += step) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }
+      for (let y = step; y < h; y += step) { g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); }
+      g.stroke();
+      g.restore();
+    }
+  }
+}
+
 function drawStage() {
   if (!rendered) return;
   const cv = rendered.canvases[frameIdx];
   sctx.clearRect(0, 0, stage.width, stage.height);
   if (!ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
+  if (guides.onion) {
+    // Neighbouring frames, ghosted — the classic animator's view of what changed.
+    const n = rendered.canvases.length;
+    sctx.globalAlpha = 0.22;
+    const prev = rendered.canvases[(frameIdx - 1 + n) % n];
+    const next = rendered.canvases[(frameIdx + 1) % n];
+    if (prev) sctx.drawImage(prev, 0, 0);
+    if (next) sctx.drawImage(next, 0, 0);
+    sctx.globalAlpha = 1;
+  }
   if (cv) sctx.drawImage(cv, 0, 0);
   if (ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
+  drawGuides(sctx, stage.width, stage.height);
   scrub.value = String(frameIdx);
   scrubVal.textContent = frameIdx + " / " + (rendered.canvases.length - 1);
 }
@@ -951,9 +1012,18 @@ function applyImageSprite(url) {
 let imgSpriteInfo = null;
 function updateImageSpriteUI() {
   if (!imgSpriteInfo) return;
-  imgSpriteInfo.textContent = imageSpriteEl
-    ? (imgSpriteName || "image") + " · " + imageSpriteEl.naturalWidth + "×" + imageSpriteEl.naturalHeight
-    : "No image loaded — the particle falls back to a soft glow.";
+  if (!imageSpriteEl) {
+    imgSpriteInfo.textContent = "No image loaded — the particle falls back to a soft glow. A strip (e.g. 4×1) animates per particle.";
+    return;
+  }
+  const cells = Math.max(1, Math.round(state.imgCols)) * Math.max(1, Math.round(state.imgRows));
+  imgSpriteInfo.textContent = (imgSpriteName || "image") + " · " +
+    imageSpriteEl.naturalWidth + "×" + imageSpriteEl.naturalHeight +
+    (cells > 1
+      ? " · " + cells + "-frame flipbook (cells " +
+        Math.round(imageSpriteEl.naturalWidth / state.imgCols) + "×" +
+        Math.round(imageSpriteEl.naturalHeight / state.imgRows) + ")"
+      : " · single frame");
 }
 {
   const panel = panels.querySelector('[data-group="Image sprite"]');
@@ -979,6 +1049,19 @@ function updateImageSpriteUI() {
         state.imageSprite = reader.result;
         imgSpriteName = f.name;
         state.shape = SHAPES.indexOf("image");    // you loaded a sprite; you want to see it
+        // Guess a strip from the aspect ratio the same way the reference panel does — a 4:1 image
+        // is almost always four frames, and guessing wrong costs one click to fix.
+        const probe = new Image();
+        probe.onload = () => {
+          const ar = probe.naturalWidth / probe.naturalHeight;
+          if (ar >= 1.8 && Math.abs(ar - Math.round(ar)) < 0.08) {
+            state.imgCols = Math.min(16, Math.round(ar));
+            state.imgRows = 1;
+            msg.textContent = "Particle sprite: " + f.name + " — guessed a " + state.imgCols + "-frame strip";
+          }
+          syncUI(); rerender();
+        };
+        probe.src = reader.result;
         applyImageSprite(state.imageSprite);
         syncUI(); rerender(); commitHistory();
         msg.textContent = "Particle sprite: " + f.name;
@@ -1532,6 +1615,33 @@ document.getElementById("zoomGroup").addEventListener("click", (e) => {
   [...e.currentTarget.children].forEach((c) => c.classList.toggle("active", c === b));
   applyZoom();
 });
+document.getElementById("guideGroup").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const k = b.dataset.guide;
+  guides[k] = !guides[k];
+  b.classList.toggle("active", guides[k]);
+  drawStage();
+});
+
+// A/B compare: hold one effect, then swap back and forth. Implemented as a genuine swap rather
+// than a one-way restore, so you can flip between the two as many times as you like while tuning.
+let abSnap = null;
+const abHoldBtn = document.getElementById("abHold");
+const abSwapBtn = document.getElementById("abSwap");
+abHoldBtn.addEventListener("click", () => {
+  abSnap = snapshotState();
+  abSwapBtn.disabled = false;
+  abHoldBtn.textContent = "⎘ Re-hold";
+  msg.textContent = "Held as A — tweak, then Swap to compare";
+});
+abSwapBtn.addEventListener("click", () => {
+  if (!abSnap) return;
+  const now = snapshotState();
+  applyPreset(abSnap, effectLabel);
+  abSnap = now;
+  msg.textContent = "Swapped";
+});
+
 document.getElementById("bgGroup").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   stageWrap.className = "stage-wrap bg-" + b.dataset.bg;
@@ -1654,6 +1764,37 @@ function download(blob, name) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ---------- ZIP writer ----------
+// STORE-only (no compression), which is exactly right here: PNG is already deflated, so
+// compressing it again buys nothing and costs time. crc32 lives in apng.js — PNG chunks and ZIP
+// entries want the same polynomial.
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  const push = (a) => { parts.push(a); offset += a.length; };
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length, at = offset;
+    const hd = new DataView(new ArrayBuffer(30));
+    hd.setUint32(0, 0x04034b50, true); hd.setUint16(4, 20, true); hd.setUint16(8, 0, true);
+    hd.setUint32(14, crc, true); hd.setUint32(18, sz, true); hd.setUint32(22, sz, true); hd.setUint16(26, name.length, true);
+    push(new Uint8Array(hd.buffer)); push(name); push(f.data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, at, true);
+    central.push(new Uint8Array(c.buffer), name);
+  }
+  const cdAt = offset; let cdSize = 0;
+  for (const c of central) { cdSize += c.length; push(c); }
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, cdSize, true); e.setUint32(16, cdAt, true);
+  push(new Uint8Array(e.buffer));
+  let total = 0; for (const p of parts) total += p.length;
+  const out = new Uint8Array(total); let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
 }
 
 // ---------- Sheet building, trim & pivot ----------
@@ -1793,6 +1934,10 @@ expModal.innerHTML =
     '<div class="modal-foot">' +
       '<button id="expGo" class="primary">⬇ Export</button>' +
       '<button id="expClip" title="Straight into Aseprite or Photoshop, no file">📋 Copy sheet</button>' +
+      '<span class="exp-batch">' +
+        '<button id="expBatchMine" title="Every effect in My Effects, as one zip of sheets + sidecars">📦 My Effects</button>' +
+        '<button id="expBatchAll" title="Every built-in preset AND every saved effect, as one asset pack">📦 Everything</button>' +
+      '</span>' +
       '<span class="hint" id="expMsg"></span>' +
     '</div>' +
   '</div>';
@@ -1894,6 +2039,57 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
     expMsg.textContent = "Export failed: " + e.message;
   }
 });
+
+// ---------- Batch export ----------
+// One zip containing every effect, each as a sheet + sidecar, honouring the options above. This
+// is what turns the tool from "make an effect" into "make an asset pack" — and it's the reason
+// the library and the export options were worth building separately.
+//
+// Rendering 35 effects blocks the main thread for seconds, so it yields between each one: the
+// progress line actually updates instead of the window going grey and the OS offering to kill it.
+async function batchExport(which) {
+  const sets = [];
+  if (which !== "mine") for (const name in PRESETS) sets.push({ name, patch: PRESETS[name] });
+  if (which !== "builtin") for (const e of userEffects) sets.push({ name: e.name, patch: e.state });
+  if (!sets.length) { expMsg.textContent = "Nothing to export"; return; }
+
+  const before = snapshotState(), beforeLabel = effectLabel;
+  const files = [];
+  const used = new Set();
+  try {
+    for (let i = 0; i < sets.length; i++) {
+      const { name, patch } = sets[i];
+      let base = sanitize(name), n = 2;
+      while (used.has(base)) base = sanitize(name) + "-" + n++;   // two effects can share a name
+      used.add(base);
+      applyPreset(patch, name);
+      const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+      const blob = await canvasBlob(sh.cv);
+      files.push({ name: base + "/" + base + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+      if (expMetaSel.value !== "none") {
+        files.push({ name: base + "/" + base + ".json",
+          data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base, rendered.fps)) });
+      }
+      expMsg.textContent = "Rendering " + (i + 1) + "/" + sets.length + " — " + name;
+      await new Promise((r) => setTimeout(r, 0));                 // let the UI breathe
+    }
+    // A manifest, so whoever receives the pack can see what's in it without opening 35 folders.
+    files.push({ name: "index.json", data: new TextEncoder().encode(JSON.stringify({
+      app: "CrunchyVFX", exported: sets.length,
+      effects: sets.map((s, i) => ({ name: s.name, folder: [...used][i] })),
+    }, null, 2)) });
+    download(new Blob([makeZip(files)], { type: "application/zip" }), "crunchyvfx-pack.zip");
+    const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
+    expMsg.textContent = "Exported " + sets.length + " effects · " + kb + " KB";
+    msg.textContent = "Asset pack: " + sets.length + " effects";
+  } catch (e) {
+    expMsg.textContent = "Batch failed: " + e.message;
+  } finally {
+    applyPreset(before, beforeLabel);   // always put the editor back where it was
+  }
+}
+expModal.querySelector("#expBatchAll").addEventListener("click", () => batchExport("all"));
+expModal.querySelector("#expBatchMine").addEventListener("click", () => batchExport("mine"));
 
 expModal.querySelector("#expClip").addEventListener("click", async () => {
   try {

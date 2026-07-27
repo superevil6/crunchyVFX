@@ -20,12 +20,14 @@ const BLENDS   = ["additive", "alpha", "screen"];
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
 
 // ---------- constants ----------
-const P_STRIDE = 12;       // one particle per stride in the per-frame Float32Array
+const P_STRIDE = 13;       // one particle per stride in the per-frame Float32Array
 const P_X = 0, P_Y = 1, P_SIZE = 2, P_ANG = 3, P_ALPHA = 4;
 const P_HUE = 5, P_WHITE = 6, P_KIND = 7, P_VX = 8, P_VY = 9;
 // Colour is resolved at SIMULATE time, not draw time: with a ramp, hue/sat/light are a function
 // of the particle's own life fraction, which the frame table doesn't otherwise carry.
 const P_SAT = 10, P_LIGHT = 11;
+// Flipbook frame for the imported-sprite shape: which cell of the strip this particle is showing.
+const P_FRAME = 12;
 const K_PART = 0, K_FLASH = 1, K_WAVE = 2;   // P_KIND values
 
 const SUB = 2;                 // simulation substeps per frame — keeps motion stable at 8 fps
@@ -201,6 +203,8 @@ function simulate(st) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
 
   const ramp = parseRamp(st.ramp);
+  const flipCells = Math.round(st.shape) === 9
+    ? Math.max(1, Math.round(st.imgCols)) * Math.max(1, Math.round(st.imgRows)) : 1;
   // Ground plane. `bounce` at 0 is the off switch — no collision test runs at all — so this costs
   // nothing for the 90% of effects that happen in mid-air.
   const bounceOn = st.bounce > 0;
@@ -248,6 +252,12 @@ function simulate(st) {
           scratch[o + P_ALPHA] = lifeAlpha(st, u);
         }
         scratch[o + P_KIND] = K_PART;
+        // Flipbook cell from the particle's own life fraction. `imgLoops` runs the strip more than
+        // once per lifetime; `imgStagger` offsets each particle so a hundred sprites don't play in
+        // lockstep, which reads as one flickering object rather than a hundred separate ones.
+        scratch[o + P_FRAME] = flipCells > 1
+          ? Math.floor(u * st.imgLoops * flipCells + rnd(seed, g, 47) * st.imgStagger * flipCells) % flipCells
+          : 0;
         scratch[o + P_VX] = vx[g]; scratch[o + P_VY] = vy[g];
         n++;
         if (scratch[o + P_ALPHA] > 0.02) {
@@ -427,7 +437,7 @@ function frameSizePx(st) {
 // a small canvas, tinted with source-in, and cached by (shape, hue step, white step) — every
 // particle then costs one drawImage.
 const spriteCache = new Map();
-function spriteKey(shape, hi, si, li, st) {
+function spriteKey(shape, hi, si, li, st, frame) {
   // shape params that change the drawing have to be in the key or the cache goes stale
   const extra = shape === 1 ? st.sparkLen + "," + st.sparkTaper
     : shape === 2 ? st.ringThick + "," + st.ringSoft
@@ -443,14 +453,14 @@ function spriteKey(shape, hi, si, li, st) {
                         : shape === 17 ? st.spiralTurns + "," + st.spiralThick
                           : shape === 18 ? st.glyph + "," + st.glyphTint
                             : shape === 8 ? st.customSprite
-                              : shape === 9 ? imageSpriteVersion + "," + st.imgTint : "";
-  return shape + "|" + hi + "|" + si + "|" + li + "|" + extra;
+                              : shape === 9 ? imageSpriteVersion + "," + st.imgTint + "," + st.imgCols + "," + st.imgRows : "";
+  return shape + "|" + hi + "|" + si + "|" + li + "|" + frame + "|" + extra;
 }
 function clearSpriteCache() { spriteCache.clear(); }
 
 function hsl(h, s, l) { return "hsl(" + (((h % 360) + 360) % 360) + "," + Math.round(clamp01(s) * 100) + "%," + Math.round(clamp01(l) * 100) + "%)"; }
 
-function makeSprite(shape, hue, sat, lum, st) {
+function makeSprite(shape, hue, sat, lum, st, frame) {
   const c = document.createElement("canvas");
   c.width = c.height = SPRITE_PX;
   const g = c.getContext("2d");
@@ -671,13 +681,17 @@ function makeSprite(shape, hue, sat, lum, st) {
       g.drawImage(tmp, 0, 0, SPRITE_PX, SPRITE_PX);
       break;
     }
-    case 9: {   // image — your own PNG as the particle
+    case 9: {   // image — your own PNG as the particle, optionally an animated strip
       if (!imageSpriteEl || !imageSpriteEl.complete || !imageSpriteEl.naturalWidth) break;
-      const iw = imageSpriteEl.naturalWidth, ih = imageSpriteEl.naturalHeight;
+      const cols = Math.max(1, Math.round(st.imgCols)), rows = Math.max(1, Math.round(st.imgRows));
+      const iw = imageSpriteEl.naturalWidth / cols, ih = imageSpriteEl.naturalHeight / rows;
+      const n = cols * rows;
+      const idx = ((Math.round(frame) % n) + n) % n;
+      const sx = (idx % cols) * iw, sy = Math.floor(idx / cols) * ih;
       const k = Math.min(SPRITE_PX / iw, SPRITE_PX / ih);   // contain, preserving aspect
       const w = iw * k, h = ih * k;
       g.imageSmoothingEnabled = k < 1;        // downscale smoothly, upscale crisply
-      g.drawImage(imageSpriteEl, (SPRITE_PX - w) / 2, (SPRITE_PX - h) / 2, w, h);
+      g.drawImage(imageSpriteEl, sx, sy, iw, ih, (SPRITE_PX - w) / 2, (SPRITE_PX - h) / 2, w, h);
       break;
     }
     default: {  // 0 glow — the workhorse: hot centre, soft falloff
@@ -706,14 +720,15 @@ function makeSprite(shape, hue, sat, lum, st) {
   return c;
 }
 
-function getSprite(shape, hue, sat, light, st) {
+function getSprite(shape, hue, sat, light, st, frame) {
   const hi = Math.round((((hue % 360) + 360) % 360) / 360 * HUE_STEPS) % HUE_STEPS;
   const si = Math.round(clamp01(sat) * (SAT_STEPS - 1));
   const li = Math.round(clamp01(light) * (LIGHT_STEPS - 1));
-  const key = spriteKey(shape, hi, si, li, st);
+  const fr = shape === 9 ? (frame | 0) : 0;      // only the flipbook varies per frame
+  const key = spriteKey(shape, hi, si, li, st, fr);
   let s = spriteCache.get(key);
   if (!s) {
-    s = makeSprite(shape, hi / HUE_STEPS * 360, si / (SAT_STEPS - 1), li / (LIGHT_STEPS - 1), st);
+    s = makeSprite(shape, hi / HUE_STEPS * 360, si / (SAT_STEPS - 1), li / (LIGHT_STEPS - 1), st, fr);
     spriteCache.set(key, s);
   }
   return s;
@@ -748,14 +763,14 @@ function drawFrame(sim, f, g, st, xf) {
       continue;
     }
     if (kind === K_FLASH) {
-      const spr = getSprite(0, hue, sat, light, st);
+      const spr = getSprite(0, hue, sat, light, st, 0);
       g.globalAlpha = a;
       g.drawImage(spr, x - sz / 2, y - sz / 2, sz, sz);
       if (st.flashRays > 0) drawRays(g, x, y, sz, st, hue, a);
       continue;
     }
 
-    const spr = getSprite(shape, hue, sat, light, st);
+    const spr = getSprite(shape, hue, sat, light, st, arr[o + P_FRAME]);
     // spark and teardrop are directional shapes — they point where they're going
     const rot = (shape === 1 || shape === 16) ? Math.atan2(arr[o + P_VY], arr[o + P_VX]) : arr[o + P_ANG];
     // motion trail: a few ghosts back along the velocity vector. Cheap, and it reads as speed.

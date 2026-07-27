@@ -7,13 +7,7 @@ exists and works in CrunchySFX, so it's mostly copy + adapt — the cheapest win
 ---
 
 ## Alex's list
-
-Visual Effects to target:
-charm (with heart particles)
-ice
-spiral particles
-emote (potentially even emoji support), for example putting an ! above a characters head.
-Text bubble perhaps?
+Generate visual effects based on sound effect works but can we import the sound to be played as well so it matches up?
 
 
 sliders and whatnots:
@@ -62,6 +56,16 @@ sliders and whatnots:
   so a 4-frame character loop plays under a 20-frame explosion.
 
 ### Found while building the above — C
+
+- **The regression suites now live in `tests/`, not a scratchpad.** They used to sit in a temp
+  directory and a stray `rm -rf` with an unset shell variable deleted all ten of them. Verification
+  that can be destroyed by accident isn't verification. `python3 tests/build.py` concatenates
+  `index.html` with a suite (it has to concatenate — the app is one inline `<script>` and `fetch`
+  is CORS-blocked on `file://`), then Firefox headless runs it. 92 assertions across two files.
+- **A refactor silently deleted `makeZip`** and every zip path broke at once — PNG frames,
+  multi-resolution, variations pack, batch export. Nothing caught it because no suite had ever
+  exercised an actual zip, only the sheet and GIF. There are now assertions on all four paths plus
+  the writer's signatures.
 
 - **No fixed particle angle.** Every particle gets a random start rotation, so a one-off directional
   shape (the Slash crescent) points somewhere different per seed. Needs an `angle` + `angleVar`

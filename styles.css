@@ -929,3 +929,6 @@
     border-radius: 7px; padding: 5px 8px; font: inherit; font-size: 11px; margin-top: 2px;
   }
   .pal-paste:focus { outline: none; border-color: var(--accent2); }
+
+  .exp-batch { display: inline-flex; gap: 6px; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--line); }
+  .exp-batch button { padding: 6px 10px; font-size: 12px; }
