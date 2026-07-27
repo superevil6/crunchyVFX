@@ -23,6 +23,16 @@ sliders and whatnots:
 
 - Similar to CrunchySFX, let's hid irrelevant control panels. If possible.
 
+We have the add a layer option, but we should also be able to subtract a layer. There are essential panels like color, but for non-essential ones we should add a (-) or (x) button to be able to delete the layer easily.
+
+> ✅ **Done 2026-07-27.** Every panel with a `LAYER_GROUPS` entry gets a quiet ✕ in its heading;
+> essential panels (Color, Motion, Output, Emitter…) have none, because there is no meaningful
+> "off" for them. Removing resets the whole group to its PARAMS defaults — derived from the
+> schema rather than 24 hand-written `off()` functions, so it can't drift as params are added —
+> which means add-back gives you a clean layer rather than your old tuning. Undoable like any
+> other edit. A regression assertion turns every group on and off in turn, so a future layer
+> whose `is()` reads a param filed under another group fails loudly.
+
 
 ### Status of the above — C
 

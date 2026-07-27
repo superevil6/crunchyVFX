@@ -1563,7 +1563,37 @@ const LAYER_GROUPS = [
   { g: "Tumble",      is: () => state.tumble > 0,     on: () => { state.tumble = 1; } },
   { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
 ];
+// The inverse of the "＋ Growth" chip. Deriving it from PARAMS rather than hand-writing 24 `off`
+// functions means it cannot drift as params are added to a group — and it works because of the
+// schema rule that every entry defaults to neutral/off, so "reset this group to its defaults" IS
+// "turn this layer off". It resets the whole group, not just the master: removing a layer and
+// adding it back should give you a clean one, which is what the ✕ implies. Nothing else can be
+// removed this way — a panel with no LAYER_GROUPS entry (Color, Motion, Output…) has no button,
+// because there is no meaningful "off" for it.
+function removeLayer(L) {
+  for (const p of PARAMS) if (p[7] === L.g) state[p[0]] = p[5];
+  syncUI();          // hides the panel and puts the chip back in the bar
+  rerender();
+  commitHistory();   // undoable, like every other edit
+  msg.textContent = L.g + " removed";
+}
+
 const layerBar = document.getElementById("layerBar");
+// One ✕ per removable panel, added once. LAYER_GROUPS is declared after the panels are built, so
+// this can't happen inside the panel loop.
+for (const L of LAYER_GROUPS) {
+  const panel = panels.querySelector('[data-group="' + L.g + '"]');
+  const head = panel && panel.querySelector("h2");
+  if (!head) continue;
+  const b = document.createElement("button");
+  b.className = "layer-remove";
+  b.textContent = "✕";
+  b.title = "Remove " + L.g + " — its controls go away, its settings reset, and it returns to " +
+            "the “Add a layer” bar";
+  b.addEventListener("click", () => removeLayer(L));
+  head.appendChild(b);
+}
+
 function updateLayerPanels() {
   layerBar.innerHTML = "";
   const off = [];

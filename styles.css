@@ -82,6 +82,26 @@
     letter-spacing: 1px;
     color: var(--accent2);
     margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  /* Remove-layer ✕. Quiet until you're on the panel — it sits next to every layer heading, and
+     at full contrast 24 of them would read as a row of close buttons demanding attention. It
+     only turns destructive-red on hover, where the intent is unambiguous. */
+  .layer-remove {
+    padding: 0; width: 20px; height: 20px; line-height: 1;
+    font-size: 11px; color: var(--muted);
+    background: none; border: 1px solid transparent; border-radius: 4px;
+    opacity: 0.35; transition: opacity 0.12s, color 0.12s, border-color 0.12s;
+    flex: none;
+  }
+  /* Dim but always present rather than hover-only: hover-reveal doesn't exist on touch, and an
+     affordance you can't discover without hunting isn't one. */
+  .panel:hover .layer-remove, .layer-remove:focus-visible { opacity: 1; }
+  .layer-remove:hover {
+    color: #ff8080; border-color: #ff4d4d; background: rgba(255, 77, 77, 0.1);
   }
   .row {
     display: grid;

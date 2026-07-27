@@ -619,6 +619,55 @@
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.dissolve === 0, "dissolve is off by default");
 
+    // ---------------------------------------------------------------- remove a layer
+    // removeLayer() is derived from PARAMS (reset the group to its defaults) rather than a
+    // hand-written off() per group, so the thing worth pinning is that the derivation actually
+    // holds for EVERY group — including any added later. If someone adds a layer whose is() reads
+    // a param filed under a different group, this is what catches it.
+    {
+      const stuck = [], noButton = [], noParams = [];
+      for (const L of LAYER_GROUPS) {
+        const panel = panels.querySelector('[data-group="' + L.g + '"]');
+        if (!panel || !panel.querySelector(".layer-remove")) noButton.push(L.g);
+        if (!PARAMS.some((p) => p[7] === L.g)) noParams.push(L.g);
+        L.on();                       // turn it on the way the ＋ chip does
+        removeLayer(L);
+        if (L.is()) stuck.push(L.g);  // …and it must actually be off again
+      }
+      ok(noParams.length === 0, "every layer group owns at least one param", noParams.join(", "));
+      ok(noButton.length === 0, "every removable panel has a ✕", noButton.join(", "));
+      ok(stuck.length === 0, "removing any of the " + LAYER_GROUPS.length +
+         " layers turns it off", stuck.join(", "));
+
+      // Removal is a full reset of the group, not just the master — add it back and you get a
+      // clean layer rather than your old tuning.
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const sig = LAYER_GROUPS.find((L) => L.g === "Sigil");
+      sig.on();
+      state.sigilRings = 5; state.sigilRadius = 0.55;
+      removeLayer(sig);
+      const dRings = PARAMS.find((p) => p[0] === "sigilRings")[5];
+      ok(state.sigilRings === dRings && state.sigil === 0,
+         "removing a layer resets the whole group, not just its master",
+         "rings " + state.sigilRings + " (default " + dRings + ")");
+      ok(!sig.is() && panels.querySelector('[data-group="Sigil"]').hidden,
+         "…and its panel goes away");
+
+      // Undoable like any other edit.
+      sig.on(); rerender(); commitHistory();
+      ok(state.sigil > 0, "layer back on");
+      removeLayer(sig);
+      undoEdit();
+      ok(state.sigil > 0, "removing a layer can be undone");
+
+      // Essential panels must NOT be removable — there is no sensible "off" for Colour.
+      for (const g of ["Color", "Motion", "Output"]) {
+        const el = panels.querySelector('[data-group="' + g + '"]');
+        if (el) ok(!el.querySelector(".layer-remove"), g + " has no remove button");
+      }
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- hold sound
     // Matching a sound and then picking a preset used to throw away everything the sound gave
     // you. The hold is what makes the preset browser a "change type" control, so the assertions
