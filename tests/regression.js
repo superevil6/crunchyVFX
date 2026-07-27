@@ -619,6 +619,144 @@
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.dissolve === 0, "dissolve is off by default");
 
+    // ---------------------------------------------------------------- Fit default
+    // Fit ships on, so a fresh load and every preset arrive framed rather than arbitrarily small.
+    // Assert the state and the button/hint agree with it — a default that the UI doesn't reflect
+    // is worse than no default, because the button then lies about what you're looking at.
+    ok(fitOn === true, "Fit is on by default");
+    ok(fitBtn.classList.contains("on"), "…and the button shows it at boot, not just after a click");
+    ok(!document.getElementById("fitHint").hidden,
+       "…and the hint explaining that Origin X/Y are overridden is visible");
+    fitBtn.click();
+    ok(fitOn === false && !fitBtn.classList.contains("on") &&
+       document.getElementById("fitHint").hidden, "turning Fit off clears the button and the hint");
+    fitBtn.click();   // back to the default
+
+    // ---------------------------------------------------------------- stage-hosted params
+    // Frame size and FPS are built by the normal PARAMS generator into the stage controls rather
+    // than a panel. The risk in moving a control is that it quietly loses the wiring the
+    // generator gives it — lock tracking, macro sync, syncUI. Pin that it kept all of it.
+    {
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const side = document.querySelector(".stage-side");
+      for (const k of ["frameSize", "fps"]) {
+        ok(!!inputs[k], k + " still has a registered input");
+        ok(inputs[k] && side.contains(inputs[k]), k + " lives in the stage controls");
+        ok(!panels.contains(inputs[k]), "…and no longer in a panel below the fold");
+      }
+      // syncUI must drive them like any other param.
+      state.fps = 17; syncUI();
+      ok(+inputs.fps.value === 17, "syncUI updates the relocated FPS control", inputs.fps.value);
+      // Chunkiness drops the frame rate — the macro has to move the relocated slider too.
+      const chunk = MACROS.find((m) => m.name === "Chunkiness");
+      applyMacro(chunk, 1);
+      ok(+inputs.fps.value === state.fps && state.fps < 24,
+         "a macro still moves it", "fps " + state.fps);
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- frame W x H
+    {
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      // Neutral default: untouched patches are square at frameSize, exactly as before W/H existed.
+      ok(state.frameW === 0 && state.frameH === 0, "frame W/H default to 0 (follow Frame size)");
+      const d0 = frameDims(state);
+      ok(d0.w === frameSizePx(state) && d0.h === d0.w, "…which means a square frame",
+         d0.w + "x" + d0.h);
+
+      const drawn = (patch) => {
+        applyPreset(Object.assign({}, PRESETS["Explosion"], patch), "fr");
+        const r = renderFrames(state);
+        const cv = r.canvases[Math.floor(r.canvases.length * 0.35)];
+        const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1;
+        for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+          if (d[(y * cv.width + x) * 4 + 3] > 10) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+        return { w: cv.width, h: cv.height, bw: x1 - x0, bh: y1 - y0 };
+      };
+
+      const sq = drawn({ frameSize: 4, frameW: 0, frameH: 0, scale: 0.5, shake: 0 });
+      ok(sq.w === 128 && sq.h === 128, "square renders 128x128", sq.w + "x" + sq.h);
+
+      const wide = drawn({ frameSize: 4, frameW: 320, frameH: 128, scale: 0.5, shake: 0 });
+      ok(wide.w === 320 && wide.h === 128, "a wide frame renders at the asked size",
+         wide.w + "x" + wide.h);
+      // The whole point of referencing the SMALLER side: widening adds room, it doesn't inflate
+      // or stretch the effect.
+      ok(Math.abs(wide.bw - sq.bw) <= 2 && Math.abs(wide.bh - sq.bh) <= 2,
+         "widening the frame leaves the effect the same size",
+         sq.bw + "x" + sq.bh + " → " + wide.bw + "x" + wide.bh);
+
+      const tall = drawn({ frameSize: 4, frameW: 128, frameH: 320, scale: 0.5, shake: 0 });
+      ok(tall.w === 128 && tall.h === 320, "a tall frame renders at the asked size",
+         tall.w + "x" + tall.h);
+      ok(Math.abs(tall.bw - sq.bw) <= 2, "…and is equally unstretched", sq.bw + " → " + tall.bw);
+
+      // Fit in a non-square frame must respect BOTH axes, not spill out the narrow one.
+      applyPreset(Object.assign({}, PRESETS["Explosion"],
+                                { frameW: 320, frameH: 96, shake: 0 }), "fit");
+      const rf = renderFrames(state, { fit: true });
+      const cvf = rf.canvases[Math.floor(rf.canvases.length * 0.4)];
+      const df = cvf.getContext("2d").getImageData(0, 0, cvf.width, cvf.height).data;
+      let top = 0, bottom = 0;
+      for (let x = 0; x < cvf.width; x++) {
+        if (df[x * 4 + 3] > 10) top++;
+        if (df[((cvf.height - 1) * cvf.width + x) * 4 + 3] > 10) bottom++;
+      }
+      ok(top === 0 && bottom === 0, "Fit stays inside a short frame rather than spilling out",
+         "edge pixels " + top + "/" + bottom);
+
+      // The square shorthand every thumbnail/export path uses still works.
+      const thumb = renderFrames(state, { size: 64, fit: true });
+      ok(thumb.w === 64 && thumb.h === 64, "the { size } shorthand still gives a square");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- quick-shape macros
+    // Each macro is a to()/from() pair, and from() has to invert to() or the slider jumps away
+    // from where you dropped it the moment anything calls updateMacros(). Nothing covered these
+    // before, so this pins the round trip for all of them at once.
+    {
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const missing = MACROS.filter((m) => !macroInputs[m.id]).map((m) => m.name);
+      ok(missing.length === 0, "every macro has a slider", missing.join(", "));
+
+      const bad = [];
+      for (const m of MACROS) {
+        for (const v of [0, 0.25, 0.75, 1]) {
+          applyMacro(m, v);
+          const got = clamp01(m.from());
+          // Loose: several macros round to ints (pixelate 1..8 is especially coarse), so exact
+          // equality would be testing the rounding rather than the inversion.
+          if (Math.abs(got - v) > 0.06) bad.push(m.name + " " + v + "→" + got.toFixed(3));
+        }
+      }
+      ok(bad.length === 0, "every macro's slider returns to where you put it", bad.join(", "));
+
+      // Hue specifically: it drives the base hue and nothing else, so it can't fight Heat (which
+      // owns saturation, brightness and the over-life drift).
+      const hue = MACROS.find((m) => m.name === "Hue");
+      ok(!!hue, "there is a Hue macro");
+      const heat = MACROS.find((m) => m.name === "Heat");
+      applyMacro(heat, 0.9);
+      const satBefore = state.sat, brightBefore = state.bright, lifeBefore = state.hueLife;
+      applyMacro(hue, 0.5);
+      ok(state.sat === satBefore && state.bright === brightBefore && state.hueLife === lifeBefore,
+         "Hue leaves Heat's controls alone");
+      ok(state.hue > 100 && state.hue < 250, "…and moves the base hue", state.hue + "°");
+      // Both ends must be visibly different hues — a full 0–360 range would land on red twice.
+      applyMacro(hue, 0);
+      const lo = state.hue;
+      applyMacro(hue, 1);
+      ok(Math.abs(state.hue - lo) > 180, "its ends are different colours, not both red",
+         lo + "° → " + state.hue + "°");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- remove a layer
     // removeLayer() is derived from PARAMS (reset the group to its defaults) rather than a
     // hand-written off() per group, so the thing worth pinning is that the derivation actually

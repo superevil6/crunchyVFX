@@ -1013,3 +1013,33 @@
     border-color: var(--accent); color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent);
   }
+
+  /* Frame W x H: two number boxes with the aspect lock between them. Sits in the stage
+     controls, so it matches the height and spacing of the Zoom/Backdrop button groups. */
+  .frame-wh { display: flex; align-items: center; gap: 6px; }
+  .frame-wh input[type="number"] {
+    width: 66px; padding: 4px 6px; font: inherit; font-size: 12px;
+    background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 5px;
+  }
+  .frame-wh .hint { margin-left: 2px; }
+  .frame-lock {
+    padding: 2px 6px; font-size: 12px; line-height: 1;
+    background: none; border: 1px solid var(--line); border-radius: 5px; color: var(--muted);
+  }
+  .frame-lock.on { color: var(--accent); border-color: var(--accent); }
+
+  /* Params built into the stage controls (Frame size, FPS) instead of a panel. They come out of
+     the same generator, so they arrive as .row/.waverow — restyle them to match the neighbouring
+     Zoom/Backdrop rows rather than looking like a panel row that wandered upstairs. */
+  .stage-param .row, .stage-param .waverow {
+    display: flex; align-items: center; gap: 8px; margin: 0; width: 100%;
+  }
+  .stage-param label { min-width: 62px; font-size: 12px; color: var(--muted); }
+  .stage-param output { min-width: 52px; text-align: right; font-size: 12px; }
+  .stage-param select { padding: 3px 6px; font-size: 12px; }
+  .stage-param input[type=range] { flex: 1; min-width: 90px; }
+  /* The Frame size dropdown sits inside the Size row, so its generated label is redundant —
+     the row is already called "Size". */
+  .stage-param-inline label { display: none; }
+  .stage-param-inline select { width: 78px; }

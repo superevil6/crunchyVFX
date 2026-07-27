@@ -483,6 +483,23 @@ function frameSizePx(st) {
   return +SIZES[Math.max(0, Math.min(SIZES.length - 1, Math.round(st.frameSize)))];
 }
 
+// The frame can be any width x height. `frameW`/`frameH` default to 0 meaning "square, at
+// frameSize" — the schema's neutral-default rule — so every existing preset, share link and
+// saved effect keeps its exact square frame without carrying the new keys.
+function frameDims(st) {
+  const sq = frameSizePx(st);
+  const w = Math.max(8, Math.round(st.frameW > 0 ? st.frameW : sq));
+  const h = Math.max(8, Math.round(st.frameH > 0 ? st.frameH : sq));
+  return { w, h };
+}
+
+// The dimension every radius, speed and size is measured against. It is the SMALLER side on
+// purpose: that's what makes a wider frame mean "more room around the same effect" rather than
+// "a bigger effect". Widen a 512 square to 512x900 and the burst is untouched, with headroom
+// added — which is what a non-square frame is for. Scaling by the larger side would silently
+// inflate every effect the moment the frame stopped being square.
+function frameRefPx(w, h) { return Math.min(w, h); }
+
 // ---------- sprite cache ----------
 // createRadialGradient per particle is THE performance trap here. Each shape is drawn once into
 // a small canvas, tinted with source-in, and cached by (shape, hue step, white step) — every
@@ -1915,31 +1932,39 @@ function postProcess(cv, st, overlay, t) {
 function renderFrames(st, opt) {
   opt = opt || {};
   const sim = opt.sim || simulate(st);
-  const out = Math.max(8, Math.round(opt.size || sim.fs));
-  const base = out / sim.fs;
+  // opt.size keeps the square shorthand working for every existing caller (thumbnails, the
+  // multi-resolution export); opt.w/opt.h are the explicit form.
+  const dims = (opt.w || opt.h)
+    ? { w: Math.max(8, Math.round(opt.w || opt.h)), h: Math.max(8, Math.round(opt.h || opt.w)) }
+    : (opt.size ? { w: Math.max(8, Math.round(opt.size)), h: Math.max(8, Math.round(opt.size)) }
+                : frameDims(st));
+  const outW = dims.w, outH = dims.h;
+  const ref = frameRefPx(outW, outH);          // radii scale against the smaller side
+  const base = ref / sim.fs;
 
   // Fit — the loudness-normalize analog: scale the whole effect so its bounding box fills the
   // frame. Needs the bbox across EVERY frame, which is exactly why simulate() runs first.
   let k = base * st.scale, dx, dy;
   if (opt.fit) {
     const bw = sim.bbox.x1 - sim.bbox.x0, bh = sim.bbox.y1 - sim.bbox.y0;
-    const span = Math.max(bw, bh, 1);
-    k = (out * 0.94) / span;
+    // Fit against BOTH axes independently and take the tighter one, so a wide effect in a tall
+    // frame is limited by width rather than spilling out the sides.
+    k = Math.min((outW * 0.94) / Math.max(bw, 1), (outH * 0.94) / Math.max(bh, 1));
     const cx = (sim.bbox.x0 + sim.bbox.x1) / 2, cy = (sim.bbox.y0 + sim.bbox.y1) / 2;
-    dx = out / 2 - cx * k; dy = out / 2 - cy * k;
+    dx = outW / 2 - cx * k; dy = outH / 2 - cy * k;
   } else {
     // Keep the emitter origin at ITS fractional position in the frame and scale around it.
-    // (Mapping the origin to out/2 instead would silently cancel originX/originY out — a flame
-    // authored to sit at the bottom of the frame would render dead centre.)
-    dx = st.originX * out - (st.originX * sim.fs) * k;
-    dy = st.originY * out - (st.originY * sim.fs) * k;
+    // (Mapping the origin to the centre instead would silently cancel originX/originY out — a
+    // flame authored to sit at the bottom of the frame would render dead centre.)
+    dx = st.originX * outW - (st.originX * sim.fs) * k;
+    dy = st.originY * outH - (st.originY * sim.fs) * k;
   }
 
   const canvases = new Array(sim.nFrames);
   let echoCv = null;
   for (let f = 0; f < sim.nFrames; f++) {
     const cv = document.createElement("canvas");
-    cv.width = cv.height = out;
+    cv.width = outW; cv.height = outH;
     const g = cv.getContext("2d");
 
     // frame echo — carry the previous frame forward, faded. A feedback delay on the framebuffer.
@@ -1949,7 +1974,7 @@ function renderFrames(st, opt) {
       g.globalAlpha = 1;
     }
 
-    const shake = st.shake > 0 ? st.shake * out * 0.06 : 0;
+    const shake = st.shake > 0 ? st.shake * ref * 0.06 : 0;
     const xf = {
       k,
       dx: dx + (shake ? rndS(Math.round(st.seed) + 991, f, 31) * shake : 0),
@@ -1958,10 +1983,10 @@ function renderFrames(st, opt) {
     drawFrame(sim, f, g, st, xf);
     if (st.echo > 0) {
       echoCv = document.createElement("canvas");
-      echoCv.width = echoCv.height = out;
+      echoCv.width = outW; echoCv.height = outH;
       echoCv.getContext("2d").drawImage(cv, 0, 0);
     }
-    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, out), f / sim.fps);
+    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, ref), f / sim.fps);
     canvases[f] = cv;
   }
 
@@ -1977,5 +2002,5 @@ function renderFrames(st, opt) {
   }
   if (st.reverse) canvases.reverse();
 
-  return { canvases, w: out, h: out, fps: sim.fps, sim };
+  return { canvases, w: outW, h: outH, fps: sim.fps, sim };
 }

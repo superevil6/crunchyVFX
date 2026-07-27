@@ -493,3 +493,51 @@ Deliberate calls:
   quietly redefine what the sound "said".
 - Undo/redo goes through `restoreEdit`, not `applyPreset`, so history restores exactly and is
   unaffected by the hold. There is a regression assertion pinning that.
+
+## 11. Frame width x height
+
+`frameW` / `frameH` default to **0**, meaning "square, at `frameSize`". That neutral default is
+what lets every existing preset, share link and saved effect keep its exact framing without
+carrying the new keys — the same backward-compat rule the whole schema runs on.
+
+**Radii scale against the SMALLER side** (`frameRefPx`). Widening a 512 square to 512×900 leaves
+the burst untouched and adds headroom, which is what a non-square frame is for; scaling by the
+larger side would silently inflate every effect the moment the frame stopped being square, and
+scaling per-axis would turn every shockwave into an ellipse. Fit is the one place that reads both
+axes, taking the tighter of the two so a wide effect in a short frame doesn't spill out the sides.
+
+`renderFrames` accepts `{ w, h }`; `{ size }` still means square and is what every thumbnail and
+the multi-resolution export path uses.
+
+The **Frame size** dropdown now zeroes `frameW`/`frameH`, so it reads as "back to square at this
+size" rather than being a control that silently does nothing while custom dimensions are set.
+
+### Why the editor caps at 512
+
+Measured on this machine (19-frame Explosion, 220 particles):
+
+| size | render | peak memory |
+|---|---|---|
+| 128² | 21 ms | 1 MB |
+| 512² | 246 ms | 19 MB |
+| 1024² | 990 ms | 76 MB |
+| 2048² | 3.9 s | 304 MB |
+
+Cleanly pixel-bound — 4× per doubling — so 4096² extrapolates to ~15 s and **~1.3 GB**. The
+preview re-renders on every slider drag, so the editor stays at 512 and the big numbers live at
+export, where the scale multipliers (now up to 8×) reach 4096. The export dialog estimates time
+and peak memory from the *last real render*, which already accounts for this patch's particle
+count, glow and frame count on this machine, and warns past ~700 MB.
+
+**Memory is the real limit, not time.** `renderFrames` holds every frame as a live canvas
+simultaneously, so a big export allocates the whole sequence before anything is encoded. Two
+things would move that, both still open:
+
+1. **Half-res glow.** At 2048² bare rasterising is 438 ms while glow alone is 3877 ms — roughly 9×
+   everything else. Rendering the blur at half resolution is ~4× cheaper and would take a 4K
+   export from ~15 s to ~4 s. Deferred because it shifts the look of all 59 presets slightly, so
+   it belongs with the quality pass.
+2. **Streaming export** — render, encode and release one frame at a time instead of holding all of
+   them. That turns ~1.3 GB into roughly one frame's worth regardless of length, and is what would
+   make 4K genuinely safe rather than merely slow. It works for the sheet, frame-sequence and GIF
+   paths (Fit's bbox comes from the sim, not the canvases, so it is unaffected).

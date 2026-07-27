@@ -20,7 +20,7 @@
     <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style">⚒ Foundry</button>
     <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect">🔊 Match a sound</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
-    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog)">⤢ Fit</button>
+    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog). It centres on the effect's bounding box, so Origin X/Y are ignored while this is on.">⤢ Fit</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
     <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you">🔊 Hold sound</button>
   </div>
@@ -42,6 +42,17 @@
       <input type="range" id="scrub" min="0" max="0" step="1" value="0">
       <span id="scrubVal" class="hint">0</span>
     </label>
+    <div class="stage-ctl">
+      <span class="stage-lbl">Size</span>
+      <span class="zoomgroup frame-wh">
+        <span class="stage-param stage-param-inline" id="stageFrameSize" title="Preset square sizes"></span>
+        <input type="number" id="frW" min="8" max="512" step="1" title="Frame width in pixels">
+        <button id="frLock" class="frame-lock" title="Lock the aspect ratio — change either box and the other follows">🔗</button>
+        <input type="number" id="frH" min="8" max="512" step="1" title="Frame height in pixels">
+        <span class="hint" id="frOut"></span>
+      </span>
+    </div>
+    <div class="stage-ctl stage-param" id="stageFps"></div>
     <div class="stage-ctl">
       <span class="stage-lbl">Zoom</span>
       <span class="zoomgroup" id="zoomGroup">
@@ -75,6 +86,7 @@
         <button id="abSwap" title="Swap between the held effect and the current one" disabled>⇄ Swap</button>
       </span>
     </div>
+    <div class="hint stage-hint" id="fitHint">⤢ <b>Fit</b> is on — the effect is scaled and centred to fill the frame, so <b>Origin X/Y</b> won't move it. Turn Fit off to place it yourself.</div>
     <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
 
     <div class="refbox" id="sndBox">
@@ -155,7 +167,7 @@
   </section>
   <section class="ws-editor">
     <div class="macro" id="macros">
-      <div class="macro-title">Quick shape — one slider each moves several controls at once</div>
+      <div class="macro-title">Quick shape — plain-language sliders that move the real controls for you</div>
     </div>
     <div class="engine" id="shapeSection">
       <div class="engine-title"><span>Particle shape</span></div>
@@ -481,6 +493,12 @@ const PARAMS = [
   ["duration",   "Duration",    0.1, 3, 0.01, 0.7, "s","Output"],
   ["fps",        "FPS",         8, 60, 1, 24, "",      "Output"],
   ["frameSize",  "Frame size",  0, SIZES.length - 1, 1, 4, "px", "Output", "enum", SIZES],
+  // Free width/height. 0 means "follow Frame size, square" — the neutral default that keeps every
+  // existing preset, share link and saved effect rendering exactly as before. Capped at
+  // EDITOR_MAX_PX because the preview re-renders on every slider drag; bigger belongs to export,
+  // where the scale multipliers take these up to 4096.
+  ["frameW",     "Frame width", 0, 512, 1, 0, "px", "Output", "size"],
+  ["frameH",     "Frame height",0, 512, 1, 0, "px", "Output", "size"],
   ["seed",       "Seed",        1, 9999, 1, 1, "",     "Output"],
 ];
 
@@ -498,7 +516,11 @@ for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
 
-let fitOn = false;
+// Fit is ON by default: it's what makes an effect fill the frame you chose regardless of the
+// numbers behind it, so a fresh load and every preset arrive framed rather than arbitrarily
+// small. The cost is that Fit centres on the bounding box, which overrides Origin X/Y — hence
+// the hint below the stage, so "my Origin slider does nothing" is answered on screen.
+let fitOn = true;
 let effectLabel = "effect";
 
 // Contextual panels: a shape's group is only shown when that shape is selected — the
@@ -526,7 +548,7 @@ function rerender() {
   // than tracking which knob touched what.
   clearSpriteCache();
   const t0 = performance.now();
-  rendered = renderFrames(state, { size: frameSizePx(state), fit: fitOn });
+  rendered = renderFrames(state, { fit: fitOn });
   const ms = Math.round(performance.now() - t0);
   lastRenderMs = ms;
   const n = rendered.canvases.length;
@@ -534,7 +556,9 @@ function rerender() {
   applyZoom();
   scrub.max = String(n - 1);
   if (frameIdx >= n) frameIdx = 0;
-  statFrames.textContent = n + " frames · " + rendered.w + "px · " + rendered.fps + " fps · " + ms + " ms";
+  // Square frames stay "128px"; non-square has to show both or the readout lies.
+  const dimTxt = rendered.w === rendered.h ? rendered.w + "px" : rendered.w + "×" + rendered.h;
+  statFrames.textContent = n + " frames · " + dimTxt + " · " + rendered.fps + " fps · " + ms + " ms";
   if (typeof syncSoundUI === "function") syncSoundUI();   // the loop length may have moved
   if (typeof sizeDock === "function") { sizeDock(); updateDock(); }
   drawStage();
@@ -903,6 +927,9 @@ function fmt(p, val) {
   return s + (unit ? " " + unit : "");
 }
 
+// key -> id of the stage-side container it should be built into instead of its panel.
+const STAGE_PARAM_HOSTS = { frameSize: "stageFrameSize", fps: "stageFps" };
+
 for (const [group, ps] of Object.entries(groups)) {
   const panel = document.createElement("div");
   panel.className = "panel";
@@ -911,12 +938,19 @@ for (const [group, ps] of Object.entries(groups)) {
   for (const p of ps) {
     const [key, label, min, max, step, , , , kind] = p;
     if (kind === "shape") continue;            // the shape picker is its own hero section
+    if (kind === "size") continue;             // frame W/H get a paired row with an aspect lock
+    // A few params belong next to the preview rather than in a panel below the fold — they
+    // describe what you're looking at. They're built by this same loop into a different host, so
+    // they keep the identical handlers (lock tracking, macro sync, one-history-entry-per-drag);
+    // rebuilding them by hand up there is how those behaviours quietly diverge.
+    const host = STAGE_PARAM_HOSTS[key]
+      ? (document.getElementById(STAGE_PARAM_HOSTS[key]) || panel) : panel;
     if (kind === "enum") {
       const row = document.createElement("div");
       row.className = "waverow";
       row.innerHTML = "<label>" + label + "</label><select data-key=\"" + key + "\">" +
         p[9].map((w, i) => "<option value=\"" + i + "\">" + w + "</option>").join("") + "</select>";
-      panel.appendChild(row);
+      host.appendChild(row);
       const el = row.querySelector("select");
       el.value = state[key];
       inputs[key] = el;
@@ -927,7 +961,7 @@ for (const [group, ps] of Object.entries(groups)) {
       row.innerHTML = "<label>" + label + "</label>" +
         "<input type=\"range\" data-key=\"" + key + "\" min=\"" + min + "\" max=\"" + max +
         "\" step=\"" + step + "\" value=\"" + state[key] + "\"><output></output>";
-      panel.appendChild(row);
+      host.appendChild(row);
       const input = row.querySelector("input"), out = row.querySelector("output");
       inputs[key] = input; outputs[key] = out;
       out.textContent = fmt(p, state[key]);
@@ -1047,6 +1081,65 @@ function syncPaletteUI() {
     + (state.alphaCut > 0 ? "" :
        " Soft edges will still land between palette colours — raise Alpha cut for an exactly-N-colour sprite.");
 }
+// ---------- Frame size (W x H with an aspect lock) ----------
+// Lives in the stage controls, next to Zoom and Backdrop, rather than down in the Output panel:
+// it changes what you are looking at, so it belongs where you are looking. Labelled "Size"
+// because the row above it already uses "Frame" for the frame-index scrubber.
+//
+// The boxes write frameW/frameH; leaving the frame square writes 0 to both, so a patch that never
+// touches them stays byte-identical to what it was before this existed.
+//
+// The lock keeps the current ratio while you change either box, which is the common case: you
+// want this exact framing, bigger. Off, the two move independently.
+const EDITOR_MAX_PX = 512;
+let frameLocked = true;
+{
+  const frW = document.getElementById("frW"), frH = document.getElementById("frH");
+  const frLock = document.getElementById("frLock"), frOut = document.getElementById("frOut");
+  const clampPx = (v) => Math.max(8, Math.min(EDITOR_MAX_PX, Math.round(v || 0)));
+
+  window.syncFrameRow = function () {
+    const d = frameDims(state);
+    frW.value = d.w; frH.value = d.h;
+    frLock.classList.toggle("on", frameLocked);
+    // Square is the default state, so say so rather than showing "1:1" as if it were a choice.
+    frOut.textContent = d.w === d.h ? "square" : ratioLabel(d.w, d.h);
+  };
+  const edit = (which) => {
+    const d = frameDims(state);
+    const ratio = d.w / d.h;
+    let w = clampPx(+frW.value), h = clampPx(+frH.value);
+    if (frameLocked) {
+      if (which === "w") h = clampPx(w / ratio); else w = clampPx(h * ratio);
+    }
+    state.frameW = w; state.frameH = h;
+    window.syncFrameRow();
+    rerender();
+  };
+  frW.addEventListener("input", () => edit("w"));
+  frH.addEventListener("input", () => edit("h"));
+  for (const el of [frW, frH]) el.addEventListener("change", () => commitHistory());
+  frLock.addEventListener("click", () => { frameLocked = !frameLocked; window.syncFrameRow(); });
+
+  // Picking a Frame size returns the frame to square at that size. Without this the dropdown
+  // would be a dead control the moment custom W/H were set — visibly there, doing nothing.
+  if (inputs.frameSize) {
+    inputs.frameSize.addEventListener("change", () => {
+      state.frameW = 0; state.frameH = 0;
+      window.syncFrameRow();
+      rerender();
+    });
+  }
+}
+// Reduce w:h for the readout. 512x288 reading "16:9" tells you something; "512x288" is already
+// on screen in the boxes.
+function ratioLabel(w, h) {
+  const g = (a, b) => (b ? g(b, a % b) : a);
+  const d = g(w, h) || 1;
+  const rw = w / d, rh = h / d;
+  return rw <= 40 && rh <= 40 ? rw + ":" + rh : (w / h).toFixed(2) + ":1";
+}
+
 {
   const panel = panels.querySelector('[data-group="Crunch"]');
   if (panel) {
@@ -1645,6 +1738,7 @@ function syncParamInputs() {
 }
 function syncUI() {
   syncParamInputs();
+  if (window.syncFrameRow) window.syncFrameRow();
   if (glyphInput) glyphInput.value = state.glyph;
   if (bubbleInput) bubbleInput.value = state.bubbleText;
   syncPaletteUI();
@@ -1824,6 +1918,17 @@ const MACROS = [
       state.sat = lerpN(0.55, 1, v);
     },
     from() { return inv(state.coreWhite, 0, 0.95); } },
+  // Sits next to Heat because they're the two colour macros, and they don't collide: Heat owns
+  // saturation, brightness and the over-life drift, while this owns only the base hue.
+  //
+  // Stops at 330° rather than 360° on purpose. Hue wraps, so a full-range slider would put red at
+  // BOTH ends — which reads as a broken control ("I dragged it all the way and ended up back
+  // where I started"). 0→330 spans red through violet once, with every hue represented.
+  { name: "Hue", id: "mHue", left: "red", right: "violet",
+    to(v) {
+      state.hue = Math.round(lerpN(0, 330, v));
+    },
+    from() { return inv(state.hue, 0, 330); } },
   { name: "Swirl", id: "mSwirl", left: "straight", right: "vortex",
     to(v) {
       state.swirl = Math.round(lerpN(0, 520, v));
@@ -2263,11 +2368,17 @@ document.getElementById("reroll").addEventListener("click", () => {
   syncUI(); commitHistory(); rerender();
 });
 const fitBtn = document.getElementById("fitBtn");
+function updateFitBtn() {
+  fitBtn.classList.toggle("on", fitOn);
+  const hint = document.getElementById("fitHint");
+  if (hint) hint.hidden = !fitOn;
+}
 fitBtn.addEventListener("click", () => {
   fitOn = !fitOn;
-  fitBtn.classList.toggle("on", fitOn);
+  updateFitBtn();
   rerender();
 });
+updateFitBtn();   // the button has to show the default state, not just react to clicks
 const lockBtn = document.getElementById("lockBtn");
 function updateLockBtn() {
   const n = Object.keys(lockedValues).length;
@@ -2759,7 +2870,9 @@ const expSoundRow = expModal.querySelector("#expSoundRow");
 const expPot = expModal.querySelector("#expPot");
 const expMsg = expModal.querySelector("#expMsg");
 const expNote = expModal.querySelector("#expNote");
-const EXPORT_SCALES = [1, 2, 3, 4];
+// 8x exists so a 512 frame can reach 4096 for print/marketing. It is genuinely
+// expensive, which is why the dialog estimates the cost before you commit.
+const EXPORT_SCALES = [1, 2, 3, 4, 8];
 const expScaleBoxes = {};
 for (const s of EXPORT_SCALES) {
   const l = document.createElement("label");
@@ -2781,8 +2894,31 @@ function refreshExpInfo() {
   const scales = chosenScales();
   const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
   expModal.querySelector("#expStat").textContent =
-    rendered.canvases.length + " frames · " + rendered.w + "px · " + rendered.fps + " fps";
+    rendered.canvases.length + " frames · " + rendered.w + "×" + rendered.h + " · " +
+    rendered.fps + " fps";
   const bits = [];
+
+  // Cost estimate. Rendering is pixel-bound and scales cleanly with area (measured: 4x the time
+  // per doubling), so the last real render's time is a good predictor — better than a fixed table,
+  // because it already accounts for this patch's particle count, glow and frame count on THIS
+  // machine. Peak memory is the number that actually kills a tab: every frame is a live canvas at
+  // once, so 19 frames at 4096² is ~1.3 GB before a single byte is encoded.
+  {
+    const n = rendered.canvases.length;
+    const top = Math.max.apply(null, scales);
+    const area = (rendered.w * top) * (rendered.h * top);
+    const ms = lastRenderMs * top * top * scales.length;
+    const mb = (area * 4 * n) / 1048576;
+    if (top > 1 || mb > 200) {
+      const time = ms > 1500 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms";
+      const line = "Largest size <b>" + (rendered.w * top) + "×" + (rendered.h * top) +
+                   "</b> — roughly <b>" + time + "</b> and <b>" + Math.round(mb) + " MB</b> peak.";
+      bits.push(mb > 700
+        ? line + " That is enough to make the tab struggle or run out of memory; consider fewer " +
+                 "frames, or exporting one size at a time."
+        : line);
+    }
+  }
   if (fmt === "sheet") {
     bits.push("Sheet: <b>" + sh.cv.width + "×" + sh.cv.height + "</b> (" + sh.cols + "×" + sh.rows + " cells of " + sh.w + "×" + sh.h + ")");
     if (sh.trim) bits.push("Trimmed from " + sh.srcW + "×" + sh.srcH + " → pivot " + sh.pivot.x.toFixed(3) + ", " + sh.pivot.y.toFixed(3));
@@ -3405,7 +3541,7 @@ varModal.querySelector("#varExport").addEventListener("click", async () => {
     // same sheet + sidecar the single-effect export would produce (reference included and all).
     await new Promise((res) => {
       withState(varGenomes[i], () => {
-        rendered = renderFrames(state, { size: frameSizePx(state), fit: fitOn });
+        rendered = renderFrames(state, { fit: fitOn });
         const sh = buildSheet();
         sh.cv.toBlob(async (blob) => {
           files.push({ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
