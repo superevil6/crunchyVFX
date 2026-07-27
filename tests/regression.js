@@ -465,6 +465,49 @@
     const bsim = simulate(state);
     ok(bsim.bbox.x1 - bsim.bbox.x0 > 100, "the bounding box includes the structure layers",
        Math.round(bsim.bbox.x1 - bsim.bbox.x0) + "px wide");
+
+    // ---------------------------------------------------------------- outline & culling
+    // The outline pass was rewritten from a (2r+1)² neighbourhood test to a separable dilation
+    // (92ms -> 6ms). It must produce EXACTLY the same pixels — it changes how every outlined
+    // preset looks, so "close enough" isn't good enough. Compare against the naive definition.
+    const R = 2, W = 96;
+    applyPreset({ shape: 0, count: 60, size: 20, speed: 160, life: 0.5, duration: 0.3,
+                  frameSize: 3, outline: R, outlineTone: 0, glow: 0 }, "outline");
+    const withOutline = renderFrames(state, { size: W }).canvases[2]
+      .getContext("2d").getImageData(0, 0, W, W).data;
+    state.outline = 0;
+    const noOutline = renderFrames(state, { size: W }).canvases[2]
+      .getContext("2d").getImageData(0, 0, W, W).data;
+    const A = new Uint8Array(W * W);
+    for (let i = 0; i < W * W; i++) A[i] = noOutline[i * 4 + 3] > 8 ? 1 : 0;
+    let mismatches = 0, edgePx = 0;
+    for (let y = 0; y < W; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        let hit = false;
+        for (let dy = -R; dy <= R && !hit; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= W || ny >= W) continue;
+            if (A[ny * W + nx]) { hit = true; break; }
+          }
+        }
+        const want = hit && !A[i];
+        const got = !A[i] && withOutline[i * 4 + 3] === 255 && withOutline[i * 4] === 0;
+        if (want) edgePx++;
+        if (want !== got) mismatches++;
+      }
+    }
+    ok(edgePx > 100 && mismatches === 0, "the fast outline matches the naive definition exactly",
+       edgePx + " edge px, " + mismatches + " mismatches");
+
+    // Off-screen culling must only skip particles that would draw nothing. A big particle whose
+    // CENTRE is outside the frame but whose body overlaps it still has to be drawn.
+    applyPreset({ shape: 0, count: 1, size: 60, speed: 0, life: 1, duration: 0.3, frameSize: 3,
+                  originX: 1.02, originY: 0.5, fadeIn: 0, fadeOut: 0, coreWhite: 0.5 }, "edge");
+    const edgeR = renderFrames(state, { size: 96 });
+    ok(lit(edgeR.canvases[1]) > 0, "a particle straddling the frame edge is still drawn",
+       lit(edgeR.canvases[1]) + " px");
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);

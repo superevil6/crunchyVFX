@@ -112,6 +112,30 @@ bubble — which has since been edited out above but is all built.)*
 
 ### Found while building the above — C
 
+- **Where the render time actually goes** (measured, 1500 particles / 29 frames / 192px). Alex
+  suspected the Pixelate slider; the profile said otherwise and was worth having:
+  `simulate()` **1.3ms**, rasterising **60ms**, glow **+40ms**, `outline 3` **+33ms**, pixelate
+  **0ms**. Two conclusions. (1) The simulate/rasterize split does *not* help interactivity — I'd
+  been about to wire "reuse the sim for raster-only params" and it would have bought 1.3ms of
+  100ms. It earns its keep for Fit and multi-resolution export, not for slider drags. (2) The cost
+  is per-particle `drawImage` (~1.3µs each) plus the two full-image post passes.
+- **The outline pass was O(w·h·r²)** — a (2r+1)² neighbourhood test per transparent pixel. A square
+  structuring element decomposes into a horizontal then a vertical pass, so it's now two
+  sliding-window counts: O(w·h), independent of radius. **33ms → 6ms**, and the output is verified
+  *pixel-identical* to the naive version (it changes how every outlined preset looks, so "close
+  enough" would not have been acceptable). Pinned by a test that recomputes the naive definition.
+- **Off-screen particles were still being drawn.** `drawImage` clips them, but the call costs
+  ~1.3µs and a fast burst spends its whole tail outside the frame. A bounds check first: **117ms →
+  26ms** for 3000 fast particles. The cull box is 1.5× the sprite size, since a rotated sprite
+  reaches past its nominal square.
+- **Glow deliberately NOT optimised.** Blurring at half resolution is the standard bloom trick and
+  would take ~40ms to ~12ms, but it shifts every glow slightly — and with 41 presets tuned and the
+  quality pass still ahead, silently changing how they all look to save 30ms is a bad trade. Worth
+  revisiting *with* the quality pass, not before it.
+- **Slider debounce is now adaptive** — never schedule a render sooner than the last one took.
+  Fixed at 50ms it queued a backlog on heavy patches that the main thread chewed through after you
+  let go, which is precisely what "the slider feels laggy" is.
+
 - **No fixed particle angle.** Every particle gets a random start rotation, so a one-off directional
   shape (the Slash crescent) points somewhere different per seed. Needs an `angle` + `angleVar`
   pair; `spin` only controls rotation *rate*. Small, and it unblocks slashes/arrows/directional

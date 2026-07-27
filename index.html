@@ -405,6 +405,7 @@ function rerender() {
   const t0 = performance.now();
   rendered = renderFrames(state, { size: frameSizePx(state), fit: fitOn });
   const ms = Math.round(performance.now() - t0);
+  lastRenderMs = ms;
   const n = rendered.canvases.length;
   stage.width = rendered.w; stage.height = rendered.h;
   applyZoom();
@@ -720,9 +721,13 @@ requestAnimationFrame(tick);
 // Re-render is cheap (a few ms), but dragging a slider fires input continuously — debounce so a
 // drag stays smooth on a 3000-particle patch.
 let renderTimer = null;
+let lastRenderMs = 0;
 function scheduleRender() {
   clearTimeout(renderTimer);
-  renderTimer = setTimeout(rerender, 50);
+  // Adaptive: never queue renders faster than the last one actually took. A heavy patch costs
+  // ~100ms to render, and asking for one every 50ms just builds a backlog the main thread works
+  // through after you stop dragging — which is exactly what "the slider feels laggy" is.
+  renderTimer = setTimeout(rerender, Math.min(220, Math.max(50, lastRenderMs)));
 }
 
 // ---------- Panels generated from PARAMS ----------
