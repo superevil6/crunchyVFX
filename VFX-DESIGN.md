@@ -1,8 +1,12 @@
 # CrunchyVFX — PARAMS schema + renderFrames() / export architecture
 
 Draft 2026-07-26. Sibling to CrunchySFX: same no-build, no-deps, opens-on-`file://` ethos,
-same four-file shape (`index.html` + `vfx.js` + `presets.js` + `styles.css`, classic scripts
-sharing one global scope), same "everything is generated from `PARAMS`" rule.
+same flat-file shape (`index.html` + `vfx.js` + `shapes.js` + `presets.js` + `styles.css`, classic
+scripts sharing one global scope), same "everything is generated from `PARAMS`" rule.
+
+`shapes.js` split off once the shape roster outgrew the render core: it is the particle drawings
+and nothing else — one `{ name, draw, key }` record per shape, which `vfx.js` caches and tints.
+Adding a shape is one record there plus its two picker/randomize entries in `index.html`.
 
 ---
 

@@ -15,7 +15,7 @@ APP = (HERE.parent / "index.html").read_text()
 
 # index.html loads its siblings by relative path, so rebase them to the parent directory.
 APP = APP.replace('href="styles.css"', 'href="../styles.css"')
-for js in ("presets.js", "crunchysfx-synth.js", "vfx.js", "gif.js", "apng.js"):
+for js in ("presets.js", "crunchysfx-synth.js", "shapes.js", "vfx.js", "gif.js", "apng.js"):
     APP = APP.replace('src="%s"' % js, 'src="../%s"' % js)
 
 for suite, out in (("regression.js", "run.html"), ("regression-async.js", "run-async.html")):

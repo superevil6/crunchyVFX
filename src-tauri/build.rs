@@ -5,9 +5,11 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 7] = [
+const FRONTEND: [&str; 8] = [
     "index.html",
     "presets.js",
+    // The shape roster — vfx.js reads SHAPE_DEFS out of it, so the app is blank without it.
+    "shapes.js",
     // Vendored CrunchySFX synthesis engine (tools/pull-synth.py) — the desktop build
     // must carry it or the app loses in-app sound.
     "crunchysfx-synth.js",
