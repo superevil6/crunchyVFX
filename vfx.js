@@ -38,7 +38,11 @@
 const SHAPES   = ["glow", "spark", "ring", "star", "pixel", "smoke", "shard", "bolt", "custom", "image",
                   "heart", "cross", "diamond", "crescent", "snowflake", "blob", "teardrop", "spiral", "glyph",
                   "flower", "leaf", "hexagon", "arrow", "gear", "note",
-                  "flame", "triangle", "plus", "bubble", "claw", "gem"];
+                  "flame", "triangle", "plus", "bubble", "claw", "gem",
+                  "skull", "feather", "rune", "coin", "splash", "comma", "frame", "starburst",
+                  "cloud", "butterfly", "shuriken", "spike", "wave", "eye", "mushroom", "shield",
+                  "crack", "ribbon", "bone", "paw", "ghost", "wing", "hourglass", "key", "flask",
+                  "atom", "reticle", "cube"];
 const EMITTERS = ["burst", "cone", "ring", "disc", "line", "spiral", "box"];
 const BLENDS   = ["additive", "alpha", "screen"];
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
@@ -934,6 +938,417 @@ function makeSprite(shape, hue, sat, lum, st, frame) {
       g.beginPath();
       g.moveTo(-tw, ty); g.lineTo(0, R - 1); g.lineTo(tw, ty);
       g.moveTo(-R * 0.86, -R * 0.04); g.lineTo(R * 0.86, -R * 0.04);
+      g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 31: {  // skull — poison clouds, death, danger.
+      g.save(); g.translate(R, R * 0.92);
+      g.beginPath(); g.ellipse(0, -R * 0.12, R * 0.72, R * 0.66, 0, 0, Math.PI * 2); g.fill();
+      g.fillRect(-R * 0.34, R * 0.34, R * 0.68, R * 0.42);                       // jaw
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.ellipse(-R * 0.3, -R * 0.14, R * 0.2, R * 0.24, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(R * 0.3, -R * 0.14, R * 0.2, R * 0.24, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath();                                                              // nose
+      g.moveTo(0, R * 0.06); g.lineTo(R * 0.12, R * 0.3); g.lineTo(-R * 0.12, R * 0.3);
+      g.closePath(); g.fill();
+      g.fillRect(-R * 0.1, R * 0.34, R * 0.2, R * 0.42);                          // tooth gap
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 32: {  // feather — floaty, angelic, bird hits.
+      g.save(); g.translate(R, R); g.rotate(0.3);
+      g.beginPath();
+      g.moveTo(0, -R + 1);
+      g.quadraticCurveTo(R * 0.62, -R * 0.1, R * 0.1, R * 0.72);
+      g.quadraticCurveTo(-R * 0.05, R - 1, -R * 0.12, R * 0.7);
+      g.quadraticCurveTo(-R * 0.6, -R * 0.08, 0, -R + 1);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";               // quill
+      g.lineWidth = Math.max(1, R * 0.08);
+      g.beginPath(); g.moveTo(0, -R * 0.82); g.lineTo(-R * 0.02, R * 0.86); g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 33: {  // rune — an angular carved mark. Magic that isn't a circle.
+      g.save(); g.translate(R, R);
+      g.lineWidth = Math.max(1.5, R * 0.19); g.lineCap = "square";
+      g.beginPath();
+      g.moveTo(0, -R * 0.86); g.lineTo(0, R * 0.86);
+      g.moveTo(0, -R * 0.44); g.lineTo(R * 0.6, -R * 0.8);
+      g.moveTo(0, R * 0.1); g.lineTo(-R * 0.6, -R * 0.26);
+      g.moveTo(0, R * 0.5); g.lineTo(R * 0.52, R * 0.84);
+      g.stroke();
+      g.restore();
+      break;
+    }
+    case 34: {  // coin — the pickup primitive. A disc with a struck rim reads as currency where a
+      // plain circle just reads as `glow`.
+      g.save(); g.translate(R, R);
+      g.beginPath(); g.arc(0, 0, R - 1, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = Math.max(1, R * 0.1);
+      g.beginPath(); g.arc(0, 0, R * 0.7, 0, Math.PI * 2); g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.beginPath(); g.arc(0, 0, R * 0.34, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 35: {  // splash — the crown a droplet throws up on impact. Liquid, blood, mud.
+      g.save(); g.translate(R, R * 1.05);
+      g.beginPath();
+      g.moveTo(-R * 0.92, R * 0.3);
+      for (let i = 0; i < 4; i++) {                                  // spikes of the coronet
+        const x0 = -R * 0.92 + (i / 4) * R * 1.84;
+        const x1 = -R * 0.92 + ((i + 0.5) / 4) * R * 1.84;
+        const x2 = -R * 0.92 + ((i + 1) / 4) * R * 1.84;
+        g.quadraticCurveTo(x1, -R * (0.5 + (i % 2) * 0.42), x2, R * 0.3);
+        g.quadraticCurveTo(x1 + R * 0.02, R * 0.02, x0 + R * 0.46, R * 0.3);
+      }
+      g.lineTo(-R * 0.92, R * 0.3);
+      g.quadraticCurveTo(0, R * 0.9, R * 0.92, R * 0.3);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 36: {  // comma — a magatama swirl. Wind, chi, energy curls; solid where `spiral` is a
+      // line. Drawn as head + hooked tail rather than one closed path: a single sweep kept
+      // resolving into a pear, and it is the separate hook that reads as a curl.
+      g.save(); g.translate(R, R);
+      g.beginPath(); g.arc(0, R * 0.28, R * 0.6, 0, Math.PI * 2); g.fill();
+      g.beginPath();
+      g.moveTo(R * 0.56, R * 0.3);
+      g.quadraticCurveTo(R * 0.78, -R * 0.66, -R * 0.34, -R * 0.9);
+      g.quadraticCurveTo(R * 0.26, -R * 0.34, R * 0.08, R * 0.3);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 37: {  // frame — a hollow square. Tech, targeting, glitch blocks, UI hits.
+      g.save(); g.translate(R, R);
+      g.fillRect(-(R - 1), -(R - 1), (R - 1) * 2, (R - 1) * 2);
+      g.globalCompositeOperation = "destination-out";
+      g.fillRect(-R * 0.66, -R * 0.66, R * 1.32, R * 1.32);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 38: {  // starburst — many thin rays. The camera-flare sparkle; `cross` has 4 fat arms.
+      const rays = 12;
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < rays; i++) {
+        const len = (R - 1) * (i % 2 ? 0.52 : 1);
+        g.save(); g.rotate((i / rays) * Math.PI * 2);
+        g.beginPath();
+        g.moveTo(-R * 0.07, 0); g.lineTo(R * 0.07, 0); g.lineTo(0, -len);
+        g.closePath(); g.fill();
+        g.restore();
+      }
+      g.restore();
+      break;
+    }
+    case 39: {  // cloud — overlapping lobes on a flat base. Smoke puffs with a silhouette, where
+      // `smoke` is a soft blur. The lobes need real height variation or they merge into one hill.
+      g.save(); g.translate(R, R * 1.06);
+      const lobes = [[-R * 0.58, R * 0.16, R * 0.34], [-R * 0.16, -R * 0.36, R * 0.48],
+                     [R * 0.34, -R * 0.06, R * 0.4], [R * 0.74, R * 0.2, R * 0.26]];
+      for (const lb of lobes) { g.beginPath(); g.arc(lb[0], lb[1], lb[2], 0, Math.PI * 2); g.fill(); }
+      g.fillRect(-R * 0.92, R * 0.12, R * 1.84, R * 0.3);
+      g.restore();
+      break;
+    }
+    case 40: {  // butterfly — nature, charm, transformation.
+      g.save(); g.translate(R, R);
+      for (const s of [-1, 1]) {
+        g.beginPath();                                              // upper wing
+        g.ellipse(s * R * 0.44, -R * 0.3, R * 0.42, R * 0.54, s * 0.5, 0, Math.PI * 2);
+        g.fill();
+        g.beginPath();                                              // lower wing
+        g.ellipse(s * R * 0.36, R * 0.42, R * 0.3, R * 0.38, -s * 0.4, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.beginPath();                                                // body
+      g.ellipse(0, 0, R * 0.09, R * 0.66, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 41: {  // shuriken — four concave blades. Ninja, slashes, spinning debris.
+      const pts = 4;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i < pts; i++) {
+        const a = (i / pts) * Math.PI * 2;
+        const b = ((i + 1) / pts) * Math.PI * 2;
+        const tip = [Math.cos(a) * (R - 1), Math.sin(a) * (R - 1)];
+        if (i === 0) g.moveTo(tip[0], tip[1]); else g.lineTo(tip[0], tip[1]);
+        // Curve in toward the hub, which is what makes the blades look swept rather than starry.
+        g.quadraticCurveTo(Math.cos(a + 0.5) * R * 0.2, Math.sin(a + 0.5) * R * 0.2,
+                           Math.cos(b) * (R - 1), Math.sin(b) * (R - 1));
+      }
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(0, 0, R * 0.16, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 42: {  // spike — a thorn. Ice shards, danger, spiky impacts.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -R + 1);
+      g.quadraticCurveTo(R * 0.3, R * 0.2, R * 0.26, R - 1);
+      g.lineTo(-R * 0.26, R - 1);
+      g.quadraticCurveTo(-R * 0.3, R * 0.2, 0, -R + 1);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 43: {  // wave — a band of water. Ripples, splashes, sea.
+      g.save(); g.translate(R, R);
+      g.lineWidth = Math.max(1.5, R * 0.3); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-(R - 1), R * 0.1);
+      g.bezierCurveTo(-R * 0.4, -R * 0.7, R * 0.4, R * 0.9, R - 1, R * 0.1);
+      g.stroke();
+      g.restore();
+      break;
+    }
+    case 44: {  // eye — curses, watchers, scrying. An almond with a pupil.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(-(R - 1), 0);
+      g.quadraticCurveTo(0, -R * 0.9, R - 1, 0);
+      g.quadraticCurveTo(0, R * 0.9, -(R - 1), 0);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(0, 0, R * 0.34, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.beginPath(); g.arc(0, 0, R * 0.17, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 45: {  // mushroom — spores, poison, forest.
+      g.save(); g.translate(R, R * 1.02);
+      g.beginPath();
+      g.moveTo(-(R - 1), R * 0.08);
+      g.quadraticCurveTo(-R * 0.86, -R * 0.92, 0, -R * 0.86);
+      g.quadraticCurveTo(R * 0.86, -R * 0.92, R - 1, R * 0.08);
+      g.closePath(); g.fill();
+      g.beginPath();                                                // stem
+      g.moveTo(-R * 0.28, R * 0.06);
+      g.quadraticCurveTo(-R * 0.22, R * 0.8, -R * 0.3, R * 0.9);
+      g.lineTo(R * 0.3, R * 0.9);
+      g.quadraticCurveTo(R * 0.22, R * 0.8, R * 0.28, R * 0.06);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 46: {  // shield — blocks, buffs, guard breaks.
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -(R - 1));
+      g.lineTo(R * 0.82, -R * 0.6);
+      g.quadraticCurveTo(R * 0.82, R * 0.44, 0, R - 1);
+      g.quadraticCurveTo(-R * 0.82, R * 0.44, -R * 0.82, -R * 0.6);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 47: {  // crack — a radial fracture. Impacts, ground breaks, shattering glass. Drawn as
+      // wedges that narrow outward, not strokes: a constant-width stroke reads as a spider, and
+      // it is the taper plus the off-axis elbow that reads as something that split.
+      const arms = 5;
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < arms; i++) {
+        const a = (i / arms) * Math.PI * 2 + rndS(4711, i, 1) * 0.35;
+        const len = (R - 1) * (0.62 + rnd(4711, i, 2) * 0.38);
+        const dx = Math.cos(a), dy = Math.sin(a), px = -dy, py = dx;
+        const ex = dx * len * 0.45 + px * R * 0.14, ey = dy * len * 0.45 + py * R * 0.14;
+        const w = R * 0.15;
+        g.beginPath();
+        g.moveTo(px * w, py * w);
+        g.lineTo(ex + px * w * 0.45, ey + py * w * 0.45);
+        g.lineTo(dx * len, dy * len);
+        g.lineTo(ex - px * w * 0.45, ey - py * w * 0.45);
+        g.lineTo(-px * w, -py * w);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+      break;
+    }
+    case 48: {  // ribbon — a twisted streamer. Confetti, celebration, cloth. The width pinching to
+      // almost nothing where the twist turns edge-on is the whole trick; a constant-width band
+      // reads as a flat noodle.
+      const N = 16, turns = 1.35, half = SPRITE_PX / 2 - 2;
+      const lx = [], ly = [], rx = [], ry = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, ph = t * Math.PI * 2 * turns;
+        const y = (t - 0.5) * half * 2;
+        const x = Math.sin(ph) * R * 0.3;
+        const w = R * 0.05 + R * 0.34 * Math.abs(Math.cos(ph));
+        lx.push(x - w); ly.push(y); rx.push(x + w); ry.push(y);
+      }
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i <= N; i++) g[i ? "lineTo" : "moveTo"](rx[i], ry[i]);
+      for (let i = N; i >= 0; i--) g.lineTo(lx[i], ly[i]);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 49: {  // bone — the other half of `skull`: death, debris, dog treats.
+      g.save(); g.translate(R, R); g.rotate(-0.5);
+      const half = R * 0.6, k = R * 0.25;
+      g.fillRect(-half, -k * 0.55, half * 2, k * 1.1);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        g.beginPath(); g.arc(sx * half, sy * k * 0.62, k, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+      break;
+    }
+    case 50: {  // paw — beast hits, tracks, cute pickups.
+      g.save(); g.translate(R, R);
+      g.beginPath();                                                  // pad
+      g.ellipse(0, R * 0.34, R * 0.54, R * 0.44, 0, 0, Math.PI * 2); g.fill();
+      const toes = [[-R * 0.62, -R * 0.3, 0.2], [-R * 0.24, -R * 0.62, 0.05],
+                    [R * 0.24, -R * 0.62, -0.05], [R * 0.62, -R * 0.3, -0.2]];
+      for (const t of toes) {
+        g.beginPath(); g.ellipse(t[0], t[1], R * 0.2, R * 0.26, t[2], 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+      break;
+    }
+    case 51: {  // ghost — souls, spirits, spooky pickups. The scalloped hem is what separates it
+      // from a plain blob, and the eye holes are cut out so they stay transparent through the tint.
+      g.save(); g.translate(R, R * 1.04);
+      g.beginPath();
+      g.moveTo(-R * 0.74, R * 0.3);
+      g.lineTo(-R * 0.74, -R * 0.16);
+      g.arc(0, -R * 0.16, R * 0.74, Math.PI, 0);                      // dome
+      g.lineTo(R * 0.74, R * 0.3);
+      for (let i = 0; i < 3; i++) {                                   // hem, right to left
+        const x1 = R * 0.74 - ((i + 0.5) / 3) * R * 1.48;
+        const x2 = R * 0.74 - ((i + 1) / 3) * R * 1.48;
+        g.quadraticCurveTo(x1, R * 1.3, x2, R * 0.3);                 // lobes hang, notches cut up
+      }
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      for (const sx of [-1, 1]) {
+        g.beginPath();
+        g.ellipse(sx * R * 0.28, -R * 0.24, R * 0.14, R * 0.19, 0, 0, Math.PI * 2); g.fill();
+      }
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+      break;
+    }
+    case 52: {  // wing — a swept plume with feather tips. Dashes, angel buffs, bird strikes.
+      // `feather` is one floating plume; this is the whole wing, and it reads as motion. The
+      // trailing-edge curves have to scoop INWARD between the tips — bulged outward, the feathers
+      // merge and the whole thing resolves into a potato.
+      g.save(); g.translate(R * 1.85, R * 0.82);
+      const tips = [[-R * 1.75, R * 0.05], [-R * 1.25, R * 0.62], [-R * 0.72, R * 0.72],
+                    [-R * 0.25, R * 0.6], [0, 0]];
+      g.beginPath();
+      g.moveTo(0, 0);                                                 // shoulder
+      g.quadraticCurveTo(-R * 0.9, -R * 0.8, tips[0][0], tips[0][1]); // leading edge out to the tip
+      for (let i = 1; i < tips.length; i++) {
+        const a = tips[i - 1], b = tips[i];
+        g.quadraticCurveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - R * 0.32, b[0], b[1]);
+      }
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 53: {  // hourglass — time stops, slows, buff timers. The waist keeps a little width on
+      // purpose: pinched to a true point it snaps in half once the sheet is crunched to 8px.
+      g.save(); g.translate(R, R);
+      const w = R * 0.62, h = R * 0.78, cap = R * 0.16;
+      g.fillRect(-R * 0.8, -h - cap, R * 1.6, cap);
+      g.fillRect(-R * 0.8, h, R * 1.6, cap);
+      g.beginPath();
+      g.moveTo(-w, -h); g.lineTo(w, -h); g.lineTo(R * 0.1, 0); g.lineTo(w, h);
+      g.lineTo(-w, h); g.lineTo(-R * 0.1, 0);
+      g.closePath(); g.fill();
+      g.restore();
+      break;
+    }
+    case 54: {  // key — unlocks, loot, quest pickups.
+      g.save(); g.translate(R, R); g.rotate(-0.5);
+      g.beginPath(); g.arc(0, -R * 0.5, R * 0.4, 0, Math.PI * 2); g.fill();     // bow
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(0, -R * 0.5, R * 0.17, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.fillRect(-R * 0.11, -R * 0.5, R * 0.22, R * 1.32);                      // shaft
+      g.fillRect(R * 0.09, R * 0.38, R * 0.32, R * 0.15);                       // teeth
+      g.fillRect(R * 0.09, R * 0.66, R * 0.26, R * 0.15);
+      g.restore();
+      break;
+    }
+    case 55: {  // flask — potions, alchemy, poison. A conical body under a stubby neck.
+      g.save(); g.translate(R, R * 1.02);
+      g.beginPath();
+      g.moveTo(-R * 0.2, -R * 0.86);
+      g.lineTo(-R * 0.2, -R * 0.28);
+      g.quadraticCurveTo(-R * 0.86, R * 0.42, -R * 0.62, R * 0.7);
+      g.quadraticCurveTo(0, R * 0.95, R * 0.62, R * 0.7);
+      g.quadraticCurveTo(R * 0.86, R * 0.42, R * 0.2, -R * 0.28);
+      g.lineTo(R * 0.2, -R * 0.86);
+      g.closePath(); g.fill();
+      g.fillRect(-R * 0.34, -R * 0.92, R * 0.68, R * 0.18);                     // lip
+      g.restore();
+      break;
+    }
+    case 56: {  // atom — three orbits round a nucleus. Sci-fi, energy cells, tech buffs.
+      const lw = Math.max(1.2, R * 0.11);
+      g.save(); g.translate(R, R);
+      g.lineWidth = lw;
+      for (let i = 0; i < 3; i++) {
+        g.save(); g.rotate((i / 3) * Math.PI);
+        g.beginPath();
+        g.ellipse(0, 0, R - 1 - lw / 2, R * 0.36, 0, 0, Math.PI * 2); g.stroke();
+        g.restore();
+      }
+      g.beginPath(); g.arc(0, 0, R * 0.24, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 57: {  // reticle — lock-on, targeting, UI hits. `frame` is the solid box; this is the
+      // aiming furniture, which survives crunching because nothing here is filled.
+      const lw = Math.max(1.5, R * 0.13), E = R - 1 - lw / 2;
+      g.save(); g.translate(R, R);
+      g.lineWidth = lw; g.lineCap = "butt";
+      g.beginPath(); g.arc(0, 0, R * 0.5, 0, Math.PI * 2); g.stroke();
+      for (const s of [-1, 1]) {                                                // cross ticks
+        g.beginPath();
+        g.moveTo(s * E, 0); g.lineTo(s * R * 0.66, 0);
+        g.moveTo(0, s * E); g.lineTo(0, s * R * 0.66);
+        g.stroke();
+      }
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {                     // corner brackets
+        g.beginPath();
+        g.moveTo(sx * E, sy * R * 0.5); g.lineTo(sx * E, sy * E); g.lineTo(sx * R * 0.5, sy * E);
+        g.stroke();
+      }
+      g.beginPath(); g.arc(0, 0, R * 0.12, 0, Math.PI * 2); g.fill();
+      g.restore();
+      break;
+    }
+    case 58: {  // cube — an isometric block. Voxel debris, crates, blocky worlds. The three-face
+      // seams are cut out rather than drawn, so they stay transparent instead of tinting.
+      const w = R * 0.86, hy = R * 0.95, my = R * 0.48;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -hy); g.lineTo(w, -my); g.lineTo(w, my);
+      g.lineTo(0, hy); g.lineTo(-w, my); g.lineTo(-w, -my);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = Math.max(1, R * 0.07);
+      g.beginPath();
+      g.moveTo(-w, -my); g.lineTo(0, 0); g.lineTo(w, -my);
+      g.moveTo(0, 0); g.lineTo(0, hy);
       g.stroke();
       g.globalCompositeOperation = "source-over";
       g.restore();
@@ -2290,7 +2705,9 @@ function postProcess(cv, st, overlay, t) {
 // renderFrames(state, { size, fit, sim }) -> { canvases, w, h, fps, sim }
 // Pass an existing `sim` back in to re-rasterize (new size, new Crunch settings) without
 // re-simulating — that's the whole point of the split.
-function renderFrames(st, opt) {
+// Setup shared by both render paths. Split out so streamFrames() and renderFrames() cannot
+// drift: exactly one place decides dimensions, scale and offset.
+function renderPrep(st, opt) {
   opt = opt || {};
   const sim = opt.sim || simulate(st);
   // opt.size keeps the square shorthand working for every existing caller (thumbnails, the
@@ -2320,48 +2737,116 @@ function renderFrames(st, opt) {
     dx = st.originX * outW - (st.originX * sim.fs) * k;
     dy = st.originY * outH - (st.originY * sim.fs) * k;
   }
+  return { st, sim, outW, outH, ref, k, dx, dy, n: sim.nFrames };
+}
 
-  const canvases = new Array(sim.nFrames);
+// One frame. `echoCv` is the previous frame (or null) — echo is a feedback delay on the
+// framebuffer, which is what makes frames sequentially dependent and rules out rendering them
+// out of order.
+function renderOneFrame(prep, f, echoCv) {
+  const st = prep.st, sim = prep.sim, ref = prep.ref;
+  const cv = document.createElement("canvas");
+  cv.width = prep.outW; cv.height = prep.outH;
+  const g = cv.getContext("2d");
+
+  if (st.echo > 0 && echoCv) {
+    g.globalAlpha = st.echo * st.echoDecay;
+    g.drawImage(echoCv, 0, 0);
+    g.globalAlpha = 1;
+  }
+
+  const shake = st.shake > 0 ? st.shake * ref * 0.06 : 0;
+  const xf = {
+    k: prep.k,
+    dx: prep.dx + (shake ? rndS(Math.round(st.seed) + 991, f, 31) * shake : 0),
+    dy: prep.dy + (shake ? rndS(Math.round(st.seed) + 991, f, 32) * shake : 0),
+  };
+  drawFrame(sim, f, g, st, xf);
+  postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, ref), f / sim.fps);
+  return cv;
+}
+
+// How many head frames the seamless loop cross-dissolves into. 0 when loopBlend is off.
+function loopBlendCount(prep) {
+  return (prep.st.loopBlend > 0 && prep.n > 3)
+    ? Math.max(1, Math.round(prep.n * 0.35 * prep.st.loopBlend)) : 0;
+}
+function blendLoopFrame(head, tail, i, L) {
+  const g = head.getContext("2d");
+  g.globalAlpha = (1 - i / L) * 0.5;
+  g.drawImage(tail, 0, 0);
+  g.globalAlpha = 1;
+}
+
+// Free a canvas's backing store. Dropping the reference alone leaves it to the GC, which at 4K
+// means 67 MB per frame sitting around until it feels like collecting; zeroing the size releases
+// it immediately. This is what makes the streaming path actually stream.
+function releaseCanvas(cv) { if (cv) { cv.width = 0; cv.height = 0; } }
+
+function renderFrames(st, opt) {
+  const prep = renderPrep(st, opt);
+  const canvases = new Array(prep.n);
   let echoCv = null;
-  for (let f = 0; f < sim.nFrames; f++) {
-    const cv = document.createElement("canvas");
-    cv.width = outW; cv.height = outH;
-    const g = cv.getContext("2d");
-
-    // frame echo — carry the previous frame forward, faded. A feedback delay on the framebuffer.
-    if (st.echo > 0 && echoCv) {
-      g.globalAlpha = st.echo * st.echoDecay;
-      g.drawImage(echoCv, 0, 0);
-      g.globalAlpha = 1;
-    }
-
-    const shake = st.shake > 0 ? st.shake * ref * 0.06 : 0;
-    const xf = {
-      k,
-      dx: dx + (shake ? rndS(Math.round(st.seed) + 991, f, 31) * shake : 0),
-      dy: dy + (shake ? rndS(Math.round(st.seed) + 991, f, 32) * shake : 0),
-    };
-    drawFrame(sim, f, g, st, xf);
+  for (let f = 0; f < prep.n; f++) {
+    const cv = renderOneFrame(prep, f, echoCv);
     if (st.echo > 0) {
       echoCv = document.createElement("canvas");
-      echoCv.width = outW; echoCv.height = outH;
+      echoCv.width = prep.outW; echoCv.height = prep.outH;
       echoCv.getContext("2d").drawImage(cv, 0, 0);
     }
-    postProcess(cv, st, (ctx) => drawBubble(ctx, st, f / sim.fps, ref), f / sim.fps);
     canvases[f] = cv;
   }
 
   // seamless loop: cross-dissolve the tail back over the head (auras, flames, portals)
-  if (st.loopBlend > 0 && canvases.length > 3) {
-    const L = Math.max(1, Math.round(canvases.length * 0.35 * st.loopBlend));
-    for (let i = 0; i < L; i++) {
-      const g = canvases[i].getContext("2d");
-      g.globalAlpha = (1 - i / L) * 0.5;
-      g.drawImage(canvases[canvases.length - L + i], 0, 0);
-      g.globalAlpha = 1;
-    }
-  }
+  const L = loopBlendCount(prep);
+  for (let i = 0; i < L; i++) blendLoopFrame(canvases[i], canvases[prep.n - L + i], i, L);
   if (st.reverse) canvases.reverse();
 
-  return { canvases, w: outW, h: outH, fps: sim.fps, sim };
+  return { canvases, w: prep.outW, h: prep.outH, fps: prep.sim.fps, sim: prep.sim };
+}
+
+// The same pixels as renderFrames, one frame at a time: each is handed to `onFrame(cv, index, n)`
+// and then released, so peak memory is a few frames rather than the whole sequence. At 4096² that
+// is ~70 MB instead of ~1.3 GB — and memory, not time, is what actually kills a tab.
+//
+// Two wrinkles, both handled rather than punted:
+//   * `reverse` only flips the OUTPUT order, and every consumer is index-addressed (cell i of a
+//     sheet, frame_007.png), so it costs nothing — emit with a flipped index.
+//   * `loopBlend` cross-dissolves the LAST L frames into the FIRST L, so a head frame can't be
+//     finalised until its partner exists. Hold the head (at most 35% of the sequence) and emit
+//     each head frame the moment its partner is rendered.
+//
+// onFrame may be async and is awaited, so a caller can encode to PNG without buffering canvases.
+async function streamFrames(st, opt, onFrame) {
+  const prep = renderPrep(st, opt);
+  const L = loopBlendCount(prep);
+  const head = [];
+  let echoCv = null;
+  const outIndex = (f) => (st.reverse ? prep.n - 1 - f : f);
+  const emit = async (cv, f) => { await onFrame(cv, outIndex(f), prep.n); releaseCanvas(cv); };
+
+  for (let f = 0; f < prep.n; f++) {
+    const cv = renderOneFrame(prep, f, echoCv);
+    if (st.echo > 0) {
+      releaseCanvas(echoCv);
+      echoCv = document.createElement("canvas");
+      echoCv.width = prep.outW; echoCv.height = prep.outH;
+      echoCv.getContext("2d").drawImage(cv, 0, 0);
+    }
+    if (f < L) {
+      head.push(cv);                          // not final: its loop partner isn't drawn yet
+      continue;
+    }
+    const i = f - (prep.n - L);               // >= 0 once we reach the tail
+    if (i >= 0) {
+      blendLoopFrame(head[i], cv, i, L);
+      await emit(cv, f);
+      await emit(head[i], i);
+      head[i] = null;
+    } else {
+      await emit(cv, f);
+    }
+  }
+  releaseCanvas(echoCv);
+  return { w: prep.outW, h: prep.outH, fps: prep.sim.fps, n: prep.n, sim: prep.sim };
 }

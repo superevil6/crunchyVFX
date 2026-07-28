@@ -529,18 +529,38 @@ export, where the scale multipliers (now up to 8×) reach 4096. The export dialo
 and peak memory from the *last real render*, which already accounts for this patch's particle
 count, glow and frame count on this machine, and warns past ~700 MB.
 
-**Memory is the real limit, not time.** `renderFrames` holds every frame as a live canvas
-simultaneously, so a big export allocates the whole sequence before anything is encoded. Two
-things would move that, both still open:
+**Memory is the real limit, not time** — which is why exports stream. ✅ **Done 2026-07-27.**
 
-1. **Half-res glow.** At 2048² bare rasterising is 438 ms while glow alone is 3877 ms — roughly 9×
-   everything else. Rendering the blur at half resolution is ~4× cheaper and would take a 4K
-   export from ~15 s to ~4 s. Deferred because it shifts the look of all 59 presets slightly, so
-   it belongs with the quality pass.
-2. **Streaming export** — render, encode and release one frame at a time instead of holding all of
-   them. That turns ~1.3 GB into roughly one frame's worth regardless of length, and is what would
-   make 4K genuinely safe rather than merely slow. It works for the sheet, frame-sequence and GIF
-   paths (Fit's bbox comes from the sim, not the canvases, so it is unaffected).
+`streamFrames()` renders one frame at a time, hands it to a callback and releases it, so peak
+memory is a couple of frames rather than the whole sequence. Measured at 1024²: **76 MB → 8 MB
+(9.5×) at identical speed**, or 28 MB (2.7×) when `loopBlend` is high. `renderFrames()` still
+exists unchanged for the preview and thumbnails; both share `renderPrep`/`renderOneFrame` so they
+cannot drift, and the suite asserts they are pixel-identical across plain / loopBlend / reverse /
+echo and all three combined.
+
+Two wrinkles it handles rather than punts:
+
+- **`reverse`** only flips the OUTPUT order, and every consumer is index-addressed (cell *i* of a
+  sheet, `frame_007.png`), so it costs nothing — emit with a flipped index.
+- **`loopBlend`** dissolves the last *L* frames into the first *L*, so a head frame cannot be
+  finalised until its partner exists. The head is held (at most 35% of the sequence) and each head
+  frame is emitted the moment its partner renders. This is the whole reason the saving is 2.7×
+  rather than 9.5× on looping effects.
+
+**Trim needs a measuring pass.** The crop box is the union across every frame. The tempting
+shortcut — scale the 1× preview's box by the export multiplier — is *wrong*, and the suite caught
+it: glow radius and outline width are fixed-pixel, not frame-relative, so the export bbox is not a
+clean multiple of the preview's. At 2× the estimate came out 8–18 px tight, i.e. it clipped the
+effect. So trimming streams once to measure, then again to crop: time doubles, memory stays flat.
+Running out of memory is a hard failure; taking longer is a soft one.
+
+**Still buffered, deliberately:** APNG (one container with an inter-frame dependency chain) and the
+emissive mask (built from the finished frames). The export dialog says so when either is selected.
+
+Still open: **half-res glow.** At 2048² bare rasterising is 438 ms while glow alone is 3877 ms —
+roughly 9× everything else. Rendering the blur at half resolution is ~4× cheaper and would take a
+4K export from ~15 s to ~4 s. Deferred because it shifts the look of every preset slightly, so it
+belongs with the quality pass.
 
 ## 12. Artwork licensing — CC0 only
 
@@ -570,3 +590,32 @@ correctly, and survives being crunched to 8px.
 
 Users who want specific third-party art can still supply it through the `image` shape — that
 licence is theirs, and knowingly taken on.
+
+## 13. Web vs desktop
+
+Same split as CrunchySFX, and the same principle: **the library and bulk workflow are the desktop
+app; making and exporting an effect is free forever on the web.** Nothing the free build produces
+is withheld, watermarked or resolution-capped.
+
+Desktop-only today:
+
+| feature | why it's on that side |
+|---|---|
+| ★ My Effects library | persistence — on disk, not a browser store you can wipe by clearing cookies |
+| 📁 Custom categories | organises the library, so it follows it |
+| 📦 Batch export | exists to render the library; meaningless without one |
+| 📂 Native save dialogs | only possible in the Tauri build |
+
+Free on the web, permanently: every shape, system and preset, every export format and size, GIF,
+share links, Randomize, Breed, Variations, Foundry, Match a sound and the synthesised WAV.
+
+**Mechanism.** `const isDesktop = !!window.__TAURI__`, and gated markup carries `data-desktop`; a
+sweep at the end of boot hides all of it on the web. Controls built at runtime (the "＋ New
+category" entry, rebuilt per context menu) are gated where they're created. Gated features are
+**absent, not disabled** — a dead control you can click is a worse experience than one that isn't
+there. The web build gets a "🖥 Get the Desktop app" CTA in its place.
+
+The suite runs in a browser, so it *is* the web build — which makes it the right place to assert
+the gate. It checks that every `data-desktop` element is hidden, and separately that export,
+share, GIF, Randomize, Breed, Match-a-sound and Fit are **not** hidden, so the free tier can't be
+hollowed out by accident later.

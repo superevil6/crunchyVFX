@@ -757,6 +757,70 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- web vs desktop gate
+    // The suite runs in a browser, so this IS the web build — exactly the case that has to be
+    // right. A gated control that's merely disabled would still be clickable and still be a dead
+    // end, so assert it isn't rendered at all, and that the free build keeps everything the split
+    // promises to keep.
+    {
+      ok(isDesktop === false, "the suite runs as the web build");
+      const gated = document.querySelectorAll("[data-desktop]");
+      ok(gated.length > 0, "there are gated elements to check", gated.length + " marked");
+      const shown = Array.from(gated).filter((el) => !el.hidden)
+        .map((el) => el.id || el.className);
+      ok(shown.length === 0, "every desktop-only element is hidden on the web", shown.join(", "));
+      ok(document.getElementById("mypresets").hidden, "My Effects is desktop-only");
+      ok(document.getElementById("userCats").hidden, "custom categories are desktop-only");
+      ok(document.getElementById("expBatchAll").hidden &&
+         document.getElementById("expBatchMine").hidden,
+         "batch export is desktop-only — it exists to render the library");
+      ok(!!document.getElementById("deskCta"), "the web build offers the desktop app instead");
+
+      // The line is "library and bulk workflow are paid; making and exporting an effect is free".
+      // If any of these ever ended up gated, the free build would stop being worth using.
+      const mustStayFree = ["expGo", "share", "gifBtn", "rand", "breedBtn", "matchBtn", "fitBtn"];
+      const wronglyGated = mustStayFree
+        .filter((id) => { const el = document.getElementById(id); return el && el.hidden; });
+      ok(wronglyGated.length === 0,
+         "exporting, sharing, GIF, randomize, breed and matching stay free",
+         wronglyGated.join(", "));
+    }
+
+    // ---------------------------------------------------------------- boolean params are switches
+    // A 0-or-1 param with step 1 has no in-between value, so it gets a switch instead of a slider.
+    // The rule is derived from the schema, so what's worth pinning is that it selects exactly the
+    // boolean params — too broad and a real range silently loses its middle.
+    {
+      const isBool = (p) => p[2] === 0 && p[3] === 1 && p[4] === 1;
+      const bools = PARAMS.filter(isBool).map((p) => p[0]);
+      ok(bools.length > 0, "there are boolean params to switch", bools.join(", "));
+      const wrongType = [], missed = [];
+      for (const p of PARAMS) {
+        const el = inputs[p[0]];
+        if (!el) continue;
+        const isSwitch = el.type === "checkbox";
+        if (isBool(p) && !isSwitch) missed.push(p[0]);
+        if (!isBool(p) && isSwitch) wrongType.push(p[0]);
+      }
+      ok(missed.length === 0, "every boolean param renders as a switch", missed.join(", "));
+      ok(wrongType.length === 0, "and nothing with a real range became one", wrongType.join(", "));
+
+      // The switch must drive state, and syncUI must drive the switch.
+      const key = bools[0];
+      const el = inputs[key];
+      state[key] = 0; syncUI();
+      ok(el.checked === false, key + ": syncUI clears the switch");
+      state[key] = 1; syncUI();
+      ok(el.checked === true, key + ": syncUI sets it");
+      el.checked = false;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      ok(state[key] === 0, key + ": toggling it off writes 0", String(state[key]));
+      el.checked = true;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      ok(state[key] === 1, key + ": toggling it on writes 1", String(state[key]));
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- shape picker coverage
     // The picker only builds a button for shapes listed in SHAPE_CATS, so a shape missing from it
     // is unreachable no matter how well it's implemented. `custom` and `image` sat like that —

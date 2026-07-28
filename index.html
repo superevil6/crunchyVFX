@@ -150,7 +150,7 @@
       <input type="text" id="presetSearch" placeholder="Search effects… (e.g. explosion)" autocomplete="off" spellcheck="false">
       <span id="presetCount" class="hint"></span>
     </div>
-    <div class="mypresets" id="mypresets">
+    <div class="mypresets" id="mypresets" data-desktop>
       <div class="mp-head">
         <span>★ My Effects</span>
         <span class="mp-head-btns">
@@ -161,7 +161,7 @@
       </div>
       <div class="mp-list" id="mpList"></div>
     </div>
-    <div class="usercats" id="userCats"></div>
+    <div class="usercats" id="userCats" data-desktop></div>
     <input type="file" id="mpFile" accept="application/json,.json" hidden>
     <div class="presetbar" id="presets" style="margin-top:10px"></div>
   </section>
@@ -955,6 +955,13 @@ function fmt(p, val) {
 }
 
 // key -> id of the stage-side container it should be built into instead of its panel.
+// ---------- Web vs desktop ----------
+// Same split as CrunchySFX, and the same principle: the LIBRARY and BULK workflow are the desktop
+// app; making and exporting an effect is free forever on the web. Nothing you can make in the web
+// build is withheld or watermarked — the paid tier is about keeping and organising work, not about
+// locking up output.
+const isDesktop = !!window.__TAURI__;
+
 const STAGE_PARAM_HOSTS = { frameSize: "stageFrameSize", fps: "stageFps" };
 
 for (const [group, ps] of Object.entries(groups)) {
@@ -972,6 +979,30 @@ for (const [group, ps] of Object.entries(groups)) {
     // rebuilding them by hand up there is how those behaviours quietly diverge.
     const host = STAGE_PARAM_HOSTS[key]
       ? (document.getElementById(STAGE_PARAM_HOSTS[key]) || panel) : panel;
+    // A 0-or-1 param with step 1 has no in-between value, so a slider is the wrong control: it
+    // implies a range that doesn't exist, and it's fiddly to hit either end. Detected from the
+    // schema rather than a hand-kept list, so declaring the next boolean param gets a switch for
+    // free. Built by this same loop, so it keeps the identical handlers.
+    if (min === 0 && max === 1 && step === 1) {
+      const row = document.createElement("div");
+      row.className = "row switch-row";
+      row.innerHTML = "<label>" + label + "</label>" +
+        '<label class="switch"><input type="checkbox" data-key="' + key + '"><span class="switch-track"></span></label>' +
+        "<output></output>";
+      host.appendChild(row);
+      const el = row.querySelector("input"), out = row.querySelector("output");
+      inputs[key] = el; outputs[key] = out;
+      el.checked = state[key] > 0.5;
+      out.textContent = el.checked ? "on" : "off";
+      el.addEventListener("change", () => {
+        state[key] = el.checked ? 1 : 0;
+        out.textContent = el.checked ? "on" : "off";
+        noteLockEdit(key);
+        commitHistory();
+        rerender();
+      });
+      continue;
+    }
     if (kind === "enum") {
       const row = document.createElement("div");
       row.className = "waverow";
@@ -1762,6 +1793,11 @@ function syncParamInputs() {
   for (const p of PARAMS) {
     const el = inputs[p[0]];
     if (!el) continue;
+    if (el.type === "checkbox") {          // boolean params render as a switch, not a slider
+      el.checked = state[p[0]] > 0.5;
+      if (outputs[p[0]]) outputs[p[0]].textContent = el.checked ? "on" : "off";
+      continue;
+    }
     el.value = state[p[0]];
     if (outputs[p[0]]) outputs[p[0]].textContent = fmt(p, state[p[0]]);
   }
@@ -1827,12 +1863,15 @@ function updateUndoRedoUI() {
 
 // ---------- Shape picker (hero section) ----------
 const SHAPE_CATS = [
-  ["Soft",   ["glow", "smoke", "blob", "flame", "bubble"]],
+  ["Soft",   ["glow", "smoke", "blob", "flame", "bubble", "cloud", "splash", "wave"]],
   ["Sharp",  ["spark", "pixel", "shard", "star", "cross", "diamond", "arrow",
-              "triangle", "claw"]],
+              "triangle", "claw", "shuriken", "spike", "starburst", "frame", "crack", "reticle",
+              "cube"]],
   ["Formed", ["ring", "crescent", "spiral", "bolt", "teardrop", "snowflake", "heart",
-              "flower", "leaf", "hexagon", "gear", "plus", "gem"]],
-  ["Symbol", ["glyph", "note"]],
+              "flower", "leaf", "hexagon", "gear", "plus", "gem",
+              "skull", "feather", "coin", "comma", "butterfly", "eye", "mushroom", "shield",
+              "ribbon", "bone", "paw", "ghost", "wing", "hourglass", "key", "flask", "atom"]],
+  ["Symbol", ["glyph", "note", "rune"]],
   // "custom" and "image" were implemented — the drawing grid, the PNG import with animated-strip
   // support, both covered by the suite — but listed in no category, so the picker never built a
   // button for them and no preset selected them. Fully working features with no door in.
@@ -2370,7 +2409,9 @@ const RAND_KEYS = ["count", "emitAngle", "emitSpread", "emitRadius", "emitTime",
 // 8 (custom) and 9 (image) are excluded: both need user-supplied data, so a random patch
 // using them would render nothing.
 const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-                       19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30];
+                       19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+                       31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
+                       47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58];
 function randomize() {
   for (const p of PARAMS) state[p[0]] = p[5];
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
@@ -2627,6 +2668,109 @@ function framesAtScale(mult) {
   if (mult === 1) return outputCanvases();
   const r = renderFrames(state, { size: Math.round(rendered.w * mult), fit: fitOn, sim: rendered.sim });
   return compositeRef(r.canvases);
+}
+
+// ---------- Streaming export ----------
+// A big export used to hold every frame as a live canvas at once, so 19 frames at 4096² asked for
+// ~1.3 GB before a single byte was encoded — and it was the memory, not the time, that killed the
+// tab. These consume streamFrames(), keeping one frame alive at a time.
+//
+// Trim genuinely needs to see every frame first, because the crop box is the UNION across all of
+// them. The tempting shortcut — scale the 1x preview's box by the export multiplier — is WRONG,
+// and the suite caught it: several post passes work in fixed pixels rather than frame-relative
+// units (glow radius, outline width), so the export bbox is not a clean multiple of the preview's.
+// Measured at 2x it came out 8-18px tighter than the truth, i.e. it clipped the effect.
+//
+// So when trimming, make a measuring pass first: stream every frame, union their bounds, release
+// each one. That costs a second render pass, but memory stays flat — and the whole point here is
+// that running out of memory is a hard failure while taking longer is a soft one.
+async function trimBoxStreamed(mult) {
+  const o = streamOpts(mult);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  await streamFrames(state, o, (fr, i) => {
+    const composed = withRefFrame(fr, i);
+    const w = composed.width, h = composed.height;
+    const d = composed.getContext("2d").getImageData(0, 0, w, h).data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] <= 4) continue;
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+    if (composed !== fr) releaseCanvas(composed);
+  });
+  if (!isFinite(x0)) return null;                       // wholly transparent — nothing to trim to
+  const box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  return (box.w < o.w || box.h < o.h) ? box : null;     // matches buildSheet: no gain, no trim
+}
+
+// The reference image compositing that compositeRef() does for a whole array, for one frame.
+function withRefFrame(cv, i) {
+  if (!ref.img || !ref.combine) return cv;
+  const out = document.createElement("canvas");
+  out.width = cv.width; out.height = cv.height;
+  const g = out.getContext("2d");
+  if (!ref.front) drawRefFrame(g, i, out.width, out.height);
+  g.drawImage(cv, 0, 0);
+  if (ref.front) drawRefFrame(g, i, out.width, out.height);
+  return out;
+}
+
+const streamOpts = (mult) => ({
+  w: Math.round(rendered.w * mult), h: Math.round(rendered.h * mult),
+  fit: fitOn, sim: rendered.sim,
+});
+
+// Same result as buildSheet(), assembled a frame at a time. Peak memory is the sheet plus one
+// frame instead of the sheet plus the entire sequence.
+async function buildSheetStreaming(mult, opts) {
+  const o = streamOpts(mult);
+  const trim = opts.trim ? await trimBoxStreamed(mult) : null;
+  const w = trim ? trim.w : o.w, h = trim ? trim.h : o.h;
+  const n = rendered.canvases.length;
+  const layout = opts.layout || "grid";
+  const cols = layout === "row" ? n : layout === "col" ? 1 : Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const cv = document.createElement("canvas");
+  cv.width = opts.pot ? nextPot(cols * w) : cols * w;
+  cv.height = opts.pot ? nextPot(rows * h) : rows * h;
+  const g = cv.getContext("2d");
+  await streamFrames(state, o, (fr, i) => {
+    const composed = withRefFrame(fr, i);
+    const dx = (i % cols) * w, dy = Math.floor(i / cols) * h;
+    if (trim) g.drawImage(composed, trim.x, trim.y, w, h, dx, dy, w, h);
+    else g.drawImage(composed, dx, dy);
+    if (composed !== fr) releaseCanvas(composed);
+  });
+  const pivot = trim ? { x: (o.w / 2 - trim.x) / w, y: (o.h / 2 - trim.y) / h }
+                     : { x: 0.5, y: 0.5 };
+  return { cv: cv, cols: cols, rows: rows, n: n, w: w, h: h, trim: trim, pivot: pivot,
+           srcW: o.w, srcH: o.h };
+}
+
+// One PNG per frame, encoded and released as it is produced — the path where streaming saves the
+// most, since the compressed bytes are a fraction of the canvas they came from.
+async function streamFrameFiles(mult, opts, base, files) {
+  const o = streamOpts(mult);
+  const trim = opts.trim ? await trimBoxStreamed(mult) : null;
+  const tmp = document.createElement("canvas");
+  if (trim) { tmp.width = trim.w; tmp.height = trim.h; }
+  await streamFrames(state, o, async (fr, i) => {
+    const composed = withRefFrame(fr, i);
+    let src = composed;
+    if (trim) {
+      const tg = tmp.getContext("2d");
+      tg.clearRect(0, 0, trim.w, trim.h);
+      tg.drawImage(composed, trim.x, trim.y, trim.w, trim.h, 0, 0, trim.w, trim.h);
+      src = tmp;
+    }
+    const blob = await canvasBlob(src);
+    files.push({ name: base + "_" + String(i).padStart(3, "0") + ".png",
+                 data: new Uint8Array(await blob.arrayBuffer()) });
+    if (composed !== fr) releaseCanvas(composed);
+  });
+  releaseCanvas(tmp);
 }
 
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
@@ -2893,8 +3037,8 @@ expModal.innerHTML =
       '<button id="expGo" class="primary">⬇ Export</button>' +
       '<button id="expClip" title="Straight into Aseprite or Photoshop, no file">📋 Copy sheet</button>' +
       '<span class="exp-batch">' +
-        '<button id="expBatchMine" title="Every effect in My Effects, as one zip of sheets + sidecars">📦 My Effects</button>' +
-        '<button id="expBatchAll" title="Every built-in preset AND every saved effect, as one asset pack">📦 Everything</button>' +
+        '<button id="expBatchMine" data-desktop title="Every effect in My Effects, as one zip of sheets + sidecars">📦 My Effects</button>' +
+        '<button id="expBatchAll" data-desktop title="Every built-in preset AND every saved effect, as one asset pack">📦 Everything</button>' +
       '</span>' +
       '<span class="hint" id="expMsg"></span>' +
     '</div>' +
@@ -2941,24 +3085,44 @@ function refreshExpInfo() {
   // Cost estimate. Rendering is pixel-bound and scales cleanly with area (measured: 4x the time
   // per doubling), so the last real render's time is a good predictor — better than a fixed table,
   // because it already accounts for this patch's particle count, glow and frame count on THIS
-  // machine. Peak memory is the number that actually kills a tab: every frame is a live canvas at
-  // once, so 19 frames at 4096² is ~1.3 GB before a single byte is encoded.
+  // machine.
+  //
+  // Peak memory depends on the format, because most of them now stream: frames are encoded and
+  // released one at a time rather than all held at once (measured 9.5x less at 1024px, or 2.7x
+  // when loopBlend makes part of the sequence be held back). APNG still needs the whole sequence —
+  // it is one container with an inter-frame dependency chain — and so does the emissive mask,
+  // which is built from the finished frames.
   {
     const n = rendered.canvases.length;
     const top = Math.max.apply(null, scales);
-    const area = (rendered.w * top) * (rendered.h * top);
-    const ms = lastRenderMs * top * top * scales.length;
-    const mb = (area * 4 * n) / 1048576;
+    const w = rendered.w * top, h = rendered.h * top;
+    const frameMB = (w * h * 4) / 1048576;
+    // loopBlend holds the head of the sequence until its tail partner exists.
+    const held = state.loopBlend > 0 && n > 3 ? Math.max(1, Math.round(n * 0.35 * state.loopBlend)) : 0;
+    const buffered = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
+    const sheetMB = fmt === "sheet" ? (w * h * n) * 4 / 1048576 : 0;
+    const mb = buffered ? frameMB * n + sheetMB : frameMB * (held + 2) + sheetMB;
+    // Trimming needs a measuring pass over every frame before it can crop, so a streamed export
+    // renders twice. Memory stays flat; only the time doubles.
+    const passes = (!buffered && expTrim.checked) ? 2 : 1;
+    const ms = lastRenderMs * top * top * scales.length * passes;
     if (top > 1 || mb > 200) {
       const time = ms > 1500 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms";
-      const line = "Largest size <b>" + (rendered.w * top) + "×" + (rendered.h * top) +
-                   "</b> — roughly <b>" + time + "</b> and <b>" + Math.round(mb) + " MB</b> peak.";
+      let line = "Largest size <b>" + w + "×" + h + "</b> — roughly <b>" + time +
+                 "</b> and <b>" + Math.round(mb) + " MB</b> peak.";
+      if (passes === 2) line += " Trim measures every frame before cropping, so it renders twice.";
+      if (buffered) {
+        line += fmt === "apng"
+          ? " APNG holds the whole sequence in memory; a sheet or PNG frames would stream instead."
+          : " The emissive mask needs every frame at once; untick it and the sheet streams.";
+      }
       bits.push(mb > 700
         ? line + " That is enough to make the tab struggle or run out of memory; consider fewer " +
                  "frames, or exporting one size at a time."
         : line);
     }
   }
+
   if (fmt === "sheet") {
     bits.push("Sheet: <b>" + sh.cv.width + "×" + sh.cv.height + "</b> (" + sh.cols + "×" + sh.rows + " cells of " + sh.w + "×" + sh.h + ")");
     if (sh.trim) bits.push("Trimmed from " + sh.srcW + "×" + sh.srcH + " → pivot " + sh.pivot.x.toFixed(3) + ", " + sh.pivot.y.toFixed(3));
@@ -3002,9 +3166,15 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
   try {
     for (const mult of scales) {
       const suffix = scales.length > 1 ? "@" + mult + "x" : "";
-      const frames = framesAtScale(mult);
+      const opts = { trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked };
+      // The emissive mask is built from the finished frames, so that one option still needs the
+      // whole sequence in memory. Everything else streams.
+      const needsAllFrames = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
+      const frames = needsAllFrames ? framesAtScale(mult) : null;
+
       if (fmt === "sheet") {
-        const sh = buildSheet({ frames, trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+        const sh = frames ? buildSheet(Object.assign({ frames: frames }, opts))
+                          : await buildSheetStreaming(mult, opts);
         const blob = await canvasBlob(sh.cv);
         files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
         if (expMetaSel.value !== "none") {
@@ -3019,20 +3189,18 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
           const eb = await canvasBlob(em.cv);
           files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
         }
+        releaseCanvas(sh.cv);
       } else if (fmt === "apng") {
+        // encodeApng() takes the whole sequence; APNG is a single container with an inter-frame
+        // dependency chain, so there is nothing to stream it into.
         let out = frames;
         if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
         const bytes = await encodeApng(out, rendered.fps);
         files.push({ name: base + suffix + ".png", data: bytes });
       } else {
-        let out = frames;
-        if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
-        for (let i = 0; i < out.length; i++) {
-          const blob = await canvasBlob(out[i]);
-          files.push({ name: base + suffix + "_" + String(i).padStart(3, "0") + ".png",
-                       data: new Uint8Array(await blob.arrayBuffer()) });
-        }
+        await streamFrameFiles(mult, opts, base + suffix, files);
       }
+      if (frames) for (const cv of frames) releaseCanvas(cv);
       // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
       // (same engine, same encoder), so what you drop into an engine is a matched pair rather
       // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
@@ -3849,11 +4017,15 @@ function ucOpenMenu(e, item, label) {
     b.addEventListener("click", () => { ucAddItem(cat.id, item); closeUcMenu(); });
     menu.appendChild(b);
   }
-  const nb = document.createElement("button");
-  nb.className = "uc-menu-new";
-  nb.textContent = "＋ New category";
-  nb.addEventListener("click", () => { ucNewCategory(item); closeUcMenu(); });
-  menu.appendChild(nb);
+  // Desktop-only, like the library it organises. Built per-menu, so it's gated here rather than
+  // by the data-desktop sweep at boot.
+  if (isDesktop) {
+    const nb = document.createElement("button");
+    nb.className = "uc-menu-new";
+    nb.textContent = "＋ New category";
+    nb.addEventListener("click", () => { ucNewCategory(item); closeUcMenu(); });
+    menu.appendChild(nb);
+  }
   menu.style.left = Math.min(e.clientX, innerWidth - 200) + "px";
   menu.style.top = Math.min(e.clientY, innerHeight - 40 - userCats.length * 32) + "px";
   document.body.appendChild(menu);
@@ -4074,6 +4246,65 @@ renderMyEffects();   // also renders the categories
 updateLockBtn();
 updateHoldUI();
 syncUI();
+
+// ---------- Apply the desktop gate ----------
+// Anything carrying data-desktop simply isn't there on the web, rather than being visible and
+// refusing to work — a dead control you can click is worse than one that doesn't exist. Runs
+// after boot so runtime-built UI (the export dialog) is included.
+{
+  if (!isDesktop) {
+    for (const el of document.querySelectorAll("[data-desktop]")) el.hidden = true;
+    // "＋ New category" is built per-menu at click time, so it's gated where it's created.
+  }
+}
+
+// ---------- WEB-ONLY: "Get the Desktop app" CTA ----------
+// The free build advertises the paid tier by saying plainly what it adds. Hidden on desktop, which
+// already has all of it. Mirrors the CrunchySFX modal so the two products read as one suite.
+if (!isDesktop) {
+  const cta = document.createElement("button");
+  cta.id = "deskCta";
+  cta.className = "primary";
+  cta.textContent = "🖥 Get the Desktop app";
+  cta.title = "Get the desktop app on itch.io";
+
+  const m = document.createElement("div");
+  m.className = "modal";
+  m.hidden = true;
+  m.innerHTML =
+    '<div class="modal-box steam-box">' +
+      '<div class="modal-head">' +
+        "<h2>🖥 CrunchyVFX Desktop</h2>" +
+        '<span class="hint">The web version stays free — the desktop app adds the workflow.</span>' +
+        '<button id="deskClose">✕ Close</button>' +
+      "</div>" +
+      '<div class="steam-body">' +
+        '<ul class="steam-feats">' +
+          "<li><b>★ My Effects library</b> — save, name and organise your own effects, kept on disk instead of in a browser store you can wipe by clearing cookies.</li>" +
+          "<li><b>📁 Custom categories</b> — group your effects however you work.</li>" +
+          "<li><b>📦 Batch export</b> — render your whole library to sheets + sidecars in one click, as an asset pack.</li>" +
+          "<li><b>📂 Native save dialogs</b> — real system Save/Open, straight into your project folder.</li>" +
+          "<li><b>🔧 One-time purchase</b> — no account, no subscription; it supports development.</li>" +
+        "</ul>" +
+        '<p class="steam-note">Everything you make in the free web version is yours, unwatermarked, at full resolution. ' +
+        "The desktop app is about keeping and organising your work — not about locking up your sprites.</p>" +
+      "</div>" +
+      '<div class="modal-foot">' +
+        '<button class="primary" id="deskGet">Get it on itch.io ↗</button>' +
+        '<span class="hint">One-time purchase on itch.io.</span>' +
+      "</div>" +
+    "</div>";
+  document.body.appendChild(m);
+
+  const ITCH_URL = "https://sevi66.itch.io/crunchyvfx";
+  cta.addEventListener("click", () => { m.hidden = false; });
+  m.querySelector("#deskClose").addEventListener("click", () => { m.hidden = true; });
+  m.querySelector("#deskGet").addEventListener("click", () => window.open(ITCH_URL, "_blank", "noopener"));
+  m.addEventListener("click", (e) => { if (e.target === m) m.hidden = true; });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) m.hidden = true; });
+  const bar = document.querySelector(".controls-right") || document.querySelector(".controls-left");
+  if (bar) bar.appendChild(cta);
+}
 if (!loadSharedEffect()) {
   const first = PRESET_CATEGORIES[0] && PRESET_CATEGORIES[0][1][0];
   if (first && PRESETS[first]) applyPreset(PRESETS[first], first); else { rerender(); commitHistory(); }

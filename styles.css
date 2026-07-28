@@ -1043,3 +1043,25 @@
      the row is already called "Size". */
   .stage-param-inline label { display: none; }
   .stage-param-inline select { width: 78px; }
+
+  /* Toggle switch for 0-or-1 params. A slider with two stops implies in-between values that don't
+     exist and is fiddly to land on either end; a switch says "this is a state", and reads at a
+     glance across a panel of thirty controls. */
+  .switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch-track {
+    width: 34px; height: 14px; border-radius: 7px;
+    background: var(--line); transition: background .16s;
+    display: inline-block; position: relative;
+  }
+  .switch-track::after {
+    content: ""; position: absolute; left: -1px; top: -3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #6d6480; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    transition: transform .16s, background .16s;
+  }
+  .switch input:checked + .switch-track { background: rgba(255, 122, 69, 0.4); }
+  .switch input:checked + .switch-track::after { transform: translateX(15px); background: var(--accent); }
+  .switch input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--accent2); }
+  .switch:hover .switch-track::after { box-shadow: 0 1px 3px rgba(0,0,0,.45), 0 0 0 6px rgba(255,122,69,.12); }
+  .switch-row { align-items: center; }

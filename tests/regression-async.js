@@ -155,6 +155,79 @@
       ok(names.some((n) => n.indexOf("alpha-2/") === 0), "the duplicate name was disambiguated");
       ok(names.indexOf("index.json") >= 0, "the pack has a manifest");
 
+      // ------------------------------------------------------- streaming render
+      // streamFrames() exists so a big export doesn't hold every frame as a live canvas at once.
+      // It is only worth having if it is pixel-identical to renderFrames(), so compare them frame
+      // by frame — including the two cases that make streaming hard: loopBlend (the last frames
+      // are dissolved into the first, so the head can't be finalised until the tail exists) and
+      // reverse (the output order is flipped).
+      {
+        const hashCv = (cv) => {
+          const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+          let h = 0x811c9dc5;
+          for (let i = 0; i < d.length; i += 4) {
+            h ^= d[i] ^ (d[i + 1] << 1) ^ (d[i + 2] << 2) ^ (d[i + 3] << 3);
+            h = Math.imul(h, 0x01000193) >>> 0;
+          }
+          return ("00000000" + h.toString(16)).slice(-8);
+        };
+        const CASES = [
+          ["plain",             { loopBlend: 0, reverse: 0, echo: 0 }],
+          ["loopBlend",         { loopBlend: 0.8, reverse: 0, echo: 0 }],
+          ["reverse",           { loopBlend: 0, reverse: 1, echo: 0 }],
+          ["loopBlend+reverse", { loopBlend: 0.8, reverse: 1, echo: 0 }],
+          ["echo",              { loopBlend: 0, reverse: 0, echo: 0.7, echoDecay: 0.6 }],
+          ["all three",         { loopBlend: 0.6, reverse: 1, echo: 0.6, echoDecay: 0.5 }],
+        ];
+        const bad = [];
+        for (const [label, patch] of CASES) {
+          applyPreset(Object.assign({}, PRESETS["Explosion"],
+                                    { duration: 0.5, fps: 24, frameSize: 3 }, patch), "sf");
+          const want = renderFrames(state, { size: 96 }).canvases.map(hashCv);
+          const got = new Array(want.length);
+          await streamFrames(state, { size: 96 }, (cv, idx) => { got[idx] = hashCv(cv); });
+          if (got.length !== want.length || got.some((h, i) => h !== want[i])) {
+            const at = got.findIndex((h, i) => h !== want[i]);
+            bad.push(label + " (frame " + at + ")");
+          }
+        }
+        ok(bad.length === 0, "streaming renders pixel-identically to the buffered path across " +
+           CASES.length + " cases", bad.join(", "));
+
+        // The point of the exercise: frames must not still be alive after they're handed over.
+        applyPreset(Object.assign({}, PRESETS["Explosion"],
+                                  { duration: 0.5, fps: 24, loopBlend: 0, reverse: 0 }), "sf2");
+        const seen = [];
+        await streamFrames(state, { size: 64 }, (cv) => { seen.push(cv); });
+        const live = seen.filter((cv) => cv.width > 0).length;
+        ok(live === 0, "every streamed frame is released after use", live + " still held");
+
+        // The sheet is what most people export, so the streamed sheet has to be the same sheet.
+        // Compare against the buffered builder directly rather than trusting the frame-level
+        // check to cover the assembly.
+        for (const [label, patch] of [["plain", {}], ["loop+reverse", { loopBlend: 0.7, reverse: 1 }]]) {
+          applyPreset(Object.assign({}, PRESETS["Hit Spark"],
+                                    { duration: 0.5, fps: 24, frameSize: 3 }, patch), "sheet");
+          rerender();
+          for (const trimOn of [false, true]) {
+            const want = buildSheet({ frames: framesAtScale(2), trim: trimOn, layout: "grid" });
+            const got = await buildSheetStreaming(2, { trim: trimOn, layout: "grid" });
+            ok(got.cv.width === want.cv.width && got.cv.height === want.cv.height,
+               "streamed sheet matches size (" + label + ", trim " + trimOn + ")",
+               want.cv.width + "×" + want.cv.height + " vs " + got.cv.width + "×" + got.cv.height);
+            if (got.cv.width === want.cv.width && got.cv.height === want.cv.height) {
+              ok(hashCv(got.cv) === hashCv(want.cv),
+                 "…and matches pixel for pixel (" + label + ", trim " + trimOn + ")");
+            }
+            ok(got.n === want.n && got.cols === want.cols,
+               "…with the same cell layout (" + label + ", trim " + trimOn + ")",
+               want.cols + " cols / " + want.n + " cells");
+          }
+        }
+        applyPreset(PRESETS["Explosion"], "Explosion");
+        rerender();
+      }
+
       // ------------------------------------------------- vendored CrunchySFX synth engine
       // The engine is a generated file pulled in by tools/pull-synth.py. These assertions are the
       // in-app half of the tripwire: pull-synth.py --check proves the BYTES are an unmodified
