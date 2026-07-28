@@ -757,6 +757,52 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- project files
+    // The save/open halves need Tauri, but buildProject/loadProject are pure and are where data
+    // loss would actually happen — silently dropping the library or the categories on open would
+    // look like a successful load. Round-trip them here; the dialog plumbing is thin by design.
+    {
+      const realEffects = userEffects, realCats = userCats, realLabel = effectLabel;
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      state.hue = 271; state.count = 383;
+      userEffects = [{ id: 4, name: "Alpha", state: snapshotState() },
+                     { id: 9, name: "Beta", state: snapshotState() }];
+      userCats = [{ id: 2, name: "Boss fight", items: ["Alpha"] }];
+      effectLabel = "Ice Blast";
+
+      const proj = buildProject();
+      ok(proj.app === "crunchyvfx" && proj.version === PROJECT_VERSION,
+         "a project is stamped with app + version");
+      const wire = JSON.parse(JSON.stringify(proj));    // it has to survive being a file
+
+      // Wipe everything, then load it back.
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      userEffects = []; userCats = []; effectLabel = "gone";
+      loadProject(wire);
+      ok(state.hue === 271 && state.count === 383,
+         "opening a project restores the editor effect", state.hue + " / " + state.count);
+      ok(effectLabel === "Ice Blast", "…and its name", effectLabel);
+      ok(userEffects.length === 2 && userEffects[1].name === "Beta",
+         "…the whole library", userEffects.length + " effects");
+      ok(userCats.length === 1 && userCats[0].name === "Boss fight",
+         "…and the categories", userCats.length);
+      // ids must not collide with anything saved afterwards
+      ok(upSeq >= 9 && ucSeq >= 2, "id counters advance past the loaded items",
+         "upSeq " + upSeq + ", ucSeq " + ucSeq);
+
+      let threw = "";
+      try { loadProject({ app: "crunchysfx", version: 1 }); } catch (e) { threw = e.message; }
+      ok(/not a CrunchyVFX project/.test(threw), "another app's file is refused, not half-loaded",
+         threw || "no error");
+      // A newer file with unknown keys must still open — refusing would lock someone out of work.
+      loadProject({ app: "crunchyvfx", version: 99, editor: wire.editor, futureThing: 1 });
+      ok(state.hue === 271, "a newer project version still opens");
+
+      userEffects = realEffects; userCats = realCats; effectLabel = realLabel;
+      saveUserEffects(); saveUserCats(); renderMyEffects();
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- web vs desktop gate
     // The suite runs in a browser, so this IS the web build — exactly the case that has to be
     // right. A gated control that's merely disabled would still be clickable and still be a dead
@@ -1047,6 +1093,124 @@
       };
       const top = cy(0.1), bottom = cy(0.6);
       ok(top >= 0 && bottom > top + 5, "the pieces fall", top.toFixed(0) + " → " + bottom.toFixed(0) + " px");
+    }
+
+    // -------------------------------------------------- swarm / chain / impact / weather / flare
+    {
+      ok(state.swarm === 0 && state.chain === 0 && state.impact === 0 &&
+         state.weather === 0 && state.flare === 0, "the five new systems default to off");
+      for (const k of ["swarm", "chain", "weather", "flare"]) {
+        const off = {}; off[k] = 0;
+        const on = {}; on[k] = 1;
+        ok(lay(off, 0.4) === 0, k + " at 0 draws nothing");
+        ok(lay(on, 0.4) > 20, "the " + k + " draws", lay(on, 0.4) + " px");
+      }
+
+      // Swarm is a GROUP: the members must move together rather than sit still.
+      {
+        const shot = (frac) => {
+          applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                        swarm: 1, swarmCount: 20, swarmFlicker: 0, glow: 0 }, "sw");
+          const r = renderFrames(state, { size: 128 });
+          const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+          return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const a = shot(0.1), b = shot(0.7);
+        let moved = 0;
+        for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) moved++;
+        ok(moved > 30, "the swarm moves as a group over time", moved + " px changed");
+      }
+
+      // Chain is ARTICULATED: the tail lags the head, so raising Lag changes the shape.
+      {
+        const span = (lag) => {
+          applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                        chain: 1, chainSegs: 16, chainSpeed: 2, chainSwing: 90, chainLag: lag,
+                        glow: 0 }, "ch");
+          const r = renderFrames(state, { size: 128 });
+          const d = r.canvases[6].getContext("2d").getImageData(0, 0, 128, 128).data;
+          let x0 = 999, x1 = -1;
+          for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+            if (d[(y * 128 + x) * 4 + 3] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+          }
+          return x1 < 0 ? 0 : x1 - x0;
+        };
+        // With no lag every segment is on one straight line; with lag it curves and spans wider.
+        ok(span(0.18) > span(0) + 2, "lag makes the chain trail behind rather than stay rigid",
+           span(0) + "px → " + span(0.18) + "px");
+      }
+
+      // Impact is TEMPORAL and must not paint the transparent background when Fill frame is off —
+      // otherwise every exported sheet gets an opaque rectangle instead of a hit flash.
+      {
+        applyPreset({ shape: 0, count: 30, opacity: 1, emitter: 0, size: 6, speed: 60,
+                      duration: 0.5, fps: 24, frameSize: 4, glow: 0,
+                      impact: 1, impactLife: 0.09, impactHold: 0.4, impactFill: 0 }, "im");
+        const r = renderFrames(state, { size: 128 });
+        const first = r.canvases[0].getContext("2d").getImageData(0, 0, 128, 128).data;
+        let corners = 0;
+        for (const [x, y] of [[1, 1], [126, 1], [1, 126], [126, 126]]) {
+          if (first[(y * 128 + x) * 4 + 3] > 8) corners++;
+        }
+        ok(corners === 0, "the impact flash stays inside the sprite, not the background",
+           corners + " lit corners");
+        // Measure BRIGHTNESS, not coverage: source-atop paints inside the sprite's existing
+        // alpha, so it changes colour without lighting a single new pixel. And frame 0 is often
+        // empty anyway — particles haven't faded in yet — so compare the early run as a whole.
+        const meanRGB = (cv) => {
+          const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+          let sum = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] > 8) { sum += d[i] + d[i + 1] + d[i + 2]; n++; }
+          }
+          return n ? sum / (n * 3) : 0;
+        };
+        const early = (patch) => {
+          applyPreset(Object.assign({ shape: 0, count: 30, opacity: 1, emitter: 0, size: 6,
+                                      speed: 60, duration: 0.5, fps: 24, frameSize: 4, glow: 0,
+                                      impactLife: 0.09, impactHold: 0.4, impactFill: 0 }, patch), "im2");
+          const rr = renderFrames(state, { size: 128 });
+          return Math.max(meanRGB(rr.canvases[1]), meanRGB(rr.canvases[2]));
+        };
+        const withOut = early({ impact: 0 }), withIt = early({ impact: 1 });
+        ok(withIt > withOut + 8, "the impact flash brightens the opening frames",
+           withOut.toFixed(0) + " → " + withIt.toFixed(0) + " mean RGB");
+      }
+
+      // Weather is a FIELD: it has no origin, so it covers the frame rather than clustering.
+      {
+        applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                      weather: 1, weatherCount: 120, glow: 0 }, "wx");
+        const r = renderFrames(state, { size: 128 });
+        const d = r.canvases[4].getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1, y0 = 999, y1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+        ok(x1 - x0 > 100 && y1 - y0 > 100, "weather fills the whole frame",
+           (x1 - x0) + "×" + (y1 - y0) + " of 128");
+      }
+
+      // Flare is anamorphic — the streak is decisively wider than it is tall.
+      {
+        applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                      flare: 1, flareGhosts: 0, flareLife: 1, glow: 0 }, "fl");
+        const r = renderFrames(state, { size: 128 });
+        const d = r.canvases[2].getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1, y0 = 999, y1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+        ok((x1 - x0) > (y1 - y0) * 3, "the flare streak is anamorphic, not a blob",
+           (x1 - x0) + " wide × " + (y1 - y0) + " tall");
+      }
+      applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
     // ---------------------------------------------------------------- web / rift / haze

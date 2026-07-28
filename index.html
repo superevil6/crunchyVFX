@@ -28,6 +28,9 @@
     <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution">⬇ Export…</button>
     <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
     <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
+    <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder">⤓ Drag out</button>
+    <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">💾 Save project</button>
+    <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -489,6 +492,49 @@ const PARAMS = [
   ["hazeAmount", "Strength",    0.1, 2, 0.05, 0.6, "", "Haze"],
   ["hazeScale",  "Detail",      0.5, 6, 0.1, 2, "",    "Haze"],
   ["hazeSpeed",  "Speed",       0, 4, 0.05, 1, "",     "Haze"],
+
+  // Swarm — a group with shared intent. Bees, spirits, fish, drones.
+  ["swarm",      "Swarm",       0, 1, 0.01, 0, "",     "Swarm"],
+  ["swarmCount", "Agents",      2, 80, 1, 18, "",      "Swarm"],
+  ["swarmSpread","Spread",      0.02, 0.5, 0.01, 0.16, "","Swarm"],
+  ["swarmWander","Wander",      0, 0.4, 0.01, 0.12, "","Swarm"],
+  ["swarmSpeed", "Speed",       0.1, 4, 0.05, 1, "",   "Swarm"],
+  ["swarmSize",  "Agent size",  0.5, 12, 0.5, 3, "px", "Swarm"],
+  ["swarmFlicker","Flicker",    0, 1, 0.01, 0.5, "",   "Swarm"],
+
+  // Chain — segments that follow. Whips, tentacles, tails, tethers.
+  ["chain",      "Chain",       0, 1, 0.01, 0, "",     "Chain"],
+  ["chainSegs",  "Segments",    2, 40, 1, 14, "",      "Chain"],
+  ["chainReach", "Reach",       0.05, 0.8, 0.01, 0.4, "","Chain"],
+  ["chainAngle", "Angle",       0, 360, 1, 300, "°",   "Chain"],
+  ["chainSwing", "Swing",       0, 180, 1, 55, "°",    "Chain"],
+  ["chainSpeed", "Speed",       0, 4, 0.05, 1, "",     "Chain"],
+  ["chainLag",   "Lag",         0, 0.5, 0.01, 0.13, "s","Chain"],
+  ["chainWidth", "Width",       0.5, 16, 0.5, 5, "px", "Chain"],
+  ["chainTaper", "Taper",       0, 1, 0.01, 0.75, "",  "Chain"],
+  ["chainBeads", "Beads",       0, 1.5, 0.05, 0, "",   "Chain"],
+
+  // Impact — a whole-frame hit flash for the first frame or two.
+  ["impact",     "Impact flash",0, 1, 0.01, 0, "",     "Impact"],
+  ["impactLife", "Length",      0.01, 0.4, 0.005, 0.07, "s","Impact"],
+  ["impactHold", "Hold",        0, 0.9, 0.01, 0.35, "","Impact"],
+  ["impactFill", "Fill frame",  0, 1, 1, 0, "",        "Impact"],
+
+  // Weather — a full-frame field that wraps. Rain, snow, ash, motes.
+  ["weather",    "Weather",     0, 1, 0.01, 0, "",     "Weather"],
+  ["weatherCount","Density",    4, 400, 1, 90, "",     "Weather"],
+  ["weatherAngle","Direction",  0, 360, 1, 100, "°",   "Weather"],
+  ["weatherSpeed","Speed",      0.05, 4, 0.05, 1.2, "","Weather"],
+  ["weatherLength","Streak",    0, 0.4, 0.005, 0.09, "","Weather"],
+  ["weatherSize","Size",        0.3, 6, 0.1, 1.2, "px","Weather"],
+  ["weatherSway","Sway",        0, 0.1, 0.002, 0, "",  "Weather"],
+
+  // Flare — an anamorphic lens flare with ghosts.
+  ["flare",      "Lens flare",  0, 1, 0.01, 0, "",     "Flare"],
+  ["flareLength","Streak",      0.1, 2, 0.01, 0.9, "", "Flare"],
+  ["flareWidth", "Thickness",   1, 40, 0.5, 7, "px",   "Flare"],
+  ["flareGhosts","Ghosts",      0, 8, 1, 3, "",        "Flare"],
+  ["flareLife",  "Length",      0.05, 2, 0.01, 0.4, "s","Flare"],
   // Glitch — banded displacement + RGB split. Digital corruption, damage, teleport interference.
   ["glitch",     "Glitch",      0, 1, 0.01, 0, "",     "Glitch"],
   ["glitchSlices","Bands",      1, 24, 1, 6, "",       "Glitch"],
@@ -1716,6 +1762,11 @@ const LAYER_GROUPS = [
   { g: "Web",         is: () => state.web > 0,        on: () => { state.web = 1; } },
   { g: "Rift",        is: () => state.rift > 0,       on: () => { state.rift = 1; } },
   { g: "Haze",        is: () => state.haze > 0,       on: () => { state.haze = 1; } },
+  { g: "Swarm",       is: () => state.swarm > 0,      on: () => { state.swarm = 1; } },
+  { g: "Chain",       is: () => state.chain > 0,      on: () => { state.chain = 1; } },
+  { g: "Impact",      is: () => state.impact > 0,     on: () => { state.impact = 1; } },
+  { g: "Weather",     is: () => state.weather > 0,    on: () => { state.weather = 1; } },
+  { g: "Flare",       is: () => state.flare > 0,      on: () => { state.flare = 1; } },
   { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
 ];
 // The inverse of the "＋ Growth" chip. Deriving it from PARAMS rather than hand-writing 24 `off`
@@ -1864,15 +1915,18 @@ function updateUndoRedoUI() {
 
 // ---------- Shape picker (hero section) ----------
 const SHAPE_CATS = [
-  ["Soft",   ["glow", "smoke", "blob", "flame", "bubble", "cloud", "splash", "wave"]],
+  ["Soft",   ["glow", "smoke", "blob", "flame", "bubble", "cloud", "splash", "wave", "specks", "puddle"]],
   ["Sharp",  ["spark", "pixel", "shard", "star", "cross", "diamond", "arrow",
               "triangle", "claw", "shuriken", "spike", "starburst", "frame", "crack", "reticle",
-              "cube"]],
+              "cube", "sword", "boom", "rock", "casing", "rift", "boost", "axe", "jaws",
+              "hammer"]],
   ["Formed", ["ring", "crescent", "spiral", "bolt", "teardrop", "snowflake", "heart",
               "flower", "leaf", "hexagon", "gear", "plus", "gem",
               "skull", "feather", "coin", "comma", "butterfly", "eye", "mushroom", "shield",
-              "ribbon", "bone", "paw", "ghost", "wing", "hourglass", "key", "flask", "atom"]],
-  ["Symbol", ["glyph", "note", "rune"]],
+              "ribbon", "bone", "paw", "ghost", "wing", "hourglass", "key", "flask", "atom",
+              "crown", "chain", "sun", "clover", "bird", "bomb", "magnet", "planet", "tornado",
+              "scroll", "sprout", "web", "lock", "egg", "heartbreak", "candy"]],
+  ["Symbol", ["glyph", "note", "rune", "hazard", "pentagram"]],
   // "custom" and "image" were implemented — the drawing grid, the PNG import with animated-strip
   // support, both covered by the suite — but listed in no category, so the picker never built a
   // button for them and no preset selected them. Fully working features with no door in.
@@ -2412,7 +2466,9 @@ const RAND_KEYS = ["count", "emitAngle", "emitSpread", "emitRadius", "emitTime",
 const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18,
                        19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
                        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
-                       47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58];
+                       47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+                       59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
+                       76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87];
 function randomize() {
   for (const p of PARAMS) state[p[0]] = p[5];
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
@@ -2669,6 +2725,169 @@ function framesAtScale(mult) {
   if (mult === 1) return outputCanvases();
   const r = renderFrames(state, { size: Math.round(rendered.w * mult), fit: fitOn, sim: rendered.sim });
   return compositeRef(r.canvases);
+}
+
+// ---------- Project files (DESKTOP ONLY) ----------
+// A .crunchyvfx file is the whole workspace as portable JSON: the effect in the editor, the My
+// Effects library and your categories. localStorage is per-machine and one "clear site data" from
+// gone; a project file is something you can back up, move between machines, or commit next to the
+// game it belongs to.
+//
+// Deliberately plain JSON, not a binary container: it should stay diffable and hand-editable, and
+// an effect is a few dozen numbers.
+const PROJECT_VERSION = 1;
+
+function buildProject() {
+  return {
+    app: "crunchyvfx",
+    version: PROJECT_VERSION,
+    saved: new Date().toISOString(),
+    label: effectLabel,
+    editor: snapshotState(),
+    userEffects: userEffects,
+    userCats: userCats,
+  };
+}
+
+function loadProject(d) {
+  if (!d || d.app !== "crunchyvfx") throw new Error("not a CrunchyVFX project file");
+  // Forward-compatible rather than strict: a newer file may carry keys this build ignores, which
+  // is better than refusing to open the user's own work.
+  if (d.editor) {
+    restoreEdit(d.editor);
+    effectLabel = d.label || "effect";
+  }
+  if (Array.isArray(d.userEffects)) {
+    userEffects = d.userEffects;
+    upSeq = userEffects.reduce((n, e) => Math.max(n, e.id || 0), 0);
+    saveUserEffects();
+  }
+  if (Array.isArray(d.userCats)) {
+    userCats = d.userCats;
+    ucSeq = userCats.reduce((n, c) => Math.max(n, c.id || 0), 0);
+    saveUserCats();
+  }
+  renderMyEffects();
+  syncUI();
+  rerender();
+}
+
+async function saveProject() {
+  const T = window.__TAURI__;
+  if (!(T && T.dialog && T.fs)) { msg.textContent = "Projects are a desktop-app feature."; return; }
+  try {
+    const path = await T.dialog.save({
+      defaultPath: sanitize(effectLabel) + ".crunchyvfx",
+      filters: [{ name: "CrunchyVFX project", extensions: ["crunchyvfx"] }],
+    });
+    if (!path) return;                                   // cancelled
+    const bytes = new TextEncoder().encode(JSON.stringify(buildProject(), null, 2));
+    await T.fs.writeFile(path, bytes);
+    msg.textContent = "Saved project (" + userEffects.length + " saved effect" +
+                      (userEffects.length === 1 ? "" : "s") + ")";
+  } catch (e) {
+    console.warn("crunchyvfx: save project failed —", e);
+    msg.textContent = "Could not save the project: " + e.message;
+  }
+}
+
+async function openProject() {
+  const T = window.__TAURI__;
+  if (!(T && T.dialog && T.fs)) { msg.textContent = "Projects are a desktop-app feature."; return; }
+  let path;
+  try {
+    path = await T.dialog.open({ filters: [{ name: "CrunchyVFX project", extensions: ["crunchyvfx"] }] });
+  } catch (e) {
+    console.warn("crunchyvfx: open dialog failed —", e);
+    msg.textContent = "Could not open the file picker: " + e.message;
+    return;
+  }
+  if (!path) return;                                     // cancelled
+  try {
+    const bytes = await T.fs.readFile(path);
+    loadProject(JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))));
+    msg.textContent = "Opened project — " + userEffects.length + " effect" +
+                      (userEffects.length === 1 ? "" : "s") + " in the library";
+  } catch (e) {
+    console.warn("crunchyvfx: open project failed —", e);
+    msg.textContent = "Could not open that project: " + e.message;
+  }
+}
+
+// ---------- Drag-out (DESKTOP ONLY) ----------
+// Drag the finished sheet straight into Godot, Unity, Aseprite or a file manager. This is the
+// clearest example of why the desktop build exists: a browser cannot hand a file to another
+// application, so the web flow is necessarily save → find in Downloads → drag → delete.
+//
+// Needs the native tauri-plugin-drag; the browser's DownloadURL trick does nothing in WebKitGTK.
+// There's no bundler here, so the plugin command is invoked DIRECTLY rather than via its JS
+// bindings. The arg shape { item: [paths], image, onEvent } matches tauri-plugin-drag v2: DragItem
+// is an UNTAGGED enum whose file variant is a bare array of paths (NOT { files: [...] }), and
+// start_drag also requires an onEvent Channel. If a plugin update changes this, the console error
+// on drag names the mismatch.
+async function tempFilePath(name) {
+  const dir = await window.__TAURI__.path.tempDir();
+  return dir.replace(/[\/\\]+$/, "") + "/" + name;
+}
+
+// The cursor image for the drag. CrunchySFX ships a 1x1 placeholder because a waveform makes a
+// poor thumbnail; here the sprite IS the thumbnail, so use the current frame — you can see what
+// you're dragging.
+async function dragThumbPath() {
+  const src = rendered && rendered.canvases[frameIdx];
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 128;
+  if (src) {
+    const g = cv.getContext("2d");
+    const k = Math.min(128 / src.width, 128 / src.height);
+    const w = src.width * k, h = src.height * k;
+    g.drawImage(src, (128 - w) / 2, (128 - h) / 2, w, h);
+  }
+  const blob = await canvasBlob(cv);
+  const p = await tempFilePath("crunchyvfx-drag.png");
+  await window.__TAURI__.fs.writeFile(p, new Uint8Array(await blob.arrayBuffer()));
+  releaseCanvas(cv);
+  return p;
+}
+
+async function dragOutSheet() {
+  const T = window.__TAURI__;
+  if (!(T && T.core && T.fs && T.path)) { console.warn("crunchyvfx: drag-out is desktop-only"); return; }
+  if (!rendered) return;
+  try {
+    const base = sanitize(effectLabel);
+    const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
+    const blob = await canvasBlob(sh.cv);
+    // Guard against handing over a blank sheet: if the preview canvases were ever released out
+    // from under us, the drag would "succeed" and drop an empty PNG, which reads as the receiving
+    // application being broken. Fail loudly here instead.
+    if (!sh.cv.width || !sh.cv.height || blob.size < 100) {
+      releaseCanvas(sh.cv);
+      msg.textContent = "Nothing to drag — the preview is empty. Re-render and try again.";
+      return;
+    }
+    const pngPath = await tempFilePath(base + ".png");
+    await T.fs.writeFile(pngPath, new Uint8Array(await blob.arrayBuffer()));
+    const items = [pngPath];
+    // Carry the sidecar too, so dropping into Godot lands the .tres beside its texture rather
+    // than a bare PNG you then have to describe by hand.
+    if (expMetaSel.value !== "none") {
+      const ext = expMetaSel.value === "godot" ? ".tres" : ".json";
+      const metaPath = await tempFilePath(base + ext);
+      await T.fs.writeFile(metaPath, new TextEncoder().encode(
+        sidecarFor(expMetaSel.value, sh, base, rendered.fps)));
+      items.push(metaPath);
+    }
+    releaseCanvas(sh.cv);
+    const onEvent = new T.core.Channel();
+    onEvent.onmessage = (m) => console.debug("crunchyvfx: drag", m);
+    await T.core.invoke("plugin:drag|start_drag",
+                        { item: items, image: await dragThumbPath(), onEvent: onEvent });
+    msg.textContent = "Dragging " + items.length + " file" + (items.length > 1 ? "s" : "");
+  } catch (e) {
+    console.warn("crunchyvfx: drag-out failed —", e);
+    msg.textContent = "Drag-out failed — see console";
+  }
 }
 
 // ---------- Streaming export ----------
@@ -3201,7 +3420,11 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
       } else {
         await streamFrameFiles(mult, opts, base + suffix, files);
       }
-      if (frames) for (const cv of frames) releaseCanvas(cv);
+      // Release ONLY frames this export created. At 1x with no reference image, framesAtScale()
+      // returns the live preview canvases themselves rather than copies — releasing those blanks
+      // the stage and makes every later buildSheet() produce an empty sheet, with no error
+      // anywhere. That is a silent, delayed failure, so the identity check matters.
+      if (frames && frames !== rendered.canvases) for (const cv of frames) releaseCanvas(cv);
       // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
       // (same engine, same encoder), so what you drop into an engine is a matched pair rather
       // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
@@ -4247,6 +4470,20 @@ renderMyEffects();   // also renders the categories
 updateLockBtn();
 updateHoldUI();
 syncUI();
+
+// ---------- Desktop IO wiring ----------
+{
+  const ps = document.getElementById("projSave"), po = document.getElementById("projOpen");
+  if (ps && isDesktop) ps.addEventListener("click", saveProject);
+  if (po && isDesktop) po.addEventListener("click", openProject);
+  const db = document.getElementById("dragOut");
+  if (db && isDesktop) {
+    db.addEventListener("dragstart", (e) => { e.preventDefault(); dragOutSheet(); });
+    db.addEventListener("click", () => {
+      msg.textContent = "Drag this button into your engine or a folder — don't click it";
+    });
+  }
+}
 
 // ---------- Apply the desktop gate ----------
 // Anything carrying data-desktop simply isn't there on the web, rather than being visible and

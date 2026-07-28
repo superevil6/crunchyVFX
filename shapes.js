@@ -1067,6 +1067,531 @@ const SHAPE_DEFS = [
       g.restore();
     },
   },
+  // ---- 59 sword — melee hits, weapon drops, crit flashes. Angled on purpose: drawn upright it
+  // reads as a `plus` with a long arm, and the tilt is what says "blade".
+  {
+    name: "sword",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(0.6);
+      g.beginPath();                                                  // blade, tapered to a point
+      g.moveTo(0, -(R - 1));
+      g.lineTo(R * 0.17, -R * 0.58);
+      g.lineTo(R * 0.17, R * 0.2);
+      g.lineTo(-R * 0.17, R * 0.2);
+      g.lineTo(-R * 0.17, -R * 0.58);
+      g.closePath(); g.fill();
+      g.fillRect(-R * 0.6, R * 0.2, R * 1.2, R * 0.18);               // crossguard
+      g.fillRect(-R * 0.1, R * 0.38, R * 0.2, R * 0.42);              // grip
+      g.beginPath(); g.arc(0, R * 0.8, R * 0.15, 0, Math.PI * 2); g.fill();   // pommel
+      g.restore();
+    },
+  },
+  // ---- 60 crown — victory, level-up, royalty, boss kills.
+  {
+    name: "crown",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R * 1.16);
+      g.beginPath();
+      g.moveTo(-R * 0.9, R * 0.65);
+      g.lineTo(-R * 0.9, -R * 0.72);
+      g.lineTo(-R * 0.45, -R * 0.06);                                 // valley
+      g.lineTo(0, -R * 0.98);                                         // centre point
+      g.lineTo(R * 0.45, -R * 0.06);
+      g.lineTo(R * 0.9, -R * 0.72);
+      g.lineTo(R * 0.9, R * 0.65);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";                 // band, cut not drawn
+      g.fillRect(-R * 0.9, R * 0.2, R * 1.8, R * 0.11);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 61 chain — binds, roots, tethers, broken shackles.
+  {
+    name: "chain",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(-0.6);
+      g.lineWidth = Math.max(1.5, R * 0.18);
+      for (const s of [-1, 1]) {                                      // two interlocking links
+        g.beginPath();
+        g.ellipse(0, s * R * 0.4, R * 0.32, R * 0.46, 0, 0, Math.PI * 2);
+        g.stroke();
+      }
+      g.restore();
+    },
+  },
+  // ---- 62 sun — holy, light, heat, daybreak. `starburst` is rays alone; the disc is what makes
+  // this read as a sun rather than a flare.
+  {
+    name: "sun",
+    draw(g, R, st, frame) {
+      const rays = 8;
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < rays; i++) {
+        g.save(); g.rotate((i / rays) * Math.PI * 2);
+        g.beginPath();
+        g.moveTo(-R * 0.13, -R * 0.55); g.lineTo(R * 0.13, -R * 0.55); g.lineTo(0, -(R - 1));
+        g.closePath(); g.fill();
+        g.restore();
+      }
+      g.beginPath(); g.arc(0, 0, R * 0.5, 0, Math.PI * 2); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 63 clover — luck, nature pickups, crit fortune.
+  {
+    name: "clover",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R * 0.9);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        g.beginPath();
+        g.ellipse(Math.cos(a) * R * 0.42, Math.sin(a) * R * 0.42, R * 0.36, R * 0.42, a, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalCompositeOperation = "destination-out";                 // gaps between the leaves —
+      g.lineWidth = Math.max(1, R * 0.08);                            // without them it is a blob
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        g.beginPath();
+        g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * 0.95, Math.sin(a) * R * 0.95);
+        g.stroke();
+      }
+      g.globalCompositeOperation = "source-over";
+      g.lineWidth = Math.max(1, R * 0.1); g.lineCap = "round";        // stem
+      g.beginPath();
+      g.moveTo(0, R * 0.5); g.quadraticCurveTo(R * 0.16, R * 0.8, R * 0.05, R * 0.95);
+      g.stroke();
+      g.restore();
+    },
+  },
+  // ---- 64 bird — flocks, distant wings, wind. Two strokes, and it still reads at 6px, which is
+  // more than the detailed birds managed.
+  {
+    name: "bird",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      g.lineWidth = Math.max(1.5, R * 0.16); g.lineCap = "round";
+      g.beginPath();
+      g.moveTo(-(R - 2), R * 0.28);
+      g.quadraticCurveTo(-R * 0.5, -R * 0.62, 0, R * 0.05);
+      g.quadraticCurveTo(R * 0.5, -R * 0.62, R - 2, R * 0.28);
+      g.stroke();
+      g.restore();
+    },
+  },
+  // ---- 65 bomb — explosives, fuses, countdowns.
+  {
+    name: "bomb",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      g.beginPath(); g.arc(0, R * 0.33, R * 0.62, 0, Math.PI * 2); g.fill();   // body
+      g.fillRect(-R * 0.18, -R * 0.5, R * 0.36, R * 0.24);                     // neck
+      g.lineWidth = Math.max(1.2, R * 0.1); g.lineCap = "round";
+      g.beginPath();                                                            // fuse
+      g.moveTo(0, -R * 0.5);
+      g.quadraticCurveTo(R * 0.55, -R * 0.6, R * 0.4, -R * 0.78);
+      g.stroke();
+      g.beginPath(); g.arc(R * 0.4, -R * 0.78, R * 0.13, 0, Math.PI * 2); g.fill();   // lit spark
+      g.restore();
+    },
+  },
+  // ---- 66 boom — the comic-book bang. Irregular on purpose: `star` is regular and reads as a
+  // symbol, and it is the uneven spikes that read as an explosion.
+  {
+    name: "boom",
+    draw(g, R, st, frame) {
+      const pts = 11;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i < pts * 2; i++) {
+        const a = (i / (pts * 2)) * Math.PI * 2 - Math.PI / 2;
+        const r = (i % 2 ? 0.42 + rnd(918, i, 1) * 0.16 : 0.82 + rnd(918, i, 2) * 0.16) * R;
+        g[i ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r);
+      }
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 67 rock — rubble, debris, ground breaks. `shard` is a regular polygon; this one has
+  // uneven radii and a squashed base, so it sits rather than floats.
+  {
+    name: "rock",
+    draw(g, R, st, frame) {
+      const sides = 9;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const a = (i / sides) * Math.PI * 2;
+        const flat = Math.sin(a) > 0.5 ? 0.74 : 1;
+        const r = (0.74 + rnd(2255, i, 1) * 0.24) * R * flat;
+        g[i ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r * 0.9);
+      }
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 68 magnet — pulls, vacuums, tractor beams. The notch across each leg is what turns a
+  // plain horseshoe into poles.
+  {
+    name: "magnet",
+    draw(g, R, st, frame) {
+      const lw = R * 0.32, arm = R * 0.58;
+      g.save(); g.translate(R, R * 0.96);
+      g.lineWidth = lw; g.lineCap = "butt";
+      g.beginPath(); g.arc(0, 0, arm, Math.PI, 0); g.stroke();        // the arch, opening down
+      g.fillRect(-arm - lw / 2, 0, lw, R * 0.8);                      // legs
+      g.fillRect(arm - lw / 2, 0, lw, R * 0.8);
+      g.globalCompositeOperation = "destination-out";
+      g.fillRect(-arm - lw / 2, R * 0.52, lw, R * 0.09);
+      g.fillRect(arm - lw / 2, R * 0.52, lw, R * 0.09);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 69 hazard — toxic, radiation, contamination. Three wedges round a bored hub.
+  {
+    name: "hazard",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < 3; i++) {
+        g.save(); g.rotate((i / 3) * Math.PI * 2);
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.arc(0, 0, R - 1, -Math.PI / 2 - 0.52, -Math.PI / 2 + 0.52);
+        g.closePath(); g.fill();
+        g.restore();
+      }
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(0, 0, R * 0.3, 0, Math.PI * 2); g.fill();
+      g.globalCompositeOperation = "source-over";
+      g.beginPath(); g.arc(0, 0, R * 0.17, 0, Math.PI * 2); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 70 pentagram — summoning seals, curses, ritual magic. `rune` is a carved mark; this is
+  // the circle it gets carved into.
+  {
+    name: "pentagram",
+    draw(g, R, st, frame) {
+      const lw = Math.max(1.2, R * 0.1), rr = R - 1 - lw / 2;
+      g.save(); g.translate(R, R);
+      g.lineWidth = lw; g.lineJoin = "round";
+      g.beginPath();
+      for (let i = 0; i <= 5; i++) {                                  // every 2nd vertex — a star
+        const a = (((i * 2) % 5) / 5) * Math.PI * 2 - Math.PI / 2;
+        g[i ? "lineTo" : "moveTo"](Math.cos(a) * rr * 0.78, Math.sin(a) * rr * 0.78);
+      }
+      g.closePath(); g.stroke();
+      g.beginPath(); g.arc(0, 0, rr, 0, Math.PI * 2); g.stroke();
+      g.restore();
+    },
+  },
+  // ---- 71 planet — space, sci-fi, orbital drops.
+  {
+    name: "planet",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(-0.32);
+      g.beginPath(); g.arc(0, 0, R * 0.56, 0, Math.PI * 2); g.fill();
+      g.lineWidth = Math.max(1.2, R * 0.13);
+      g.beginPath(); g.ellipse(0, 0, R * 0.9, R * 0.34, 0, 0, Math.PI * 2); g.stroke();
+      g.restore();
+    },
+  },
+  // ---- 72 tornado — wind, vortexes, whirlwinds. The cut bands are what give a plain funnel its
+  // spin; without them it is just a wedge.
+  {
+    name: "tornado",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(-(R - 1), -R * 0.86);
+      g.quadraticCurveTo(-R * 0.2, -R * 0.2, -R * 0.2, R * 0.9);
+      g.lineTo(R * 0.12, R * 0.9);
+      g.quadraticCurveTo(R * 0.2, -R * 0.3, R - 1, -R * 0.86);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = Math.max(1, R * 0.09);
+      for (let i = 0; i < 3; i++) {
+        const y = -R * 0.5 + i * R * 0.45, w = R * (0.72 - i * 0.22);
+        g.beginPath();
+        g.moveTo(-w, y); g.quadraticCurveTo(0, y + R * 0.22, w, y);
+        g.stroke();
+      }
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 73 scroll — quests, loot, spell learns.
+  {
+    name: "scroll",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      g.fillRect(-R * 0.62, -R * 0.72, R * 1.24, R * 1.44);           // the sheet
+      for (const s of [-1, 1]) {                                      // rolled ends
+        g.beginPath();
+        g.ellipse(s * R * 0.62, 0, R * 0.26, R * 0.9, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalCompositeOperation = "destination-out";                 // ruled lines
+      g.lineWidth = Math.max(1, R * 0.09);
+      for (let i = -1; i <= 1; i++) {
+        g.beginPath();
+        g.moveTo(-R * 0.34, i * R * 0.34); g.lineTo(R * 0.34, i * R * 0.34);
+        g.stroke();
+      }
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 74 sprout — growth, healing, spring. `leaf` is one leaf falling; this one is planted.
+  {
+    name: "sprout",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R * 1.1);
+      g.lineWidth = Math.max(1.2, R * 0.13); g.lineCap = "round";
+      g.beginPath(); g.moveTo(0, R * 0.85); g.lineTo(0, -R * 0.5); g.stroke();
+      for (const s of [-1, 1]) {
+        g.beginPath();
+        g.moveTo(0, -R * 0.12);
+        g.quadraticCurveTo(s * R * 0.98, -R * 0.44, s * R * 0.58, -R);
+        g.quadraticCurveTo(s * R * 0.34, -R * 0.52, 0, -R * 0.12);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+    },
+  },
+  // ---- 75 specks — dust, motes, grit. One particle that is already a cluster, which is how you
+  // get a dense scatter without paying for ten times the particles.
+  {
+    name: "specks",
+    draw(g, R, st, frame) {
+      const n = 9;
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < n; i++) {
+        const a = rnd(7714, i, 1) * Math.PI * 2;
+        const d = Math.sqrt(rnd(7714, i, 2)) * R * 0.78;   // sqrt spreads them evenly over the disc
+        const r = R * (0.08 + rnd(7714, i, 3) * 0.11);
+        g.beginPath(); g.arc(Math.cos(a) * d, Math.sin(a) * d, r, 0, Math.PI * 2); g.fill();
+      }
+      g.restore();
+    },
+  },
+  // ---- 76 casing — spent brass. Shooters throw a lot of these, and nothing else in the set
+  // ejects like one: `pixel` is too plain and `gem` too precious.
+  {
+    name: "casing",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(0.5);
+      g.beginPath();
+      g.moveTo(-R * 0.22, -R * 0.82);
+      g.quadraticCurveTo(0, -R * 0.94, R * 0.22, -R * 0.82);          // rounded mouth
+      g.lineTo(R * 0.22, R * 0.66);
+      g.lineTo(-R * 0.22, R * 0.66);
+      g.closePath(); g.fill();
+      g.fillRect(-R * 0.29, R * 0.6, R * 0.58, R * 0.24);             // rim
+      g.globalCompositeOperation = "destination-out";                 // extractor groove
+      g.fillRect(-R * 0.29, R * 0.54, R * 0.58, R * 0.06);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 77 web — snares, nets, spider hits. Anchored at a corner rather than centred: a web
+  // reads as something strung ACROSS a space, and a centred one just looks like a wheel.
+  {
+    name: "web",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R * 0.12, R * 0.12);
+      g.lineWidth = Math.max(1, R * 0.08);
+      for (let i = 0; i <= 4; i++) {                                  // radial spokes
+        const a = (i / 4) * (Math.PI / 2);
+        g.beginPath();
+        g.moveTo(0, 0); g.lineTo(Math.cos(a) * R * 1.82, Math.sin(a) * R * 1.82);
+        g.stroke();
+      }
+      for (let r = 1; r <= 3; r++) {                                  // strands
+        g.beginPath(); g.arc(0, 0, r * R * 0.58, 0, Math.PI / 2); g.stroke();
+      }
+      g.restore();
+    },
+  },
+  // ---- 78 rift — teleports, portals, dimensional tears. The edges are jagged on purpose: a
+  // smooth lens is `eye` without its pupil, and it is the raggedness that reads as torn.
+  {
+    name: "rift",
+    draw(g, R, st, frame) {
+      // Every other vertex pulls hard back toward the centreline. Random widths alone came out
+      // smooth and read as `egg`; it is the alternation that makes an edge look torn.
+      const N = 9;
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        const w = Math.sin(t * Math.PI) * R * 0.5 * (i % 2 ? 0.3 : 1) * (0.7 + rnd(3312, i, 1) * 0.5);
+        g[i ? "lineTo" : "moveTo"](w, (t - 0.5) * 2 * (R - 1));
+      }
+      for (let i = N; i >= 0; i--) {
+        const t = i / N;
+        const w = Math.sin(t * Math.PI) * R * 0.5 * (i % 2 ? 1 : 0.3) * (0.7 + rnd(3312, i, 2) * 0.5);
+        g.lineTo(-w, (t - 0.5) * 2 * (R - 1));
+      }
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 79 lock — sealed doors, locked chests. The other half of `key`.
+  {
+    name: "lock",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R * 1.08);
+      g.lineWidth = Math.max(1.5, R * 0.2);
+      g.beginPath(); g.arc(0, -R * 0.36, R * 0.42, Math.PI, 0); g.stroke();   // shackle
+      g.fillRect(-R * 0.7, -R * 0.36, R * 1.4, R * 1.06);                     // body
+      g.globalCompositeOperation = "destination-out";                         // keyhole
+      g.beginPath(); g.arc(0, R * 0.1, R * 0.16, 0, Math.PI * 2); g.fill();
+      g.fillRect(-R * 0.07, R * 0.1, R * 0.14, R * 0.34);
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 80 egg — spawns, hatches, nests. Narrow at the top and fat at the bottom, which is the
+  // only thing separating it from `bubble` once both are white masks.
+  {
+    name: "egg",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      g.beginPath();
+      g.moveTo(0, -(R - 1));
+      g.bezierCurveTo(R * 0.72, -R * 0.72, R * 0.78, R * 0.34, 0, R - 1);
+      g.bezierCurveTo(-R * 0.78, R * 0.34, -R * 0.72, -R * 0.72, 0, -(R - 1));
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 81 heartbreak — damage taken, lost lives, lost love. `heart`'s own path, split down the
+  // middle by a jagged cut rather than drawn twice, so the two halves always match.
+  {
+    name: "heartbreak",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R * 0.86); g.scale(R / 16, R / 16);
+      g.beginPath();
+      g.moveTo(0, 13);
+      g.bezierCurveTo(-14, 2, -14, -9, -6.5, -9);
+      g.bezierCurveTo(-2, -9, 0, -5.5, 0, -5.5);
+      g.bezierCurveTo(0, -5.5, 2, -9, 6.5, -9);
+      g.bezierCurveTo(14, -9, 14, 2, 0, 13);
+      g.closePath(); g.fill();
+      g.globalCompositeOperation = "destination-out";
+      g.lineWidth = 1.7;
+      g.beginPath();
+      g.moveTo(0, -6); g.lineTo(2.4, -2.4); g.lineTo(-1.8, 2.2); g.lineTo(1.6, 6.4);
+      g.lineTo(-0.6, 9.4); g.lineTo(0.6, 13.4);
+      g.stroke();
+      g.globalCompositeOperation = "source-over";
+      g.restore();
+    },
+  },
+  // ---- 82 candy — sweets, cute pickups, party effects.
+  {
+    name: "candy",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(-0.35);
+      g.beginPath(); g.ellipse(0, 0, R * 0.42, R * 0.38, 0, 0, Math.PI * 2); g.fill();
+      for (const s of [-1, 1]) {                                      // wrapper twists
+        g.beginPath();
+        g.moveTo(s * R * 0.36, 0);
+        g.lineTo(s * R * 0.88, -R * 0.38);
+        g.lineTo(s * R * 0.76, 0);
+        g.lineTo(s * R * 0.88, R * 0.38);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+    },
+  },
+  // ---- 83 boost — speed lines, dashes, buff arrows. A double chevron, which reads as motion
+  // where the single `arrow` reads as a direction.
+  {
+    name: "boost",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R);
+      for (let i = 0; i < 2; i++) {
+        const y = -R * 0.5 + i * R * 0.62;
+        g.beginPath();
+        g.moveTo(-R * 0.8, y + R * 0.34);
+        g.lineTo(0, y - R * 0.3);
+        g.lineTo(R * 0.8, y + R * 0.34);
+        g.lineTo(R * 0.8, y + R * 0.62);
+        g.lineTo(0, y);
+        g.lineTo(-R * 0.8, y + R * 0.62);
+        g.closePath(); g.fill();
+      }
+      g.restore();
+    },
+  },
+  // ---- 84 axe — heavy melee, chops, lumber. The bit is concave where `sword`'s edge is straight.
+  {
+    name: "axe",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(0.35);
+      g.fillRect(-R * 0.1, -R * 0.5, R * 0.2, R * 1.4);               // haft
+      g.beginPath();                                                  // head
+      g.moveTo(-R * 0.08, -R * 0.84);
+      g.quadraticCurveTo(R * 0.6, -R * 0.86, R * 0.5, -R * 0.12);
+      g.quadraticCurveTo(R * 0.24, -R * 0.36, -R * 0.08, -R * 0.3);
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 85 jaws — bites, maws, monster hits. Two toothed arcs facing each other; the gap between
+  // them is what reads as a bite rather than a gear.
+  {
+    name: "jaws",
+    draw(g, R, st, frame) {
+      const a0 = Math.PI * 0.14, a1 = Math.PI * 0.86, N = 8;
+      g.save(); g.translate(R, R);
+      for (const s of [-1, 1]) {
+        g.beginPath();
+        for (let i = 0; i <= N; i++) {                                // outer arc
+          const a = a0 + (i / N) * (a1 - a0);
+          g[i ? "lineTo" : "moveTo"](Math.cos(a) * R * 0.92, s * Math.sin(a) * R * 0.92);
+        }
+        for (let i = N; i >= 0; i--) {                                // back along the teeth
+          const a = a0 + (i / N) * (a1 - a0);
+          const rr = (i % 2 ? 0.4 : 0.66) * R;
+          g.lineTo(Math.cos(a) * rr, s * Math.sin(a) * rr);
+        }
+        g.closePath(); g.fill();
+      }
+      g.restore();
+    },
+  },
+  // ---- 86 puddle — ground decals, spills, blood pools. `splash` is the crown going up; this is
+  // what it leaves behind, squashed flat so it sits on the floor plane.
+  {
+    name: "puddle",
+    draw(g, R, st, frame) {
+      const n = 11;
+      g.save(); g.translate(R, R * 1.05);
+      g.beginPath();
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const r = (0.78 + rnd(5150, i, 1) * 0.2) * R;
+        g[i ? "lineTo" : "moveTo"](Math.cos(a) * r, Math.sin(a) * r * 0.42);
+      }
+      g.closePath(); g.fill();
+      g.restore();
+    },
+  },
+  // ---- 87 hammer — smithing, blunt impacts, ground pounds.
+  {
+    name: "hammer",
+    draw(g, R, st, frame) {
+      g.save(); g.translate(R, R); g.rotate(0.4);
+      g.fillRect(-R * 0.54, -R * 0.78, R * 1.08, R * 0.48);           // head
+      g.fillRect(-R * 0.12, -R * 0.36, R * 0.24, R * 1.26);           // handle
+      g.restore();
+    },
+  },
 ];
 
 // The patch format stores `shape` as an index into this list — see the APPEND ONLY note.

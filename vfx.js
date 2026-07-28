@@ -564,14 +564,17 @@ function drawFrame(sim, f, g, st, xf) {
   g.globalCompositeOperation = st.blend === 1 ? "source-over" : (st.blend === 2 ? "screen" : "lighter");
   const shape = Math.round(st.shape);
   const trail = st.trail;
+  // Function-scoped because the optical passes at the bottom need them too.
+  const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
+  const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
   // Structure layers draw first, so sparks and debris land on top of the beam/growth rather than
   // behind it. They share the blend mode, so an additive patch gets an additive beam.
   {
-    const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
-    const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
     drawGrowth(g, st, t, xf, fs, ox, oy, seed);
     drawVortex(g, st, t, xf, fs, ox, oy);
+    drawWeather(g, st, t, xf, fs, ox, oy, seed);
     drawSigil(g, st, t, xf, fs, ox, oy, seed);
+    drawChain(g, st, t, xf, fs, ox, oy, seed);
     drawBeam(g, st, t, xf, fs, ox, oy, seed);
     drawRibbon(g, st, t, xf, fs, ox, oy);
     drawArc(g, st, t, xf, fs, ox, oy, seed);
@@ -582,6 +585,7 @@ function drawFrame(sim, f, g, st, xf) {
     drawTumble(g, st, t, xf, fs, ox, oy, seed);
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
+    drawSwarm(g, st, t, xf, fs, ox, oy, seed);
     // Orbit draws LAST of the structure layers: its whole point is that things pass in front of
     // the subject, so it has to sit above the beam/growth it is orbiting.
     drawOrbit(g, st, t, xf, fs, ox, oy, seed);
@@ -638,6 +642,12 @@ function drawFrame(sim, f, g, st, xf) {
   }
   g.globalAlpha = 1;
   g.globalCompositeOperation = "source-over";
+  // Optical passes run AFTER the particles, not with the structure layers. The impact flash uses
+  // source-atop so it only brightens pixels that already exist — drawn before the particles it
+  // composited onto an empty canvas and did nothing at all, silently. A flare is likewise a
+  // property of the lens and belongs on top of everything it is reacting to.
+  drawFlare(g, st, t, xf, fs, ox, oy, seed);
+  drawImpact(g, st, t, xf);
 }
 
 function drawRays(g, x, y, sz, st, hue, a) {
@@ -1012,6 +1022,213 @@ function drawRipples(g, st, t, xf, fs, ox, oy) {
     g.beginPath();
     g.arc(0, 0, r, 0, Math.PI * 2);
     g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- swarm ----------
+// A cloud of agents that move together — bees, spirits, fish, drones. Every other layer either
+// draws one object or draws particles that ignore each other; this reads as a GROUP with a shared
+// intent, which is a motion model the set didn't have.
+//
+// Honest about what it is: not true boids. Boids need integration over time, and every generator
+// here is a pure function of t so any frame can be drawn on its own (which is what makes Fit,
+// scrubbing and streamed export work). Instead each agent orbits a shared wandering lead point at
+// its own hashed radius, rate and phase. It reads as flocking because the members share a
+// destination while never quite agreeing on the path — which is what flocking actually looks like.
+function drawSwarm(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.swarm <= 0) return;
+  const n = Math.max(2, Math.round(st.swarmCount));
+  const R = st.swarmSpread * fs * xf.k;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.35);
+  // The shared lead point: a slow lissajous, so the whole group drifts as one.
+  const lead = st.swarmWander * fs * xf.k;
+  const lx = ox + Math.sin(t * st.swarmSpeed * 0.7) * lead;
+  const ly = oy + Math.cos(t * st.swarmSpeed * 0.53) * lead * 0.7;
+  g.save();
+  g.fillStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    const rad = R * (0.25 + rnd(seed, i, 141) * 0.75);
+    const rate = st.swarmSpeed * (1.4 + rnd(seed, i, 142) * 2.2);
+    const ph = rnd(seed, i, 143) * Math.PI * 2;
+    const tilt = 0.45 + rnd(seed, i, 144) * 0.55;
+    const a = ph + t * rate;
+    const x = lx + Math.cos(a) * rad;
+    const y = ly + Math.sin(a * 1.3 + ph) * rad * tilt;
+    const sz = Math.max(0.4, st.swarmSize * xf.k * (0.6 + rnd(seed, i, 145) * 0.8));
+    // Flicker: insects and spirits blink out of view, and it hides the regularity of the orbits.
+    const blink = st.swarmFlicker > 0
+      ? 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (6 + rnd(seed, i, 146) * 14) + ph))
+      : 1;
+    g.globalAlpha = st.swarm * c.a * (1 - st.swarmFlicker + st.swarmFlicker * blink);
+    g.beginPath(); g.arc(x, y, sz, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}
+
+// ---------- chain ----------
+// An articulated body: segments that FOLLOW, each lagging the one ahead. Whips, tentacles, tails,
+// energy tethers, chains. Nothing else here is articulated — beam and ribbon are rigid, path trail
+// traces where a particle has been.
+//
+// Stateless the same way: segment i simply samples the anchor's path at (t - i*lag), so the tail
+// is literally where the head was a moment ago. That's what rope physics converges to anyway, and
+// it costs one function evaluation per segment instead of an integration.
+function drawChain(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.chain <= 0) return;
+  const segs = Math.max(2, Math.round(st.chainSegs));
+  const reach = st.chainReach * fs * xf.k;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.4);
+  const swing = st.chainSwing * DEG;
+  // Where the head is at time tt — a swinging arc from the origin.
+  const headAt = (tt) => {
+    const a = st.chainAngle * DEG + Math.sin(tt * st.chainSpeed * 6.283) * swing;
+    return [ox + Math.cos(a) * reach, oy + Math.sin(a) * reach];
+  };
+  g.save();
+  g.strokeStyle = c.css;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.globalAlpha = st.chain * c.a;
+  const pts = [];
+  for (let i = 0; i <= segs; i++) {
+    const f = i / segs;
+    const h = headAt(t - f * st.chainLag);
+    // Blend from the anchor to the lagged head position, so the chain stays attached at one end.
+    pts.push([ox + (h[0] - ox) * f, oy + (h[1] - oy) * f]);
+  }
+  // Taper by redrawing each span at its own width; one stroke can only have one lineWidth.
+  for (let i = 0; i < segs; i++) {
+    const f = i / segs;
+    g.lineWidth = Math.max(0.5, st.chainWidth * xf.k * (1 - f * st.chainTaper));
+    g.beginPath();
+    g.moveTo(pts[i][0], pts[i][1]);
+    g.lineTo(pts[i + 1][0], pts[i + 1][1]);
+    g.stroke();
+  }
+  if (st.chainBeads > 0) {
+    for (let i = 0; i <= segs; i++) {
+      const f = i / segs;
+      const r = st.chainWidth * xf.k * st.chainBeads * (1 - f * st.chainTaper);
+      if (r < 0.3) continue;
+      g.beginPath(); g.arc(pts[i][0], pts[i][1], r, 0, Math.PI * 2); g.fill();
+    }
+  }
+  g.restore();
+}
+
+// ---------- impact ----------
+// A whole-frame hit flash for the first frame or two. Every other system is spatial — it draws
+// something somewhere. This one is TEMPORAL: it says "the hit lands NOW" by taking over the entire
+// frame briefly. It's the cheapest game-juice there is and the thing hand-animated effects almost
+// always have and procedural ones almost never do.
+function drawImpact(g, st, t, xf) {
+  if (st.impact <= 0) return;
+  const life = Math.max(0.001, st.impactLife);
+  if (t > life) return;
+  const u = t / life;
+  const w = g.canvas.width, h = g.canvas.height;
+  const fade = st.impactHold > 0 ? (u < st.impactHold ? 1 : 1 - (u - st.impactHold) / (1 - st.impactHold))
+                                 : 1 - u;
+  const a = st.impact * clamp01(fade);
+  if (a <= 0.002) return;
+  const c = layerColour(st, 0, 0.95);
+  const prev = g.globalCompositeOperation;
+  g.save();
+  // source-atop keeps the flash INSIDE the sprite's existing alpha — a full-frame rectangle would
+  // fill the transparent background and ruin the sheet. This reads as the sprite itself blowing
+  // out, which is what a hit frame is.
+  g.globalCompositeOperation = st.impactFill > 0.5 ? "source-over" : "source-atop";
+  g.globalAlpha = a;
+  g.fillStyle = c.css;
+  g.fillRect(0, 0, w, h);
+  g.restore();
+  g.globalCompositeOperation = prev;
+}
+
+// ---------- weather ----------
+// A full-frame field: rain, snow, ash, embers, drifting motes. Particles can approximate this, but
+// they're born at an emitter and die, so a downpour needs a huge count and still pops at the edges.
+// A field layer has no origin — it fills the frame and WRAPS, so it loops seamlessly by
+// construction, which is exactly what an ambient overlay needs.
+function drawWeather(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.weather <= 0) return;
+  const n = Math.max(1, Math.round(st.weatherCount));
+  const w = g.canvas.width, h = g.canvas.height;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.45);
+  const ang = st.weatherAngle * DEG;
+  const vx = Math.cos(ang) * st.weatherSpeed * fs * xf.k;
+  const vy = Math.sin(ang) * st.weatherSpeed * fs * xf.k;
+  const len = st.weatherLength * fs * xf.k;
+  g.save();
+  g.globalAlpha = st.weather * c.a;
+  g.strokeStyle = c.css;
+  g.fillStyle = c.css;
+  g.lineCap = "round";
+  for (let i = 0; i < n; i++) {
+    // Wrap with a modulo over a margin-padded box so nothing pops in at an edge.
+    const pad = Math.max(len, 8);
+    const bw = w + pad * 2, bh = h + pad * 2;
+    let x = (rnd(seed, i, 151) * bw + vx * t) % bw;
+    let y = (rnd(seed, i, 152) * bh + vy * t) % bh;
+    if (x < 0) x += bw;
+    if (y < 0) y += bh;
+    x -= pad; y -= pad;
+    const sz = Math.max(0.4, st.weatherSize * xf.k * (0.55 + rnd(seed, i, 153) * 0.9));
+    if (len > 1) {                                   // streaks (rain)
+      g.lineWidth = sz;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len);
+      g.stroke();
+    } else {                                         // flakes / motes
+      const sway = Math.sin(t * 2 + rnd(seed, i, 154) * 6.283) * st.weatherSway * fs * xf.k;
+      g.beginPath(); g.arc(x + sway, y, sz, 0, Math.PI * 2); g.fill();
+    }
+  }
+  g.restore();
+}
+
+// ---------- flare ----------
+// An anamorphic lens flare: a wide horizontal streak plus ghost discs marching along the axis
+// through the frame centre. Flash's rays radiate from a point; a flare is a property of the
+// LENS — it's what makes a bright effect read as filmed rather than drawn, and it's the look every
+// modern game trailer leans on.
+function drawFlare(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.flare <= 0) return;
+  const life = Math.max(0.01, st.flareLife);
+  const u = t / life;
+  if (u >= 1) return;
+  const fade = 1 - u * u;
+  const w = g.canvas.width, h = g.canvas.height;
+  const c = layerColour(st, u, 0.85);
+  const len = st.flareLength * Math.max(w, h) * 0.5;
+  g.save();
+  g.globalAlpha = st.flare * c.a * fade;
+  // The streak: a gradient bar, brightest at the source and falling off both ways.
+  const grd = g.createLinearGradient(ox - len, oy, ox + len, oy);
+  grd.addColorStop(0, "rgba(255,255,255,0)");
+  grd.addColorStop(0.5, c.css);
+  grd.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grd;
+  const th = Math.max(1, st.flareWidth * xf.k);
+  g.fillRect(ox - len, oy - th * 0.5, len * 2, th);
+  // Ghosts: discs spaced along the line from the source THROUGH the frame centre, which is what
+  // makes them track the source as it moves off-axis rather than sitting on it.
+  const ghosts = Math.round(st.flareGhosts);
+  if (ghosts > 0) {
+    const cx = w / 2, cy = h / 2;
+    for (let i = 1; i <= ghosts; i++) {
+      const k = (i / (ghosts + 1)) * 2.1 - 0.35;
+      const gx = ox + (cx - ox) * (1 + k);
+      const gy = oy + (cy - oy) * (1 + k);
+      const gr = Math.max(1, st.flareWidth * xf.k * (0.6 + rnd(seed, i, 161) * 1.9));
+      g.globalAlpha = st.flare * c.a * fade * (0.12 + rnd(seed, i, 162) * 0.22);
+      g.beginPath(); g.arc(gx, gy, gr, 0, Math.PI * 2); g.fill();
+    }
   }
   g.restore();
 }

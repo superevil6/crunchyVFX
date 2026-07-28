@@ -667,24 +667,95 @@ window.PRESETS = {
     hue: 265, hueLife: 55, sat: 0.75, bright: 1, coreWhite: 0.25, blend: 1,
     glow: 0.35, duration: 1.8, fps: 24, frameSize: 5, originY: 0.72, loopBlend: 0.5,
   },
+  // ---- Swarm ----
+  "Firefly Swarm": {
+    shape: 0, count: 1, opacity: 0,
+    swarm: 1, swarmCount: 24, swarmSpread: 0.2, swarmWander: 0.14, swarmSpeed: 0.9,
+    swarmSize: 3.5, swarmFlicker: 0.75,
+    hue: 62, hueLife: -10, sat: 0.9, bright: 1, coreWhite: 0.4,
+    glow: 0.55, glowRadius: 8, duration: 2.2, fps: 24, frameSize: 5, loopBlend: 0.6,
+  },
+  "Spirit Wisps": {
+    shape: 0, count: 1, opacity: 0,
+    swarm: 1, swarmCount: 14, swarmSpread: 0.26, swarmWander: 0.2, swarmSpeed: 0.6,
+    swarmSize: 6, swarmFlicker: 0.35,
+    hue: 175, hueLife: 40, sat: 0.7, bright: 1, coreWhite: 0.55,
+    glow: 0.6, glowRadius: 10, duration: 2.4, fps: 20, frameSize: 5, loopBlend: 0.7,
+  },
+
+  // ---- Chain ----
+  "Whip Crack": {
+    shape: 1, count: 18, opacity: 0.9, emitter: 0, emitRadius: 0.05, emitTime: 0.2,
+    speed: 120, speedVar: 0.6, drag: 0.5, size: 5, life: 0.35, fadeOut: 0.6, sparkLen: 0.6,
+    chain: 1, chainSegs: 18, chainReach: 0.44, chainAngle: 315, chainSwing: 75,
+    chainSpeed: 1.6, chainLag: 0.1, chainWidth: 6, chainTaper: 0.9,
+    hue: 40, hueLife: -22, sat: 0.9, bright: 1, coreWhite: 0.6,
+    glow: 0.5, duration: 0.9, fps: 24, frameSize: 5, originX: 0.28, originY: 0.68,
+  },
+  "Tentacle Lash": {
+    shape: 0, count: 1, opacity: 0,
+    chain: 1, chainSegs: 22, chainReach: 0.55, chainAngle: 280, chainSwing: 110,
+    chainSpeed: 0.7, chainLag: 0.2, chainWidth: 11, chainTaper: 0.85, chainBeads: 0.5,
+    hue: 290, hueLife: 30, sat: 0.75, bright: 0.95, coreWhite: 0.25,
+    glow: 0.4, duration: 1.8, fps: 24, frameSize: 5, originY: 0.85, loopBlend: 0.6,
+  },
+
+  // ---- Impact ----
+  "Hit Flash": {
+    shape: 0, count: 90, opacity: 1, emitter: 0, emitSpread: 360,
+    speed: 260, speedVar: 0.6, drag: 0.5, size: 7, sizeVar: 0.5,
+    life: 0.35, lifeVar: 0.3, fadeOut: 0.6,
+    flash: 0.8, flashSize: 0.3, flashLife: 0.1,
+    impact: 1, impactLife: 0.08, impactHold: 0.4, impactFill: 0,
+    hue: 45, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.75,
+    glow: 0.5, duration: 0.6, fps: 24, frameSize: 5,
+  },
+
+  // ---- Weather ----
+  "Downpour": {
+    shape: 0, count: 1, opacity: 0,
+    weather: 1, weatherCount: 150, weatherAngle: 100, weatherSpeed: 2.2,
+    weatherLength: 0.16, weatherSize: 1.1,
+    hue: 205, hueLife: -8, sat: 0.5, bright: 0.95, coreWhite: 0.35, blend: 1,
+    duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.5,
+  },
+  "Ash Fall": {
+    shape: 0, count: 1, opacity: 0,
+    weather: 1, weatherCount: 70, weatherAngle: 96, weatherSpeed: 0.35,
+    weatherLength: 0, weatherSize: 1.8, weatherSway: 0.03,
+    hue: 25, hueLife: 8, sat: 0.25, bright: 0.8, coreWhite: 0.15, blend: 1,
+    duration: 2.6, fps: 20, frameSize: 5, loopBlend: 0.7,
+  },
+
+  // ---- Flare ----
+  "Lens Burst": {
+    shape: 0, count: 40, opacity: 1, emitter: 0, emitSpread: 360,
+    speed: 190, speedVar: 0.6, drag: 0.45, size: 8, sizeVar: 0.5,
+    life: 0.55, lifeVar: 0.3, fadeOut: 0.55,
+    flash: 0.9, flashSize: 0.28, flashLife: 0.3,
+    flare: 1, flareLength: 1.1, flareWidth: 9, flareGhosts: 4, flareLife: 0.7,
+    hue: 200, hueLife: 45, sat: 0.7, bright: 1, coreWhite: 0.75,
+    glow: 0.6, glowRadius: 9, duration: 1, fps: 24, frameSize: 5, originX: 0.38,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
 window.PRESET_CATEGORIES = [
-  ["Explosions", ["Explosion", "Big Boom", "Shockwave", "Fire Jet", "Ember Rise", "Split Shot", "Spark Shower"]],
+  ["Explosions", ["Explosion", "Big Boom", "Shockwave", "Fire Jet", "Ember Rise", "Split Shot", "Spark Shower", "Lens Burst"]],
   ["Ice & Frost",["Ice Blast", "Frost Nova", "Frost Growth"]],
   ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc",
                   "Portal", "Summon Circle", "Chain Lightning", "Teleport Out",
                   "Comet Trail", "Neon Streaks",
                   "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob",
                   "Firework", "Water Ripple", "Sonar Ping", "Glitch Out"]],
-  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst"]],
+  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud",
                   "Rune Circle", "Summon Seal", "Shield Orbit", "Power Rings",
                   "Dimension Tear", "Constellation", "Nano Swarm",
-                  "Vacuum Pull", "Soul Drain", "Shield Hex"]],
+                  "Vacuum Pull", "Soul Drain", "Shield Hex", "Spirit Wisps", "Tentacle Lash"]],
   ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom"]],
   ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes"]],
-  ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl"]],
+  ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl",
+                  "Firefly Swarm", "Downpour", "Ash Fall"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer"]],
 ];

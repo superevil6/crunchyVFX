@@ -295,6 +295,36 @@
         ok(expSoundRow.hidden, "and the option hides again when there is no sound");
       }
 
+      // ------------------------------------------------- exporting must not damage the preview
+      // The streaming work added a cleanup pass that released the frames an export had rendered.
+      // At 1x with no reference image, framesAtScale() returns the LIVE preview canvases rather
+      // than copies, so that cleanup blanked the stage — and nothing failed at the time. Every
+      // later buildSheet() just produced an empty sheet, which surfaced as "drag-out worked once
+      // and then silently stopped". Export every format and check the preview survives each.
+      {
+        applyPreset(PRESETS["Explosion"], "Explosion");
+        rerender();
+        const before = rendered.canvases.length;
+        const damaged = [];
+        for (const [fmt, emis] of [["sheet", false], ["sheet", true], ["apng", false], ["frames", false]]) {
+          expFormat.value = fmt;
+          expEmis.checked = emis;
+          await grab(async () => {
+            expModal.querySelector("#expGo").click();
+            await new Promise((r) => setTimeout(r, 1200));
+          });
+          const dead = rendered.canvases.filter((cv) => !cv.width || !cv.height).length;
+          if (dead) damaged.push(fmt + (emis ? "+emissive" : "") + " killed " + dead);
+          // A sheet built afterwards must still have pixels in it.
+          const sh = buildSheet({ layout: "grid" });
+          if (lit(sh.cv) === 0) damaged.push(fmt + (emis ? "+emissive" : "") + " left an empty sheet");
+        }
+        expEmis.checked = false;
+        expFormat.value = "sheet";
+        ok(damaged.length === 0,
+           "no export format damages the live preview", damaged.join("; ") || before + " frames intact");
+      }
+
       // ------------------------------------------------------- desktop (Tauri) save path
       // download() is the single choke point every export funnels through, and on desktop it
       // must route to the native Save dialog rather than an <a download> (Tauri has no download
