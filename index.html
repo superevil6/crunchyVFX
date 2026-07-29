@@ -31,6 +31,7 @@
     <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder">⤓ Drag out</button>
     <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">💾 Save project</button>
     <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
+    <button id="tourBtn" title="Replay the guided tour">? Tour</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -4984,6 +4985,143 @@ makeCollapsible(document.getElementById("paletteSection"),
                 document.querySelector("#paletteSection .engine-title"), "palette");
 makeCollapsible(document.getElementById("styleSection"),
                 document.querySelector("#styleSection .engine-title"), "eras");
+
+// ---------- Welcome tour (first-visit guided spotlight) ----------
+// Dependency-free: each step dims the screen except a highlighted target and shows a card. Walks
+// the 30-second workflow — preset → shape it → add systems → match a sound → export.
+//
+// The reason this is worth having HERE specifically: presets teach the layer systems (load one,
+// its panel appears with the effect on screen), but nothing teaches the things that aren't
+// layers — matching a sound, the export sidecars, share links. Those need saying once.
+//
+// Shown once per browser, replayable from the toolbar. Deliberately skipped when someone arrives
+// on a share link: they came for THAT effect, not a tutorial.
+const TOUR_KEY = "crunchyvfx.tourseen.v1";
+const TOUR = [
+  { target: null, title: "Welcome to CrunchyVFX 👋",
+    body: "Make sprite VFX for your game — explosions, magic, weather, impacts — and export them as sheets your engine can read. Here's the 30-second version." },
+  { target: ".ws-browser", title: "1 · Start from an effect",
+    body: "118 ready-made effects grouped by type. Click one to load it, or search by name. Everything else is tweaking what you loaded." },
+  { target: "#macros", title: "2 · Shape it in plain language",
+    body: "Six sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
+  { target: "#shapeSection", title: "3 · Pick a particle",
+    body: "88 shapes, from soft glows to flames, gears and skulls. Filter by name, draw your own, or import a PNG." },
+  { target: "#layerBar", title: "4 · Stack more systems",
+    body: "42 of them — shockwaves, lightning, ribbons, weather, lens flares. Click a chip to add one; each brings its own controls." },
+  { target: "#matchBtn", title: "5 · Match a sound",
+    body: "Paste a CrunchySFX link and the effect is built from the sound — same length, same punch — and the audio is synthesised right here, then exported beside the sheet." },
+  { target: "#expOpen", title: "6 · Export for your engine",
+    body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Unity, Aseprite or Phaser. Multiple sizes in one go." },
+  { target: "#share", title: "Bonus · every effect is a link",
+    body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
+  { target: null, title: "That's it ✨",
+    body: "Everything you make is yours, unwatermarked, at full resolution. Replay this tour any time with the ? Tour button." },
+];
+
+let tourIdx = 0;
+const tourEl = document.createElement("div");
+tourEl.className = "tour";
+tourEl.hidden = true;
+tourEl.innerHTML =
+  '<div class="tour-hole"></div>' +
+  '<div class="tour-card"><div class="tour-title"></div><div class="tour-body"></div>' +
+    '<div class="tour-foot"><span class="tour-progress"></span>' +
+      '<span class="tour-btns"><button class="tour-skip">Skip</button>' +
+        '<button class="tour-prev">Back</button><button class="tour-next primary">Next</button></span></div></div>';
+document.body.appendChild(tourEl);
+const tourHole = tourEl.querySelector(".tour-hole"), tourCard = tourEl.querySelector(".tour-card");
+
+function tourUnionRect(els) {
+  let L = Infinity, T = Infinity, R = -Infinity, B = -Infinity;
+  for (const e of els) {
+    const r = e.getBoundingClientRect();
+    if (!r.width && !r.height) continue;
+    L = Math.min(L, r.left); T = Math.min(T, r.top);
+    R = Math.max(R, r.right); B = Math.max(B, r.bottom);
+  }
+  return L === Infinity ? null : { left: L, top: T, width: R - L, height: B - T, bottom: B, right: R };
+}
+
+// Below the target if it fits, above if not, centred as a last resort — so the card never covers
+// the thing it is pointing at.
+function tourPlaceCard(r) {
+  const m = 12, cw = tourCard.offsetWidth, ch = tourCard.offsetHeight;
+  const vw = innerWidth, vh = innerHeight;
+  let left, top;
+  if (!r) { left = (vw - cw) / 2; top = (vh - ch) / 2; }
+  else {
+    left = Math.min(Math.max(m, r.left + r.width / 2 - cw / 2), vw - cw - m);
+    if (r.bottom + m + ch <= vh) top = r.bottom + m;
+    else if (r.top - m - ch >= 0) top = r.top - m - ch;
+    else top = Math.max(m, (vh - ch) / 2);
+  }
+  tourCard.style.left = left + "px";
+  tourCard.style.top = top + "px";
+}
+
+function showTourStep(i) {
+  tourIdx = Math.max(0, Math.min(TOUR.length - 1, i));
+  const step = TOUR[tourIdx], last = tourIdx === TOUR.length - 1;
+  tourEl.querySelector(".tour-title").textContent = step.title;
+  tourEl.querySelector(".tour-body").textContent = step.body;
+  tourEl.querySelector(".tour-progress").textContent = (tourIdx + 1) + " / " + TOUR.length;
+  tourEl.querySelector(".tour-next").textContent = last ? "Got it ✨" : "Next";
+  tourEl.querySelector(".tour-prev").style.visibility = tourIdx === 0 ? "hidden" : "visible";
+  tourEl.querySelector(".tour-skip").style.visibility = last ? "hidden" : "visible";
+  // Only target things actually on screen: several steps point at desktop-only or collapsible UI,
+  // and spotlighting a hidden element would dim the page around nothing.
+  const els = step.target
+    ? Array.from(document.querySelectorAll(step.target)).filter((e) => e.getClientRects().length)
+    : [];
+  if (els.length) els[0].scrollIntoView({ block: "center", inline: "nearest" });
+  const r = els.length ? tourUnionRect(els) : null;
+  if (r) {
+    const pad = 6;
+    tourHole.classList.remove("notarget");
+    tourHole.style.left = (r.left - pad) + "px";
+    tourHole.style.top = (r.top - pad) + "px";
+    tourHole.style.width = (r.width + pad * 2) + "px";
+    tourHole.style.height = (r.height + pad * 2) + "px";
+  } else {
+    tourHole.classList.add("notarget");
+    tourHole.style.left = "50%"; tourHole.style.top = "0";
+    tourHole.style.width = "0"; tourHole.style.height = "0";
+  }
+  tourPlaceCard(r);
+}
+
+function onTourResize() { if (!tourEl.hidden) showTourStep(tourIdx); }
+function startTour() {
+  tourEl.hidden = false;
+  addEventListener("resize", onTourResize);
+  showTourStep(0);
+}
+function endTour(markSeen) {
+  tourEl.hidden = true;
+  removeEventListener("resize", onTourResize);
+  if (markSeen) { try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { /* best-effort */ } }
+}
+tourEl.querySelector(".tour-next").addEventListener("click", () => {
+  if (tourIdx === TOUR.length - 1) endTour(true); else showTourStep(tourIdx + 1);
+});
+tourEl.querySelector(".tour-prev").addEventListener("click", () => showTourStep(tourIdx - 1));
+tourEl.querySelector(".tour-skip").addEventListener("click", () => endTour(true));
+addEventListener("keydown", (e) => {
+  if (tourEl.hidden) return;
+  if (e.key === "Escape") endTour(true);
+  else if (e.key === "ArrowRight") tourEl.querySelector(".tour-next").click();
+  else if (e.key === "ArrowLeft") showTourStep(tourIdx - 1);
+});
+document.getElementById("tourBtn").addEventListener("click", () => startTour());
+
+{
+  let seen = false;
+  try { seen = localStorage.getItem(TOUR_KEY) === "1"; } catch (e) { seen = true; }
+  // Arriving on a share link means someone sent you THAT effect — hijacking it with a tutorial is
+  // the wrong first impression. They can still take it from the toolbar.
+  const viaShare = /[?&]e=/.test(location.search);
+  if (!seen && !viaShare) setTimeout(startTour, 400);
+}
 
 // ---------- Apply the desktop gate ----------
 // Anything carrying data-desktop simply isn't there on the web, rather than being visible and

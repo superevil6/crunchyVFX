@@ -1119,3 +1119,25 @@
   }
   .shapesearch input:focus { outline: none; border-color: var(--accent2); }
   .engine-title .hint { margin-left: auto; font-size: 11px; }
+
+  /* Welcome tour (guided spotlight). .tour covers the screen and blocks the background; the hole's
+     enormous box-shadow is what dims everything except the highlighted target. */
+  .tour { position: fixed; inset: 0; z-index: 300; }
+  .tour[hidden] { display: none; }
+  .tour-hole {
+    position: absolute; border-radius: 10px; border: 2px solid var(--accent2);
+    pointer-events: none; transition: all 0.18s ease;
+    box-shadow: 0 0 0 9999px rgba(8, 6, 12, 0.82);
+  }
+  .tour-hole.notarget { border-color: transparent; box-shadow: 0 0 0 9999px rgba(8, 6, 12, 0.82); }
+  .tour-card {
+    position: absolute; width: min(340px, 90vw);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+  .tour-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+  .tour-body { font-size: 13.5px; color: var(--ink); line-height: 1.5; }
+  .tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+  .tour-progress { font-size: 12px; color: var(--muted); }
+  .tour-btns { display: flex; gap: 8px; }
+  .tour-btns button { padding: 6px 12px; font-size: 13px; }

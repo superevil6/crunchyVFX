@@ -803,6 +803,59 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- welcome tour
+    // Asserted on geometry, not pixels: the tour is a position:fixed overlay, and a headless
+    // --screenshot captures the FULL PAGE, so fixed elements don't land where a viewport layout
+    // puts them. A visual check here reports nonsense (same class of trap as the CSS transition).
+    {
+      ok(Array.isArray(TOUR) && TOUR.length >= 5, "there is a tour", TOUR.length + " steps");
+      ok(!!document.getElementById("tourBtn"), "and a way to replay it");
+
+      // Every targeted step must actually point at something that exists. A stale selector would
+      // dim the whole screen around nothing and look like a broken app.
+      const missing = TOUR.filter((s) => s.target && !document.querySelector(s.target))
+                          .map((s) => s.target);
+      ok(missing.length === 0, "every tour step targets an element that exists", missing.join(", "));
+
+      startTour();
+      ok(!tourEl.hidden, "starting shows the overlay");
+      const offscreen = [];
+      for (let i = 0; i < TOUR.length; i++) {
+        showTourStep(i);
+        const left = parseFloat(tourCard.style.left), top = parseFloat(tourCard.style.top);
+        // The card must land inside the viewport, or the step is unreadable.
+        if (!(left >= 0 && top >= 0 && left <= innerWidth && top <= innerHeight)) {
+          offscreen.push(i + " @(" + Math.round(left) + "," + Math.round(top) + ")");
+        }
+      }
+      ok(offscreen.length === 0, "every step places its card on screen",
+         offscreen.join("; ") || innerWidth + "x" + innerHeight);
+
+      // Progress and buttons track position.
+      showTourStep(0);
+      ok(tourEl.querySelector(".tour-prev").style.visibility === "hidden",
+         "no Back on the first step");
+      showTourStep(TOUR.length - 1);
+      ok(tourEl.querySelector(".tour-skip").style.visibility === "hidden",
+         "no Skip on the last step");
+      ok(/\d+ \/ \d+/.test(tourEl.querySelector(".tour-progress").textContent),
+         "progress is shown", tourEl.querySelector(".tour-progress").textContent);
+
+      // Finishing marks it seen, so it doesn't reappear every visit.
+      localStorage.removeItem("crunchyvfx.tourseen.v1");
+      tourEl.querySelector(".tour-next").click();      // last step -> finish
+      ok(tourEl.hidden, "finishing closes it");
+      ok(localStorage.getItem("crunchyvfx.tourseen.v1") === "1", "…and remembers it was seen");
+
+      // Skipping counts too — someone who dismisses it has been offered it.
+      localStorage.removeItem("crunchyvfx.tourseen.v1");
+      startTour();
+      tourEl.querySelector(".tour-skip").click();
+      ok(tourEl.hidden && localStorage.getItem("crunchyvfx.tourseen.v1") === "1",
+         "skipping also counts as seen");
+      endTour(true);
+    }
+
     // ---------------------------------------------------------------- shape filter
     // 88 shapes is past the point where scanning works. Note the hidden-row check: `.engine-cat`
     // sets `display: flex`, which beats the UA's low-specificity `[hidden] { display: none }` — so
