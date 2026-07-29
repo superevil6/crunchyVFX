@@ -173,7 +173,8 @@
       <div class="macro-title">Quick shape — plain-language sliders that move the real controls for you</div>
     </div>
     <div class="engine" id="shapeSection">
-      <div class="engine-title"><span>Particle shape</span></div>
+      <div class="engine-title"><span>Particle shape</span><span class="hint" id="shapeCount"></span></div>
+      <div class="shapesearch"><input type="text" id="shapeSearch" placeholder="Filter shapes… (e.g. star)" autocomplete="off" spellcheck="false"></div>
       <div class="engine-grid" id="shapeGrid"></div>
     </div>
     <div class="engine" id="paletteSection">
@@ -1636,7 +1637,20 @@ function rampFromClassic() {
 const customGrid = new Uint8Array(CUSTOM_SPRITE_N * CUSTOM_SPRITE_N);
 let csCanvas = null, csErase = false;
 {
-  const panel = panels.querySelector('[data-group="Custom sprite"]');
+  // Panels are generated from PARAMS groups, and "Custom sprite" has no params — the drawing grid
+  // IS its interface. So no panel was ever created, the `if (panel)` below silently did nothing,
+  // and a fully working feature (encode, decode and render all verified) simply had no way in.
+  // Same shape of bug as `custom` and `image` being missing from the shape picker.
+  let panel = panels.querySelector('[data-group="Custom sprite"]');
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.className = "panel";
+    panel.dataset.group = "Custom sprite";
+    panel.innerHTML = "<h2>Custom sprite</h2>";
+    // Next to the Image sprite panel, since they're the two bring-your-own shapes.
+    const img = panels.querySelector('[data-group="Image sprite"]');
+    if (img) panels.insertBefore(panel, img); else panels.appendChild(panel);
+  }
   if (panel) {
     const row = document.createElement("div");
     row.className = "cs-row";
@@ -2114,6 +2128,7 @@ const SHAPE_CATS = [
 ];
 const shapeGrid = document.getElementById("shapeGrid");
 const shapeBtns = {};
+const shapeRows = [];
 for (const [cat, names] of SHAPE_CATS) {
   const row = document.createElement("div");
   row.className = "engine-cat";
@@ -2129,7 +2144,38 @@ for (const [cat, names] of SHAPE_CATS) {
     shapeBtns[i] = b;
   }
   shapeGrid.appendChild(row);
+  shapeRows.push({ row: row, buttons: Array.from(box.children) });
 }
+
+// ---------- Shape filter ----------
+// 88 shapes across four categories is past the point where scanning works. Same behaviour as the
+// preset search so the two feel like one tool: substring match on the name, categories with no
+// hits disappear, and the count tells you whether a search found nothing or you simply cannot see
+// it. Escape clears, because a filter you can't get out of is a trap.
+const shapeSearch = document.getElementById("shapeSearch");
+const shapeCount = document.getElementById("shapeCount");
+function filterShapes() {
+  const q = shapeSearch.value.trim().toLowerCase();
+  let shown = 0;
+  for (const { row, buttons } of shapeRows) {
+    let hits = 0;
+    for (const b of buttons) {
+      const hit = !q || b.textContent.toLowerCase().indexOf(q) >= 0;
+      b.hidden = !hit;
+      if (hit) hits++;
+    }
+    row.hidden = hits === 0;
+    shown += hits;
+  }
+  shapeCount.textContent = q ? shown + " of " + SHAPES.length : SHAPES.length + " shapes";
+}
+shapeSearch.addEventListener("input", filterShapes);
+shapeSearch.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { shapeSearch.value = ""; filterShapes(); }
+  e.stopPropagation();          // don't let the editor's shortcuts fire while typing here
+});
+filterShapes();
+
 function syncShapeButtons() {
   const s = Math.round(state.shape);
   for (const i in shapeBtns) shapeBtns[i].classList.toggle("active", +i === s);
@@ -4904,6 +4950,40 @@ syncUI();
     });
   }
 }
+
+// ---------- Collapsible hero sections ----------
+// Quick shape, Particle shape, Palette and Era style fold away, same as CrunchySFX's heroes. With
+// 88 shapes and 42 systems the editor column is long, and the four things at the top are the ones
+// you set once and then stop looking at — folding them is how you get back to the sliders you're
+// actually working on. The fold state persists, so it stays how you left it.
+const FOLD_KEY = "crunchyvfx.collapsed.v1";
+let foldState = {};
+try { foldState = JSON.parse(localStorage.getItem(FOLD_KEY) || "{}") || {}; } catch (e) { foldState = {}; }
+function saveFolds() {
+  try { localStorage.setItem(FOLD_KEY, JSON.stringify(foldState)); } catch (e) { /* best-effort */ }
+}
+
+function makeCollapsible(section, header, key, defaultCollapsed) {
+  if (!section || !header) return;
+  header.classList.add("collapse-head");
+  const stored = foldState[key];
+  if (stored === undefined ? !!defaultCollapsed : !!stored) section.classList.add("collapsed");
+  header.addEventListener("click", (e) => {
+    // Headers can carry their own controls (the Era row has a hint, and more may land there).
+    // Without this guard, using a control would also fold the section under your cursor.
+    if (e.target.closest("input, button, select, label, a")) return;
+    foldState[key] = section.classList.toggle("collapsed");
+    saveFolds();
+  });
+}
+makeCollapsible(document.getElementById("macros"),
+                document.querySelector(".macro-title"), "quickShape");
+makeCollapsible(document.getElementById("shapeSection"),
+                document.querySelector("#shapeSection .engine-title"), "shapes");
+makeCollapsible(document.getElementById("paletteSection"),
+                document.querySelector("#paletteSection .engine-title"), "palette");
+makeCollapsible(document.getElementById("styleSection"),
+                document.querySelector("#styleSection .engine-title"), "eras");
 
 // ---------- Apply the desktop gate ----------
 // Anything carrying data-desktop simply isn't there on the web, rather than being visible and

@@ -803,6 +803,129 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- shape filter
+    // 88 shapes is past the point where scanning works. Note the hidden-row check: `.engine-cat`
+    // sets `display: flex`, which beats the UA's low-specificity `[hidden] { display: none }` — so
+    // the first version left empty category LABELS on screen with no buttons under them. Testing
+    // `hidden` alone would have passed; this checks it's actually not rendered.
+    {
+      const q = document.getElementById("shapeSearch");
+      const shown = () => Object.values(shapeBtns).filter((b) => !b.hidden).length;
+      q.value = ""; filterShapes();
+      ok(shown() === SHAPES.length, "no filter shows every shape", shown() + "/" + SHAPES.length);
+
+      q.value = "star"; filterShapes();
+      const hits = Object.values(shapeBtns).filter((b) => !b.hidden).map((b) => b.textContent);
+      ok(hits.length > 0 && hits.every((n) => n.indexOf("star") >= 0),
+         "filtering matches on the name", hits.join(", "));
+      ok(hits.indexOf("star") >= 0 && hits.indexOf("starburst") >= 0,
+         "…including partial matches");
+      ok(/\d+ of \d+/.test(document.getElementById("shapeCount").textContent),
+         "the count says how many matched", document.getElementById("shapeCount").textContent);
+
+      // Empty categories must actually disappear, not just carry a hidden attribute.
+      const visibleRows = shapeRows.filter((r) => getComputedStyle(r.row).display !== "none");
+      const emptyShown = visibleRows.filter((r) => r.buttons.every((b) => b.hidden));
+      ok(emptyShown.length === 0, "categories with no matches are not rendered",
+         emptyShown.length + " empty rows still visible");
+
+      q.value = "zzzznothing"; filterShapes();
+      ok(shown() === 0, "a search with no hits shows nothing rather than everything");
+
+      // Escape has to clear it — a filter you can't get out of is a trap.
+      q.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      ok(q.value === "" && shown() === SHAPES.length, "Escape clears the filter", shown() + " shown");
+    }
+
+    // ---------------------------------------------------------------- custom drawn sprite
+    // The 16x16 drawing grid was fully working — encode, decode and render all correct — but its
+    // panel is generated from PARAMS groups and "Custom sprite" has no params (the grid IS the
+    // interface), so no panel existed, the builder's `if (panel)` silently did nothing, and there
+    // was no way to reach it. Same shape of bug as the missing picker entries. These assertions
+    // cover the door as well as the room.
+    {
+      const panel = panels.querySelector('[data-group="Custom sprite"]');
+      ok(!!panel, "the custom sprite panel exists");
+      const cv = panel && panel.querySelector(".cs-canvas");
+      ok(!!cv, "…and holds a paint canvas");
+
+      // A stamp button must write the patch.
+      applyPreset({ shape: SHAPES.indexOf("custom"), count: 1, size: 60, speed: 0, life: 2,
+                    duration: 0.3, fps: 24, frameSize: 4, glow: 0, fadeIn: 0, fadeOut: 0 }, "cs");
+      state.customSprite = "";
+      panel.querySelector('[data-cs="ring"]').click();
+      ok(state.customSprite.length > 0, "a stamp button draws into the patch",
+         state.customSprite.length + " chars");
+
+      // …and what was drawn is what renders.
+      const drawn = lit(renderFrames(state, { size: 128 }).canvases[1]);
+      ok(drawn > 100, "the drawn sprite renders", drawn + " px");
+      state.customSprite = "";
+      panel.querySelector('[data-cs="clear"]').click();
+      ok(lit(renderFrames(state, { size: 128 }).canvases[1]) === 0,
+         "an empty grid renders nothing rather than a stray blob");
+
+      // Round-trip through the patch: it's stored as base64 and must survive a save/load.
+      const grid = new Uint8Array(CUSTOM_SPRITE_N * CUSTOM_SPRITE_N);
+      for (let i = 0; i < grid.length; i += 3) grid[i] = 255;
+      const enc = encodeSpriteAlpha(grid);
+      const back = decodeSpriteAlpha(enc);
+      ok(back && back.length === grid.length &&
+         back.every((v, i) => (v > 0) === (grid[i] > 0)),
+         "the grid survives its base64 round-trip");
+
+      // The panel belongs to shape 8 only — it shouldn't sit open on every other shape.
+      state.shape = SHAPES.indexOf("custom"); updateShapePanels();
+      ok(!panel.hidden, "the panel shows for the custom shape");
+      state.shape = 0; updateShapePanels();
+      ok(panel.hidden, "…and hides for every other one");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- collapsible sections
+    // Quick shape / Particle shape / Palette / Era style fold away like CrunchySFX's heroes.
+    // Asserted on classes and storage rather than pixels: the arrow is a CSS transition, and a
+    // headless screenshot freezes mid-rotation, so a visual check reports the wrong state.
+    {
+      const SECTIONS = [
+        ["macros", ".macro-title", "quickShape"],
+        ["shapeSection", "#shapeSection .engine-title", "shapes"],
+        ["paletteSection", "#paletteSection .engine-title", "palette"],
+        ["styleSection", "#styleSection .engine-title", "eras"],
+      ];
+      const noHead = SECTIONS.filter(([, sel]) => {
+        const h = document.querySelector(sel);
+        return !h || !h.classList.contains("collapse-head");
+      }).map(([id]) => id);
+      ok(noHead.length === 0, "all four hero sections have a fold handle", noHead.join(", "));
+
+      const bad = [];
+      for (const [id, sel, key] of SECTIONS) {
+        const sec = document.getElementById(id), head = document.querySelector(sel);
+        const was = sec.classList.contains("collapsed");
+        head.click();
+        if (sec.classList.contains("collapsed") === was) bad.push(id + " didn't toggle");
+        const saved = JSON.parse(localStorage.getItem("crunchyvfx.collapsed.v1") || "{}");
+        if (saved[key] !== sec.classList.contains("collapsed")) bad.push(id + " didn't persist");
+        head.click();                                    // put it back
+        if (sec.classList.contains("collapsed") !== was) bad.push(id + " didn't restore");
+      }
+      ok(bad.length === 0, "each folds, persists and unfolds", bad.join("; "));
+
+      // A control living in a header must not fold the section out from under the click.
+      {
+        const head = document.querySelector("#styleSection .engine-title");
+        const sec = document.getElementById("styleSection");
+        const btn = document.createElement("button");
+        head.appendChild(btn);
+        const was = sec.classList.contains("collapsed");
+        btn.click();
+        ok(sec.classList.contains("collapsed") === was,
+           "clicking a control inside a header doesn't fold it");
+        btn.remove();
+      }
+    }
+
     // ---------------------------------------------------------------- preset value ranges
     // A preset object is written straight into `state`, bypassing the slider that would have
     // clamped it — so a typo'd value doesn't error, it just produces a quietly broken effect.

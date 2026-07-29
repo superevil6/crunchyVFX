@@ -311,6 +311,10 @@
   .engine-title > span { margin-right: auto; }   /* label anchored left; lock/clean pushed to the right */
   .engine-grid { display: flex; flex-direction: column; gap: 9px; }
   .engine-cat { display: flex; align-items: baseline; gap: 12px; }
+  /* `display: flex` above beats the UA's low-specificity [hidden] { display: none }, so a filtered
+     category row kept its label on screen with no buttons under it. Any author `display` rule on
+     an element you later hide needs this. */
+  .engine-cat[hidden] { display: none; }
   .engine-cat-label { flex-shrink: 0; min-width: 84px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
   .engine-cat-btns { display: flex; flex-wrap: wrap; gap: 7px; }
   .engine-btn {
@@ -337,6 +341,11 @@
   .collapsed .collapse-head { margin-bottom: 0; }
   .macro.collapsed > *:not(.macro-title) { display: none; }
   .engine.collapsed .engine-grid, .console.collapsed .console-grid { display: none; }
+  /* Palette and Era style hold their buttons in .engine-cat-btns rather than .engine-grid, so the
+     rule above never reached them. The header's hint goes too, or a folded section keeps a line of
+     explanatory text with nothing to explain. */
+  .engine.collapsed .engine-cat-btns { display: none; }
+  .engine.collapsed .engine-title .hint { display: none; }
   .macro.collapsed, .engine.collapsed, .console.collapsed { padding-bottom: 12px; }
   .macro-row { display: flex; align-items: center; gap: 14px; }
   .macro-row + .macro-row { margin-top: 10px; }
@@ -1100,3 +1109,13 @@
   }
   .sprite-chip:hover .sprite-del { opacity: 1; }
   .sprite-del:hover { color: #ff8080; background: rgba(255,77,77,0.25); }
+
+  /* Shape filter — sits inside the Particle shape section, so it folds away with it. */
+  .shapesearch { margin: 0 0 10px; }
+  .shapesearch input {
+    width: 100%; padding: 7px 10px; font: inherit; font-size: 12px;
+    background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 7px;
+  }
+  .shapesearch input:focus { outline: none; border-color: var(--accent2); }
+  .engine-title .hint { margin-left: auto; font-size: 11px; }
