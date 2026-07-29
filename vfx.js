@@ -570,6 +570,11 @@ function drawFrame(sim, f, g, st, xf) {
   // Structure layers draw first, so sparks and debris land on top of the beam/growth rather than
   // behind it. They share the blend mode, so an additive patch gets an additive beam.
   {
+    drawDecal(g, st, t, xf, fs, ox, oy);   // the floor mark goes under everything
+    drawSweep(g, st, t, xf, fs, ox, oy);
+    drawFracture(g, st, t, xf, fs, ox, oy, seed);
+    drawDrip(g, st, t, xf, fs, ox, oy, seed);
+    drawTunnel(g, st, t, xf, fs, ox, oy);
     drawGrowth(g, st, t, xf, fs, ox, oy, seed);
     drawVortex(g, st, t, xf, fs, ox, oy);
     drawWeather(g, st, t, xf, fs, ox, oy, seed);
@@ -586,6 +591,7 @@ function drawFrame(sim, f, g, st, xf) {
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
     drawSwarm(g, st, t, xf, fs, ox, oy, seed);
+    drawCrackle(g, st, t, xf, fs, ox, oy, seed);
     // Orbit draws LAST of the structure layers: its whole point is that things pass in front of
     // the subject, so it has to sit above the beam/growth it is orbiting.
     drawOrbit(g, st, t, xf, fs, ox, oy, seed);
@@ -1021,6 +1027,255 @@ function drawRipples(g, st, t, xf, fs, ox, oy) {
     g.lineWidth = Math.max(0.4, st.rippleWidth * xf.k * (1 - u * 0.6));
     g.beginPath();
     g.arc(0, 0, r, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- fracture ----------
+// Cracks racing outward from a point, forking as they go. `growth` branches organically — vines,
+// frost, lightning-as-plant; a fracture is ANGULAR and brittle: straight runs, sharp turns, forks
+// that never rejoin. Breaking ground, splitting stone, spiderwebbed glass, a boss-arena floor
+// giving way.
+function drawFracture(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.fracture <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.fractureLife));
+  if (u >= 1) return;
+  const main = Math.max(1, Math.round(st.fractureCount));
+  const reach = st.fractureReach * fs * xf.k;
+  const segs = Math.max(2, Math.round(st.fractureSegs));
+  const c = layerColour(st, u, 0.25);
+  const fade = u > 0.7 ? 1 - (u - 0.7) / 0.3 : 1;
+  g.save();
+  g.globalAlpha = st.fracture * c.a * clamp01(fade);
+  g.strokeStyle = c.css;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  // One crack: walk outward in straight runs, turning by a hashed angle at each joint. `grow`
+  // clips how far along it has got, so the whole network races outward rather than appearing.
+  const crack = (a0, len, width, id, depth) => {
+    let x = ox, y = oy, a = a0;
+    const grow = clamp01(u / Math.max(0.05, st.fractureSpeed));
+    g.lineWidth = Math.max(0.4, width);
+    g.beginPath();
+    g.moveTo(x, y);
+    for (let s = 0; s < segs; s++) {
+      const f = (s + 1) / segs;
+      if (f > grow) break;
+      a += rndS(seed, id * 32 + s, 181) * st.fractureJitter * 1.1;
+      const step = (len / segs) * (0.6 + rnd(seed, id * 32 + s, 182) * 0.8);
+      x += Math.cos(a) * step; y += Math.sin(a) * step;
+      g.lineTo(x, y);
+      // Forks: a second crack leaving at a sharp angle, thinner and shorter. One level only —
+      // deeper recursion turns into a grey smear at sprite sizes.
+      if (depth < 1 && st.fractureFork > 0 && rnd(seed, id * 32 + s, 183) < st.fractureFork) {
+        const bx = x, by = y, ba = a + (rnd(seed, id * 32 + s, 184) < 0.5 ? -1 : 1) * (0.5 + rnd(seed, id, 185) * 0.7);
+        g.stroke();
+        const px = ox, py = oy;
+        ox = bx; oy = by;                                  // fork starts where the parent was
+        crack(ba, len * (1 - f) * 0.7, width * 0.6, id * 7 + s + 1, depth + 1);
+        ox = px; oy = py;
+        g.lineWidth = Math.max(0.4, width);
+        g.beginPath();
+        g.moveTo(x, y);
+      }
+    }
+    g.stroke();
+  };
+  for (let i = 0; i < main; i++) {
+    const a = (i / main) * Math.PI * 2 + rndS(seed, i, 186) * 0.5;
+    crack(a, reach * (0.6 + rnd(seed, i, 187) * 0.7), st.fractureWidth * xf.k, i, 0);
+  }
+  g.restore();
+}
+
+// ---------- drip ----------
+// Droplets that SWELL at a rim, release, and stretch as they fall. Particles are born already
+// moving; a drip has a life cycle — it gathers, hangs, lets go. That pause before it falls is the
+// whole read, and it's what says slime, blood, honey, molten metal, melting ice.
+function drawDrip(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.drip <= 0) return;
+  const n = Math.max(1, Math.round(st.dripCount));
+  const span = st.dripSpread * fs * xf.k;
+  const fall = st.dripFall * fs * xf.k;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.2);
+  g.save();
+  g.globalAlpha = st.drip * c.a;
+  g.fillStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    const x = ox + rndS(seed, i, 191) * span;
+    const y0 = oy + rndS(seed, i, 192) * span * 0.12;
+    // Each drop runs its own cycle, offset so they don't all let go together.
+    const cyc = (t * st.dripRate * (0.6 + rnd(seed, i, 193) * 0.8) + rnd(seed, i, 194)) % 1;
+    const r = st.dripSize * xf.k * (0.6 + rnd(seed, i, 195) * 0.8);
+    if (cyc < st.dripHang) {
+      // Swelling at the rim: grows in place, with a small neck holding it up.
+      const s = cyc / Math.max(0.01, st.dripHang);
+      const rr = r * (0.25 + 0.75 * s);
+      g.beginPath(); g.arc(x, y0 + rr * 0.6, rr, 0, Math.PI * 2); g.fill();
+      g.beginPath();
+      g.moveTo(x - rr * 0.3, y0); g.lineTo(x + rr * 0.3, y0);
+      g.lineTo(x + rr * 0.12, y0 + rr * 0.7); g.lineTo(x - rr * 0.12, y0 + rr * 0.7);
+      g.closePath(); g.fill();
+    } else {
+      // Falling: accelerates, and stretches along the direction of travel like a real droplet.
+      const s = (cyc - st.dripHang) / Math.max(0.01, 1 - st.dripHang);
+      const y = y0 + fall * s * s;
+      const stretch = 1 + s * st.dripStretch * 3;
+      g.save();
+      g.translate(x, y);
+      g.scale(1, stretch);
+      g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+  }
+  g.restore();
+}
+
+// ---------- sweep ----------
+// A rotating wedge. `beam` fires in a fixed direction and `lines` radiate everywhere at once; a
+// sweep is a sector that TURNS, trailing a fading wake behind its leading edge. Radar, sonar,
+// searchlights, scanning, a boss winding up a spin attack.
+function drawSweep(g, st, t, xf, fs, ox, oy) {
+  if (st.sweep <= 0) return;
+  const R = st.sweepRadius * fs * xf.k;
+  if (R < 1) return;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const head = st.sweepAngle * DEG + t * st.sweepSpeed * Math.PI * 2;
+  const wedge = Math.max(0.02, st.sweepWidth) * Math.PI * 2;
+  const steps = Math.max(3, Math.round(st.sweepWidth * 40));
+  const c = layerColour(st, u, 0.45);
+  g.save();
+  g.translate(ox, oy);
+  g.scale(1, 1 - st.sweepSquash * 0.85);
+  // Drawn as a stack of thin sectors so the wake can fade along its length; one filled arc can
+  // only have one alpha, which reads as a spinning pie slice rather than a sweep.
+  for (let i = 0; i < steps; i++) {
+    const f = i / steps;
+    const a0 = head - wedge * f, a1 = head - wedge * (f + 1 / steps);
+    g.globalAlpha = st.sweep * c.a * Math.pow(1 - f, st.sweepFade * 3 + 0.4);
+    g.fillStyle = c.css;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.arc(0, 0, R, a1, a0);
+    g.closePath();
+    g.fill();
+  }
+  if (st.sweepEdge > 0) {                        // a bright leading edge sells the direction
+    g.globalAlpha = st.sweep * c.a * st.sweepEdge;
+    g.strokeStyle = c.css;
+    g.lineWidth = Math.max(0.5, st.sweepEdge * 3 * xf.k);
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(Math.cos(head) * R, Math.sin(head) * R);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- decal ----------
+// A ground mark under the effect: shadow, scorch, splat, impact ring. Every other system draws the
+// EVENT; this draws what the event leaves on the floor, which is what makes an effect sit in a
+// scene instead of floating in front of it. Draws first, under everything.
+function drawDecal(g, st, t, xf, fs, ox, oy) {
+  if (st.decal <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const grow = st.decalGrow > 0 ? Math.min(1, u / st.decalGrow) : 1;
+  const fade = u > (1 - st.decalFade) && st.decalFade > 0
+    ? 1 - (u - (1 - st.decalFade)) / st.decalFade : 1;
+  const a = st.decal * clamp01(fade);
+  if (a <= 0.002) return;
+  const rx = st.decalSize * fs * xf.k * grow;
+  const ry = rx * (1 - st.decalSquash * 0.9);
+  if (rx < 0.5 || ry < 0.3) return;
+  const y = oy + st.decalDrop * fs * xf.k;
+  const c = layerColour(st, u, 0.05);
+  g.save();
+  g.globalAlpha = a * c.a;
+  // A soft-edged ellipse: a hard one reads as a sticker, and a scorch mark never has a crisp edge.
+  const grd = g.createRadialGradient(ox, y, 0, ox, y, rx);
+  grd.addColorStop(0, c.css);
+  grd.addColorStop(Math.max(0.01, 1 - st.decalSoft), c.css);
+  grd.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grd;
+  g.save();
+  g.translate(ox, y); g.scale(1, ry / rx); g.translate(-ox, -y);
+  g.beginPath(); g.arc(ox, y, rx, 0, Math.PI * 2); g.fill();
+  g.restore();
+  g.restore();
+}
+
+// ---------- tunnel ----------
+// Rings receding toward a vanishing point. Vortex draws rings on a flat plane; this one gives them
+// PERSPECTIVE, so the eye reads depth going away from it rather than a disc lying in front of it.
+// Wormholes, warp speed, portal interiors, dive-in transitions.
+function drawTunnel(g, st, t, xf, fs, ox, oy) {
+  if (st.tunnel <= 0) return;
+  const rings = Math.max(2, Math.round(st.tunnelRings));
+  const R = st.tunnelRadius * fs * xf.k;
+  const vx = ox + (st.tunnelVanishX - 0.5) * fs * xf.k;
+  const vy = oy + (st.tunnelVanishY - 0.5) * fs * xf.k;
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  g.save();
+  g.lineCap = "butt";
+  for (let i = 0; i < rings; i++) {
+    // z runs 0 (far, at the vanishing point) to 1 (near, full size) and scrolls with time.
+    let z = (i / rings + t * st.tunnelSpeed) % 1;
+    if (z < 0) z += 1;
+    // Perspective, not linear: without the curve the rings space evenly and it reads as a target.
+    const persp = Math.pow(z, st.tunnelDepth * 2 + 0.6);
+    const rr = R * persp;
+    if (rr < 0.6) continue;
+    const c = layerColour(st, 1 - z, 0.4);
+    // Fade at both ends so rings emerge from the vanishing point rather than popping.
+    const edge = Math.min(1, z / 0.12, (1 - z) / 0.18);
+    g.globalAlpha = st.tunnel * c.a * clamp01(edge) * (0.35 + 0.65 * persp);
+    g.strokeStyle = c.css;
+    g.lineWidth = Math.max(0.4, st.tunnelWidth * xf.k * persp);
+    const cx = vx + (ox - vx) * persp, cy = vy + (oy - vy) * persp;
+    g.beginPath();
+    g.ellipse(cx, cy, rr, rr * (1 - st.tunnelSquash * 0.85), 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- crackle ----------
+// Small arcs jumping between scattered points — static electricity, an energy skin, a charging
+// weapon. `arc` is ONE bolt between two chosen endpoints; this is a FIELD of tiny ones with no
+// endpoints to aim, which is a different thing to author and a different thing to look at.
+//
+// Re-randomises in discrete steps like the arc layer does: continuous jitter reads as noise,
+// stepped jitter reads as electricity.
+function drawCrackle(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.crackle <= 0) return;
+  const n = Math.max(1, Math.round(st.crackleCount));
+  const R = st.crackleSpread * fs * xf.k;
+  const step = Math.floor(t * Math.max(1, st.crackleRate));
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.85);
+  const s = seed + step * 7919;
+  g.save();
+  g.globalAlpha = st.crackle * c.a;
+  g.strokeStyle = c.css;
+  g.lineCap = "round";
+  g.lineWidth = Math.max(0.4, st.crackleWidth * xf.k);
+  for (let i = 0; i < n; i++) {
+    const a0 = rnd(s, i, 171) * Math.PI * 2;
+    const r0 = R * Math.sqrt(rnd(s, i, 172));           // sqrt keeps them evenly spread, not clumped
+    const x0 = ox + Math.cos(a0) * r0, y0 = oy + Math.sin(a0) * r0;
+    const len = st.crackleLength * fs * xf.k * (0.4 + rnd(s, i, 173));
+    const dir = rnd(s, i, 174) * Math.PI * 2;
+    const segs = 3;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    for (let k = 1; k <= segs; k++) {
+      const f = k / segs;
+      const jit = rndS(s, i * 8 + k, 175) * len * 0.34;
+      g.lineTo(x0 + Math.cos(dir) * len * f - Math.sin(dir) * jit,
+               y0 + Math.sin(dir) * len * f + Math.cos(dir) * jit);
+    }
     g.stroke();
   }
   g.restore();
@@ -1819,6 +2074,156 @@ function postProcess(cv, st, overlay, t) {
       }
     }
     g.putImageData(dst, 0, 0);
+  }
+
+  // ---------- slice ----------
+  // Cut the frame along a line and slide the two halves apart. Every other post pass filters or
+  // displaces pixels smoothly; this one is a hard GEOMETRIC cut with a clean gap, which is the
+  // single most-requested sword-slash effect and impossible to fake with particles — the sprite
+  // itself has to come apart.
+  if (st.slice > 0) {
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src.length);
+    const ref = frameRefPx(w, h);
+    const ang = st.sliceAngle * DEG;
+    const dx = Math.cos(ang), dy = Math.sin(ang);        // along the cut
+    const nx = -dy, ny = dx;                             // across it
+    const off = st.slice * st.sliceOffset * ref * 0.25;
+    const gap = st.slice * st.sliceGap * ref * 0.06;
+    const cx = w / 2 + (st.sliceX - 0.5) * w, cy = h / 2 + (st.sliceY - 0.5) * h;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const perp = (x - cx) * nx + (y - cy) * ny;
+        if (Math.abs(perp) < gap) continue;              // the kerf: left transparent
+        const side = perp >= 0 ? 1 : -1;
+        // Sample from where this pixel came FROM, so the halves slide in opposite directions
+        // along the cut rather than the image being smeared.
+        const sx = Math.round(x - side * dx * off), sy = Math.round(y - side * dy * off);
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+        const so = (sy * w + sx) * 4;
+        out[o] = src[so]; out[o + 1] = src[so + 1];
+        out[o + 2] = src[so + 2]; out[o + 3] = src[so + 3];
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
+  }
+
+  // ---------- warp ----------
+  // A ring of refraction travelling outward — the air-bending shell of a blast. Haze is also
+  // displacement, and this is the same family, but the SHAPE is what matters: haze is a standing
+  // shimmer over the whole frame, warp is a single travelling front with nothing behind it. One
+  // says hot, the other says something just detonated.
+  if (st.warp > 0) {
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src.length);
+    const ref = frameRefPx(w, h);
+    const cx = w / 2, cy = h / 2;
+    const u = clamp01(t / Math.max(0.01, st.warpLife));
+    const radius = u * st.warpReach * ref;
+    const band = Math.max(1, st.warpBand * ref * 0.2);
+    const amp = st.warp * st.warpAmount * ref * 0.08 * (1 - u);   // decays as it expands
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const ddx = x - cx, ddy = y - cy;
+        const d = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+        const off = d - radius;
+        let sx = x, sy = y;
+        if (Math.abs(off) < band) {
+          // A single sine across the band: pixels ahead of the front pull in, behind it push out.
+          const push = Math.sin((off / band) * Math.PI) * amp;
+          sx = Math.round(x + (ddx / d) * push);
+          sy = Math.round(y + (ddy / d) * push);
+          if (sx < 0) sx = 0; else if (sx >= w) sx = w - 1;
+          if (sy < 0) sy = 0; else if (sy >= h) sy = h - 1;
+        }
+        const so = (sy * w + sx) * 4;
+        out[o] = src[so]; out[o + 1] = src[so + 1];
+        out[o + 2] = src[so + 2]; out[o + 3] = src[so + 3];
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
+  }
+
+  // ---------- aura ----------
+  // A coloured halo that hugs the silhouette. This is NOT glow: glow blooms bright pixels outward
+  // additively, so a dark sprite gets none and a white one washes out. Aura is derived from the
+  // ALPHA — it traces whatever shape ended up on the frame, whatever colour it is — and sits
+  // BEHIND it, so the sprite stays crisp and gains a rim. Rim light, spirit glow, holy/cursed
+  // outlines, readability against a busy background.
+  //
+  // Runs before glow so the halo can bloom too.
+  if (st.aura > 0) {
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const mask = new Uint8ClampedArray(d.length);
+    for (let i = 3; i < d.length; i += 4) mask[i] = d[i];        // alpha only
+    const spread = boxBlur(mask, w, h, Math.max(1, Math.round(st.auraRadius)));
+    const col = layerColour(st, 0.5, 1 - st.auraTint);
+    // Parse the layer colour once into components rather than per pixel.
+    const probe = document.createElement("canvas").getContext("2d");
+    probe.fillStyle = col.css;
+    probe.fillRect(0, 0, 1, 1);
+    const rgb = probe.getImageData(0, 0, 1, 1).data;
+    const amt = st.aura;
+    for (let i = 0; i < d.length; i += 4) {
+      const halo = spread[i + 3] * amt;
+      if (halo <= 1) continue;
+      const own = d[i + 3] / 255;
+      // Behind the sprite: the halo only fills where the sprite isn't.
+      const add = halo * (1 - own);
+      if (add <= 1) continue;
+      const k = add / 255;
+      d[i]     = d[i]     * own + rgb[0] * k * (1 - own) + d[i]     * (1 - own) * (1 - k);
+      d[i + 1] = d[i + 1] * own + rgb[1] * k * (1 - own) + d[i + 1] * (1 - own) * (1 - k);
+      d[i + 2] = d[i + 2] * own + rgb[2] * k * (1 - own) + d[i + 2] * (1 - own) * (1 - k);
+      d[i + 3] = Math.min(255, d[i + 3] + add);
+    }
+    g.putImageData(img, 0, 0);
+  }
+
+  // ---------- smear ----------
+  // Directional blur: the frame is averaged along one axis. Glow is isotropic (it spreads equally
+  // in every direction) and haze DISPLACES pixels; this convolves them along a line, which is what
+  // motion actually does to a camera. Speed, dashes, whip-pans, the smear frames a hand animator
+  // draws between two poses.
+  if (st.smear > 0) {
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src.length);
+    const ang = st.smearAngle * DEG;
+    const dist = st.smearAmount * frameRefPx(w, h) * 0.12;
+    const taps = Math.max(2, Math.min(24, Math.round(dist)));
+    const dx = Math.cos(ang) * dist / taps, dy = Math.sin(ang) * dist / taps;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        // MAX along the trail, not the mean. A mean is a blur: it divides a lone bright particle
+        // by the total tap weight, so sparse sprites (which is most of them here) come out dimmer
+        // than they went in — the first version visibly ate the effect. Taking the brightest
+        // sample with a falloff keeps the head at full strength and lays a fading tail behind it,
+        // which is what a smear frame actually looks like.
+        let r = 0, gg = 0, b = 0, a = 0;
+        for (let k = 0; k < taps; k++) {
+          // Trail BEHIND only (one direction), not symmetric — symmetric reads as out-of-focus
+          // rather than moving.
+          const sx = Math.round(x - dx * k), sy = Math.round(y - dy * k);
+          if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+          const o = (sy * w + sx) * 4;
+          const fall = 1 - k / taps;
+          const av = src[o + 3] * fall;
+          if (av > a) { a = av; r = src[o] * fall; gg = src[o + 1] * fall; b = src[o + 2] * fall; }
+        }
+        const o = (y * w + x) * 4;
+        const m = st.smear;
+        out[o]     = Math.max(src[o],     src[o]     * (1 - m) + r * m);
+        out[o + 1] = Math.max(src[o + 1], src[o + 1] * (1 - m) + gg * m);
+        out[o + 2] = Math.max(src[o + 2], src[o + 2] * (1 - m) + b * m);
+        out[o + 3] = Math.max(src[o + 3], a * m);
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
   }
 
   if (st.glow > 0) {

@@ -1095,6 +1095,243 @@
       ok(top >= 0 && bottom > top + 5, "the pieces fall", top.toFixed(0) + " → " + bottom.toFixed(0) + " px");
     }
 
+    // -------------------------------------------- fracture / drip / sweep / slice / warp
+    {
+      ok(state.fracture === 0 && state.drip === 0 && state.sweep === 0 &&
+         state.slice === 0 && state.warp === 0, "the five newest systems default to off");
+      for (const k of ["fracture", "drip", "sweep"]) {
+        const off = {}; off[k] = 0;
+        const on = {}; on[k] = 1;
+        ok(lay(off, 0.5) === 0, k + " at 0 draws nothing");
+        ok(lay(on, 0.5) > 20, "the " + k + " draws", lay(on, 0.5) + " px");
+      }
+
+      const extentOf = (patch, frac) => {
+        applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                    frameSize: 4, glow: 0 }, patch), "nw");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1, y0 = 999, y1 = -1, sum = 0, n = 0;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+            sum += y; n++;
+          }
+        }
+        return x1 < 0 ? null : { w: x1 - x0, h: y1 - y0, cy: sum / n };
+      };
+
+      // Fracture RACES outward — the network grows rather than appearing whole.
+      {
+        // Sample after the cracks have started: at 8% of the cycle `grow` hasn't reached the
+        // first joint yet, so nothing is drawn at all and there is no extent to compare.
+        const early = extentOf({ fracture: 1, fractureSpeed: 0.6, fractureLife: 2 }, 0.25);
+        const late = extentOf({ fracture: 1, fractureSpeed: 0.6, fractureLife: 2 }, 0.7);
+        ok(early && late && late.w > early.w * 1.3, "the fracture spreads outward over time",
+           (early ? early.w : 0) + "px → " + (late ? late.w : 0) + "px");
+      }
+
+      // Drip FALLS — the drops' centre of mass descends.
+      {
+        // Comparing one frame to a later one doesn't work: each drop runs its own cycle, so the
+        // ensemble is in steady state and the mean height barely moves. Test the PARAMETER
+        // instead — a bigger Fall must put the drops lower — which is the property that matters
+        // and is deterministic.
+        const a = extentOf({ drip: 1, dripCount: 16, dripRate: 0.9, dripHang: 0.3, dripFall: 0.1 }, 0.6);
+        const b = extentOf({ drip: 1, dripCount: 16, dripRate: 0.9, dripHang: 0.3, dripFall: 1.3 }, 0.6);
+        ok(a && b && b.cy > a.cy + 4, "Fall drops them further",
+           (a ? a.cy.toFixed(0) : "-") + " → " + (b ? b.cy.toFixed(0) : "-"));
+      }
+
+      // Sweep TURNS.
+      {
+        const at = (frac) => {
+          applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                        sweep: 1, sweepSpeed: 1, glow: 0 }, "sp");
+          const r = renderFrames(state, { size: 128 });
+          const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+          return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const a = at(0.05), b = at(0.35);
+        let moved = 0;
+        for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) moved++;
+        ok(moved > 200, "the sweep rotates", moved + " px changed");
+      }
+
+      // Slice must genuinely CUT: a solid disc gains a transparent kerf across it, and the halves
+      // slide apart. Eyeballing a post pass on a busy sprite is unreliable, so test it on a shape
+      // whose "before" is known exactly.
+      {
+        const disc = { shape: 0, count: 1, opacity: 1, size: 70, sizeVar: 0, speed: 0,
+                       life: 2, fadeIn: 0, fadeOut: 0, grow: 0, duration: 0.4, fps: 24,
+                       frameSize: 4, glow: 0, coreWhite: 0.4 };
+        const shot = (patch) => {
+          applyPreset(Object.assign({}, disc, patch), "sl");
+          const cv = renderFrames(state, { size: 128 }).canvases[2];
+          return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const plain = shot({ slice: 0 });
+        const cut = shot({ slice: 1, sliceAngle: 0, sliceOffset: 0.4, sliceGap: 0.3 });
+        // With a horizontal cut, the middle row band should be emptied.
+        let bandPlain = 0, bandCut = 0;
+        for (let y = 62; y <= 66; y++) for (let x = 0; x < 128; x++) {
+          if (plain[(y * 128 + x) * 4 + 3] > 8) bandPlain++;
+          if (cut[(y * 128 + x) * 4 + 3] > 8) bandCut++;
+        }
+        ok(bandPlain > 40 && bandCut < bandPlain * 0.4,
+           "slice opens a gap along the cut", bandPlain + " px → " + bandCut + " px");
+        // …and the halves move apart, so the overall extent widens along the cut direction.
+        const spanOf = (d) => {
+          let x0 = 999, x1 = -1;
+          for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+            if (d[(y * 128 + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; }
+          }
+          return x1 < 0 ? 0 : x1 - x0;
+        };
+        ok(spanOf(cut) > spanOf(plain) + 4, "…and slides the halves apart",
+           spanOf(plain) + "px → " + spanOf(cut) + "px");
+      }
+
+      // Warp displaces pixels near a travelling front, and the front MOVES — that's what makes it
+      // a blast shell rather than a standing distortion like haze.
+      {
+        const shot = (patch, frame) => {
+          applyPreset(Object.assign({ shape: 4, count: 260, opacity: 1, emitter: 3,
+                                      emitRadius: 0.4, speed: 0, size: 7, life: 3,
+                                      fadeIn: 0, fadeOut: 0, duration: 0.8, fps: 24,
+                                      frameSize: 4, glow: 0 }, patch), "wp");
+          const cv = renderFrames(state, { size: 128 }).canvases[frame];
+          return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const diff = (a, b) => {
+          let n = 0;
+          for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) n++;
+          return n;
+        };
+        const flat2 = shot({ warp: 0 }, 3);
+        const warped = shot({ warp: 1, warpAmount: 1.8, warpLife: 0.8 }, 3);
+        ok(diff(flat2, warped) > 60, "warp displaces the image", diff(flat2, warped) + " px");
+        // The ring travels: the displaced region differs between an early and a later frame.
+        const early = shot({ warp: 1, warpAmount: 1.8, warpLife: 0.8 }, 2);
+        const later = shot({ warp: 1, warpAmount: 1.8, warpLife: 0.8 }, 8);
+        ok(diff(early, later) > 60, "…and the front travels outward", diff(early, later) + " px");
+      }
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // -------------------------------------------- decal / tunnel / crackle / aura / smear
+    {
+      ok(state.decal === 0 && state.tunnel === 0 && state.crackle === 0 &&
+         state.aura === 0 && state.smear === 0, "the five newest systems default to off");
+      for (const k of ["decal", "tunnel", "crackle"]) {
+        const off = {}; off[k] = 0;
+        const on = {}; on[k] = 1;
+        ok(lay(off, 0.4) === 0, k + " at 0 draws nothing");
+        ok(lay(on, 0.4) > 20, "the " + k + " draws", lay(on, 0.4) + " px");
+      }
+
+      const boxOf = (patch, frac) => {
+        applyPreset(Object.assign({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24,
+                                    frameSize: 4, glow: 0 }, patch), "nx");
+        const r = renderFrames(state, { size: 128 });
+        const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+        const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        let x0 = 999, x1 = -1, y0 = 999, y1 = -1;
+        for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) {
+          if (d[(y * 128 + x) * 4 + 3] > 8) {
+            if (x < x0) x0 = x; if (x > x1) x1 = x;
+            if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        }
+        return x1 < 0 ? null : { w: x1 - x0, h: y1 - y0, cy: (y0 + y1) / 2 };
+      };
+
+      // A decal is a GROUND mark: squashed, and sitting below the origin.
+      {
+        const b = boxOf({ decal: 1, decalSquash: 0.8, decalDrop: 0.2, decalGrow: 0 }, 0.4);
+        ok(b && b.w > b.h * 2, "the decal is squashed to the ground plane",
+           b ? b.w + "×" + b.h : "nothing drawn");
+        ok(b && b.cy > 64, "…and sits below the origin", b ? "centre y " + b.cy.toFixed(0) : "");
+      }
+
+      // A tunnel recedes: rings scroll, so the pattern changes between frames.
+      {
+        const at = (frac) => {
+          applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                        tunnel: 1, tunnelSpeed: 1, glow: 0 }, "tu2");
+          const r = renderFrames(state, { size: 128 });
+          const cv = r.canvases[Math.min(r.canvases.length - 1, Math.floor(r.canvases.length * frac))];
+          return cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const a = at(0.05), b = at(0.55);
+        let moved = 0;
+        for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) moved++;
+        ok(moved > 100, "the tunnel's rings travel toward the viewer", moved + " px changed");
+      }
+
+      // Crackle re-randomises in STEPS: two frames inside one step are identical, and it changes
+      // across a step boundary. Continuous jitter reads as noise; stepped reads as electricity.
+      {
+        const frameAt = (f, rate) => {
+          applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.0, fps: 24, frameSize: 4,
+                        crackle: 1, crackleCount: 14, crackleRate: rate, glow: 0 }, "ck");
+          const r = renderFrames(state, { size: 128 });
+          return r.canvases[f].getContext("2d").getImageData(0, 0, 128, 128).data;
+        };
+        const diff = (a, b) => {
+          let n = 0;
+          for (let i = 3; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) > 24) n++;
+          return n;
+        };
+        // rate 2/s at 24fps: frames 0..11 share a step, so 0 vs 1 is identical, 0 vs 18 is not.
+        ok(diff(frameAt(0, 2), frameAt(1, 2)) === 0, "crackle holds its pattern within a step");
+        ok(diff(frameAt(0, 2), frameAt(18, 2)) > 20, "…and re-strikes at the next one");
+      }
+
+      // Aura is derived from ALPHA, which is exactly what makes it not-glow: it must halo a DIM
+      // sprite, where glow (which thresholds on brightness) leaves nothing.
+      {
+        const dim = { shape: 0, count: 14, opacity: 1, emitter: 2, emitRadius: 0.2, speed: 0,
+                      size: 9, life: 2, fadeIn: 0, fadeOut: 0, duration: 0.5, fps: 24,
+                      frameSize: 4, bright: 0.16, coreWhite: 0, sat: 0.9, glow: 0 };
+        const litOf = (patch) => {
+          applyPreset(Object.assign({}, dim, patch), "au");
+          return lit(renderFrames(state, { size: 128 }).canvases[2]);
+        };
+        const plain = litOf({});
+        const withGlow = litOf({ glow: 1, glowRadius: 8, glowThresh: 0.5 });
+        const withAura = litOf({ aura: 1, auraRadius: 8 });
+        ok(withAura > plain * 1.3, "the aura halos the silhouette",
+           plain + " → " + withAura + " px");
+        ok(withAura > withGlow, "…including on a dim sprite, where glow has nothing to bloom",
+           "glow " + withGlow + " vs aura " + withAura);
+      }
+
+      // Smear must not DIM what it smears. The first version averaged along the trail, which
+      // divided a lone bright particle by the tap weight and visibly ate the effect.
+      {
+        const peak = (patch) => {
+          applyPreset(Object.assign({ shape: 1, count: 12, opacity: 1, emitter: 1, emitAngle: 0,
+                                      emitSpread: 20, speed: 130, size: 8, life: 0.5,
+                                      duration: 0.6, fps: 24, frameSize: 4, glow: 0 }, patch), "sm");
+          const cv = renderFrames(state, { size: 128 }).canvases[3];
+          const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data;
+          let mx = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i + 3] > 8) { n++; mx = Math.max(mx, d[i] + d[i + 1] + d[i + 2]); }
+          }
+          return { peak: mx, lit: n };
+        };
+        const off = peak({ smear: 0 }), on = peak({ smear: 0.9, smearAmount: 1.5, smearAngle: 180 });
+        ok(on.peak >= off.peak - 6, "smear does not dim what it smears",
+           off.peak + " → " + on.peak + " peak RGB");
+        ok(on.lit > off.lit * 1.15, "…and lays a trail behind it", off.lit + " → " + on.lit + " px");
+      }
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // -------------------------------------------------- swarm / chain / impact / weather / flare
     {
       ok(state.swarm === 0 && state.chain === 0 && state.impact === 0 &&

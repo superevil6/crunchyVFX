@@ -535,6 +535,90 @@ const PARAMS = [
   ["flareWidth", "Thickness",   1, 40, 0.5, 7, "px",   "Flare"],
   ["flareGhosts","Ghosts",      0, 8, 1, 3, "",        "Flare"],
   ["flareLife",  "Length",      0.05, 2, 0.01, 0.4, "s","Flare"],
+
+  // Decal — the mark the event leaves on the floor. Shadow, scorch, splat.
+  ["decal",      "Ground decal",0, 1, 0.01, 0, "",     "Decal"],
+  ["decalSize",  "Size",        0.05, 0.8, 0.01, 0.3, "","Decal"],
+  ["decalSquash","Squash",      0, 1, 0.01, 0.72, "",  "Decal"],
+  ["decalDrop",  "Drop",     -0.5, 0.5, 0.01, 0.18, "","Decal"],
+  ["decalSoft",  "Softness",    0, 1, 0.01, 0.55, "",  "Decal"],
+  ["decalGrow",  "Grow in",     0, 1, 0.01, 0.15, "",  "Decal"],
+  ["decalFade",  "Fade out",    0, 1, 0.01, 0.5, "",   "Decal"],
+
+  // Tunnel — rings receding to a vanishing point. Wormholes, warp, portal interiors.
+  ["tunnel",     "Tunnel",      0, 1, 0.01, 0, "",     "Tunnel"],
+  ["tunnelRings","Rings",       2, 24, 1, 9, "",       "Tunnel"],
+  ["tunnelRadius","Radius",     0.1, 1, 0.01, 0.55, "","Tunnel"],
+  ["tunnelSpeed","Speed",    -3, 3, 0.05, 0.6, "",     "Tunnel"],
+  ["tunnelDepth","Perspective", 0, 1, 0.01, 0.55, "",  "Tunnel"],
+  ["tunnelWidth","Line width",  0.5, 12, 0.5, 3, "px", "Tunnel"],
+  ["tunnelSquash","Squash",     0, 1, 0.01, 0, "",     "Tunnel"],
+  ["tunnelVanishX","Vanish X",  0, 1, 0.01, 0.5, "",   "Tunnel"],
+  ["tunnelVanishY","Vanish Y",  0, 1, 0.01, 0.5, "",   "Tunnel"],
+
+  // Crackle — a field of tiny arcs. Static, energy skin, charging.
+  ["crackle",    "Crackle",     0, 1, 0.01, 0, "",     "Crackle"],
+  ["crackleCount","Arcs",       1, 40, 1, 10, "",      "Crackle"],
+  ["crackleSpread","Spread",    0.02, 0.6, 0.01, 0.22, "","Crackle"],
+  ["crackleLength","Length",    0.01, 0.3, 0.005, 0.07, "","Crackle"],
+  ["crackleWidth","Width",      0.3, 5, 0.1, 1.2, "px","Crackle"],
+  ["crackleRate","Flicker rate",1, 40, 1, 16, "/s",    "Crackle"],
+
+  // Aura — a coloured halo derived from the silhouette. Not glow: it traces alpha, not brightness.
+  ["aura",       "Aura",        0, 1, 0.01, 0, "",     "Aura"],
+  ["auraRadius", "Spread",      1, 24, 1, 6, "px",     "Aura"],
+  ["auraTint",   "Tint",        0, 1, 0.01, 0.7, "",   "Aura"],
+
+  // Smear — directional blur. Motion, not defocus.
+  ["smear",      "Smear",       0, 1, 0.01, 0, "",     "Smear"],
+  ["smearAngle", "Direction",   0, 360, 1, 0, "°",     "Smear"],
+  ["smearAmount","Distance",    0.1, 3, 0.05, 1, "",   "Smear"],
+
+  // Fracture — angular cracks racing outward and forking. Brittle, where growth is organic.
+  ["fracture",   "Fracture",    0, 1, 0.01, 0, "",     "Fracture"],
+  ["fractureCount","Cracks",    1, 12, 1, 5, "",       "Fracture"],
+  ["fractureReach","Reach",     0.05, 1, 0.01, 0.45, "","Fracture"],
+  ["fractureSegs","Joints",     2, 16, 1, 7, "",       "Fracture"],
+  ["fractureJitter","Turn",     0, 1, 0.01, 0.45, "",  "Fracture"],
+  ["fractureFork","Forking",    0, 1, 0.01, 0.35, "",  "Fracture"],
+  ["fractureWidth","Width",     0.3, 8, 0.1, 2, "px",  "Fracture"],
+  ["fractureSpeed","Spread",    0.05, 1, 0.01, 0.4, "","Fracture"],
+  ["fractureLife","Cycle",      0.1, 3, 0.01, 1, "s",  "Fracture"],
+
+  // Drip — droplets that swell, hang, release and stretch.
+  ["drip",       "Drip",        0, 1, 0.01, 0, "",     "Drip"],
+  ["dripCount",  "Drops",       1, 40, 1, 8, "",       "Drip"],
+  ["dripSpread", "Spread",      0.02, 0.6, 0.01, 0.24, "","Drip"],
+  ["dripSize",   "Size",        1, 20, 0.5, 5, "px",   "Drip"],
+  ["dripFall",   "Fall",        0.05, 1.5, 0.01, 0.6, "","Drip"],
+  ["dripRate",   "Rate",        0.1, 3, 0.05, 0.7, "/s","Drip"],
+  ["dripHang",   "Hang",        0, 0.9, 0.01, 0.45, "","Drip"],
+  ["dripStretch","Stretch",     0, 1, 0.01, 0.5, "",   "Drip"],
+
+  // Sweep — a rotating wedge with a fading wake. Radar, sonar, searchlight.
+  ["sweep",      "Sweep",       0, 1, 0.01, 0, "",     "Sweep"],
+  ["sweepRadius","Radius",      0.05, 0.8, 0.01, 0.45, "","Sweep"],
+  ["sweepAngle", "Start angle", 0, 360, 1, 0, "°",     "Sweep"],
+  ["sweepSpeed", "Speed",    -3, 3, 0.05, 0.8, "rev/s","Sweep"],
+  ["sweepWidth", "Wedge",       0.02, 0.9, 0.01, 0.18, "","Sweep"],
+  ["sweepFade",  "Wake fade",   0, 1, 0.01, 0.6, "",   "Sweep"],
+  ["sweepEdge",  "Leading edge",0, 1, 0.01, 0.5, "",   "Sweep"],
+  ["sweepSquash","Squash",      0, 1, 0.01, 0, "",     "Sweep"],
+
+  // Slice — cut the frame along a line and slide the halves apart.
+  ["slice",      "Slice",       0, 1, 0.01, 0, "",     "Slice"],
+  ["sliceAngle", "Angle",       0, 360, 1, 30, "°",    "Slice"],
+  ["sliceOffset","Slide",       0, 1, 0.01, 0.25, "",  "Slice"],
+  ["sliceGap",   "Gap",         0, 1, 0.01, 0.15, "",  "Slice"],
+  ["sliceX",     "Cut X",       0, 1, 0.01, 0.5, "",   "Slice"],
+  ["sliceY",     "Cut Y",       0, 1, 0.01, 0.5, "",   "Slice"],
+
+  // Warp — a travelling ring of refraction. The shell of a blast.
+  ["warp",       "Warp",        0, 1, 0.01, 0, "",     "Warp"],
+  ["warpReach",  "Reach",       0.1, 1.2, 0.01, 0.7, "","Warp"],
+  ["warpBand",   "Band",        0.05, 1, 0.01, 0.3, "","Warp"],
+  ["warpAmount", "Strength",    0.1, 2, 0.05, 0.8, "", "Warp"],
+  ["warpLife",   "Cycle",       0.05, 2, 0.01, 0.5, "s","Warp"],
   // Glitch — banded displacement + RGB split. Digital corruption, damage, teleport interference.
   ["glitch",     "Glitch",      0, 1, 0.01, 0, "",     "Glitch"],
   ["glitchSlices","Bands",      1, 24, 1, 6, "",       "Glitch"],
@@ -1767,6 +1851,16 @@ const LAYER_GROUPS = [
   { g: "Impact",      is: () => state.impact > 0,     on: () => { state.impact = 1; } },
   { g: "Weather",     is: () => state.weather > 0,    on: () => { state.weather = 1; } },
   { g: "Flare",       is: () => state.flare > 0,      on: () => { state.flare = 1; } },
+  { g: "Decal",       is: () => state.decal > 0,      on: () => { state.decal = 1; } },
+  { g: "Tunnel",      is: () => state.tunnel > 0,     on: () => { state.tunnel = 1; } },
+  { g: "Crackle",     is: () => state.crackle > 0,    on: () => { state.crackle = 1; } },
+  { g: "Aura",        is: () => state.aura > 0,       on: () => { state.aura = 1; } },
+  { g: "Smear",       is: () => state.smear > 0,      on: () => { state.smear = 1; } },
+  { g: "Fracture",    is: () => state.fracture > 0,   on: () => { state.fracture = 1; } },
+  { g: "Drip",        is: () => state.drip > 0,       on: () => { state.drip = 1; } },
+  { g: "Sweep",       is: () => state.sweep > 0,      on: () => { state.sweep = 1; } },
+  { g: "Slice",       is: () => state.slice > 0,      on: () => { state.slice = 1; } },
+  { g: "Warp",        is: () => state.warp > 0,       on: () => { state.warp = 1; } },
   { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
 ];
 // The inverse of the "＋ Growth" chip. Deriving it from PARAMS rather than hand-writing 24 `off`
