@@ -894,7 +894,10 @@ function drawArc(g, st, t, xf, fs, ox, oy, seed) {
   const dx = tx - ox, dy = ty - oy;
   const len = Math.hypot(dx, dy) || 1;
   const nx = -dy / len, ny = dx / len;                     // perpendicular, for the jitter
-  const c = layerColour(st, u, 0.9);
+  // 0.9 white-bias crushed saturation to ~23% and lifted lightness to ~95%, so every bolt came
+  // out white no matter what hue was set — purple lightning was simply not expressible. 0.55
+  // keeps the hot-white read while letting the colour through. (Same call the sigil needed.)
+  const c = layerColour(st, u, 0.55);
   const fade = 1 - u * u;
 
   const path = (jit, spread) => {
@@ -1254,7 +1257,7 @@ function drawCrackle(g, st, t, xf, fs, ox, oy, seed) {
   const R = st.crackleSpread * fs * xf.k;
   const step = Math.floor(t * Math.max(1, st.crackleRate));
   const u = clamp01(t / Math.max(0.01, st.duration));
-  const c = layerColour(st, u, 0.85);
+  const c = layerColour(st, u, 0.55);   // see the arc note: 0.85 made every spark white
   const s = seed + step * 7919;
   g.save();
   g.globalAlpha = st.crackle * c.a;

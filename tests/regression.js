@@ -803,6 +803,30 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- preset value ranges
+    // A preset object is written straight into `state`, bypassing the slider that would have
+    // clamped it — so a typo'd value doesn't error, it just produces a quietly broken effect.
+    // "Triple Tap" shipped with shotSpread: 12 against a 0..1 range, which flung its later shots
+    // three frames away; with Fit on, the bounding box exploded and the whole effect rendered at
+    // sub-pixel size. It looked empty, not wrong. Two of the original presets had the same class
+    // of bug. This is the cheapest possible guard against the next one.
+    {
+      const lim = {};
+      for (const p of PARAMS) lim[p[0]] = { min: p[2], max: p[3] };
+      const bad = [];
+      for (const name of Object.keys(PRESETS)) {
+        for (const k in PRESETS[name]) {
+          if (k === "_vary" || !(k in lim)) continue;
+          const v = PRESETS[name][k];
+          if (typeof v !== "number") continue;
+          if (v < lim[k].min || v > lim[k].max) {
+            bad.push(name + "." + k + "=" + v + " (" + lim[k].min + "…" + lim[k].max + ")");
+          }
+        }
+      }
+      ok(bad.length === 0, "every preset value is inside its declared range", bad.join("; "));
+    }
+
     // ---------------------------------------------------------------- sprite library
     // Imported particle PNGs are kept so you never have to find the file twice. The subtle failure
     // is storage: if a save fails on quota, the on-screen list must not keep an entry that isn't
