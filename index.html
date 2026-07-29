@@ -3345,6 +3345,12 @@ expModal.innerHTML =
       '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expEmis" title="A second sheet holding only the pixels that emit light, for engines that apply their own bloom"> Also export an emissive mask</label></div>' +
       '<div class="exp-row" id="expSoundRow" hidden><span></span><label class="exp-chk"><input type="checkbox" id="expSound" checked title="The synthesised sound, written as a 16-bit stereo WAV beside the sheet"> Also export the sound (.wav)</label></div>' +
+      '<div class="exp-row exp-pipes"><span>Pipelines</span><span class="exp-pipe-list" id="expPipes"></span></div>' +
+      '<div class="exp-row"><span></span><span class="exp-pipe-btns">' +
+        '<button id="expPipeSave" title="Save the settings above as a named pipeline you can re-run">＋ Save these settings</button>' +
+        '<button id="expPipeFolder" data-desktop title="Point the selected pipeline at a folder — running it then writes straight there, no dialog">📁 Set folder</button>' +
+      '</span></div>' +
+      '<div class="exp-row exp-repack" data-desktop><span>Re-export pack</span><span class="exp-repack-opts" id="expRepack"></span></div>' +
       '<div class="exp-note" id="expNote"></div>' +
     '</div>' +
     '<div class="modal-foot">' +
@@ -3554,7 +3560,82 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
 //
 // Rendering 35 effects blocks the main thread for seconds, so it yields between each one: the
 // progress line actually updates instead of the window going grey and the OS offering to kill it.
-async function batchExport(which) {
+// ---------- Export pipelines ----------
+// A pipeline is a NAMED bundle of export settings — format, layout, sidecar, trim, sizes — plus,
+// on desktop, the folder they go to. The point isn't saving clicks once; it's that a project has
+// one right answer ("Godot, trimmed, 2x, into res://assets/vfx") and you shouldn't have to
+// remember it or get it subtly wrong on the fortieth effect.
+//
+// The remembered FOLDER is what makes this a desktop feature rather than a convenience: a browser
+// cannot write to a path, so on the web a pipeline recalls settings and still hands you a file.
+const PIPE_KEY = "crunchyvfx.pipelines.v1";
+let pipelines = [];
+
+function loadPipelines() {
+  try { pipelines = JSON.parse(localStorage.getItem(PIPE_KEY) || "[]") || []; }
+  catch (e) { pipelines = []; }
+}
+function savePipelines() {
+  try { localStorage.setItem(PIPE_KEY, JSON.stringify(pipelines)); } catch (e) { /* best-effort */ }
+}
+
+// The settings a pipeline captures. Deliberately only export options — never the effect itself,
+// because a pipeline is "how this project ships assets", not "what this asset looks like".
+function currentPipelineSettings() {
+  return {
+    format: expFormat.value,
+    layout: expLayout.value,
+    meta: expMetaSel.value,
+    trim: expTrim.checked,
+    pot: expPot.checked,
+    emissive: expEmis.checked,
+    sound: expSound.checked,
+    scales: chosenScales(),
+  };
+}
+function applyPipelineSettings(s) {
+  if (!s) return;
+  expFormat.value = s.format; expLayout.value = s.layout; expMetaSel.value = s.meta;
+  expTrim.checked = !!s.trim; expPot.checked = !!s.pot;
+  expEmis.checked = !!s.emissive; expSound.checked = s.sound !== false;
+  for (const k of EXPORT_SCALES) expScaleBoxes[k].checked = (s.scales || [1]).indexOf(k) >= 0;
+  refreshExpInfo();
+}
+
+function pipelineSummary(p) {
+  const s = p.settings || {};
+  const bits = [s.format === "sheet" ? "sheet" : s.format === "apng" ? "APNG" : "frames"];
+  if (s.meta && s.meta !== "none") bits.push(s.meta);
+  if (s.trim) bits.push("trimmed");
+  if ((s.scales || []).length > 1) bits.push(s.scales.join("×, ") + "×");
+  else if ((s.scales || [1])[0] !== 1) bits.push(s.scales[0] + "×");
+  if (p.folder) bits.push("→ " + p.folder.split(/[\\/]/).pop());
+  return bits.join(" · ");
+}
+
+// Desktop: write the files straight into the pipeline's folder instead of a save dialog or a zip.
+async function writeFilesToFolder(files, folder) {
+  const T = window.__TAURI__;
+  if (!(T && T.fs)) throw new Error("not desktop");
+  const sep = folder.indexOf("\\") >= 0 && folder.indexOf("/") < 0 ? "\\" : "/";
+  const base = folder.replace(/[\\/]+$/, "");
+  for (const f of files) {
+    // Pack exports use "name/name.png"; the subfolder has to exist before the write.
+    const parts = f.name.split("/");
+    if (parts.length > 1 && T.fs.mkdir) {
+      try { await T.fs.mkdir(base + sep + parts.slice(0, -1).join(sep), { recursive: true }); }
+      catch (e) { /* already there, or unsupported — the write below will report the real problem */ }
+    }
+    await T.fs.writeFile(base + sep + parts.join(sep), f.data);
+  }
+}
+
+// `opts.overrides` is what turns this from "export the library" into a STYLE PASS: the given keys
+// are stamped onto every effect on the way out, so changing your palette or crunch once re-ships
+// the whole pack consistently instead of you editing forty effects by hand. `opts.folder` writes
+// straight to disk (desktop) rather than handing back a zip.
+async function batchExport(which, opts) {
+  opts = opts || {};
   const sets = [];
   if (which !== "mine") for (const name in PRESETS) sets.push({ name, patch: PRESETS[name] });
   if (which !== "builtin") for (const e of userEffects) sets.push({ name: e.name, patch: e.state });
@@ -3570,6 +3651,10 @@ async function batchExport(which) {
       while (used.has(base)) base = sanitize(name) + "-" + n++;   // two effects can share a name
       used.add(base);
       applyPreset(patch, name);
+      if (opts.overrides) {
+        for (const k in opts.overrides) if (k in state) state[k] = opts.overrides[k];
+        rerender();
+      }
       const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
       const blob = await canvasBlob(sh.cv);
       files.push({ name: base + "/" + base + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
@@ -3585,9 +3670,14 @@ async function batchExport(which) {
       app: "CrunchyVFX", exported: sets.length,
       effects: sets.map((s, i) => ({ name: s.name, folder: [...used][i] })),
     }, null, 2)) });
-    download(new Blob([makeZip(files)], { type: "application/zip" }), "crunchyvfx-pack.zip");
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
-    expMsg.textContent = "Exported " + sets.length + " effects · " + kb + " KB";
+    if (opts.folder) {
+      await writeFilesToFolder(files, opts.folder);
+      expMsg.textContent = "Wrote " + sets.length + " effects to " + opts.folder;
+    } else {
+      download(new Blob([makeZip(files)], { type: "application/zip" }), "crunchyvfx-pack.zip");
+      expMsg.textContent = "Exported " + sets.length + " effects · " + kb + " KB";
+    }
     msg.textContent = "Asset pack: " + sets.length + " effects";
   } catch (e) {
     expMsg.textContent = "Batch failed: " + e.message;
@@ -3595,6 +3685,149 @@ async function batchExport(which) {
     applyPreset(before, beforeLabel);   // always put the editor back where it was
   }
 }
+// ---------- Pipeline + re-export UI ----------
+// Groups the pack re-export can stamp onto every effect. Named by what someone would actually be
+// changing across a project, not by which panel the params live in.
+const REPACK_GROUPS = [
+  ["Frame size", ["frameSize", "frameW", "frameH"]],
+  ["Crunch", ["pixelate", "posterize", "dither", "alphaCut", "outline", "outlineTone", "paletteLock"]],
+  ["Colour", ["hue", "hueLife", "hueVar", "sat", "bright", "coreWhite", "blend", "ramp"]],
+  ["Timing", ["fps", "duration"]],
+];
+const repackBox = expModal.querySelector("#expRepack");
+const pipeBox = expModal.querySelector("#expPipes");
+let activePipe = -1;
+
+{
+  for (const [label, keys] of REPACK_GROUPS) {
+    const l = document.createElement("label");
+    l.className = "exp-chk";
+    l.innerHTML = '<input type="checkbox"> ' + label;
+    l.title = "Stamp the editor's current " + label.toLowerCase() + " onto every effect: " +
+              keys.join(", ");
+    repackBox.appendChild(l);
+  }
+  const go = document.createElement("button");
+  go.id = "expRepackGo";
+  go.textContent = "📦 Re-export My Effects";
+  go.title = "Render every saved effect again, with the ticked groups replaced by the editor's " +
+             "current settings — a style pass across the whole pack";
+  repackBox.appendChild(go);
+  go.addEventListener("click", () => {
+    const overrides = {};
+    const boxes = repackBox.querySelectorAll("input");
+    REPACK_GROUPS.forEach(([, keys], i) => {
+      if (!boxes[i].checked) return;
+      for (const k of keys) if (k in state) overrides[k] = state[k];
+    });
+    const pipe = pipelines[activePipe];
+    batchExport("mine", {
+      overrides: Object.keys(overrides).length ? overrides : null,
+      folder: pipe && pipe.folder ? pipe.folder : null,
+    });
+  });
+}
+
+function renderPipelines() {
+  pipeBox.innerHTML = "";
+  if (!pipelines.length) {
+    const hint = document.createElement("span");
+    hint.className = "hint";
+    hint.textContent = "None yet — set the options above and hit “Save these settings”.";
+    pipeBox.appendChild(hint);
+    return;
+  }
+  pipelines.forEach((pipe, i) => {
+    const chip = document.createElement("span");
+    chip.className = "pipe-chip" + (i === activePipe ? " on" : "");
+    const run = document.createElement("button");
+    run.className = "pipe-run";
+    run.textContent = pipe.name;
+    run.title = pipelineSummary(pipe) + (pipe.folder ? "\nRuns straight into " + pipe.folder : "");
+    run.addEventListener("click", async () => {
+      activePipe = i;
+      applyPipelineSettings(pipe.settings);
+      renderPipelines();
+      // With a folder, run it now: that's the whole point of a pipeline on desktop.
+      if (pipe.folder && isDesktop) {
+        expMsg.textContent = "Running “" + pipe.name + "”…";
+        await runExportToFolder(pipe.folder);
+      } else {
+        expMsg.textContent = "Loaded “" + pipe.name + "” — " + pipelineSummary(pipe);
+      }
+    });
+    const del = document.createElement("button");
+    del.className = "pipe-del";
+    del.textContent = "✕";
+    del.title = "Delete this pipeline";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pipelines.splice(i, 1);
+      if (activePipe === i) activePipe = -1;
+      savePipelines(); renderPipelines();
+    });
+    chip.appendChild(run); chip.appendChild(del);
+    pipeBox.appendChild(chip);
+  });
+}
+
+expModal.querySelector("#expPipeSave").addEventListener("click", () => {
+  const name = prompt("Name this pipeline", "Godot " + (pipelines.length + 1));
+  if (!name) return;
+  pipelines.push({ name: name.slice(0, 32), settings: currentPipelineSettings(), folder: null });
+  activePipe = pipelines.length - 1;
+  savePipelines(); renderPipelines();
+  expMsg.textContent = "Saved pipeline “" + name + "”";
+});
+
+{
+  const fb = expModal.querySelector("#expPipeFolder");
+  if (fb) fb.addEventListener("click", async () => {
+    const T = window.__TAURI__;
+    if (!(T && T.dialog)) { expMsg.textContent = "Output folders are a desktop feature."; return; }
+    if (activePipe < 0) { expMsg.textContent = "Pick a pipeline first."; return; }
+    try {
+      const dir = await T.dialog.open({ directory: true, title: "Where should this pipeline write?" });
+      if (!dir) return;
+      pipelines[activePipe].folder = dir;
+      savePipelines(); renderPipelines();
+      expMsg.textContent = "“" + pipelines[activePipe].name + "” now writes to " + dir;
+    } catch (e) {
+      console.warn("crunchyvfx: folder pick failed —", e);
+      expMsg.textContent = "Could not open the folder picker: " + e.message;
+    }
+  });
+}
+
+// Run the CURRENT single-effect export straight into a folder. Shares the dialog's own export path
+// by intercepting download() rather than duplicating it — the moment there are two copies of the
+// export logic, one of them starts lagging behind.
+async function runExportToFolder(folder) {
+  const real = window.download;
+  const captured = [];
+  window.download = (blob, name) => { captured.push({ blob, name }); };
+  try {
+    await new Promise((res) => {
+      const go = expModal.querySelector("#expGo");
+      go.click();
+      const wait = setInterval(() => {
+        if (captured.length) { clearInterval(wait); res(); }
+      }, 120);
+      setTimeout(() => { clearInterval(wait); res(); }, 20000);
+    });
+  } finally {
+    window.download = real;
+  }
+  if (!captured.length) { expMsg.textContent = "Nothing was produced"; return; }
+  const files = [];
+  for (const c of captured) files.push({ name: c.name, data: new Uint8Array(await c.blob.arrayBuffer()) });
+  await writeFilesToFolder(files, folder);
+  expMsg.textContent = "Wrote " + files.map((f) => f.name).join(", ") + " to " + folder;
+}
+
+loadPipelines();
+renderPipelines();
+
 expModal.querySelector("#expBatchAll").addEventListener("click", () => batchExport("all"));
 expModal.querySelector("#expBatchMine").addEventListener("click", () => batchExport("mine"));
 

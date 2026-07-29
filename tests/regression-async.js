@@ -295,6 +295,62 @@
         ok(expSoundRow.hidden, "and the option hides again when there is no sound");
       }
 
+      // ------------------------------------------------- export pipelines + pack re-export
+      {
+        const realPipes = pipelines.slice();
+        pipelines = []; activePipe = -1; renderPipelines();
+
+        // A pipeline captures EXPORT settings and nothing about the effect itself — saving one
+        // while editing a fire effect must not make it a fire pipeline.
+        expFormat.value = "sheet"; expLayout.value = "row"; expMetaSel.value = "godot";
+        expTrim.checked = true; expPot.checked = true;
+        expScaleBoxes[2].checked = true;
+        const snap = currentPipelineSettings();
+        ok(snap.layout === "row" && snap.meta === "godot" && snap.trim === true,
+           "a pipeline captures the current export settings");
+        ok(snap.scales.length === 2 && snap.scales.indexOf(2) >= 0,
+           "…including the chosen sizes", snap.scales.join("×, ") + "×");
+        ok(!("hue" in snap) && !("shape" in snap),
+           "…and nothing about the effect being edited");
+
+        // Round-trip: change everything, then apply it back.
+        expFormat.value = "apng"; expLayout.value = "grid"; expMetaSel.value = "none";
+        expTrim.checked = false; expPot.checked = false; expScaleBoxes[2].checked = false;
+        applyPipelineSettings(snap);
+        ok(expFormat.value === "sheet" && expLayout.value === "row" &&
+           expMetaSel.value === "godot" && expTrim.checked && expPot.checked,
+           "running a pipeline restores those settings");
+        ok(expScaleBoxes[2].checked === true, "…including the sizes");
+        expScaleBoxes[2].checked = false; expTrim.checked = false; expPot.checked = false;
+        expMetaSel.value = "generic";
+
+        // The pack re-export is a STYLE PASS: overrides must reach every effect, and the editor
+        // must be put back exactly as it was afterwards.
+        userEffects = [
+          { id: 1, name: "PackA", state: withState(PRESETS["Explosion"], () => snapshotState()) },
+          { id: 2, name: "PackB", state: withState(PRESETS["Ice Blast"], () => snapshotState()) },
+        ];
+        applyPreset(PRESETS["Explosion"], "Explosion");
+        state.pixelate = 5; state.posterize = 6;
+        const editorBefore2 = snapshotState();
+        const zip = await grab(() => batchExport("mine", { overrides: { pixelate: 5, posterize: 6 } }));
+        ok(zip && zip.size > 1000, "the pack re-export writes a zip",
+           zip && Math.round(zip.size / 1024) + " KB");
+        ok(sameSnapshot(snapshotState(), editorBefore2),
+           "…and puts the editor back exactly as it was");
+
+        // Prove the override actually landed: the same effect exported with and without a heavy
+        // pixelate must differ. Without this the feature could silently do nothing.
+        const plainZip = await grab(() => batchExport("mine", {}));
+        ok(plainZip && Math.abs(plainZip.size - zip.size) > 200,
+           "the overrides really change what is exported",
+           Math.round(plainZip.size / 1024) + " KB vs " + Math.round(zip.size / 1024) + " KB");
+
+        pipelines = realPipes; activePipe = -1; savePipelines(); renderPipelines();
+        userEffects = [];
+        applyPreset(PRESETS["Explosion"], "Explosion");
+      }
+
       // ------------------------------------------------- exporting must not damage the preview
       // The streaming work added a cleanup pass that released the frames an export had rendered.
       // At 1x with no reference image, framesAtScale() returns the LIVE preview canvases rather

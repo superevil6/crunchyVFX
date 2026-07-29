@@ -1065,3 +1065,17 @@
   .switch input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--accent2); }
   .switch:hover .switch-track::after { box-shadow: 0 1px 3px rgba(0,0,0,.45), 0 0 0 6px rgba(255,122,69,.12); }
   .switch-row { align-items: center; }
+
+  /* Export pipelines: named setting bundles, each a chip you can run or delete. */
+  .exp-pipe-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .exp-pipe-btns { display: flex; gap: 6px; }
+  .exp-pipe-btns button { padding: 4px 9px; font-size: 12px; }
+  .pipe-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line);
+               border-radius: 6px; overflow: hidden; }
+  .pipe-chip.on { border-color: var(--accent); }
+  .pipe-chip button { border: none; border-radius: 0; padding: 4px 9px; font-size: 12px;
+                      background: var(--panel2); }
+  .pipe-chip .pipe-del { color: var(--muted); padding: 4px 7px; }
+  .pipe-chip .pipe-del:hover { color: #ff8080; background: rgba(255,77,77,0.12); }
+  .exp-repack-opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .exp-repack-opts button { padding: 4px 10px; font-size: 12px; }
