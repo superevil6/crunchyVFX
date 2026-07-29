@@ -803,6 +803,123 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- structural audit
+    // Three separate times this session a finished feature turned out to have no way to reach it
+    // (custom/image missing from the shape picker; the custom-sprite panel never built; randomize
+    // frozen to a three-system list). The shape is always the same: the UI is generated from one
+    // table, and anything that needs a SECOND table to be reachable rots silently. These checks
+    // are that second table, made loud.
+    {
+      const groups = [];
+      for (const p of PARAMS) if (groups.indexOf(p[7]) < 0) groups.push(p[7]);
+
+      const noPanel = groups.filter((g) => !panels.querySelector('[data-group="' + g + '"]'));
+      ok(noPanel.length === 0, "every param group has a panel to live in", noPanel.join(", "));
+
+      // Reachable = a layer chip turns it on, a shape reveals it, or it's always visible.
+      const layerGroups = LAYER_GROUPS.map((x) => x.g);
+      const shapeGroups = Object.keys(PANEL_SHAPES);
+      const ALWAYS = ["Emitter", "Motion", "Life", "Color", "Crunch", "Output", "Master",
+                      "Trails", "Glow"];
+      const orphan = groups.filter((g) => layerGroups.indexOf(g) < 0 &&
+                                          shapeGroups.indexOf(g) < 0 && ALWAYS.indexOf(g) < 0);
+      ok(orphan.length === 0, "every panel is reachable somehow", orphan.join(", "));
+
+      const emptySys = LAYER_GROUPS.filter((x) => !PARAMS.some((p) => p[7] === x.g)).map((x) => x.g);
+      ok(emptySys.length === 0, "every system owns at least one control", emptySys.join(", "));
+
+      // Hand-kept lists that name params must name real ones. PATCH_EXTRAS count: they live on
+      // `state` alongside params, and the repack/hold code reads them with `k in state`.
+      const known = {};
+      for (const p of PARAMS) known[p[0]] = 1;
+      for (const k in PATCH_EXTRAS) known[k] = 1;
+      const stale = [];
+      const check = (name, keys) => {
+        for (const k of keys) if (!known[k]) stale.push(name + "." + k);
+      };
+      check("RAND_KEYS", RAND_KEYS);
+      check("LOCK_KEYS", LOCK_KEYS);
+      check("SOUND_HOLD.timing", SOUND_HOLD_KEYS.timing);
+      check("SOUND_HOLD.intensity", SOUND_HOLD_KEYS.intensity);
+      for (const g of REPACK_GROUPS) check("REPACK." + g[0], g[1]);
+      ok(stale.length === 0, "no hand-kept list names a param that no longer exists",
+         stale.join(", "));
+
+      // Patch extras are the classic leak: they aren't in PARAMS, so a reset that only walks
+      // PARAMS carries them between effects.
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      for (const k in PATCH_EXTRAS) {
+        state[k] = k === "glyph" ? "★" : k === "ramp" ? "0,10,1,0.5,1,1" : "zz";
+      }
+      const snap = snapshotState();
+      applyPreset(PRESETS["Ice Blast"], "Ice Blast");
+      const leaked = Object.keys(PATCH_EXTRAS).filter((k) => state[k] === snap[k] &&
+                                                             snap[k] !== PATCH_EXTRAS[k]);
+      ok(leaked.length === 0, "patch extras don't leak between effects", leaked.join(", "));
+      restoreEdit(snap);
+      const lost = Object.keys(PATCH_EXTRAS).filter((k) => state[k] !== snap[k]);
+      ok(lost.length === 0, "…and survive snapshot/restore", lost.join(", "));
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- randomize reach
+    // Randomize used to enable systems from a hand-written list that named flash, wave and trail
+    // — the only three that existed when it was written. The other 39 could never appear, and the
+    // three it knew about were on in nearly every roll. It now goes through LAYER_GROUPS, so a
+    // system added later is randomizable without anyone remembering to update a second list.
+    {
+      ok(RAND_KEYS.indexOf("flash") < 0 && RAND_KEYS.indexOf("wave") < 0 &&
+         RAND_KEYS.indexOf("trail") < 0,
+         "system masters are no longer jittered as plain params");
+
+      const before = snapshotState(), beforeLabel = effectLabel;
+      const seen = {}, perRoll = [];
+      for (const L of LAYER_GROUPS) seen[L.g] = 0;
+      const ROLLS = 150;
+      for (let i = 0; i < ROLLS; i++) {
+        randomize();
+        let on = 0;
+        for (const L of LAYER_GROUPS) if (L.is()) { seen[L.g]++; on++; }
+        perRoll.push(on);
+      }
+      const never = Object.keys(seen).filter((g) => !seen[g]);
+      // Statistical, not exact: ~1.5 systems per roll over 150 rolls makes it overwhelmingly
+      // likely every system shows up, but asserting all 42 would flake. 35 is a wide margin that
+      // still fails hard if a whole era of systems is unreachable, which is the actual bug.
+      ok(never.length <= 7, "randomize reaches essentially every system",
+         never.length + " unseen in " + ROLLS + " rolls" + (never.length ? ": " + never.join(", ") : ""));
+      const avg = perRoll.reduce((a, b) => a + b, 0) / perRoll.length;
+      ok(avg > 0.6 && avg < 3, "…a few at a time, not all at once", "avg " + avg.toFixed(2));
+
+      // Every roll has to be worth looking at — but "sparse" and "blank" are different failures
+      // and only one of them is a bug. Random parameters will occasionally land on a thin effect,
+      // and the fix for that is clicking again; an EMPTY one means randomize built something that
+      // cannot render, which no amount of clicking fixes.
+      let empty = 0, thin = 0;
+      const ROLLS2 = 20;
+      for (let i = 0; i < ROLLS2; i++) {
+        randomize();
+        const px = litAll(renderFrames(state, { size: 64, fit: true }));
+        if (px === 0) empty++;
+        else if (px < 60) thin++;
+      }
+      ok(empty === 0, "randomize never produces a completely empty effect", empty + "/" + ROLLS2);
+      ok(thin <= 3, "…and rarely produces a very thin one", thin + "/" + ROLLS2 + " thin");
+
+      applyPreset(before, beforeLabel);
+    }
+
+    // ---------------------------------------------------------------- launch effect
+    // Opening on the first preset every time made a 118-effect library look like it did one thing.
+    {
+      const picks = {};
+      for (let i = 0; i < 60; i++) picks[pickLaunchEffect()] = 1;
+      const n = Object.keys(picks).length;
+      ok(n > 10, "launch picks a random effect, not always the same one", n + " distinct in 60");
+      const bad = Object.keys(picks).filter((k) => !PRESETS[k]);
+      ok(bad.length === 0, "…and always a real one", bad.join(", "));
+    }
+
     // ---------------------------------------------------------------- welcome tour
     // Asserted on geometry, not pixels: the tour is a position:fixed overlay, and a headless
     // --screenshot captures the FULL PAGE, so fixed elements don't land where a viewport layout

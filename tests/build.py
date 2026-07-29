@@ -13,6 +13,20 @@ import pathlib
 HERE = pathlib.Path(__file__).resolve().parent
 APP = (HERE.parent / "index.html").read_text()
 
+# The app's APP_VERSION and the Tauri bundle version have to agree. They live in different files
+# and nothing else connects them, so drift is silent until a bug report quotes a version that was
+# never shipped. Cheapest possible place to catch it: the build every test run goes through.
+import json, re, sys
+_conf = HERE.parent / "src-tauri" / "tauri.conf.json"
+if _conf.exists():
+    _app = re.search(r'const APP_VERSION = "([^"]+)"', APP)
+    _bundle = json.loads(_conf.read_text()).get("version")
+    if not _app:
+        sys.exit("build.py: index.html has no APP_VERSION constant")
+    if _app.group(1) != _bundle:
+        sys.exit("build.py: version drift — index.html says %s, tauri.conf.json says %s"
+                 % (_app.group(1), _bundle))
+
 # index.html loads its siblings by relative path, so rebase them to the parent directory.
 APP = APP.replace('href="styles.css"', 'href="../styles.css"')
 for js in ("presets.js", "crunchysfx-synth.js", "shapes.js", "vfx.js", "gif.js", "apng.js"):

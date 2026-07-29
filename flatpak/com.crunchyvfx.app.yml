@@ -1,0 +1,77 @@
+# CrunchyVFX — Flatpak manifest (cross-distro PAID Linux build).
+#
+# Why Flatpak and not the AppImage: the Flatpak runtime brokers the host GL/Mesa/NVIDIA drivers
+# correctly, which is what fixes the WebKitGTK "EGL_BAD_PARAMETER / blank white page" bug the CI
+# AppImage hits on bleeding-edge distros (Arch/CachyOS, Steam Deck). Ship the resulting single
+# .flatpak through itch — it's purchase-gated like any other download.
+#
+# ── BUILD (produces one distributable file) ───────────────────────────────────────────────────
+#   # one-time (Arch/CachyOS): sudo pacman -S flatpak flatpak-builder
+#   flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+#   flatpak install -y --user flathub org.gnome.Platform//46 org.gnome.Sdk//46
+#
+#   # copy the .deb next to this manifest as `crunchyvfx.deb`:
+#   ⚠️ USE THE **CI-BUILT** .deb (from the draft GitHub Release), *NOT* a local `cargo tauri build`.
+#      CI builds on ubuntu-22.04 (glibc 2.35), which this runtime satisfies. Measured on this
+#      project: a .deb built on CachyOS (glibc 2.43) needs GLIBC_2.39 and dies in the sandbox with
+#         "libc.so.6: version `GLIBC_2.39' not found (required by crunchyvfx)"
+#      Rule of thumb: the binary you bundle must be built on an OLDER base than the runtime.
+#   cp ~/Downloads/CrunchyVFX_0.1.0_amd64.deb flatpak/crunchyvfx.deb
+#
+#   cd flatpak
+#   flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir com.crunchyvfx.app.yml
+#   flatpak build-bundle repo CrunchyVFX-0.1.0.flatpak com.crunchyvfx.app
+#
+# ── TEST ──────────────────────────────────────────────────────────────────────────────────────
+#   flatpak-builder --run build-dir com.crunchyvfx.app.yml crunchyvfx
+#   # or install the bundle: flatpak install --user ./CrunchyVFX-0.1.0.flatpak && flatpak run com.crunchyvfx.app
+#
+# ── WHAT THE BUYER DOES ───────────────────────────────────────────────────────────────────────
+#   flatpak install --user ./CrunchyVFX-0.1.0.flatpak     # first run pulls org.gnome.Platform//46
+#   flatpak run com.crunchyvfx.app
+
+id: com.crunchyvfx.app
+runtime: org.gnome.Platform
+runtime-version: '46'          # GNOME 46 ships the webkit2gtk-4.1 that Tauri v2 links against
+sdk: org.gnome.Sdk
+command: crunchyvfx
+
+finish-args:
+  - --socket=wayland           # native Wayland…
+  - --socket=fallback-x11      # …or XWayland/X11
+  - --share=ipc                # required with X11 (shared memory)
+  - --device=dri               # GPU access — the driver brokering that fixes the blank-page bug
+  - --socket=pulseaudio        # the synthesised matched sound plays through WebAudio
+  # Sheet/frame/GIF export goes through xdg-desktop-portal (native Save dialogs), so no broad
+  # filesystem access is needed for the common path. Two features do want real paths:
+  #   • export pipelines with a remembered output folder
+  #   • drag-out, which writes a temp file and hands its path to the OS
+  # xdg-download covers the default sink; if a pipeline points somewhere else the portal handles
+  # it. If a write is ever refused, broaden this AND widen the Tauri fs scope to match
+  # (src-tauri/capabilities/default.json) — the two must agree or the failure looks like a bug.
+  - --filesystem=xdg-download:rw
+  # NOT granted: --share=network. CrunchyVFX generates everything locally and has no update check,
+  # so the desktop build works fully offline and never phones home. Add it only if that changes.
+
+modules:
+  - name: crunchyvfx
+    buildsystem: simple
+    sources:
+      - type: file
+        path: crunchyvfx.deb                        # the CI-built .deb, copied here (see header)
+      - type: file
+        path: com.crunchyvfx.app.metainfo.xml
+    build-commands:
+      # unpack the .deb (its data tarball may be .gz / .xz / .zst depending on dpkg)
+      - ar -x crunchyvfx.deb
+      - 'for f in data.tar.*; do tar -xf "$f"; done'
+      # binary — installed under a stable name regardless of what the .deb called it
+      - install -Dm755 usr/bin/* /app/bin/crunchyvfx
+      # .desktop — renamed to the app-id, with Icon/Exec pointed at the app-id/command
+      - 'install -Dm644 "$(find usr/share/applications -name "*.desktop" | head -1)" /app/share/applications/com.crunchyvfx.app.desktop'
+      - "sed -i 's/^Icon=.*/Icon=com.crunchyvfx.app/' /app/share/applications/com.crunchyvfx.app.desktop"
+      - "sed -i 's/^Exec=.*/Exec=crunchyvfx/'          /app/share/applications/com.crunchyvfx.app.desktop"
+      # icons — renamed to the app-id at every size the .deb provides
+      - 'for d in usr/share/icons/hicolor/*/apps; do s=$(basename "$(dirname "$d")"); i=$(find "$d" -name "*.png" | head -1); [ -n "$i" ] && install -Dm644 "$i" "/app/share/icons/hicolor/$s/apps/com.crunchyvfx.app.png"; done'
+      # AppStream metainfo (well-formed bundle; used by software centers)
+      - install -Dm644 com.crunchyvfx.app.metainfo.xml /app/share/metainfo/com.crunchyvfx.app.metainfo.xml

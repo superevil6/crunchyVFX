@@ -623,3 +623,52 @@ The suite runs in a browser, so it *is* the web build — which makes it the rig
 the gate. It checks that every `data-desktop` element is hidden, and separately that export,
 share, GIF, Randomize, Breed, Match-a-sound and Fit are **not** hidden, so the free tier can't be
 hollowed out by accident later.
+
+## 14. Packaging the desktop app
+
+`cargo tauri build` works here and produces a **.deb**. Two things it will not give you on this
+machine, both found by running it rather than assuming:
+
+**1. The AppImage cannot be built locally.** linuxdeploy ships as an AppImage and self-mounts via
+libfuse2, which Arch-based distros no longer provide:
+
+```
+dlopen(): error loading libfuse.so.2
+```
+
+`APPIMAGE_EXTRACT_AND_RUN=1` makes linuxdeploy itself run, and the CI workflow sets it, but it is
+not worth chasing locally because of the second problem.
+
+**2. A Linux build from this machine is unusable by most buyers.** The binary is linked against
+whatever glibc built it:
+
+| | glibc |
+|---|---|
+| this machine (CachyOS) | 2.43 — produces a binary needing **GLIBC_2.39** |
+| Ubuntu 22.04 LTS | 2.35 — **will not start** |
+| Debian 12 | 2.36 — **will not start** |
+
+So **Linux distributables must be built in CI on `ubuntu-22.04`**, the oldest runner that still
+carries webkit2gtk-4.1. This is exactly the risk CrunchySFX's release notes flag; the numbers above
+are this project's, measured with `objdump -T`.
+
+`.github/workflows/desktop-build.yml` builds Windows + Linux on a `v*` tag, attaches everything to
+a **draft** release, and pushes only the Windows installer to itch. Never publish that draft — the
+paid installers would become a free public download.
+
+**Linux is not shipped to itch yet, on purpose.** CrunchySFX ships a **Flatpak** as its Linux
+product rather than the AppImage, because the Flatpak runtime brokers host GPU drivers and works on
+bleeding-edge distros where an AppImage's bundled GL libraries blank-screen. That needs a
+`flatpak/` manifest this project doesn't have. Until then the `.deb`/`.AppImage` ride along on the
+draft release for manual testing, and the AppImage has **never been verified on a non-bleeding-edge
+host**.
+
+**Version lives in two files.** `APP_VERSION` in `index.html` and `version` in
+`src-tauri/tauri.conf.json` must agree; `tests/build.py` exits non-zero if they drift, so every
+test run checks it. Nothing else connects them, and a mismatch is invisible until a bug report
+quotes a version that never shipped.
+
+**Open before release:** the bundle identifier is `com.crunchyvfx.app`, and Tauri warns that a
+`.app` suffix collides with the macOS bundle extension. CrunchySFX has the same suffix and has
+already shipped with it, so changing VFX's alone breaks suite consistency. It is also downstream of
+the name red-flag pass — settle the name first, then set the identifier once.
