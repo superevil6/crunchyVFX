@@ -803,6 +803,52 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- sprite library
+    // Imported particle PNGs are kept so you never have to find the file twice. The subtle failure
+    // is storage: if a save fails on quota, the on-screen list must not keep an entry that isn't
+    // actually stored — you'd think it was saved and lose it on reload.
+    {
+      const realSprites = userSprites.slice(), realSeq = usSeq;
+      userSprites = []; usSeq = 0;
+      const png = (c) => "data:image/png;base64," + c;
+
+      addUserSprite("smoke.png", png("AAA"), 4, 1);
+      ok(userSprites.length === 1, "importing a sprite files it in the library");
+      ok(userSprites[0].cols === 4 && userSprites[0].rows === 1,
+         "…with the strip grid it was used at", userSprites[0].cols + "×" + userSprites[0].rows);
+      addUserSprite("smoke-again.png", png("AAA"), 4, 1);
+      ok(userSprites.length === 1, "re-importing the same image doesn't duplicate it");
+      addUserSprite("spark.png", png("BBB"), 1, 1);
+      ok(userSprites.length === 2 && userSprites[0].name === "spark.png",
+         "a different image is added, newest first");
+      ok(userSprites[0].id !== userSprites[1].id, "ids are unique");
+
+      // Quota failure must roll back rather than leave a phantom entry.
+      // Stub the PROTOTYPE: assigning localStorage.setItem doesn't replace the method, it stores
+      // a value under the key "setItem" — so the obvious version of this stub silently does
+      // nothing and the test passes for the wrong reason.
+      const realSet = Storage.prototype.setItem;
+      Storage.prototype.setItem = () => { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; };
+      const before = userSprites.length;
+      addUserSprite("huge.png", png("CCC"), 1, 1);
+      Storage.prototype.setItem = realSet;
+      ok(userSprites.length === before,
+         "a failed save leaves the list matching what's actually stored", userSprites.length + " kept");
+
+      // The library travels in a project file — a library you can't back up isn't one.
+      const proj = buildProject();
+      ok(Array.isArray(proj.userSprites) && proj.userSprites.length === 2,
+         "sprites are written into the project file", proj.userSprites.length);
+      userSprites = []; usSeq = 0;
+      loadProject(JSON.parse(JSON.stringify(proj)));
+      ok(userSprites.length === 2 && userSprites[0].name === "spark.png",
+         "…and come back when it's opened");
+      ok(usSeq >= 2, "…with the id counter restored", "usSeq " + usSeq);
+
+      userSprites = realSprites; usSeq = realSeq; saveUserSprites(); renderSpriteLib();
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- web vs desktop gate
     // The suite runs in a browser, so this IS the web build — exactly the case that has to be
     // right. A gated control that's merely disabled would still be clickable and still be a dead

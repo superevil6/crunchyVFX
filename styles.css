@@ -1079,3 +1079,24 @@
   .pipe-chip .pipe-del:hover { color: #ff8080; background: rgba(255,77,77,0.12); }
   .exp-repack-opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .exp-repack-opts button { padding: 4px 10px; font-size: 12px; }
+
+  /* Sprite library: thumbnails of every PNG imported as a particle (desktop). */
+  .sprite-lib { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .sprite-chip { position: relative; display: inline-flex; border: 1px solid var(--line);
+                 border-radius: 6px; overflow: hidden; background: var(--panel2); }
+  .sprite-chip.on { border-color: var(--accent); }
+  .sprite-use {
+    width: 42px; height: 42px; padding: 0; border: none; border-radius: 0;
+    background-color: transparent; background-size: contain; background-repeat: no-repeat;
+    background-position: center;
+    /* Imported particles are usually pale on transparent; a checker makes them visible. */
+    box-shadow: inset 0 0 0 100px rgba(255,255,255,0.04);
+    image-rendering: pixelated;
+  }
+  .sprite-del {
+    position: absolute; top: 0; right: 0; padding: 0 4px; font-size: 10px; line-height: 1.4;
+    border: none; border-radius: 0 0 0 5px; background: rgba(20,18,26,0.8); color: var(--muted);
+    opacity: 0; transition: opacity .12s;
+  }
+  .sprite-chip:hover .sprite-del { opacity: 1; }
+  .sprite-del:hover { color: #ff8080; background: rgba(255,77,77,0.25); }

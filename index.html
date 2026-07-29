@@ -1760,6 +1760,85 @@ function updateImageSpriteUI() {
         Math.round(imageSpriteEl.naturalHeight / state.imgRows) + ")"
       : " · single frame");
 }
+// ---------- Sprite library (DESKTOP ONLY) ----------
+// Every PNG you import as a particle gets kept, so the second and fortieth time you want your
+// smoke puff you click it instead of hunting through a folder. This is the same reason My Effects
+// is desktop: the value isn't the import, it's not having to do the import again.
+//
+// Stored as data URLs, which is what the patch already carries — a blob: URL taints the canvas
+// under file://, so this is the format that works everywhere anyway. That does mean the library
+// lives in localStorage's few megabytes, hence the guard: rather than silently dropping the
+// newest sprite when the quota is hit, it says so and keeps what is already there.
+const SPRITE_KEY = "crunchyvfx.sprites.v1";
+let userSprites = [], usSeq = 0;
+
+function loadUserSprites() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SPRITE_KEY) || "null");
+    if (d) { userSprites = d.items || []; usSeq = d.seq || 0; }
+  } catch (e) { userSprites = []; }
+}
+function saveUserSprites() {
+  try {
+    localStorage.setItem(SPRITE_KEY, JSON.stringify({ seq: usSeq, items: userSprites }));
+    return true;
+  } catch (e) {
+    // QuotaExceededError: a handful of big strips will do it. Say so instead of half-saving.
+    msg.textContent = "Sprite library is full — delete one to make room.";
+    return false;
+  }
+}
+function addUserSprite(name, dataUrl, cols, rows) {
+  if (userSprites.some((s) => s.data === dataUrl)) return;   // re-importing the same file is a no-op
+  userSprites.unshift({ id: ++usSeq, name: String(name || "sprite").slice(0, 40),
+                        data: dataUrl, cols: cols || 1, rows: rows || 1 });
+  if (saveUserSprites()) renderSpriteLib();
+  else { userSprites.shift(); usSeq--; }        // rolled back, so what's on screen matches what's stored
+}
+
+let spriteLibBox = null;
+function renderSpriteLib() {
+  if (!spriteLibBox) return;
+  spriteLibBox.hidden = !isDesktop;
+  if (!isDesktop) return;
+  spriteLibBox.innerHTML = "";
+  if (!userSprites.length) {
+    const h = document.createElement("span");
+    h.className = "hint";
+    h.textContent = "Sprites you load are kept here.";
+    spriteLibBox.appendChild(h);
+    return;
+  }
+  for (const s of userSprites) {
+    const chip = document.createElement("span");
+    chip.className = "sprite-chip" + (state.imageSprite === s.data ? " on" : "");
+    const use = document.createElement("button");
+    use.className = "sprite-use";
+    use.title = s.name + (s.cols * s.rows > 1 ? " — " + s.cols + "×" + s.rows + " strip" : "");
+    use.style.backgroundImage = "url(" + s.data + ")";
+    use.addEventListener("click", () => {
+      state.imageSprite = s.data;
+      state.imgCols = s.cols; state.imgRows = s.rows;
+      state.shape = SHAPES.indexOf("image");
+      imgSpriteName = s.name;
+      applyImageSprite(s.data);
+      syncUI(); rerender(); commitHistory();
+      msg.textContent = "Particle sprite: " + s.name;
+    });
+    const del = document.createElement("button");
+    del.className = "sprite-del";
+    del.textContent = "✕";
+    del.title = "Remove “" + s.name + "” from the library";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      userSprites = userSprites.filter((x) => x.id !== s.id);
+      saveUserSprites(); renderSpriteLib();
+    });
+    chip.appendChild(use); chip.appendChild(del);
+    spriteLibBox.appendChild(chip);
+  }
+}
+
 {
   const panel = panels.querySelector('[data-group="Image sprite"]');
   if (panel) {
@@ -1767,9 +1846,13 @@ function updateImageSpriteUI() {
     row.className = "is-row";
     row.innerHTML = '<div class="is-btns"><button id="isLoad">📂 Load PNG</button><button id="isClear">✕ Clear</button></div>' +
       '<div class="is-info" id="isInfo"></div>' +
+      '<div class="sprite-lib" id="spriteLib" data-desktop></div>' +
       '<input type="file" id="isFile" accept="image/*" hidden>';
     panel.insertBefore(row, panel.firstChild.nextSibling);
     imgSpriteInfo = row.querySelector("#isInfo");
+    spriteLibBox = row.querySelector("#spriteLib");
+    loadUserSprites();
+    renderSpriteLib();
     const isFile = row.querySelector("#isFile");
     row.querySelector("#isLoad").addEventListener("click", () => isFile.click());
     row.querySelector("#isClear").addEventListener("click", () => {
@@ -1794,6 +1877,9 @@ function updateImageSpriteUI() {
             state.imgRows = 1;
             msg.textContent = "Particle sprite: " + f.name + " — guessed a " + state.imgCols + "-frame strip";
           }
+          // Filed AFTER the strip guess so the library remembers the grid that was actually used;
+          // storing it before would make every recalled sprite a single frame.
+          if (isDesktop) addUserSprite(f.name, reader.result, state.imgCols, state.imgRows);
           syncUI(); rerender();
         };
         probe.src = reader.result;
@@ -2840,6 +2926,7 @@ function buildProject() {
     editor: snapshotState(),
     userEffects: userEffects,
     userCats: userCats,
+    userSprites: userSprites,
   };
 }
 
@@ -2860,6 +2947,12 @@ function loadProject(d) {
     userCats = d.userCats;
     ucSeq = userCats.reduce((n, c) => Math.max(n, c.id || 0), 0);
     saveUserCats();
+  }
+  if (Array.isArray(d.userSprites)) {
+    userSprites = d.userSprites;
+    usSeq = userSprites.reduce((n, s) => Math.max(n, s.id || 0), 0);
+    saveUserSprites();
+    renderSpriteLib();
   }
   renderMyEffects();
   syncUI();
