@@ -4,6 +4,10 @@
 # `git commit` unless explicitly told to in that message.
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Local state from `npx wrangler dev` (the Cloudflare runtime, run locally to verify worker.js —
+# see DEPLOY.md). Cache and scratch only; nothing here is an input.
+.wrangler/
+
 # Generated test pages + their output — rebuild with `python3 tests/build.py`
 tests/run.html
 tests/run-async.html

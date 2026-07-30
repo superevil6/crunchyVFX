@@ -1,0 +1,26 @@
+# What does NOT get published to crunchyvfx.com.
+#
+# Everything listed here is tracked in git because it is part of the project, and none of it belongs
+# on the public site. Without this file, `assets.directory: "."` publishes the WHOLE REPO — the
+# design document, the working notes, the test suite, the Tauri and Flatpak sources — on every path
+# a crawler can find. Same file, same reason, as CrunchyBGM's.
+#
+# The published set is deliberately small: index.html, the six sibling scripts, styles.css, and the
+# three images (favicon, apple-touch-icon, og). If you add a file the APP loads at runtime, it must
+# NOT be matched here — check DEPLOY.md's checklist after adding one.
+*.md
+tests/
+tools/
+src-tauri/
+flatpak/
+dist/
+.vscode/
+.claude/
+.github/
+.wrangler/
+wrangler.jsonc
+worker.js
+.assetsignore
+synth-manifest.json
+*.aseprite
+*.crunchyvfx

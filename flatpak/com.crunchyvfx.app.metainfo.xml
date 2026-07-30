@@ -18,8 +18,8 @@
       GIF, with trim, pivot and engine metadata for Godot, Unity, Aseprite and Phaser.
     </p>
     <p>
-      Everything is drawn procedurally: 42 effect systems (shockwaves, lightning, ribbons, vortices,
-      lens flares, weather fields, displacement passes), 88 hand-drawn particle shapes, 118 presets,
+      Everything is drawn procedurally: 40+ effect systems (shockwaves, lightning, ribbons, vortices,
+      lens flares, weather fields, displacement passes), 80+ hand-drawn particle shapes, 120+ presets,
       breeding and a Foundry that invents new effects from scratch. Paste a CrunchySFX link and the
       effect is derived from the sound, with the audio synthesised alongside it and exported beside
       the sheet.
@@ -29,6 +29,9 @@
       for anything, commercial or not, with no attribution.
     </p>
   </description>
+
+  <url type="homepage">https://crunchyvfx.com/</url>
+  <url type="bugtracker">https://github.com/superevil6/crunchyVFX/issues</url>
 
   <launchable type="desktop-id">com.crunchyvfx.app.desktop</launchable>
   <content_rating type="oars-1.1"/>

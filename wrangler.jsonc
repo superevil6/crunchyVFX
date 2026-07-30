@@ -1,0 +1,27 @@
+{
+  // Cloudflare Workers config for the CrunchyVFX web deploy (Workers Builds, connected to this Git
+  // repo). Serves the repo's static files through the ASSETS binding, with worker.js in front.
+  // Same shape as CrunchySFX's and CrunchyBGM's — Workers, not Pages.
+  //
+  // `name` must match this project's Worker name in the Cloudflare dashboard. If the project is
+  // named differently, change it here or Workers Builds will create a SECOND Worker and you will be
+  // deploying somewhere nobody is looking. (Both siblings call out the same footgun.)
+  "name": "crunchyvfx",
+  "main": "worker.js",
+  "compatibility_date": "2024-11-01",
+
+  // The deploy's own version id, used to stamp subresource URLs so a cached sibling can never be
+  // paired with a fresh index.html. This app loads seven independent files, so it needs what
+  // CrunchyBGM needs and CrunchySFX does not — see the header of worker.js.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    // Every request goes through worker.js first: it has to see HTML requests to inject the version
+    // stamps and to rewrite Open Graph tags for "/?e=…" share links. Without this, "/" matches the
+    // index.html asset and is served BEFORE the Worker runs, so share links would never reach it.
+    // Non-HTML requests are one cheap pass-through to ASSETS.
+    "run_worker_first": true
+  }
+}

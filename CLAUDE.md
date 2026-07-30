@@ -23,6 +23,12 @@ maintainer handles every commit personally. Make and stage edits; stop there.
 effect. Inserting or reordering turns every saved heart into a cross. Shapes live in `shapes.js` as
 `SHAPE_DEFS` records; add at the end.
 
+**`state.shape` is the PRIMARY shape, not the selection.** The picker is multi-select; the extras
+live in `shapeMix` (comma-joined indices, a `PATCH_EXTRAS` string) and Layer B mirrors it with
+`emit2ShapeMix`. Read `shapeSet(state.shape, state.shapeMix)` whenever you care about what actually
+draws — `state.shape` alone silently ignores every shape after the first. It's split that way
+because `shape` is a stored index in every preset and share link and had to keep its old meaning.
+
 **Every `PARAMS` default must be neutral/off.** `applyPreset` resets to defaults then overlays, so
 a non-neutral default silently changes every existing preset that doesn't mention that key.
 
@@ -39,12 +45,27 @@ never created; `randomize` frozen to a three-system list). The structural audit 
 `tests/regression.js` now checks this — if you add UI that isn't a slider, make sure something
 covers it.
 
+**`BREED_SKIP` is derived, not listed.** Every categorical param (kind `enum`/`shape`/`shape2`) is
+excluded from breeding automatically, because nudging an index by a fraction of its range gives you
+an unrelated effect rather than a sibling. Add an enum and it's handled; an assertion checks it.
+
+**Don't count `name:` lines in `shapes.js` to get a shape index** — that order is not `SHAPES`
+order, and a wrong index is a plausible-looking preset that draws the wrong particle. Ask the
+running app: `SHAPES.indexOf("smoke")`.
+
 **Preset values bypass the slider clamp.** A preset object is written straight into `state`, so an
 out-of-range value doesn't error — it produces a quietly broken effect. There's an assertion for
 it; keep it passing.
 
 **`crunchysfx-synth.js` is GENERATED.** Never edit it. Change the CrunchySFX sources and run
 `python3 tools/pull-synth.py`. See VFX-DESIGN §9.
+
+**Nothing user-facing names a console or chip.** Era styles and palettes are named for what they
+look like (`Woodgrain`, `Micro`, `Pocket`, `Handheld Green`, `Fantasy 16`), never the machine — the
+app is sold and its output ships in games people sell. Comments in `index.html` count: the file is
+served as-is and readable via view-source. Export *engines* (Godot, Unity, Aseprite, Phaser) are
+exempt — naming the target is what makes the export usable. An assertion scans the STYLES/palette/
+tour/preset/shape tables and every rendered label and tooltip.
 
 **Artwork must be CC0.** Every particle shape is drawn in code. Nothing bundled unless it is public
 domain — the art ends up in sprite sheets users ship commercially, so any licence propagates to
@@ -56,11 +77,19 @@ exits non-zero on drift.
 **New system → at least one preset** (two is the standard). An assertion fails otherwise, because a
 system no preset uses is undiscoverable. New shape → an entry in `SHAPE_CATS` *and* `RANDOM_SHAPES`.
 
+**A new file the app loads at runtime needs a FOURTH registration**, on top of the three above: it
+must not be matched by `.assetsignore`, or the web deploy 404s it while every local build works.
+The published set is deliberately tiny — see DEPLOY.md.
+
 ---
 
 ## Verifying changes
 
-There is no JS runtime on this box — **the browser is the test runner.**
+**The browser is the test runner** for the app itself — it's all DOM and canvas, so there is nothing
+useful to run it in headless. (Node *does* exist here, v24, despite what this file used to say. It
+earns its keep for exactly one thing: `worker.js` is an ES module full of Cloudflare globals and
+can't be inlined into the browser suite, so it has its own runner —
+`node tests/worker.test.mjs`. Don't reach for it for anything else.)
 
 ```sh
 python3 tests/build.py          # concatenates index.html + a suite into tests/run*.html
@@ -124,6 +153,8 @@ more particles.
 | `presets.js` | preset data + category layout |
 | `crunchysfx-synth.js` | **generated** — vendored CrunchySFX audio engine |
 | `styles.css` | all CSS |
-| `tests/` | `build.py` + the two suites; see `tests/README.md` |
+| `tests/` | `build.py` + the two browser suites + `worker.test.mjs`; see `tests/README.md` |
 | `tools/pull-synth.py` | re-vendors the synth engine from `../crunchyfx` |
 | `src-tauri/` | desktop wrapper; `flatpak/` is the Linux distributable |
+| `worker.js` + `wrangler.jsonc` | Cloudflare edge handler: version-stamps subresources, renders per-effect share cards. `DEPLOY.md` is the runbook |
+| `.assetsignore` | what the web deploy does **not** publish — without it, the whole repo ships |

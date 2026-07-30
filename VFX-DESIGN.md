@@ -374,8 +374,20 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
 
 1. **Frame budget** — hard cap at 120 frames in `simulate()`. The *sheet* dimension is what
    actually hurts, so the export dialog suggests a lower fps rather than silently truncating.
-2. **Second emitter layer** — **deferred.** A good MVP target, but not before the simpler /
-   bigger-payoff work below. `shape:"smoke"` on the main emitter carries smoke until then.
+2. **Second emitter layer** — **done (2026-07-29).** Shipped as **Layer B**: a fully independent
+   second population (`emit2*`), not children of Layer A the way the sub-emitter is. Its own count,
+   shape, emitter, direction, timing, gravity, drag, colour and **blend** — the last of those is
+   what the feature actually turned on, because the headline case wants additive fire *and*
+   alpha smoke in one effect, and a single global blend pushes dark smoke through `lighter` where
+   it composites as a white blob. `emit2Delay` is what lets the smoke outlive the fire that caused
+   it. Presets: *Campfire Smoke*, *Cannon Blast*.
+2b. **Multi-shape selection** — **done (2026-07-29).** The picker is click-to-toggle: any number of
+   shapes can be on at once, and each particle draws one of them, chosen from its stable `P_ID`
+   through the usual hashed draw — so a particle keeps its shape for life and the assignment holds
+   across re-renders, scrubbing and export. Resolved at DRAW time, not in the frame table: which
+   sprite a particle wears doesn't affect its physics, so this cost no per-particle storage and no
+   `P_STRIDE` bump. Stored as primary `shape` + `shapeMix` extras rather than one list, because
+   `shape` is an index in every existing preset and share link. Preset: *Garden Burst*.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,
@@ -668,7 +680,31 @@ host**.
 test run checks it. Nothing else connects them, and a mismatch is invisible until a bug report
 quotes a version that never shipped.
 
-**Open before release:** the bundle identifier is `com.crunchyvfx.app`, and Tauri warns that a
-`.app` suffix collides with the macOS bundle extension. CrunchySFX has the same suffix and has
-already shipped with it, so changing VFX's alone breaks suite consistency. It is also downstream of
-the name red-flag pass — settle the name first, then set the identifier once.
+**Settled (2026-07-29):** the name is registered, so the bundle identifier stays
+`com.crunchyvfx.app` — matching the Flatpak id and CrunchySFX's convention. Tauri warns that a
+`.app` suffix collides with the macOS bundle extension; SFX has already shipped with the same
+suffix, and changing VFX's alone would break suite consistency for a cosmetic warning.
+
+## 15. The web deploy
+
+**Cloudflare Workers, not Pages** — the same shape as CrunchySFX and CrunchyBGM, with Workers Builds
+connected to the repo and the repo root served as static assets behind a small Worker.
+**[DEPLOY.md](DEPLOY.md) is the runbook and carries the reasoning**; the short version of why this
+app's Worker does more than either sibling's:
+
+- **It version-stamps subresources**, which SFX doesn't need and BGM does. SFX loads three files;
+  VFX loads seven. Seven independent browser caches means a fresh `index.html` can pair with a stale
+  `vfx.js` and die on a symbol that doesn't exist yet — which happened during development and cost
+  an afternoon, presenting as `shapeSet is not defined` in a function unrelated to the cause. The
+  `?v=` comes from the deploy id, injected at the edge, so it can't be forgotten.
+- **It rewrites Open Graph tags for `?e=` share links**, which SFX does and BGM has only stubbed,
+  so a shared effect unfurls by name instead of as a bare domain.
+
+`.assetsignore` is what keeps the design doc, the notes, the suite and the Tauri/Flatpak sources off
+the public site; `assets.directory: "."` would otherwise publish the whole repo.
+
+Unlike both siblings — whose workers are commented "UNVERIFIED against a real Cloudflare runtime" —
+this one has been run on `workerd` locally via `npx wrangler dev`, with the stamping, cache headers,
+asset exclusions, share cards and a full app boot all confirmed. `node tests/worker.test.mjs` covers
+the pure helpers, and caught a real UTF-8 bug that SFX's equivalent still has (see DEPLOY.md's
+closing list).

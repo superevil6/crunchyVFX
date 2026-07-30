@@ -762,6 +762,14 @@
   @media (max-width: 780px) {
     .stagerow { flex-direction: column; }
     .stage-box { width: 100%; min-width: 0; }
+    /* Stacking the row was only half of it. The controls column kept min-width: 220px and its rows
+       never wrapped, so the Size row (label + select + two number inputs + lock + "square") ran
+       13px past a 390px phone and the whole PAGE scrolled sideways — the one layout fault that
+       makes a site feel broken on a phone. Measured, not eyeballed: --screenshot captures the full
+       page, so horizontal overflow never shows up in a screenshot. */
+    .stage-side { min-width: 0; }
+    .stage-ctl { flex-wrap: wrap; }
+    .stage-hint { max-width: 100%; }
   }
 
   /* GIF export dialog */
@@ -1141,3 +1149,14 @@
   .tour-progress { font-size: 12px; color: var(--muted); }
   .tour-btns { display: flex; gap: 8px; }
   .tour-btns button { padding: 6px 12px; font-size: 13px; }
+
+  /* Layer B's own particle picker, inside its panel. */
+  .b-shape { margin-top: 10px; }
+  .b-shape-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+                  color: var(--muted); margin-bottom: 6px; }
+  .b-shape-filter { width: 100%; padding: 5px 8px; font: inherit; font-size: 12px;
+                    background: var(--panel2); color: var(--ink);
+                    border: 1px solid var(--line); border-radius: 6px; margin-bottom: 7px; }
+  .b-shape-filter:focus { outline: none; border-color: var(--accent2); }
+  .b-shape-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 148px; overflow-y: auto; }
+  .b-shape-grid .engine-btn { padding: 4px 8px; font-size: 11px; }

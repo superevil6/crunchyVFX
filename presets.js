@@ -1000,12 +1000,64 @@ window.PRESETS = {
     hue: 190, hueLife: 30, sat: 0.7, bright: 1, coreWhite: 0.6,
     glow: 0.4, duration: 1.1, fps: 24, frameSize: 5,
   },
+
+  // ---- Mixed shape sets (one selection, several particle shapes) ----
+  // The picker is click-to-toggle, so a selection can hold as many shapes as you like and each
+  // particle draws one of them (chosen from its own id, so it keeps that shape for its whole life).
+  // Nothing in the UI says a multi-select is possible until you've seen it, which is what this
+  // preset is for — the same reason every system owes the browser at least one entry.
+  "Garden Burst": {
+    shape: 19, shapeMix: "20,63,74,40",     // flower + leaf, clover, sprout, butterfly
+    count: 48, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.07, emitTime: 0.28,
+    speed: 100, speedVar: 0.45, drag: 0.55, gravity: -45, spin: 70, spinVar: 1,
+    size: 15, sizeVar: 0.5, grow: 0.15, life: 1.15, lifeVar: 0.35,
+    fadeIn: 0.12, fadeOut: 0.5,
+    flowerPetals: 5, flowerWidth: 0.34, flowerCore: 0.26,
+    hue: 312, hueLife: 26, hueVar: 0.14, sat: 0.8, bright: 1, coreWhite: 0.25, blend: 1,
+    glow: 0.3, duration: 1.4, fps: 24, frameSize: 5,
+  },
+
+  // ---- Layer B (a second, fully independent population) ----
+  // The point these two have to make is the one a sub-emitter can't: Layer B is NOT children of
+  // Layer A. It has its own count, timing, colour and gravity, so the two populations can pull in
+  // opposite directions — fire falling upward while its smoke keeps rising long after the fire is
+  // out. Both presets lean on that: B outlives A and drifts the other way.
+  "Campfire Smoke": {
+    shape: 25, count: 26, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 40,
+    emitRadius: 0.06, speed: 74, speedVar: 0.4, drag: 0.5, gravity: -120,
+    size: 20, sizeVar: 0.45, grow: -0.3, life: 0.66, lifeVar: 0.3,
+    fadeIn: 0.12, fadeOut: 0.55,
+    emit2Count: 30, emit2Shape: 5, emit2Emitter: 1, emit2Angle: 0, emit2Spread: 38,
+    emit2Radius: 0.05, emit2Delay: 0.12, emit2Over: 0.75,
+    emit2Speed: 46, emit2SpeedVar: 0.5, emit2Gravity: -80, emit2Drag: 0.22,
+    emit2Size: 19, emit2SizeVar: 0.6, emit2Grow: 0.9,
+    emit2Life: 1.25, emit2LifeVar: 0.35, emit2FadeIn: 0.22, emit2FadeOut: 0.6,
+    emit2Hue: 28, emit2Sat: 0.12, emit2Bright: 0.45, emit2Opacity: 0.55, emit2Blend: 2,
+    hue: 32, hueLife: -26, sat: 1, bright: 1, coreWhite: 0.45,
+    glow: 0.45, duration: 1.5, fps: 24, frameSize: 5, originY: 0.66,
+  },
+  "Cannon Blast": {
+    shape: 1, count: 26, opacity: 1, emitter: 1, emitAngle: 90, emitSpread: 34,
+    speed: 380, speedVar: 0.45, drag: 0.6, gravity: 120,
+    size: 13, sizeVar: 0.4, sparkLen: 0.5, sparkTaper: 0.7,
+    life: 0.4, lifeVar: 0.25, fadeOut: 0.5,
+    emit2Count: 34, emit2Shape: 39, emit2Emitter: 1, emit2Angle: 90, emit2Spread: 90,
+    emit2Radius: 0.04, emit2Delay: 0.05, emit2Over: 0.35,
+    emit2Speed: 175, emit2SpeedVar: 0.6, emit2Gravity: -70, emit2Drag: 0.34,
+    emit2Size: 22, emit2SizeVar: 0.5, emit2Grow: 0.8,
+    emit2Life: 1.2, emit2LifeVar: 0.3, emit2FadeIn: 0.15, emit2FadeOut: 0.65,
+    emit2Hue: 36, emit2Sat: 0.2, emit2Bright: 0.6, emit2Opacity: 0.45, emit2Blend: 2,
+    flash: 0.85, flashSize: 0.26, flashLife: 0.12,
+    hue: 42, hueLife: -32, sat: 1, bright: 1, coreWhite: 0.75,
+    glow: 0.5, duration: 1.4, fps: 24, frameSize: 5, originX: 0.3,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
 window.PRESET_CATEGORIES = [
   ["Explosions", ["Explosion", "Big Boom", "Shockwave", "Fire Jet", "Ember Rise", "Split Shot", "Spark Shower", "Lens Burst",
-                  "Triple Tap", "Disintegrate", "Jet Exhaust", "Blast Shell", "Sonic Pulse"]],
+                  "Triple Tap", "Disintegrate", "Jet Exhaust", "Blast Shell", "Sonic Pulse",
+                  "Cannon Blast"]],
   ["Ice & Frost",["Ice Blast", "Frost Nova", "Frost Growth"]],
   ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc",
                   "Portal", "Summon Circle", "Chain Lightning", "Teleport Out",
@@ -1023,9 +1075,9 @@ window.PRESET_CATEGORIES = [
                   "Vacuum Pull", "Soul Drain", "Shield Hex", "Spirit Wisps", "Tentacle Lash",
                   "Warp Tunnel", "Portal Depth", "Static Charge", "Spirit Aura",
                   "Tesla Coil", "Overcharge", "Cursed Halo"]],
-  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom"]],
+  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom", "Garden Burst"]],
   ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes"]],
   ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl",
                   "Firefly Swarm", "Downpour", "Ash Fall"]],
-  ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer"]],
+  ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke"]],
 ];

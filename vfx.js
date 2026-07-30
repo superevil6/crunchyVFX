@@ -18,6 +18,9 @@
 // one. It is a global from a sibling classic script loaded ahead of this file.
 const EMITTERS = ["burst", "cone", "ring", "disc", "line", "spiral", "box"];
 const BLENDS   = ["additive", "alpha", "screen"];
+// Layer B's blend list is the same three with a "follow Layer A" default in front, so a preset that
+// never touches it behaves exactly as it did before Layer B had its own blend.
+const B_BLENDS = ["match Layer A"].concat(BLENDS);
 const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
 
 // ---------- constants ----------
@@ -33,7 +36,7 @@ const P_FRAME = 12;
 // moves around between frames — without an id there's no way to ask "where was this same particle
 // last frame", which is exactly what a path trail needs.
 const P_ID = 13;
-const K_PART = 0, K_FLASH = 1, K_WAVE = 2;   // P_KIND values
+const K_PART = 0, K_FLASH = 1, K_WAVE = 2, K_PART2 = 3;   // P_KIND values
 
 const SUB = 2;                 // simulation substeps per frame — keeps motion stable at 8 fps
 const MAX_FRAMES = 120;        // hard cap (3 s @ 60 fps would be 180; the sheet gets silly first)
@@ -104,9 +107,82 @@ function vnoise(seed, x, y, z) {
   return lerp(lerp(x00, x10, yf), lerp(x01, x11, yf), zf);
 }
 
+// The particle-shape SET: the primary shape plus any extras the picker added, carried as a
+// comma-joined index list in `shapeMix`. Derived rather than stored as a single list because
+// `shape` is an index in every preset, share link and saved effect — the primary has to keep
+// meaning exactly what it always meant, so a patch with no mix renders bit-identically to before.
+//
+// Entries are validated here rather than trusted: a patch is written straight into `state` without
+// passing a slider, so junk, duplicates and out-of-range indices arrive at this function. Dropping
+// them beats drawing the wrong particle, which is the failure that looks like a working preset.
+function shapeSet(primary, mix) {
+  let p = Math.round(primary);
+  if (!isFinite(p)) p = 0;
+  const out = [Math.max(0, Math.min(SHAPES.length - 1, p))];
+  if (!mix) return out;
+  for (const part of String(mix).split(",")) {
+    const i = Math.round(parseFloat(part));
+    if (!isFinite(i) || i < 0 || i >= SHAPES.length || out.indexOf(i) >= 0) continue;
+    out.push(i);
+  }
+  return out;
+}
+
 // ---------- simulation ----------
 // Returns { frames: [Float32Array], counts: Int32Array, bbox, nFrames, fps, fs }.
 // World units are pixels at the patch's NOMINAL frame size (st.frameSize); rasterize() scales.
+// Where a particle is born and which way it is thrown. Extracted so the second emitter uses the
+// SAME seven geometries as the first — two copies of this switch would drift the moment anyone
+// added an emitter shape.
+function emitPlace(kind, seed, g, i, n, cx, cy, emitR, baseDir, spreadR) {
+  let ang, sx = cx, sy = cy;
+  const u1 = rnd(seed, g, 7), u2 = rnd(seed, g, 8);
+  switch (kind) {
+    case 1:   // cone — a directed spray
+      ang = baseDir + spreadR * (u1 - 0.5);
+      break;
+    case 2:   // ring — born on a circle, thrown outward
+      ang = u1 * Math.PI * 2;
+      sx += Math.cos(ang) * emitR; sy += Math.sin(ang) * emitR;
+      break;
+    case 3: { // disc — born anywhere inside a circle, thrown outward
+      const a = u1 * Math.PI * 2, r = Math.sqrt(u2) * emitR;
+      sx += Math.cos(a) * r; sy += Math.sin(a) * r;
+      ang = a;
+      break;
+    }
+    case 4:   // line — a horizontal bar (rain, ground dust)
+      sx += (u1 - 0.5) * 2 * emitR;
+      ang = baseDir + spreadR * (u2 - 0.5);
+      break;
+    case 5: { // spiral — golden-angle placement, outward. Reads as swirl even before `swirl`.
+      const a = i * 2.39996323, r = (i / Math.max(1, n - 1)) * emitR;
+      sx += Math.cos(a) * r; sy += Math.sin(a) * r;
+      ang = a;
+      break;
+    }
+    case 6:   // box — a square patch
+      sx += (u1 - 0.5) * 2 * emitR; sy += (u2 - 0.5) * 2 * emitR;
+      ang = baseDir + spreadR * (rnd(seed, g, 9) - 0.5);
+      break;
+    default:  // 0 burst — omnidirectional, optionally off a ring
+      ang = u1 * Math.PI * 2;
+      sx += Math.cos(ang) * emitR; sy += Math.sin(ang) * emitR;
+  }
+  return { x: sx, y: sy, ang: ang };
+}
+
+// Layer B's fade envelope. Mirrors lifeAlpha() but reads emit2* — kept separate rather than
+// parameterising lifeAlpha, because that one is called for every particle of the main population
+// on every frame and is worth leaving branch-free.
+function layerBAlpha(st, u) {
+  const fi = st.emit2FadeIn, fo = st.emit2FadeOut;
+  let a = 1;
+  if (fi > 0 && u < fi) a = u / fi;
+  if (fo > 0 && u > 1 - fo) a = Math.min(a, (1 - u) / fo);
+  return clamp01(a) * st.emit2Opacity;
+}
+
 function simulate(st) {
   const fs = frameSizePx(st);
   const fps = Math.max(1, Math.round(st.fps));
@@ -125,7 +201,19 @@ function simulate(st) {
   // integrator works on them unchanged; they're just born later. One generation only: children
   // never spawn grandchildren, which would be an unbounded population.
   const subN = Math.max(0, Math.round(st.subCount));
-  const total = Math.min(MAX_PARTS, parents * (1 + subN));
+  // Layer B: a SECOND, INDEPENDENT population — its own shape, emitter, motion, colour and
+  // timing. Not the sub-emitter, which spawns children FROM dying parents and inherits their
+  // position and velocity. This is "fire AND smoke", where sub-emitter is "embers OFF the fire".
+  //
+  // They live in the same arrays after the parents and their children, so the integrator, the
+  // frame-table writer and every downstream consumer work on them unchanged — the only thing that
+  // distinguishes them is `pgen === 2`, and that drives a handful of branches rather than a
+  // second copy of the loop.
+  const bN = Math.max(0, Math.round(st.emit2Count || 0));
+  const subTotal = parents * (1 + subN);
+  const total = Math.min(MAX_PARTS, subTotal + bN);
+  const bBase = Math.min(subTotal, total);            // where layer B starts, after any clamp
+  const bCount = total - bBase;
 
   const ox = st.originX * fs, oy = st.originY * fs;
   const emitR = st.emitRadius * fs;
@@ -146,7 +234,11 @@ function simulate(st) {
   // birth schedule + per-particle constants (all hashed, so they never depend on order)
   // Children are born on a parent's death, so park their birth beyond the end of time — otherwise
   // the "spawn everything due by now" sweep would hatch them all at t = 0.
-  if (subN > 0) { pbirth.fill(Infinity, parents); for (let i = parents; i < total; i++) pgen[i] = 1; }
+  if (subN > 0) {
+    pbirth.fill(Infinity, parents, subTotal);
+    for (let i = parents; i < subTotal; i++) pgen[i] = 1;
+  }
+  for (let i = bBase; i < total; i++) pgen[i] = 2;
   for (let g = 0; g < parents; g++) {
     const k = Math.floor(g / perShot);           // which shot
     const i = g % perShot;                       // index within the shot
@@ -159,47 +251,40 @@ function simulate(st) {
     pspin[g] = (st.spin * (1 + st.spinVar * rndS(seed, g, 5))) * DEG;
     pang[g] = st.angle * DEG + st.angleVar * rnd(seed, g, 6) * Math.PI * 2;
 
-    // emitter geometry: where it starts and which way it goes
-    let ang, sx = ox, sy = oy;
+    // Shots after the first are nudged off-centre so a burst doesn't fire three times from the
+    // exact same spot.
     const jx = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 21) : 0;
     const jy = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 22) : 0;
-    sx += jx; sy += jy;
-    const u1 = rnd(seed, g, 7), u2 = rnd(seed, g, 8);
-    switch (emitter) {
-      case 1:   // cone — a directed spray
-        ang = baseDir + spreadR * (u1 - 0.5);
-        break;
-      case 2:   // ring — born on a circle, thrown outward
-        ang = u1 * Math.PI * 2;
-        sx += Math.cos(ang) * emitR; sy += Math.sin(ang) * emitR;
-        break;
-      case 3: { // disc — born anywhere inside a circle, thrown outward
-        const a = u1 * Math.PI * 2, r = Math.sqrt(u2) * emitR;
-        sx += Math.cos(a) * r; sy += Math.sin(a) * r;
-        ang = a;
-        break;
-      }
-      case 4:   // line — a horizontal bar (rain, ground dust)
-        sx += (u1 - 0.5) * 2 * emitR;
-        ang = baseDir + spreadR * (u2 - 0.5);
-        break;
-      case 5: { // spiral — golden-angle placement, outward. Reads as swirl even before `swirl`.
-        const a = i * 2.39996323, r = (i / Math.max(1, perShot - 1)) * emitR;
-        sx += Math.cos(a) * r; sy += Math.sin(a) * r;
-        ang = a;
-        break;
-      }
-      case 6:   // box — a square patch
-        sx += (u1 - 0.5) * 2 * emitR; sy += (u2 - 0.5) * 2 * emitR;
-        ang = baseDir + spreadR * (rnd(seed, g, 9) - 0.5);
-        break;
-      default:  // 0 burst — omnidirectional, optionally off a ring
-        ang = u1 * Math.PI * 2;
-        sx += Math.cos(ang) * emitR; sy += Math.sin(ang) * emitR;
-    }
+    const place = emitPlace(emitter, seed, g, i, perShot, ox + jx, oy + jy,
+                            emitR, baseDir, spreadR);
+    const ang = place.ang, sx = place.x, sy = place.y;
     const sp = st.speed * shotScale * (1 + st.speedVar * rndS(seed, g, 10));
     px[g] = sx; py[g] = sy;
     vx[g] = Math.cos(ang) * sp; vy[g] = Math.sin(ang) * sp;
+  }
+
+  // Layer B's own births. Same hashed-draw discipline as the main emitter (distinct salts so the
+  // two populations don't correlate), its own geometry, and its own timing — `emit2Delay` is what
+  // lets smoke start after the fire that caused it.
+  if (bCount > 0) {
+    const b2R = st.emit2Radius * fs;
+    const b2Spread = st.emit2Spread * DEG;
+    const b2Over = st.emit2Over * dur;
+    const b2Emitter = Math.round(st.emit2Emitter);
+    const b2Dir = (st.emit2Angle - 90) * DEG;    // its own aim — B is not a child of A
+    for (let n2 = 0; n2 < bCount; n2++) {
+      const g = bBase + n2;
+      pbirth[g] = st.emit2Delay + (b2Over > 0 ? rnd(seed, g, 61) * b2Over : 0);
+      plife[g] = Math.max(0.02, st.emit2Life * (1 + st.emit2LifeVar * rndS(seed, g, 62)));
+      psize[g] = Math.max(0.5, st.emit2Size * (1 + st.emit2SizeVar * rndS(seed, g, 63)));
+      phue[g] = st.emit2Hue + st.hueVar * 180 * rndS(seed, g, 64);
+      pspin[g] = (st.spin * (1 + st.spinVar * rndS(seed, g, 65))) * DEG;
+      pang[g] = st.angle * DEG + st.angleVar * rnd(seed, g, 66) * Math.PI * 2;
+      const place = emitPlace(b2Emitter, seed, g, n2, bCount, ox, oy, b2R, b2Dir, b2Spread);
+      const sp = st.emit2Speed * (1 + st.emit2SpeedVar * rndS(seed, g, 67));
+      px[g] = place.x; py[g] = place.y;
+      vx[g] = Math.cos(place.ang) * sp; vy[g] = Math.sin(place.ang) * sp;
+    }
   }
 
   const frames = new Array(nFrames);
@@ -208,7 +293,9 @@ function simulate(st) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
 
   const ramp = parseRamp(st.ramp);
-  const flipCells = Math.round(st.shape) === 9
+  // The imported sprite can be one member of a mixed set rather than the primary shape, so ask the
+  // whole set — keying off `shape` alone froze a mixed-in animated sprite on cell 0.
+  const flipCells = shapeSet(st.shape, st.shapeMix).indexOf(9) >= 0
     ? Math.max(1, Math.round(st.imgCols)) * Math.max(1, Math.round(st.imgRows)) : 1;
   // Ground plane. `bounce` at 0 is the off switch — no collision test runs at all — so this costs
   // nothing for the 90% of effects that happen in mid-air.
@@ -237,7 +324,8 @@ function simulate(st) {
         // `grow` stays the simple linear control; a ramp's size channel multiplies on top, so
         // turning the ramp on never silently discards the grow value you already set.
         const rampZ = ramp ? sampleRamp(ramp, u).z : 1;
-        const size = Math.max(0.1, psize[g] * (1 + st.grow * u) * rampZ);
+        const bLayer = pgen[g] === 2;
+        const size = Math.max(0.1, psize[g] * (1 + (bLayer ? st.emit2Grow : st.grow) * u) * rampZ);
         scratch[o + P_X] = px[g]; scratch[o + P_Y] = py[g];
         scratch[o + P_SIZE] = size;
         scratch[o + P_ANG] = pang[g];
@@ -251,6 +339,14 @@ function simulate(st) {
           scratch[o + P_LIGHT] = clamp01(c.l * st.bright);
           scratch[o + P_ALPHA] = lifeAlpha(st, u) * c.a;
           scratch[o + P_WHITE] = 0;
+        } else if (bLayer) {
+          // Layer B is deliberately NOT given a hot core: it exists to sit behind or around the
+          // main population (smoke, dust, mist), and a white-hot core would make it compete.
+          scratch[o + P_HUE] = phue[g] + st.hueLife * u;
+          scratch[o + P_WHITE] = 0;
+          scratch[o + P_SAT] = st.emit2Sat;
+          scratch[o + P_LIGHT] = clamp01(st.emit2Bright);
+          scratch[o + P_ALPHA] = layerBAlpha(st, u);
         } else {
           const white = st.coreWhite * (1 - u) * (1 - u);
           scratch[o + P_HUE] = phue[g] + st.hueLife * u;
@@ -259,7 +355,7 @@ function simulate(st) {
           scratch[o + P_LIGHT] = clamp01(st.bright * (0.5 + 0.5 * white));
           scratch[o + P_ALPHA] = lifeAlpha(st, u);
         }
-        scratch[o + P_KIND] = K_PART;
+        scratch[o + P_KIND] = bLayer ? K_PART2 : K_PART;
         scratch[o + P_ID] = g;
         // Flipbook cell from the particle's own life fraction. `imgLoops` runs the strip more than
         // once per lifetime; `imgStagger` offsets each particle so a hundred sprites don't play in
@@ -361,7 +457,11 @@ function simulate(st) {
         }
         continue;
       }
-      let ax = st.wind, ay = st.gravity;
+      // Layer B has its own gravity and drag — smoke rising off a fire that falls is the whole
+      // point. Everything else (wind, radial, swirl, turbulence) is shared, because those read as
+      // properties of the SCENE rather than of one population.
+      const isB = pgen[g] === 2;
+      let ax = st.wind, ay = isB ? st.emit2Gravity : st.gravity;
       if (st.radial || st.swirl) {
         const dx = px[g] - ox, dy = py[g] - oy;
         const d = Math.hypot(dx, dy) || 1e-3;
@@ -397,7 +497,7 @@ function simulate(st) {
         ay += (dy / d) * st.attract * fall;
       }
       vx[g] += ax * dt; vy[g] += ay * dt;
-      const damp = 1 - dragK * dt;
+      const damp = 1 - (isB ? st.emit2Drag * 6 : dragK) * dt;
       vx[g] *= damp; vy[g] *= damp;
       px[g] += vx[g] * dt; py[g] += vy[g] * dt;
       pang[g] += pspin[g] * dt;
@@ -561,8 +661,22 @@ function getSprite(shape, hue, sat, light, st, frame) {
 // Fit / scale worked out, so preview and export share one code path.
 function drawFrame(sim, f, g, st, xf) {
   const arr = sim.frames[f], n = sim.counts[f];
-  g.globalCompositeOperation = st.blend === 1 ? "source-over" : (st.blend === 2 ? "screen" : "lighter");
+  // Layer B gets its own blend, because the headline use case needs both at once: fire wants to be
+  // additive and the smoke it throws off wants to be alpha. One global blend forces dark smoke
+  // through "lighter", where it composites as a white blob instead of an occluder.
+  const blendOpA = st.blend === 1 ? "source-over" : (st.blend === 2 ? "screen" : "lighter");
+  const b2b = Math.round(st.emit2Blend || 0) - 1;   // -1 = follow Layer A
+  const blendOpB = b2b < 0 ? blendOpA
+                 : (b2b === 1 ? "source-over" : (b2b === 2 ? "screen" : "lighter"));
+  let curOp = blendOpA;
+  g.globalCompositeOperation = blendOpA;
   const shape = Math.round(st.shape);
+  const shapeB = Math.round(st.emit2Shape || 0);
+  // Each layer's selected shape set. Resolved per particle below, at DRAW time rather than in the
+  // frame table: which sprite a particle wears doesn't affect its physics, so this costs no
+  // per-particle storage and no stride bump.
+  const setA = shapeSet(shape, st.shapeMix);
+  const setB = shapeSet(shapeB, st.emit2ShapeMix);
   const trail = st.trail;
   // Function-scoped because the optical passes at the bottom need them too.
   const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
@@ -601,6 +715,10 @@ function drawFrame(sim, f, g, st, xf) {
     const a = arr[o + P_ALPHA];
     if (a <= 0.004) continue;
     const kind = arr[o + P_KIND];
+    // Layer B is written to the table after Layer A, and copyAlive preserves order, so this flips
+    // at most once per frame — no per-particle state churn.
+    const wantOp = kind === K_PART2 ? blendOpB : blendOpA;
+    if (wantOp !== curOp) { g.globalCompositeOperation = wantOp; curOp = wantOp; }
     const x = arr[o + P_X] * xf.k + xf.dx, y = arr[o + P_Y] * xf.k + xf.dy;
     const sz = arr[o + P_SIZE] * xf.k;
     const hue = arr[o + P_HUE], sat = arr[o + P_SAT], light = arr[o + P_LIGHT];
@@ -628,9 +746,17 @@ function drawFrame(sim, f, g, st, xf) {
     // still costs ~1.3µs and a burst spends its whole tail off-screen — measurably cheaper to ask.
     const half = sz * 0.75;      // 0.75 not 0.5: rotated sprites reach past their nominal box
     if (x + half < 0 || x - half > g.canvas.width || y + half < 0 || y - half > g.canvas.height) continue;
-    const spr = getSprite(shape, hue, sat, light, st, arr[o + P_FRAME]);
+    // Layer B draws its own shape. The kind is carried in the frame table rather than in a new
+    // slot, so the two populations cost nothing extra to tell apart.
+    // Which shape this particle wears. Picked from its layer's set by the particle's stable id
+    // through the same hashed draw as everything else, so it holds still across re-renders,
+    // scrubbing and export instead of reshuffling every frame.
+    const set = kind === K_PART2 ? setB : setA;
+    const shp = set.length === 1 ? set[0]
+      : set[Math.min(set.length - 1, Math.floor(rnd(seed, arr[o + P_ID], 70) * set.length))];
+    const spr = getSprite(shp, hue, sat, light, st, arr[o + P_FRAME]);
     // spark and teardrop are directional shapes — they point where they're going
-    const rot = (shape === 1 || shape === 16) ? Math.atan2(arr[o + P_VY], arr[o + P_VX]) : arr[o + P_ANG];
+    const rot = (shp === 1 || shp === 16) ? Math.atan2(arr[o + P_VY], arr[o + P_VX]) : arr[o + P_ANG];
     // motion trail: a few ghosts back along the velocity vector. Cheap, and it reads as speed.
     const ghosts = trail > 0 ? 4 : 0;
     for (let t = ghosts; t >= 0; t--) {
@@ -2262,7 +2388,15 @@ function postProcess(cv, st, overlay, t) {
     const img = g.getImageData(0, 0, w, h), d = img.data;
     const src = new Uint8ClampedArray(d);
     const blurred = boxBlur(src, w, h, Math.max(1, Math.round(st.mergeSmooth)));
-    const thr = st.mergeThreshold * 255;
+    // A threshold above the field's peak classifies EVERY pixel as outside, and at mix = 1 that
+    // takes the "lone wisp" branch for the whole frame and erases it — the effect vanishes with
+    // nothing on screen to say Threshold is what did it. So clamp to just under the peak: the
+    // densest part of the field always survives. Any threshold that already left something
+    // standing is below the peak and passes through untouched, so existing presets are unchanged.
+    // (peak === 0 means nothing was drawn at all; leave it alone rather than flood a blank frame.)
+    let peak = 0;
+    for (let i = 3; i < blurred.length; i += 4) if (blurred[i] > peak) peak = blurred[i];
+    const thr = peak > 0 ? Math.min(st.mergeThreshold * 255, peak * 0.95) : st.mergeThreshold * 255;
     const mix = st.merge;
     for (let i = 0; i < d.length; i += 4) {
       const ba = blurred[i + 3];

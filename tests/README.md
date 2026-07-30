@@ -29,6 +29,22 @@ decoding, zip writing) finishes *after* the shot and would silently never appear
 `regression-async.js`, which writes `results.txt` via a download instead. Run it with a profile
 configured to auto-save downloads and read the file.
 
+## The edge handler
+
+```sh
+node tests/worker.test.mjs        # 29 assertions, exits non-zero on failure
+```
+
+A second runner, and only just justified: `worker.js` is an ES module built on Cloudflare globals,
+so it can't be inlined into the browser suite the way every sibling file is. What it decides is
+whether a stale file can reach a user and whether a share link unfurls by name — worth pinning. It
+already caught one real bug: decoding a patch title with bare `atob` turned `Feu ✨` into `Feu â¨`,
+because `atob` yields latin1 and the app encodes names as UTF-8.
+
+The Worker's `fetch` itself needs a runtime. There is one — `npx wrangler dev --port 8787 --local`
+runs it on `workerd` locally, which is how the stamping, cache headers, `.assetsignore` exclusions
+and share-card rewriting were confirmed rather than assumed. See `DEPLOY.md`.
+
 ## Why this lives in the repo
 
 It used to live in a scratchpad directory and was lost to a stray `rm -rf`. Verification that

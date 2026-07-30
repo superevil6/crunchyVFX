@@ -104,7 +104,8 @@
     // ---------------------------------------------------------------- patch model
     // Non-PARAMS fields are the ones that leak if mishandled — check every one round-trips AND resets.
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
-                  bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4 }, "extras");
+                  bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
+                  shapeMix: "2,3", emit2ShapeMix: "5" }, "extras");
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -904,6 +905,17 @@
         else if (px < 60) thin++;
       }
       ok(empty === 0, "randomize never produces a completely empty effect", empty + "/" + ROLLS2);
+
+      // The specific way that used to happen, pinned directly so it can't come back as a 1-in-130
+      // flake that three green runs hide. Merge thresholds the blurred alpha field; a threshold
+      // above the field's peak marks every pixel "outside", and at mix 1 that erased the frame.
+      {
+        applyPreset(PRESETS["Explosion"], "Explosion");
+        state.merge = 1; state.mergeThreshold = 0.9; state.mergeSmooth = 16;
+        const px = litAll(renderFrames(state, { size: 64, fit: true }));
+        ok(px > 0, "merge at max threshold thins the effect instead of erasing it", px + " px");
+        applyPreset(PRESETS["Explosion"], "Explosion");
+      }
       ok(thin <= 3, "…and rarely produces a very thin one", thin + "/" + ROLLS2 + " thin");
 
       applyPreset(before, beforeLabel);
@@ -1183,7 +1195,13 @@
       ok(document.getElementById("expBatchAll").hidden &&
          document.getElementById("expBatchMine").hidden,
          "batch export is desktop-only — it exists to render the library");
-      ok(!!document.getElementById("deskCta"), "the web build offers the desktop app instead");
+      // The desktop CTA is gated on ITCH_LIVE, because the store page 404s until it is published and
+      // a dead "buy it" link is worse than no link. Assert the flag actually CONTROLS the button —
+      // otherwise it can be flipped on launch day and do nothing, which is the failure mode a flag
+      // like this exists to prevent.
+      ok(!!document.getElementById("deskCta") === ITCH_LIVE,
+         "the desktop CTA appears exactly when the itch page is live",
+         "ITCH_LIVE=" + ITCH_LIVE + ", button " + (document.getElementById("deskCta") ? "present" : "absent"));
 
       // The line is "library and bulk workflow are paid; making and exporting an effect is free".
       // If any of these ever ended up gated, the free build would stop being worth using.
@@ -1243,10 +1261,114 @@
       const listed = SHAPE_CATS.reduce((n, c) => n + c[1].length, 0);
       ok(listed === SHAPES.length, "SHAPE_CATS covers the whole SHAPES list",
          listed + " of " + SHAPES.length);
-      // Clicking a picker button must actually select that shape.
-      shapeBtns[19].click();
-      ok(Math.round(state.shape) === 19, "clicking a shape button selects it", SHAPES[Math.round(state.shape)]);
+      // Clicking a picker button must actually select that shape. Selection is a SET now, so the
+      // check is membership rather than "shape === 19" — clicking a second shape adds to what's
+      // already on instead of replacing the primary.
       applyPreset(PRESETS["Explosion"], "Explosion");
+      state.shapeMix = "";
+      shapeBtns[19].click();
+      ok(shapeSet(state.shape, state.shapeMix).indexOf(19) >= 0,
+         "clicking a shape button selects it", SHAPES[19] + " in " + shapeSet(state.shape, state.shapeMix));
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- multi-shape selection
+    // Click to select, click again to unselect, as many as you like. The selection is the primary
+    // `shape` plus the `shapeMix` extras — split that way because `shape` is a stored index in
+    // every preset, share link and saved effect, so it has to keep its old meaning exactly.
+    {
+      const G = SHAPES.indexOf("glow"), R = SHAPES.indexOf("ring"), H = SHAPES.indexOf("heart");
+      const sel = () => shapeSet(state.shape, state.shapeMix);
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      state.shape = G; state.shapeMix = "";
+      shapeBtns[R].click();
+      ok(sel().length === 2 && sel().indexOf(R) >= 0 && sel().indexOf(G) >= 0,
+         "clicking a second shape adds it to the selection", sel().join(","));
+      shapeBtns[H].click();
+      ok(sel().length === 3, "…and a third", sel().join(","));
+      // The count line is how anyone discovers this is a multi-select at all.
+      ok(shapeCount.textContent.indexOf("3 selected") >= 0,
+         "the shape count line reports the selection size", shapeCount.textContent);
+      shapeBtns[R].click();
+      ok(sel().indexOf(R) < 0 && sel().length === 2,
+         "clicking a selected shape unselects it", sel().join(","));
+
+      // Both pickers mark every member, not just the primary — the whole point is seeing what's on.
+      syncShapeButtons();
+      const marked = Object.keys(shapeBtns).filter((i) => shapeBtns[i].classList.contains("active")).map(Number);
+      ok(marked.length === sel().length && marked.every((i) => sel().indexOf(i) >= 0),
+         "the picker marks every selected shape", marked.join(","));
+
+      // Removing the primary has to promote another rather than leave a dangling index.
+      const first = sel()[0];
+      shapeBtns[first].click();
+      ok(sel().length === 1 && sel().indexOf(first) < 0 && Math.round(state.shape) === sel()[0],
+         "unselecting the primary promotes the next shape", "shape=" + SHAPES[Math.round(state.shape)]);
+
+      // A selection of nothing renders nothing, which is a broken effect and not a choice.
+      const last = sel()[0];
+      shapeBtns[last].click();
+      ok(sel().length === 1 && sel()[0] === last, "the last shape can't be unselected", sel().join(","));
+
+      // It has to actually reach the raster, not just the state: two shapes must not render the
+      // same pixels as one. (The set is resolved per particle from its id, so this also pins that
+      // the draw is deterministic — same seed, same assignment, twice.)
+      state.shape = G; state.shapeMix = "";
+      const one = litAll(renderFrames(state, { size: 64, fit: true }));
+      state.shapeMix = String(SHAPES.indexOf("cross"));
+      const two = litAll(renderFrames(state, { size: 64, fit: true }));
+      const twoAgain = litAll(renderFrames(state, { size: 64, fit: true }));
+      ok(one !== two, "a mixed selection renders differently from a single shape", one + " vs " + two);
+      ok(two === twoAgain, "…and identically on a re-render", two + " = " + twoAgain);
+
+      // Junk and out-of-range entries arrive here because a patch bypasses the sliders entirely.
+      // They must be dropped, not drawn — a wrong sprite looks like a working preset.
+      ok(shapeSet(G, "999,-4,abc,,7").join(",") === G + ",7",
+         "shapeSet drops out-of-range and junk mix entries", shapeSet(G, "999,-4,abc,,7").join(","));
+      ok(shapeSet(G, String(G)).join(",") === String(G),
+         "…and never lists the primary twice", shapeSet(G, String(G)).join(","));
+      ok(shapeSet(G, "").length === 1 && shapeSet(G, undefined).length === 1,
+         "an empty mix is just the primary");
+
+      // Layer B's picker is the same rule through the same helper.
+      state.emit2Count = 120; state.emit2Shape = G; state.emit2ShapeMix = "";
+      toggleShape("emit2Shape", "emit2ShapeMix", R);
+      ok(shapeSet(state.emit2Shape, state.emit2ShapeMix).length === 2,
+         "Layer B takes a multi-shape selection too", state.emit2ShapeMix);
+
+      // Survives the round trips that matter: a share link and the undo stack.
+      state.shape = G; state.shapeMix = String(R) + "," + String(H);
+      const enc = encodePatch("mix test");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      applyPreset(decodePatch(enc), "mix test");
+      ok(shapeSet(state.shape, state.shapeMix).length === 3,
+         "a multi-shape selection survives a share link", state.shapeMix);
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- no hardware trademarks
+    // Era styles and palettes are named for what they LOOK like, never for the machine they came
+    // from — the output ends up in games people sell, and the tool itself is sold, so a console
+    // name in a label is exposure for no benefit. Console *engines* (Godot, Unity, Aseprite) are
+    // deliberately exempt: naming an export target is what makes the export usable.
+    {
+      const BAD = /\b(Atari|Nintendo|NES|SNES|Game ?Boy|Genesis|Mega ?Drive|Sega|PlayStation|PS1|N64|Amiga|Commodore|C64|SID|PICO-?8|Neo ?Geo|Turbo ?Grafx|PC Engine|Master System|Dreamcast|Xbox|ZX Spectrum|MSX)\b/i;
+      const hits = [];
+      const check = (where, text) => { if (text && BAD.test(text)) hits.push(where + ': "' + text + '"'); };
+      for (const s of STYLES) { check("style name", s.name); check("style hint", s.hint); }
+      for (const name in BUILTIN_PALETTES) check("palette", name);
+      for (const t of TOUR) { check("tour title", t.title); check("tour body", t.body); }
+      for (const n of Object.keys(PRESETS)) check("preset", n);
+      for (const n of SHAPES) check("shape", n);
+      // Whatever is actually on screen, including tooltips — the label is what a user reads.
+      for (const el of document.querySelectorAll("button, label, option, [title], .hint, .engine-cat-label")) {
+        check("ui", el.getAttribute("title"));
+        if (!el.children.length) check("ui", el.textContent.trim());
+      }
+      ok(hits.length === 0, "no console or hardware trademarks in anything user-facing",
+         hits.slice(0, 4).join(" | "));
     }
 
     // ---------------------------------------------------------------- preset coverage
@@ -1288,6 +1410,16 @@
         removeLayer(L);
         if (L.is()) stuck.push(L.g);  // …and it must actually be off again
       }
+      // Breeding nudges a param by a fraction of its range. That is meaningless for a categorical
+      // one — "shape 31.4" is a skull becoming a feather, not a sibling of the parent — so every
+      // enum/shape param has to be in BREED_SKIP. Layer B shipped three at once, which is how this
+      // stopped being a thing you can hold in your head.
+      {
+        const loose = PARAMS.filter((p) => (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2")
+                                           && !BREED_SKIP.has(p[0])).map((p) => p[0]);
+        ok(loose.length === 0, "every categorical param is excluded from breeding", loose.join(", "));
+      }
+
       ok(noParams.length === 0, "every layer group owns at least one param", noParams.join(", "));
       ok(noButton.length === 0, "every removable panel has a ✕", noButton.join(", "));
       ok(stuck.length === 0, "removing any of the " + LAYER_GROUPS.length +
