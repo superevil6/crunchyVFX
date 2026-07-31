@@ -1436,6 +1436,93 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- posting GIF
+    // A different job from Export → GIF: that one makes an asset (exact size, transparent), this
+    // one makes a post (big, opaque, looping). The two must not quietly become the same thing.
+    {
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      rerender();
+      const built = buildShareGif(false);
+      ok(!!built && built.canvases.length > 0, "a posting GIF gets built from the current effect");
+      ok(built.size > rendered.w || built.size >= 200,
+         "…at a posting size, not the working frame size",
+         built.size + "px vs preview " + rendered.w + "px");
+
+      // Opaque is the whole point: 1-bit GIF alpha fringes soft edges against a chat background.
+      const g = built.canvases[0].getContext("2d");
+      const d = g.getImageData(0, 0, built.canvases[0].width, built.canvases[0].height).data;
+      let clear = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] < 250) clear++;
+      ok(clear === 0, "every pixel is opaque — no transparent fringe in a chat client", clear + " see-through px");
+
+      // Frame count drives file size, so resolution has to yield to it or a long loop is unpostable.
+      ok(shareGifSize(20) > shareGifSize(40) && shareGifSize(40) > shareGifSize(90),
+         "a longer effect gets a smaller frame so the file stays postable",
+         [shareGifSize(20), shareGifSize(40), shareGifSize(90)].join(" > "));
+
+      // The tag is what makes the GIF do any work once it leaves — it must actually mark the pixels.
+      const plain = buildShareGif(false), tagged = buildShareGif(true);
+      const lit = (cv) => {
+        const px = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        let s = 0; for (let i = 0; i < px.length; i += 4) s += px[i] + px[i + 1] + px[i + 2];
+        return s;
+      };
+      const last = (b) => b.canvases[b.canvases.length - 1];
+      ok(lit(tagged.canvases[0]) !== lit(plain.canvases[0]), "the site tag is drawn when asked for");
+      ok(lit(last(tagged)) !== lit(last(plain)), "…on every frame, not just the first");
+
+      // And it encodes to a real, looping GIF.
+      const bytes = encodeGif(plain.canvases.slice(0, 4), state.fps);
+      const head = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
+      ok(head === "GIF89a", "it encodes a real GIF", head);
+      let netscape = false;
+      for (let i = 0; i < bytes.length - 11; i++) {
+        if (bytes[i] === 0x4E && String.fromCharCode.apply(null, bytes.slice(i, i + 11)) === "NETSCAPE2.0") {
+          netscape = true; break;
+        }
+      }
+      ok(netscape, "…that loops forever, which is the whole point in a chat window");
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- shape-aware orbit
+    // Orbit drew its own round beads and ignored `shape`, which made the classic circling-stars
+    // effect impossible to express — a preset could be named for a shape the layer never drew.
+    // The toggle is opt-in precisely so the presets that shipped with beads still get beads.
+    {
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      ok(PARAM_BY_KEY.orbitUseShape[5] === 0,
+         "orbitUseShape defaults to off, so existing orbit presets are untouched",
+         String(PARAM_BY_KEY.orbitUseShape[5]));
+
+      // No shipped preset may rely on the new behaviour by accident — if one did, it would have
+      // been drawing beads until now and silently change the day this landed.
+      const optedIn = Object.keys(PRESETS).filter((n) => PRESETS[n].orbitUseShape > 0);
+      ok(optedIn.length === 0 || optedIn.every((n) => PRESETS[n].orbit > 0),
+         "any preset opting in actually has the orbit layer on", optedIn.join(", "));
+
+      // The toggle has to CHANGE something: same orbit, beads vs shapes, different pixels.
+      applyPreset(PRESETS["Stun Stars"], "Stun Stars");
+      state.orbitUseShape = 0;
+      const beads = litAll(renderFrames(state, { size: 96, fit: true }));
+      state.orbitUseShape = 1;
+      const shapes = litAll(renderFrames(state, { size: 96, fit: true }));
+      ok(beads > 0 && shapes > 0, "orbit draws either way", beads + " vs " + shapes);
+      ok(beads !== shapes, "…and the shape toggle actually changes what is drawn",
+         beads + " px as beads, " + shapes + " px as shapes");
+
+      // It follows the SET, not just the primary — a mixed selection rings alternating shapes.
+      state.shape = SHAPES.indexOf("star"); state.shapeMix = "";
+      const one = litAll(renderFrames(state, { size: 96, fit: true }));
+      state.shapeMix = String(SHAPES.indexOf("heart"));
+      const two = litAll(renderFrames(state, { size: 96, fit: true }));
+      ok(one !== two, "orbit honours the whole shape selection, not only the first",
+         one + " vs " + two);
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- preset coverage
     // Presets are how people actually discover the systems: load one and that layer's panel
     // appears WITH the effect on screen, which teaches far better than a tooltip. That only holds

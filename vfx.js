@@ -814,17 +814,21 @@ function drawRays(g, x, y, sz, st, hue, a) {
 
 // Shared colour for the layers: honours the ramp when there is one, the classic hue/sat/bright
 // path when there isn't, so a ramp'd patch doesn't have two colour systems fighting.
+// Returns the CSS colour AND its components. The components are what getSprite() needs — structure
+// layers that draw a real particle shape rather than a filled path have to key the sprite cache on
+// h/s/l, and re-deriving them at the call site would be the same formula written twice.
 function layerColour(st, u, whiteBias) {
   const ramp = parseRamp(st.ramp);
   if (ramp) {
     const c = sampleRamp(ramp, clamp01(u));
-    return { css: hsl(c.h, c.s, clamp01(c.l * st.bright)), a: c.a };
+    const l = clamp01(c.l * st.bright);
+    return { css: hsl(c.h, c.s, l), a: c.a, h: c.h, s: c.s, l: l };
   }
   const w = clamp01(whiteBias);
-  return {
-    css: hsl(st.hue + st.hueLife * u, st.sat * (1 - w * 0.85), clamp01(st.bright * (0.45 + 0.55 * w))),
-    a: 1,
-  };
+  const h = st.hue + st.hueLife * u;
+  const s = st.sat * (1 - w * 0.85);
+  const l = clamp01(st.bright * (0.45 + 0.55 * w));
+  return { css: hsl(h, s, l), a: 1, h: h, s: s, l: l };
 }
 
 // ---------- growth ----------
@@ -1825,6 +1829,13 @@ function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
   const c = layerColour(st, u, 0.4);
   const tilt = st.orbitAngle * DEG;
   const ct = Math.cos(tilt), stt = Math.sin(tilt);
+  // Orbit normally draws its own round beads, which is right for a shield or a ring of light but
+  // makes the classic cartoon "stars circling a stunned head" impossible — the bodies ignored the
+  // particle shape entirely, so a preset could be named for a shape it never drew. With the toggle
+  // on they draw the emitter's selected shape SET instead, one shape per body by index, so a mixed
+  // selection gives a ring of alternating things. Default off: every existing orbit preset (Shield
+  // Orbit, Power Rings) keeps the exact beads it shipped with.
+  const orbitSet = st.orbitUseShape > 0.5 ? shapeSet(st.shape, st.shapeMix) : null;
   g.save();
   g.globalAlpha = st.orbit * c.a;
   g.fillStyle = c.css;
@@ -1841,9 +1852,17 @@ function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
     const y = oy + ex * stt + ey * ct;
     const rr = Math.max(0.4, st.orbitSize * xf.k * 0.5 * scale);
     g.globalAlpha = st.orbit * c.a * clamp01(0.35 + 0.65 * (0.5 + depth * 0.5 * st.orbitDepth));
-    g.beginPath();
-    g.arc(x, y, rr, 0, Math.PI * 2);
-    g.fill();
+    if (orbitSet) {
+      // Sized to the same diameter the bead would have had, so turning the toggle on doesn't also
+      // change how big the ring reads. Drawn upright rather than tangent to the path: a star or a
+      // heart pointing sideways looks like a mistake, not like motion.
+      const spr = getSprite(orbitSet[i % orbitSet.length], c.h, c.s, c.l, st, 0);
+      g.drawImage(spr, x - rr, y - rr, rr * 2, rr * 2);
+    } else {
+      g.beginPath();
+      g.arc(x, y, rr, 0, Math.PI * 2);
+      g.fill();
+    }
     if (st.orbitTrail > 0) {
       // A short arc swept BEHIND each body along its own path — a straight streak would betray
       // that these are dots being moved rather than things travelling a curve.

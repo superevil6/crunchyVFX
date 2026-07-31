@@ -865,6 +865,14 @@
   }
   .share-input:focus { outline: none; border-color: var(--accent2); }
   .share-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 12px 0 0; }
+  /* The posting-GIF row sits under the link, separated by a rule: the link and the GIF are two
+     different ways to send the same effect, not two steps of one flow. */
+  .share-gifrow {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  }
+  .share-tag { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
+  .share-tag input { margin: 0; }
 
   /* ---- Custom categories ---------------------------------------------------- */
   .usercats { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }

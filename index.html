@@ -485,6 +485,8 @@ const PARAMS = [
   ["orbitDepth", "Depth",       0, 1, 0.01, 0.6, "",   "Orbit"],
   ["orbitTrail", "Trail",       0, 1, 0.01, 0, "",     "Orbit"],
   ["orbitScatter","Scatter",    0, 1, 0.01, 0, "",     "Orbit"],
+  // Off by default so every orbit preset that shipped with round beads still draws round beads.
+  ["orbitUseShape","Use particle shape", 0, 1, 1, 0, "", "Orbit"],
 
   // Tumble — flat pieces turning over as they fall. Confetti, petals, leaves, paper, coins.
   ["tumble",     "Tumble",      0, 1, 0.01, 0, "",     "Tumble"],
@@ -4461,6 +4463,16 @@ shareModal.innerHTML =
       '<label class="share-lbl" for="shareUrl">Link</label>' +
       '<input id="shareUrl" class="share-input" type="text" readonly>' +
       '<p class="share-note" id="shareNote"></p>' +
+      // A link asks the person receiving it to go and do something, which is why effects do not
+      // travel the way sounds do — a sound is its own payoff, a sprite sheet is a supply. A looping
+      // GIF plays inline in Discord, Bluesky and Mastodon with no click and no context, so the
+      // effect can sell itself to someone who was not looking for a tool.
+      '<div class="share-gifrow">' +
+        '<button id="shareGif">🎞 GIF for posting</button>' +
+        '<label class="share-tag"><input type="checkbox" id="shareGifTag" checked> add site tag</label>' +
+      '</div>' +
+      '<p class="share-note" id="shareGifNote">Bigger than the export, on a solid backdrop, looping ' +
+        'forever — sized to paste into a chat rather than to import into an engine.</p>' +
     '</div>' +
     '<div class="modal-foot"><button id="shareCopy" class="primary">🔗 Copy link</button>' +
       '<span id="shareMsg" class="hint"></span></div>' +
@@ -4499,6 +4511,82 @@ shareModal.querySelector("#shareCopy").addEventListener("click", async () => {
     shareMsg.textContent = document.execCommand && document.execCommand("copy") ? "Copied!" : "Press Ctrl+C to copy";
   }
 });
+
+// ---------- Share as a posting GIF ----------
+// Deliberately NOT the same thing as Export → GIF. That one produces an asset: exact frame size,
+// transparent, for dropping into an engine. This one produces a POST: big enough to see in a chat
+// window, on a solid backdrop, looping forever, with an optional site tag. Two different jobs that
+// happen to share an encoder.
+
+// A transparent GIF carries only 1-bit alpha, so soft edges fringe hard against whatever colour the
+// chat client happens to use — and every effect here has soft edges. Compositing onto the app's own
+// dark stage colour makes that a deliberate look instead of an artefact, and matches the tool.
+const SHARE_GIF_BG = "#0b0910";
+
+// Frame count is the thing that actually blows up a GIF, so resolution gives way to it rather than
+// the other way round: a 20-frame burst can afford 320px, a 100-frame weather loop cannot. These
+// land under Discord's 8 MB limit for everything in the preset library.
+function shareGifSize(frames) {
+  if (frames <= 28) return 320;
+  if (frames <= 56) return 256;
+  return 200;
+}
+
+function buildShareGif(withTag) {
+  if (!rendered) return null;
+  const n = rendered.canvases.length;
+  const size = shareGifSize(n);
+  // Re-rasterise rather than upscale: the simulation is reused, so this is the same motion drawn
+  // at a higher resolution instead of a blurry enlargement of the preview.
+  const big = renderFrames(state, { size: size, fit: fitOn, sim: rendered.sim }).canvases;
+  const out = big.map((src) => {
+    const cv = document.createElement("canvas");
+    cv.width = size; cv.height = size;
+    const g = cv.getContext("2d");
+    g.fillStyle = SHARE_GIF_BG;
+    g.fillRect(0, 0, size, size);
+    g.drawImage(src, 0, 0);
+    if (withTag) {
+      // Small, low-contrast, bottom-right — legible if you look, invisible if you don't. This is
+      // the only reason the GIF is worth posting rather than just watching.
+      g.font = "600 " + Math.max(9, Math.round(size * 0.038)) + "px ui-monospace, monospace";
+      g.textAlign = "right";
+      g.textBaseline = "bottom";
+      g.fillStyle = "rgba(255,255,255,0.30)";
+      g.fillText("crunchyvfx.com", size - Math.round(size * 0.03), size - Math.round(size * 0.028));
+    }
+    return cv;
+  });
+  return { canvases: out, size: size };
+}
+
+{
+  const gifBtn = shareModal.querySelector("#shareGif");
+  const tagBox = shareModal.querySelector("#shareGifTag");
+  const note = shareModal.querySelector("#shareGifNote");
+  gifBtn.addEventListener("click", () => {
+    if (!rendered) return;
+    const was = note.textContent;
+    note.textContent = "Rendering…";
+    // Yield so the label paints before the encoder blocks the thread, same as Export → GIF.
+    setTimeout(() => {
+      try {
+        const built = buildShareGif(tagBox.checked);
+        if (!built) { note.textContent = was; return; }
+        const bytes = encodeGif(built.canvases, state.fps);
+        download(new Blob([bytes], { type: "image/gif" }),
+                 sanitize(effectLabel) + "-post.gif");
+        const kb = Math.round(bytes.length / 1024);
+        note.textContent = built.size + "px · " + built.canvases.length + " frames · " + kb +
+          " KB — drop it straight into a chat.";
+        msg.textContent = "Saved a posting GIF (" + kb + " KB)";
+      } catch (e) {
+        console.warn("crunchyvfx: posting GIF failed —", e);
+        note.textContent = "Could not build the GIF — see the console.";
+      }
+    }, 30);
+  });
+}
 
 // ---------- Breed ----------
 // Nine children of the current effect. Pick the ones you like, breed again. It finds things you

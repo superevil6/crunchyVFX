@@ -388,6 +388,15 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    sprite a particle wears doesn't affect its physics, so this cost no per-particle storage and no
    `P_STRIDE` bump. Stored as primary `shape` + `shapeMix` extras rather than one list, because
    `shape` is an index in every existing preset and share link. Preset: *Garden Burst*.
+2c. **Shape-aware Orbit** — **done (2026-07-30).** The Orbit layer drew its own filled circles and
+   ignored `shape` entirely, which quietly bounded what it could ever be: a ring of light or a
+   shield, never the cartoon stars circling a stunned head. A preset could be *named* for a shape
+   the layer had no way to draw — that is how "Stun Stars" first shipped as round beads. `orbitUseShape`
+   switches the bodies to `shapeSet(shape, shapeMix)`, one shape per body by index, so a mixed
+   selection rings alternating things. Opt-in, defaulting off, because the layer's existing presets
+   (*Shield Orbit*, *Power Rings*) are beads on purpose and a silent change to shipped output is
+   worse than a new switch. `layerColour()` now returns h/s/l alongside the CSS string, which is
+   what any structure layer needs to reach the sprite cache.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,
