@@ -1371,6 +1371,71 @@
          hits.slice(0, 4).join(" | "));
     }
 
+    // ---------------------------------------------------------------- CrunchySFX hand-off (?s=)
+    // CrunchySFX's "Send to CrunchyVFX" opens crunchyvfx.com/?s=<patch>, carrying the same payload
+    // its own share links use. The decode and the mapping are the paste path reused whole — what
+    // these pin is the DOOR: that arriving by URL runs it, that our own `?e=` links are never
+    // mistaken for one, and that a bad link degrades instead of breaking the boot.
+    {
+      const mk = (obj) => btoa(JSON.stringify(obj))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const link = "https://crunchyvfx.com/?s=" +
+        mk({ v: 1, t: "Handoff Zap", s: { wave: 2, freq: 660, duration: 0.3, decay: 0.15 } });
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const before = JSON.stringify(snapshotState());
+      ok(loadSharedSound(link) === true, "a ?s= link is received and applied on arrival");
+      ok(JSON.stringify(snapshotState()) !== before, "…and it actually changed the effect");
+      ok(effectLabel === "Handoff Zap", "the sound's name comes across", effectLabel);
+
+      // The sound-hold captures what the SOUND asked for — the bit most likely to be dropped by a
+      // second, hand-rolled entry point, since nothing on screen says it is missing.
+      ok(soundHold.on && Object.keys(soundHold.values).length > 0,
+         "the sound-hold is captured on arrival, as it is when pasting",
+         Object.keys(soundHold.values).length + " held values");
+      ok(soundHold.name === "Handoff Zap", "…and it records the sound's name", soundHold.name);
+
+      // Our own share links must never be read as a sound: both live in the query string.
+      ok(loadSharedSound("?e=" + encodePatch("Mine")) === false,
+         "our own ?e= effect link is not mistaken for a sound");
+      ok(loadSharedSound("") === false, "no link at all is a no-op");
+      ok(loadSharedSound("?s=not!valid!base64") === false, "a malformed ?s= is a no-op, not a throw");
+      ok(loadSharedSound("?s=" + mk({ v: 1 })) === false,
+         "a payload with no sound in it is refused");
+
+      // Boot order is effect-link first, then sound-link, then the random sampler. A link carrying
+      // both must resolve to the effect — it names the exact thing, where a sound is a starting point.
+      const both = "?e=" + encodePatch("Mine") + "&s=" + mk({ v: 1, s: { freq: 440 } });
+      ok(/[?&]e=([^&#]+)/.test(both) && decodeSfxLink(both) !== null,
+         "a URL can carry both, so the precedence in boot is what decides", "both parse");
+
+      // Someone arriving mid-task from the other app should not be met with a welcome tour.
+      ok(/[?&][es]=/.test("?s=abc") && /[?&][es]=/.test("?e=abc"),
+         "the tour is suppressed for both kinds of incoming link");
+
+      // A matched patch is COMPUTED from whatever sound arrives, so unlike the preset table nothing
+      // static can vet it — and an out-of-range value doesn't error, it produces a blank effect that
+      // still says "N mappings applied". A laser (sweep -400) mapped to speed 208120 against a
+      // 0..900 range: particles left the frame instantly and Fit shrank the result to nothing.
+      {
+        const sweepy = matchSound(decodeSfxLink("?s=" +
+          mk({ v: 1, t: "Laser", s: { wave: 2, freq: 880, duration: 0.35, decay: 0.2, sweep: -400 } })));
+        const bad = Object.keys(sweepy.patch).filter((k) => {
+          const row = PARAM_BY_KEY[k];
+          return row && typeof sweepy.patch[k] === "number"
+            && (sweepy.patch[k] < row[2] || sweepy.patch[k] > row[3]);
+        }).map((k) => k + "=" + sweepy.patch[k]);
+        ok(bad.length === 0, "a matched sound never lands out of range", bad.join(", "));
+
+        // …and the point of that: the effect it produces actually draws something.
+        applyMatch(sweepy);
+        ok(litAll(renderFrames(state, { size: 96, fit: true })) > 0,
+           "a swept-pitch sound produces a visible effect, not a blank frame");
+      }
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- preset coverage
     // Presets are how people actually discover the systems: load one and that layer's panel
     // appears WITH the effect on screen, which teaches far better than a tooltip. That only holds

@@ -5031,6 +5031,25 @@ function matchSound(obj) {
   if (d("limiter") > 0.1 || d("transient") > 0.2) { p.shake = clamp01(Math.max(d("limiter"), d("transient")) * 0.4); note("limiter/transient → shake"); }
   p.emitSpread = Math.round(120 + d("width") * 240);
 
+  // Clamp everything to its declared PARAMS range before handing it over.
+  //
+  // This is the "preset values bypass the slider clamp" trap, except worse: a preset is a fixed
+  // table someone can eyeball and an assertion can check, while THIS patch is computed at runtime
+  // from whatever sound arrives, so nothing static can catch a bad one. A CrunchySFX laser with
+  // `sweep: -400` mapped to `speed: 208120` against a 0..900 range — 231× the maximum. The particles
+  // left the frame on the first step, Fit scaled the enormous bounding box down to nothing, and the
+  // result was a completely blank effect that still reported "4 mappings applied". Silently wrong,
+  // which is the failure this codebase keeps producing and the reason for the range assertion.
+  //
+  // Clamping rather than rescaling the individual mappings: an out-of-range value means the sound
+  // asked for more than the tool can express, and pinning it to the maximum is the honest reading of
+  // "as extreme as this goes". Doing it in one place also covers every future mapping for free.
+  for (const k in p) {
+    const row = PARAM_BY_KEY[k];
+    if (!row || typeof p[k] !== "number" || !isFinite(p[k])) continue;
+    p[k] = Math.max(row[2], Math.min(row[3], p[k]));
+  }
+
   // `sfx` is the raw sound patch, carried through so the caller can synthesise the actual audio
   // rather than only the visual mapping derived from it.
   return { patch: p, notes, name: obj.t || "Matched effect", sfx: sfx };
@@ -5087,20 +5106,23 @@ document.getElementById("matchBtn").addEventListener("click", () => {
 });
 matchModal.querySelector("#matchClose").addEventListener("click", () => { matchModal.hidden = true; });
 matchModal.addEventListener("click", (e) => { if (e.target === matchModal) matchModal.hidden = true; });
-matchApplyBtn.addEventListener("click", () => {
-  if (!matchResult) return;
+// Applying a matched sound. Extracted because there are now TWO ways to arrive at one: pasting a
+// link into the dialog, and landing on a CrunchySFX "Send to CrunchyVFX" URL. One implementation
+// means the second entry point cannot drift from the first — the sound-hold capture, the synthesis
+// and the status line all come along for free rather than being half-reimplemented at the door.
+function applyMatch(result) {
+  if (!result) return false;
   // Capture BEFORE applying, so the hold records what the sound asked for rather than whatever
   // survived the pixel lock on the way in.
-  captureSoundHold(matchResult.patch, matchResult.name);
-  applyPreset(matchResult.patch, matchResult.name);
-  matchModal.hidden = true;
+  captureSoundHold(result.patch, result.name);
+  applyPreset(result.patch, result.name);
   let extra = "";
   // The link already carries the full patch, so synthesise it here rather than making anyone
   // round-trip a WAV through the other tab. Non-fatal: if the engine is missing or the patch
   // uses something it can't render, the visual match still stands on its own.
-  if (matchResult.sfx && synthAvailable()) {
+  if (result.sfx && synthAvailable()) {
     try {
-      const s = synthesizePatch(matchResult.sfx, matchResult.name);
+      const s = synthesizePatch(result.sfx, result.name);
       if (s && loadSynthIntoPlayer(s)) {
         syncSoundUI();
         restartLoop(0);
@@ -5111,8 +5133,29 @@ matchApplyBtn.addEventListener("click", () => {
       extra = " (sound could not be synthesised — see console)";
     }
   }
-  msg.textContent = "Matched “" + matchResult.name + "” — " + matchResult.notes.length +
+  msg.textContent = "Matched “" + result.name + "” — " + result.notes.length +
                     " mappings applied" + extra;
+  return true;
+}
+
+// A CrunchySFX "Send to CrunchyVFX" button opens crunchyvfx.com/?s=<patch>, carrying the exact same
+// base64url payload its own share links use — so there is no new codec here and nothing new to
+// decode. decodeSfxLink() and matchSound() ARE the paste path; the only difference is that the
+// string comes from our own URL instead of a text field.
+//
+// No collision risk: our share links use `?e=`, CrunchySFX's use `?s=`. The hash is included too
+// because CrunchySFX used `#s=` before it switched, and those links are still in the wild.
+// `src` defaults to our own URL; taking it as an argument mirrors CrunchySFX's own
+// loadSharedSound(src) and lets the suite exercise the whole path without navigating the page.
+function loadSharedSound(src) {
+  const obj = decodeSfxLink(src != null ? src : location.search + location.hash);
+  if (!obj) return false;
+  return applyMatch(matchSound(obj));
+}
+
+matchApplyBtn.addEventListener("click", () => {
+  if (!applyMatch(matchResult)) return;
+  matchModal.hidden = true;
 });
 
 // ---------- Boot ----------
@@ -5315,8 +5358,10 @@ document.getElementById("tourBtn").addEventListener("click", () => startTour());
   let seen = false;
   try { seen = localStorage.getItem(TOUR_KEY) === "1"; } catch (e) { seen = true; }
   // Arriving on a share link means someone sent you THAT effect — hijacking it with a tutorial is
-  // the wrong first impression. They can still take it from the toolbar.
-  const viaShare = /[?&]e=/.test(location.search);
+  // the wrong first impression. They can still take it from the toolbar. `?s=` counts too: someone
+  // pressing "Send to CrunchyVFX" in CrunchySFX is mid-task and came to see their sound, which is
+  // even less of a moment for a welcome tour than an effect link.
+  const viaShare = /[?&][es]=/.test(location.search);
   if (!seen && !viaShare) setTimeout(startTour, 400);
 }
 
@@ -5397,7 +5442,10 @@ function pickLaunchEffect() {
   const names = Object.keys(PRESETS);
   return names.length ? names[Math.floor(Math.random() * names.length)] : null;
 }
-if (!loadSharedEffect()) {
+// Precedence: our own effect link, then a sound sent over from CrunchySFX, then the random sampler.
+// `?e=` wins over `?s=` if a URL somehow carries both — an effect link names the exact thing the
+// sender meant, where a sound link is a starting point we derive an effect from.
+if (!loadSharedEffect() && !loadSharedSound()) {
   const pick = pickLaunchEffect();
   if (pick) applyPreset(PRESETS[pick], pick); else { rerender(); commitHistory(); }
 }
