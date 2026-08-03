@@ -57,6 +57,7 @@
     <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it">📚 Library</button>
     <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">💾 Save project</button>
     <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
+    <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen">🎓 Tutorials</button>
     <button id="tourBtn" title="Replay the guided tour">? Tour</button>
     <span id="msg" class="hint"></span>
   </div>
@@ -5633,10 +5634,17 @@ const TOUR = [
   { target: "#share", title: "Bonus · every effect is a link",
     body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
   { target: null, title: "That's it ✨",
-    body: "Everything you make is yours, unwatermarked, at full resolution. Replay this tour any time with the ? Tour button." },
+    body: "Everything you make is yours, unwatermarked, at full resolution. Replay this any time with ? Tour — and 🎓 Tutorials goes deeper on the parts that don't explain themselves, like staging layers in time or running two emitters at once." },
 ];
 
 let tourIdx = 0;
+// One runner, several lists. A tutorial is the same spotlight pointed at a different feature, so
+// the steps are a parameter rather than a second implementation — a copy would drift from this one
+// in exactly the ways nobody notices until a card lands off-screen.
+let tourSteps = TOUR;
+// The one thing that separates them: finishing the WELCOME tour records the preference. Finishing a
+// tutorial must not, or someone who opens a tutorial first never gets offered the tour.
+let tourMarksSeen = true;
 const tourEl = document.createElement("div");
 tourEl.className = "tour";
 tourEl.hidden = true;
@@ -5678,11 +5686,14 @@ function tourPlaceCard(r) {
 }
 
 function showTourStep(i) {
-  tourIdx = Math.max(0, Math.min(TOUR.length - 1, i));
-  const step = TOUR[tourIdx], last = tourIdx === TOUR.length - 1;
+  tourIdx = Math.max(0, Math.min(tourSteps.length - 1, i));
+  const step = tourSteps[tourIdx], last = tourIdx === tourSteps.length - 1;
+  // A step may need its feature open before it can be pointed at — spotlighting a closed
+  // dialog dims the page around nothing. Idempotent, because stepping back re-runs them.
+  if (step.before) { try { step.before(); } catch (e) { console.warn('crunchyvfx: tour step setup failed —', e); } }
   tourEl.querySelector(".tour-title").textContent = step.title;
   tourEl.querySelector(".tour-body").textContent = step.body;
-  tourEl.querySelector(".tour-progress").textContent = (tourIdx + 1) + " / " + TOUR.length;
+  tourEl.querySelector(".tour-progress").textContent = (tourIdx + 1) + " / " + tourSteps.length;
   tourEl.querySelector(".tour-next").textContent = last ? "Got it ✨" : "Next";
   tourEl.querySelector(".tour-prev").style.visibility = tourIdx === 0 ? "hidden" : "visible";
   tourEl.querySelector(".tour-skip").style.visibility = last ? "hidden" : "visible";
@@ -5709,18 +5720,22 @@ function showTourStep(i) {
 }
 
 function onTourResize() { if (!tourEl.hidden) showTourStep(tourIdx); }
-function startTour() {
+function startTour(steps, marksSeen) {
+  tourSteps = (steps && steps.length) ? steps : TOUR;
+  tourMarksSeen = marksSeen !== false;
   tourEl.hidden = false;
   addEventListener("resize", onTourResize);
   showTourStep(0);
 }
-function endTour(markSeen) {
+function endTour(finished) {
   tourEl.hidden = true;
   removeEventListener("resize", onTourResize);
-  if (markSeen) { try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { /* best-effort */ } }
+  if (finished && tourMarksSeen) { try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { /* best-effort */ } }
+  tourSteps = TOUR;                 // back to the welcome list, so a stale tutorial can't replay
+  tourMarksSeen = true;
 }
 tourEl.querySelector(".tour-next").addEventListener("click", () => {
-  if (tourIdx === TOUR.length - 1) endTour(true); else showTourStep(tourIdx + 1);
+  if (tourIdx === tourSteps.length - 1) endTour(true); else showTourStep(tourIdx + 1);
 });
 tourEl.querySelector(".tour-prev").addEventListener("click", () => showTourStep(tourIdx - 1));
 tourEl.querySelector(".tour-skip").addEventListener("click", () => endTour(true));
@@ -5731,6 +5746,171 @@ addEventListener("keydown", (e) => {
   else if (e.key === "ArrowLeft") showTourStep(tourIdx - 1);
 });
 document.getElementById("tourBtn").addEventListener("click", () => startTour());
+
+// ---------- Tutorials ----------
+// The welcome tour answers "what is this". These answer "how do I actually use the thing I found",
+// for the features that are not on the first screen and do not explain themselves: staging layers
+// in time, running two populations at once, inventing rather than tweaking, deriving an effect from
+// a sound, and getting it out. Same runner, same spotlight — a list is the only difference.
+//
+// `before` opens whatever the step points at. Written as a hook per step rather than one setup per
+// tutorial so stepping BACKWARDS lands correctly too.
+const openTiming = () => { libModal.hidden = true; expModal.hidden = true; timeModal.hidden = false; renderTiming(); };
+const openLibrary = () => { timeModal.hidden = true; expModal.hidden = true; libModal.hidden = false; renderLibrary(); };
+const openExport = () => { timeModal.hidden = true; libModal.hidden = true; expModal.hidden = false; };
+const closeAll = () => { timeModal.hidden = true; libModal.hidden = true; expModal.hidden = true; };
+const layerBOn = () => {
+  closeAll();
+  if (!(state.emit2Count > 0)) { state.emit2Count = 120; syncUI(); rerender(); }
+};
+
+const TUTORIALS = [
+  {
+    id: "timing", name: "⏱ Stage it in time",
+    blurb: "Turn one event into a sequence — flash, then shockwave, then smoke.",
+    steps: [
+      { target: "#timeBtn", before: closeAll, title: "Layers start together",
+        body: "Every layer you switch on begins at frame 0. That reads as one event: everything "
+          + "happens at once. Staging is what turns it into a sequence you can feel." },
+      { target: ".time-body", before: openTiming, title: "One row per layer that's on",
+        body: "Only the layers you're actually using appear here — the rest would be a wall of "
+          + "zeroes. Particles sit at the top as the anchor: everything else is timed against them, "
+          + "which is why that row can't be dragged." },
+      { target: ".time-body", before: openTiming, title: "Push a layer later",
+        body: "Drag a slider right and that layer waits. A shockwave at 0.05s lands just after the "
+          + "flash instead of inside it; smoke at 0.3s arrives once the sparks are dying. Small "
+          + "numbers do most of the work — a tenth of a second is already visible." },
+      { target: "#timeNote", before: openTiming, title: "Mind the clip length",
+        body: "The note tells you how long the effect is. A delay past that means the layer never "
+          + "appears at all — which looks exactly like a layer that's broken. If something vanished, "
+          + "check here first." },
+    ],
+  },
+  {
+    id: "layerb", name: "🔥 Two populations at once",
+    blurb: "Fire AND smoke — a second emitter with its own everything.",
+    steps: [
+      { target: "#layerBar", before: layerBOn, title: "Layer B is not a sub-emitter",
+        body: "The sub-emitter makes children OF your particles — embers thrown off a spark. Layer B "
+          + "is a second, independent population: its own count, shape, direction, gravity, colour "
+          + "and lifetime. Fire and the smoke above it, in one effect." },
+      { target: '[data-group="Layer B"]', before: layerBOn, title: "Give it its own job",
+        body: "The trick is to make B do something A can't. Negative gravity so smoke rises while "
+          + "debris falls. A longer lifetime so it outlives the burst. A start delay so it arrives "
+          + "after the thing that caused it." },
+      { target: '[data-group="Layer B"]', before: layerBOn, title: "Blend is the one that matters",
+        body: "Fire wants additive; smoke wants alpha. With one shared blend, dark smoke pushed "
+          + "through additive comes out as a white blob. Layer B has its own Blend for exactly this "
+          + "— set it to alpha and the smoke reads as smoke." },
+    ],
+  },
+  {
+    id: "invent", name: "🎲 Invent, don't tweak",
+    blurb: "Randomize, Breed, Variations and the Foundry.",
+    steps: [
+      { target: "#rand", before: closeAll, title: "Start from an accident",
+        body: "Randomize builds a whole effect from scratch, systems and all. It's the fastest way "
+          + "to find a look you'd never have dialled in — most rolls are junk, and that's fine, "
+          + "because the good one costs a click." },
+      { target: "#breed", before: closeAll, title: "Breed keeps what you liked",
+        body: "Breed makes nine children of the current effect. Keep the ones you like and breed "
+          + "again. Two or three rounds converges somewhere you couldn't have reached by dragging "
+          + "sliders, because it moves a dozen at once." },
+      { target: "#variations", before: closeAll, title: "Variations is for shipping",
+        body: "Same jitter, different purpose: it exports a whole family — hit_01 … hit_08 — so "
+          + "repeated hits in your game don't read as a loop. One effect, eight siblings." },
+      { target: "#foundry", before: closeAll, title: "The Foundry starts from an idea",
+        body: "Pick a kind of effect and an art style and it invents candidates from nothing. Use it "
+          + "when you know what you want but not what it should look like." },
+    ],
+  },
+  {
+    id: "sound", name: "🔊 Build it from a sound",
+    blurb: "Derive an effect from a CrunchySFX link, and keep them matched.",
+    steps: [
+      { target: "#matchBtn", before: closeAll, title: "A sound already describes an effect",
+        body: "Paste a CrunchySFX link and the sound's own numbers become visual ones: its length "
+          + "becomes the duration, its pitch the particle size, its noise the spread. You get a "
+          + "matching effect and the audio synthesised right here." },
+      { target: "#matchBtn", before: closeAll, title: "Or let it come to you",
+        body: "CrunchySFX has a Send to CrunchyVFX button. That opens this app with the sound "
+          + "already in the URL, so the effect is built the moment the page loads — no pasting." },
+      { target: "#holdBtn", before: closeAll, title: "Hold keeps the match",
+        body: "Once a sound is matched, Hold pins the numbers it dictated — length and intensity. "
+          + "Now you can browse presets for a different LOOK and the timing still fits the audio, "
+          + "instead of drifting away from it with every click." },
+    ],
+  },
+  {
+    id: "ship", name: "📦 Get it into your engine",
+    blurb: "Sheets, sidecars, pipelines and re-exporting a whole pack.",
+    steps: [
+      { target: ".exp-body", before: openExport, title: "More than a PNG",
+        body: "A sheet on its own leaves you measuring frames by hand. Export writes the metadata "
+          + "beside it — frame size, counts, pivot, trim — in the format your engine reads, so the "
+          + "animation arrives set up rather than as a picture you have to describe." },
+      { target: ".exp-body", before: openExport, title: "Trim and pivot decide how it lands",
+        body: "Trim crops the empty margin so the sheet isn't mostly nothing; pivot is the point "
+          + "your engine anchors to. Get the pivot right once and every instance in your game lines "
+          + "up without per-object nudging." },
+      { target: ".exp-body", before: openExport, title: "Pipelines remember the boring part",
+        body: "A pipeline is a named export config — format, sizes, engine, and on desktop a folder. "
+          + "Running one writes straight there. Re-export pack pushes new settings through every "
+          + "effect you've saved, so changing your mind about sizes isn't fifty dialogs." },
+    ],
+  },
+];
+// Desktop-only, so it is listed only where it exists rather than spotlighting a hidden button.
+if (isDesktop) {
+  TUTORIALS.push({
+    id: "library", name: "📚 Your shelf",
+    blurb: "Imported particles, and every effect you've exported.",
+    steps: [
+      { target: "#libBtn", before: closeAll, title: "Things that outlive this effect",
+        body: "Export and Share turn the effect in front of you into a file. The Library is the "
+          + "other half: what you brought in, and what you've already sent out." },
+      { target: "#libSprites", before: openLibrary, title: "Particles you imported",
+        body: "Every PNG you load as a particle is kept here. Click one to use it again — you don't "
+          + "have to go and find the file a second time." },
+      { target: "#libExports", before: openLibrary, title: "Load an old export back",
+        body: "Each export is stored with the whole effect, not just its name. Load puts it back in "
+          + "the editor exactly as it went out — so widening a burst you shipped last week is a "
+          + "slider and a re-export, not a rebuild from memory." },
+    ],
+  });
+}
+
+const tutModal = document.createElement("div");
+tutModal.className = "modal";
+tutModal.hidden = true;
+tutModal.innerHTML =
+  '<div class="modal-box tut-box">' +
+    '<div class="modal-head"><h2>🎓 Tutorials</h2>' +
+      '<span class="hint">Short walkthroughs of the parts that don\'t explain themselves.</span>' +
+      '<button id="tutClose">✕ Close</button></div>' +
+    '<div class="tut-body" id="tutRows"></div>' +
+  '</div>';
+document.body.appendChild(tutModal);
+{
+  const rows = tutModal.querySelector("#tutRows");
+  for (const t of TUTORIALS) {
+    const row = document.createElement("button");
+    row.className = "tut-row";
+    row.innerHTML = '<span class="tut-name"></span><span class="tut-blurb"></span>' +
+                    '<span class="tut-len"></span>';
+    row.querySelector(".tut-name").textContent = t.name;
+    row.querySelector(".tut-blurb").textContent = t.blurb;
+    row.querySelector(".tut-len").textContent = t.steps.length + " steps";
+    row.addEventListener("click", () => {
+      tutModal.hidden = true;
+      startTour(t.steps, false);      // a tutorial never marks the welcome tour as seen
+    });
+    rows.appendChild(row);
+  }
+}
+document.getElementById("tutBtn").addEventListener("click", () => { tutModal.hidden = false; });
+tutModal.querySelector("#tutClose").addEventListener("click", () => { tutModal.hidden = true; });
+tutModal.addEventListener("click", (e) => { if (e.target === tutModal) tutModal.hidden = true; });
 
 {
   let seen = false;

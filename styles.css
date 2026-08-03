@@ -1219,3 +1219,19 @@
   .time-anchor .time-name { color: var(--muted); }
   .time-anchor .time-val { color: var(--muted); opacity: 0.6; }
   @media (max-width: 600px) { .time-row { grid-template-columns: 90px minmax(0, 1fr) 46px; } }
+
+  /* ---------- Tutorials ---------- */
+  .tut-box { width: min(620px, 96vw); }
+  .tut-body { padding: 12px 14px; max-height: 62vh; overflow-y: auto; display: flex;
+              flex-direction: column; gap: 6px; }
+  /* Whole row is the button — a small "start" target would be the only clickable part of something
+     that reads as a list item, which is a thing people click anywhere on. */
+  .tut-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px;
+    text-align: left; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid var(--line); background: #14121a; cursor: pointer;
+  }
+  .tut-row:hover { border-color: var(--accent); }
+  .tut-name { font-size: 13px; color: var(--ink); font-weight: 600; }
+  .tut-len { font: 11px ui-monospace, monospace; color: var(--muted); align-self: center; }
+  .tut-blurb { grid-column: 1 / -1; font-size: 12px; color: var(--muted); line-height: 1.45; }

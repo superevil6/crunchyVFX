@@ -433,6 +433,24 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    ~25 new PARAMS rows, which would have put a slider in every layer panel to express one idea. The
    Timing panel lists only the layers that are ON — showing all 43 would be a wall of zeroes — with
    particles as a disabled anchor row at 0, because everything else is staged against them.
+2f. **Tutorials** — **done (2026-07-30).** Ported from CrunchyBGM §140. The welcome tour answers
+   "what is this"; nothing answered "how do I use the thing I just found", and the app had grown
+   Timing, Library, Layer B, multi-shape and the sound hand-off since the tour was written.
+
+   **One runner, several lists.** `TOUR` stayed the welcome array and `tourSteps` became whichever
+   list is playing, so `startTour(steps, marksSeen)` drives both. A second spotlight implementation
+   would have drifted from this one in exactly the ways nobody notices until a card lands off-screen.
+   `tourMarksSeen` is the only real difference: finishing the welcome tour records the preference,
+   finishing a tutorial must not, or opening a tutorial first costs you the tour forever.
+
+   **`before` per step**, not per tutorial, because stepping *backwards* re-runs them — a step that
+   spotlights a closed dialog dims the page around nothing. Six tutorials, 20 steps; the Library one
+   is pushed only on desktop rather than pointing at a hidden button.
+
+   Asserted: every step's target exists *with its `before` run first* (this caught `#randomBtn`,
+   which is `#rand`), no step spotlights the whole page, every card lands on screen, one row per
+   entry, and the tutorial/welcome seen-marking split in both directions. BGM's §65 caveat carries
+   over unchanged — a selector test catches a renamed control and never a moved feature.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,

@@ -57,6 +57,11 @@ running app: `SHAPES.indexOf("smoke")`.
 `TIMED_LAYERS`. Miss either and the layer works but can never be sequenced — and nothing fails,
 because "starts at 0" looks exactly like "has no delay set".
 
+**A tutorial step is a selector into a UI that moves.** An assertion runs each step's `before()`
+and checks the target exists, which catches a RENAMED control (`#randomBtn` → `#rand`, caught
+exactly this way). It cannot catch a MOVED feature: the step still points at something real while
+describing the wrong place. Re-read the tutorial copy by hand whenever a feature moves.
+
 **Preset values bypass the slider clamp.** A preset object is written straight into `state`, so an
 out-of-range value doesn't error — it produces a quietly broken effect. There's an assertion for
 it; keep it passing.

@@ -1436,6 +1436,73 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- Tutorials
+    // These are selectors into a UI that moves, which is the whole risk. A stale one dims the page
+    // around nothing and reads as a broken app — and it is not hypothetical: "#randomBtn,#randomize"
+    // was wrong when these were written (the button is "#rand") and this is what said so.
+    {
+      ok(Array.isArray(TUTORIALS) && TUTORIALS.length >= 3, "there are tutorials",
+         TUTORIALS.length + " of them");
+      ok(!!document.getElementById("tutBtn"), "…and a way in");
+      ok(tutModal.querySelectorAll(".tut-row").length === TUTORIALS.length,
+         "one row per tutorial", tutModal.querySelectorAll(".tut-row").length + " rows");
+
+      const bad = [], empty = [];
+      for (const t of TUTORIALS) {
+        if (!t.steps.length) empty.push(t.id);
+        for (const st of t.steps) {
+          if (!st.target) continue;
+          // Run the step's own setup first: a target inside a dialog only exists with it open.
+          if (st.before) st.before();
+          if (!document.querySelector(st.target)) bad.push(t.id + " → " + st.target);
+        }
+      }
+      ok(bad.length === 0, "every tutorial step targets an element that exists", bad.join(", "));
+      ok(empty.length === 0, "no tutorial is empty", empty.join(", "));
+
+      // Spotlighting the whole editor dims nothing and teaches nothing.
+      const huge = [];
+      for (const t of TUTORIALS) {
+        for (const st of t.steps) {
+          if (st.target && /^(body|#panels|#app|html)$/.test(st.target.trim())) huge.push(t.id);
+        }
+      }
+      ok(huge.length === 0, "no step spotlights the whole page", huge.join(", "));
+
+      // Every step's card must land on screen, same rule the welcome tour is held to.
+      const off = [];
+      for (const t of TUTORIALS) {
+        startTour(t.steps, false);
+        for (let i = 0; i < t.steps.length; i++) {
+          showTourStep(i);
+          const l = parseFloat(tourCard.style.left), tp = parseFloat(tourCard.style.top);
+          if (!(l >= 0 && tp >= 0 && l <= innerWidth && tp <= innerHeight)) off.push(t.id + " #" + i);
+        }
+        endTour(false);
+      }
+      ok(off.length === 0, "every tutorial step places its card on screen", off.join(", "));
+
+      // THE separation that matters: finishing a tutorial must not consume the welcome tour, or
+      // someone who opens a tutorial first is never offered the tour at all.
+      localStorage.removeItem(TOUR_KEY);
+      startTour(TUTORIALS[0].steps, false);
+      showTourStep(TUTORIALS[0].steps.length - 1);
+      tourEl.querySelector(".tour-next").click();          // finish it
+      ok(localStorage.getItem(TOUR_KEY) !== "1",
+         "finishing a tutorial leaves the welcome tour unseen", String(localStorage.getItem(TOUR_KEY)));
+      ok(tourSteps === TOUR, "…and the runner falls back to the welcome list afterwards");
+
+      // …while the welcome tour still does mark itself seen.
+      startTour();
+      showTourStep(TOUR.length - 1);
+      tourEl.querySelector(".tour-next").click();
+      ok(localStorage.getItem(TOUR_KEY) === "1", "finishing the welcome tour still marks it seen");
+      localStorage.removeItem(TOUR_KEY);
+
+      timeModal.hidden = true; libModal.hidden = true; expModal.hidden = true; tutModal.hidden = true;
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- Timing
     // Sequencing existed in name only: three delay params in three unrelated panels, and every
     // other layer pinned to frame 0. These pin both halves — that a delay now WORKS for any layer,
