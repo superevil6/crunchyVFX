@@ -1168,3 +1168,38 @@
   .b-shape-filter:focus { outline: none; border-color: var(--accent2); }
   .b-shape-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 148px; overflow-y: auto; }
   .b-shape-grid .engine-btn { padding: 4px 8px; font-size: 11px; }
+
+  /* ---------- Library (desktop) ---------- */
+  /* Two shelves in one panel: what you brought in, and what you sent out. */
+  .lib-box { width: min(680px, 96vw); }
+  .lib-body { padding: 14px 18px; max-height: 62vh; overflow-y: auto; }
+  .lib-group { margin-bottom: 18px; }
+  .lib-title {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--accent2); margin-bottom: 4px;
+  }
+  .lib-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+  .lib-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .lib-sprites { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lib-sprite {
+    width: 52px; height: 52px; padding: 0; border-radius: 8px;
+    border: 1px solid var(--line); background-color: #14121a;
+    background-size: contain; background-repeat: no-repeat; background-position: center;
+    image-rendering: pixelated; cursor: pointer;
+  }
+  .lib-sprite:hover { border-color: var(--accent); }
+  .lib-exports { display: flex; flex-direction: column; gap: 4px; }
+  /* Name, then metadata, then the action — the action stays in one column so a long effect name
+     can never push Load off the edge. */
+  .lib-exp {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center; gap: 10px;
+    padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #14121a;
+  }
+  .lib-exp-name { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-exp-meta { font: 11px ui-monospace, monospace; color: var(--muted); white-space: nowrap; }
+  .lib-exp-load { font-size: 12px; padding: 3px 10px; }
+  @media (max-width: 600px) {
+    .lib-exp { grid-template-columns: minmax(0, 1fr) auto; }
+    .lib-exp-meta { grid-column: 1 / -1; }
+  }

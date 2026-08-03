@@ -53,6 +53,7 @@
     <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
     <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
     <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder">⤓ Drag out</button>
+    <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it">📚 Library</button>
     <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">💾 Save project</button>
     <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
     <button id="tourBtn" title="Replay the guided tour">? Tour</button>
@@ -1879,6 +1880,53 @@ function addUserSprite(name, dataUrl, cols, rows) {
   else { userSprites.shift(); usSeq--; }        // rolled back, so what's on screen matches what's stored
 }
 
+// ---------- Export history (DESKTOP ONLY) ----------
+// "In case you wanted to make a change." An export is where an effect leaves the tool, and until now
+// that was the one moment nothing was written down — you got a file and the editor moved on. Coming
+// back a week later to widen a burst meant rebuilding it from memory.
+//
+// The record therefore carries the PATCH, not just a filename. A list of names would tell you what
+// you once made; a list of patches lets you load it back, change one slider and export again, which
+// is the actual request. It is the same base64url a share link uses, so an entry costs a few hundred
+// bytes and survives every future param being added (§ patch codec: absent keys fall back).
+const EXPORT_KEY = "crunchyvfx.exports.v1";
+const EXPORT_MAX = 40;          // bounded: localStorage is a few MB and these accumulate silently
+let exportLog = [], exSeq = 0;
+
+function loadExportLog() {
+  try {
+    const d = JSON.parse(localStorage.getItem(EXPORT_KEY) || "null");
+    if (d) { exportLog = d.items || []; exSeq = d.seq || 0; }
+  } catch (e) { exportLog = []; }
+}
+function saveExportLog() {
+  try {
+    localStorage.setItem(EXPORT_KEY, JSON.stringify({ seq: exSeq, items: exportLog }));
+    return true;
+  } catch (e) {
+    exportLog = exportLog.slice(0, 10);          // drop the tail rather than lose the newest
+    try { localStorage.setItem(EXPORT_KEY, JSON.stringify({ seq: exSeq, items: exportLog })); } catch (e2) {}
+    return false;
+  }
+}
+// `when` is passed in rather than read here so the suite can write a deterministic history.
+function recordExport(kind, detail, when) {
+  if (!isDesktop) return null;                   // a web visitor has no library to come back to
+  const entry = {
+    id: ++exSeq,
+    name: effectLabel || "effect",
+    kind: String(kind || "export"),
+    detail: String(detail || ""),
+    when: when || Date.now(),
+    patch: encodePatch(effectLabel),
+  };
+  exportLog.unshift(entry);
+  if (exportLog.length > EXPORT_MAX) exportLog.length = EXPORT_MAX;
+  saveExportLog();
+  if (typeof renderLibrary === "function") renderLibrary();
+  return entry;
+}
+
 let spriteLibBox = null;
 function renderSpriteLib() {
   if (!spriteLibBox) return;
@@ -2634,8 +2682,14 @@ function noteLockEdit(key) {
   updateLockBtn();
 }
 
-function applyPreset(obj, label) {
-  const keep = pixelLock ? Object.assign({}, lockedValues) : {};
+// `exact` restores the patch verbatim — no pixel lock, no sound hold. Those two exist to carry your
+// current crunch and your matched sound ACROSS a change of effect, which is right when you are
+// picking a preset and wrong when you are restoring something you already shipped: `count` and
+// `size` are in the hold's intensity group, so loading a past export with a hold active would hand
+// back different numbers than the file on disk and the re-export would not match. Choosing a preset
+// and reopening an artifact are different verbs; only the first wants the overlays.
+function applyPreset(obj, label, exact) {
+  const keep = (pixelLock && !exact) ? Object.assign({}, lockedValues) : {};
   for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];   // or they leak between effects
   for (const k in obj) if (k in state) state[k] = obj[k];
@@ -2643,7 +2697,7 @@ function applyPreset(obj, label) {
   for (const k in keep) state[k] = keep[k];
   // …then the matched sound's own properties, last, so a preset changes the LOOK without
   // discarding what the sound dictated. See soundHold.
-  const held = heldSoundValues();
+  const held = exact ? {} : heldSoundValues();
   for (const k in held) state[k] = held[k];
   if (label) effectLabel = label;
   syncUI();
@@ -3867,6 +3921,7 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
     expMsg.textContent = files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB";
     msg.textContent = "Exported " + base;
+    recordExport("sheet", files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB");
   } catch (e) {
     expMsg.textContent = "Export failed: " + e.message;
   }
@@ -4255,6 +4310,7 @@ gifModal.querySelector("#gifGo").addEventListener("click", () => {
     const kb = Math.round(bytes.length / 1024);
     gifMsg.textContent = kb + " KB in " + ms + " ms";
     msg.textContent = "Exported GIF (" + kb + " KB)";
+    recordExport("gif", kb + " KB");
   }, 30);
 });
 
@@ -4512,6 +4568,128 @@ shareModal.querySelector("#shareCopy").addEventListener("click", async () => {
   }
 });
 
+// ---------- Library (DESKTOP ONLY) ----------
+// CrunchyBGM's split, applied here: sort by VERB, not by feature. Export and Share turn this effect
+// into a file; the Library is the shelf you come back to — the sprites you imported and the effects
+// you have already shipped. Those two were the scattered ones: imported particles were reachable
+// only by scrolling to the particle picker and noticing a strip under it, and exports were not
+// recorded anywhere at all.
+//
+// My Effects deliberately stays in the left column. It is a BROWSING surface used constantly while
+// editing, not something you go and open — and BGM's §101 lesson is that moving a feature leaves the
+// tour pointing at the wrong control while every assertion still passes. Moving it is a separate
+// decision from having a Library.
+const libModal = document.createElement("div");
+libModal.className = "modal";
+libModal.hidden = true;
+libModal.innerHTML =
+  '<div class="modal-box lib-box">' +
+    '<div class="modal-head"><h2>📚 Library</h2>' +
+      '<span class="hint">The things that outlive the effect you are editing.</span>' +
+      '<button id="libClose">✕ Close</button></div>' +
+    '<div class="lib-body">' +
+      '<div class="lib-group">' +
+        '<div class="lib-title">Imported particles</div>' +
+        '<div class="lib-note">PNGs you brought in. Click one to use it as the particle shape.</div>' +
+        '<div class="lib-sprites" id="libSprites"></div>' +
+      '</div>' +
+      '<div class="lib-group">' +
+        '<div class="lib-title">Exported effects</div>' +
+        '<div class="lib-note">Everything you have exported, newest first. <b>Load</b> puts the effect ' +
+          'back in the editor exactly as it went out, so you can change it and export again.</div>' +
+        '<div class="lib-exports" id="libExports"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="modal-foot">' +
+      '<button id="libClear">Clear export history</button>' +
+      '<span id="libMsg" class="hint"></span></div>' +
+  '</div>';
+document.body.appendChild(libModal);
+const libMsg = libModal.querySelector("#libMsg");
+
+function libWhen(ts) {
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  const h = Math.round(mins / 60);
+  if (h < 24) return h + "h ago";
+  return Math.round(h / 24) + "d ago";
+}
+
+function renderLibrary() {
+  const sBox = libModal.querySelector("#libSprites");
+  const eBox = libModal.querySelector("#libExports");
+  if (!sBox || !eBox) return;
+
+  sBox.innerHTML = "";
+  if (!userSprites.length) {
+    sBox.innerHTML = '<span class="lib-empty">Nothing imported yet — the particle panel has the ' +
+                     'button, and anything you load lands here.</span>';
+  } else {
+    for (const sp of userSprites) {
+      const b = document.createElement("button");
+      b.className = "lib-sprite";
+      b.title = sp.name + (sp.cols * sp.rows > 1 ? " — " + sp.cols + "×" + sp.rows + " strip" : "");
+      b.style.backgroundImage = "url(" + sp.data + ")";
+      b.addEventListener("click", () => {
+        state.imageSprite = sp.data;
+        state.imgCols = sp.cols; state.imgRows = sp.rows;
+        state.shape = SHAPES.indexOf("image"); state.shapeMix = "";
+        imgSpriteName = sp.name;
+        applyImageSprite(sp.data);
+        syncUI(); rerender(); commitHistory();
+        libMsg.textContent = "Particle sprite: " + sp.name;
+      });
+      sBox.appendChild(b);
+    }
+  }
+
+  eBox.innerHTML = "";
+  if (!exportLog.length) {
+    eBox.innerHTML = '<span class="lib-empty">No exports yet. Once you export a sheet or a GIF it ' +
+                     'shows up here, and you can load it back to change it.</span>';
+    return;
+  }
+  for (const en of exportLog) {
+    const row = document.createElement("div");
+    row.className = "lib-exp";
+    const label = document.createElement("div");
+    label.className = "lib-exp-name";
+    label.textContent = en.name;
+    const meta = document.createElement("div");
+    meta.className = "lib-exp-meta";
+    meta.textContent = en.kind + " · " + en.detail + " · " + libWhen(en.when);
+    const load = document.createElement("button");
+    load.className = "lib-exp-load";
+    load.textContent = "Load";
+    load.addEventListener("click", () => {
+      const patch = decodePatch(en.patch);
+      if (!patch) { libMsg.textContent = "That entry could not be read."; return; }
+      applyPreset(patch, en.name, true);   // exact: this is the artifact, not a preset choice
+      libModal.hidden = true;
+      msg.textContent = "Loaded “" + en.name + "” from the library";
+    });
+    row.appendChild(label); row.appendChild(meta); row.appendChild(load);
+    eBox.appendChild(row);
+  }
+}
+
+document.getElementById("libBtn").addEventListener("click", () => {
+  libMsg.textContent = "";
+  renderLibrary();
+  libModal.hidden = false;
+});
+libModal.querySelector("#libClose").addEventListener("click", () => { libModal.hidden = true; });
+libModal.addEventListener("click", (e) => { if (e.target === libModal) libModal.hidden = true; });
+libModal.querySelector("#libClear").addEventListener("click", () => {
+  // Only the export history — the sprites are files someone chose to bring in, and throwing those
+  // away from a button labelled "clear history" would be a nasty surprise.
+  exportLog = [];
+  saveExportLog();
+  renderLibrary();
+  libMsg.textContent = "Export history cleared.";
+});
+
 // ---------- Share as a posting GIF ----------
 // Deliberately NOT the same thing as Export → GIF. That one produces an asset: exact frame size,
 // transparent, for dropping into an engine. This one produces a POST: big enough to see in a chat
@@ -4580,6 +4758,7 @@ function buildShareGif(withTag) {
         note.textContent = built.size + "px · " + built.canvases.length + " frames · " + kb +
           " KB — drop it straight into a chat.";
         msg.textContent = "Saved a posting GIF (" + kb + " KB)";
+        recordExport("post gif", built.size + "px · " + kb + " KB");
       } catch (e) {
         console.warn("crunchyvfx: posting GIF failed —", e);
         note.textContent = "Could not build the GIF — see the console.";
@@ -5249,6 +5428,7 @@ matchApplyBtn.addEventListener("click", () => {
 // ---------- Boot ----------
 loadUserEffects();
 loadUserCats();
+loadExportLog();
 renderMyEffects();   // also renders the categories
 updateLockBtn();
 updateHoldUI();
@@ -5499,6 +5679,7 @@ if (!isDesktop && ITCH_LIVE) {
         '<ul class="steam-feats">' +
           "<li><b>★ My Effects library</b> — save, name and organise your own effects, kept on disk instead of in a browser store you can wipe by clearing cookies.</li>" +
           "<li><b>📁 Custom categories</b> — group your effects however you work.</li>" +
+          "<li><b>📚 Library</b> — the particles you imported and every effect you have exported, with one click to load an old export back and change it.</li>" +
           "<li><b>📦 Batch export</b> — render your whole library to sheets + sidecars in one click, as an asset pack.</li>" +
           "<li><b>📂 Native save dialogs</b> — real system Save/Open, straight into your project folder.</li>" +
           "<li><b>🔧 One-time purchase</b> — no account, no subscription; it supports development.</li>" +

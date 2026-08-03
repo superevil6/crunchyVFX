@@ -1436,6 +1436,71 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- Library
+    // The shelf: imported particles, and everything exported. The point of the second half is
+    // "in case you wanted to make a change", so what it stores has to be the EFFECT, not a filename.
+    {
+      const btn = document.getElementById("libBtn");
+      ok(!!btn, "the Library has a way in");
+      ok(btn.hidden, "…and it is desktop-only, like the rest of the shelf");
+      ok(!!document.getElementById("libSprites") && !!document.getElementById("libExports"),
+         "both shelves exist: imported particles and exported effects");
+
+      // Each list lives inside its own group — BGM found its bank list orphaned three groups away
+      // from the controls that filled it, so this is pinned structurally rather than by eye.
+      for (const id of ["libSprites", "libExports"]) {
+        ok(!!document.getElementById(id).closest(".lib-group"),
+           id + " sits inside its own labelled group");
+      }
+
+      // Recording is gated the same way the UI is: a web visitor has no shelf to come back to.
+      const before = exportLog.length;
+      const wasDesktop = isDesktop;
+      ok(recordExport("sheet", "test") === null && exportLog.length === before,
+         "no export history is written on the web build", "isDesktop=" + wasDesktop);
+
+      // The round trip that matters — export, come back, load, get the same effect.
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      state.count = 77;
+      const entry = {
+        id: 1, name: "Rebuildable", kind: "sheet", detail: "1 file",
+        when: Date.now(), patch: encodePatch("Rebuildable"),
+      };
+      applyPreset(PRESETS["Hit Spark"], "Hit Spark");     // wander off, as a week would
+      const back = decodePatch(entry.patch);
+      ok(!!back && back.count === 77,
+         "a history entry carries the whole effect, not just its name", "count=" + (back && back.count));
+      applyPreset(back, entry.name, true);
+      ok(state.count === 77 && effectLabel === "Rebuildable",
+         "…so loading one restores it ready to change", effectLabel + " count=" + state.count);
+
+      // The bug this caught: `count` and `size` live in the sound hold's intensity group, so with a
+      // hold active a restored export came back with DIFFERENT numbers than the file that shipped —
+      // and the re-export would not have matched. Restoring an artifact is not choosing a preset.
+      captureSoundHold({ count: 12, size: 4, duration: 0.5 }, "some sound");
+      ok(soundHold.on, "a sound hold is active for this check");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      ok(state.count === 12, "a PRESET still honours the hold, which is what the hold is for",
+         "count=" + state.count);
+      applyPreset(back, entry.name, true);
+      ok(state.count === 77,
+         "…but a library restore ignores it and returns the exact effect", "count=" + state.count);
+      soundHold.on = false; soundHold.values = {};
+
+      // The history is bounded — it grows silently in localStorage otherwise.
+      ok(EXPORT_MAX > 0 && EXPORT_MAX <= 100, "export history is capped", "max " + EXPORT_MAX);
+
+      // "Clear export history" must not take the sprites with it: those are files someone chose to
+      // bring in, and losing them to a button about history would be a nasty surprise.
+      const sprites = userSprites.length;
+      libModal.querySelector("#libClear").click();
+      ok(exportLog.length === 0, "clearing empties the history");
+      ok(userSprites.length === sprites, "…and leaves the imported sprites alone",
+         sprites + " sprites before, " + userSprites.length + " after");
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- posting GIF
     // A different job from Export → GIF: that one makes an asset (exact size, transparent), this
     // one makes a post (big, opaque, looping). The two must not quietly become the same thing.

@@ -397,6 +397,25 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    (*Shield Orbit*, *Power Rings*) are beads on purpose and a silent change to shipped output is
    worse than a new switch. `layerColour()` now returns h/s/l alongside the CSS string, which is
    what any structure layer needs to reach the sprite cache.
+2d. **Library (desktop)** — **done (2026-07-30).** Ported from CrunchyBGM §101, and the useful part
+   was its rule: split by **verb**, not by feature. Export and Share turn *this* effect into a file;
+   the Library is the shelf you come back to. Two things were filed wrongly by that test — imported
+   particles were reachable only by scrolling to the particle picker and noticing a strip beneath it,
+   and exports were not recorded anywhere at all.
+
+   Each entry stores the **patch**, not a filename. A list of names tells you what you once made; a
+   list of patches lets you load one back, change a slider and export again — which is the whole
+   request. Bounded at 40 because localStorage is a few megabytes and this grows silently.
+
+   `applyPreset` gained an `exact` flag for it. The pixel lock and the sound hold exist to carry your
+   current crunch and matched sound *across a change of effect*, which is right for picking a preset
+   and wrong for reopening an artifact: `count` and `size` sit in the hold's intensity group, so a
+   restore with a hold active handed back different numbers than the file that shipped and the
+   re-export would not have matched. Caught by an assertion, not by eye.
+
+   **My Effects deliberately stays in the left column** — it is a browsing surface used constantly
+   while editing, not somewhere you go and open. BGM's own lesson is that moving a feature leaves the
+   tour spotlighting the wrong control while every assertion passes; moving it is a separate call.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,
