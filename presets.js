@@ -47,7 +47,7 @@ window.PRESETS = {
     life: 0.18, lifeVar: 0.4, size: 13, sizeVar: 0.5, grow: -0.85, fadeOut: 0.7,
     sparkLen: 0.85, sparkTaper: 0.75, hue: 48, hueLife: -20, coreWhite: 0.9,
     flash: 0.7, flashSize: 0.32, flashLife: 0.07,
-    glow: 0.4, duration: 0.3, fps: 30, frameSize: 3,
+    glow: 0.4, duration: 0.2, fps: 30, frameSize: 3,
   },
   "Muzzle Flash": {
     shape: 1, emitter: 1, count: 18, emitAngle: 90, emitSpread: 44,
@@ -92,7 +92,7 @@ window.PRESETS = {
     spin: 0, boltSegs: 10, boltJitter: 0.55, boltBranch: 0.35,
     hue: 205, hueLife: 55, sat: 0.7, coreWhite: 0.95,
     flash: 0.55, flashSize: 0.35, flashLife: 0.06,
-    glow: 0.7, glowRadius: 10, duration: 0.35, fps: 30,
+    glow: 0.7, glowRadius: 10, duration: 0.27, fps: 30,
   },
   "Heal Rise": {
     shape: 3, emitter: 4, count: 34, emitRadius: 0.24, emitTime: 0.85,
@@ -294,7 +294,7 @@ window.PRESETS = {
     life: 0.3, lifeVar: 0.35, size: 24, sizeVar: 0.5, grow: -0.65, fadeOut: 0.6,
     crossArms: 4, crossThin: 0.11, hue: 46, hueLife: -14, sat: 1, coreWhite: 0.8,
     flash: 0.8, flashSize: 0.34, flashLife: 0.08, flashRays: 4,
-    glow: 0.55, duration: 0.45, fps: 30, frameSize: 3,
+    glow: 0.55, duration: 0.37, fps: 30, frameSize: 3,
   },
   "Ground Slam": {
     shape: 5, emitter: 4, count: 60, emitRadius: 0.3, emitAngle: 0, emitSpread: 120,
@@ -708,7 +708,7 @@ window.PRESETS = {
     flash: 0.8, flashSize: 0.3, flashLife: 0.1,
     impact: 1, impactLife: 0.08, impactHold: 0.4, impactFill: 0,
     hue: 45, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.75,
-    glow: 0.5, duration: 0.6, fps: 24, frameSize: 5,
+    glow: 0.5, duration: 0.46, fps: 24, frameSize: 5,
   },
 
   // ---- Weather ----
@@ -735,7 +735,7 @@ window.PRESETS = {
     flash: 0.9, flashSize: 0.28, flashLife: 0.3,
     flare: 1, flareLength: 1.1, flareWidth: 9, flareGhosts: 4, flareLife: 0.7,
     hue: 200, hueLife: 45, sat: 0.7, bright: 1, coreWhite: 0.75,
-    glow: 0.6, glowRadius: 9, duration: 1, fps: 24, frameSize: 5, originX: 0.38,
+    glow: 0.6, glowRadius: 9, duration: 0.75, fps: 24, frameSize: 5, originX: 0.38,
   },
   // ---- Decal ----
   "Scorch Mark": {
@@ -867,7 +867,7 @@ window.PRESETS = {
     impact: 1, impactLife: 0.12, impactHold: 0.55, impactFill: 0,
     flash: 0.9, flashSize: 0.34, flashLife: 0.16,
     hue: 52, hueLife: -18, sat: 1, bright: 1, coreWhite: 0.8,
-    glow: 0.55, duration: 0.7, fps: 24, frameSize: 5,
+    glow: 0.55, duration: 0.5, fps: 24, frameSize: 5,
   },
   "Sun Glint": {
     shape: 0, count: 1, opacity: 0,
@@ -991,7 +991,7 @@ window.PRESETS = {
     wave: 0.7, waveSpeed: 0.7, waveWidth: 0.16, waveLife: 0.5,
     warp: 1, warpReach: 0.85, warpBand: 0.28, warpAmount: 1.1, warpLife: 0.55,
     hue: 32, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.7,
-    glow: 0.55, duration: 0.9, fps: 24, frameSize: 5,
+    glow: 0.55, duration: 0.63, fps: 24, frameSize: 5,
   },
   "Sonic Pulse": {
     shape: 0, count: 1, opacity: 0,

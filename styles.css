@@ -814,7 +814,9 @@
   .ref-head button { padding: 4px 8px; font-size: 12px; }
   .ref-name { font-size: 11px; color: var(--muted); margin: 7px 0 6px; word-break: break-all; }
   .ref-ctl { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin: 5px 0; }
-  .ref-ctl > span:first-child { min-width: 54px; }
+  /* label, not span, since these rows were paired with their inputs for accessibility — the
+     column width has to follow whichever element carries the name. */
+  .ref-ctl > span:first-child, .ref-ctl > label:first-child { min-width: 54px; }
   .ref-ctl input[type=range] { flex: 1; min-width: 60px; }
   .ref-ctl input[type=number] {
     width: 48px; background: var(--panel2); color: var(--ink);
@@ -1235,3 +1237,8 @@
   .tut-name { font-size: 13px; color: var(--ink); font-weight: 600; }
   .tut-len { font: 11px ui-monospace, monospace; color: var(--muted); align-self: center; }
   .tut-blurb { grid-column: 1 / -1; font-size: 12px; color: var(--muted); line-height: 1.45; }
+
+  /* A sub-note inside the export dialog: explains an absence where someone would look for it. */
+  .exp-note-row { align-items: flex-start; }
+  .exp-subnote { font-size: 11px; color: var(--muted); line-height: 1.5; max-width: 460px; }
+  .exp-subnote b { color: var(--ink); font-weight: 600; }

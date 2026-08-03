@@ -15,7 +15,7 @@
     <p>
       CrunchyVFX designs animated 2D sprite effects for games — explosions, magic, impacts,
       weather, UI juice — and exports them as sprite sheets, PNG frame sequences, animated PNG or
-      GIF, with trim, pivot and engine metadata for Godot, Unity, Aseprite and Phaser.
+      GIF, with trim, pivot and engine metadata for Godot, Aseprite and Phaser.
     </p>
     <p>
       Everything is drawn procedurally: 40+ effect systems (shockwaves, lightning, ribbons, vortices,

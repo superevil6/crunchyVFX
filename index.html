@@ -127,9 +127,9 @@
       </div>
       <div class="ref-body" id="sndBody" hidden>
         <div class="ref-name" id="sndName"></div>
-        <div class="ref-ctl"><span>Volume</span><input type="range" id="sndVol" min="0" max="1" step="0.01" value="0.8"></div>
-        <div class="ref-ctl"><span>Offset</span>
-          <input type="range" id="sndOff" min="-500" max="500" step="5" value="0">
+        <div class="ref-ctl"><label for="sndVol">Volume</label><input type="range" id="sndVol" aria-label="Sound volume" min="0" max="1" step="0.01" value="0.8"></div>
+        <div class="ref-ctl"><label for="sndOff">Offset</label>
+          <input type="range" id="sndOff" aria-label="Sound offset" min="-500" max="500" step="5" value="0">
           <span class="hint" id="sndOffV">0 ms</span>
         </div>
         <div class="ref-toggles">
@@ -157,13 +157,13 @@
           <input type="number" id="refRows" min="1" max="64" value="1" title="Rows in the sheet">
           <span class="hint" id="refFrames">1 frame</span>
         </div>
-        <div class="ref-ctl"><span>Scale</span>
-          <input type="range" id="refScale" min="0.1" max="6" step="0.05" value="1">
+        <div class="ref-ctl"><label for="refScale">Scale</label>
+          <input type="range" id="refScale" aria-label="Reference image scale" min="0.1" max="6" step="0.05" value="1">
           <span class="hint" id="refScaleV">1.00×</span>
           <button id="refFit" title="Scale it to fill the frame">⤢</button>
         </div>
-        <div class="ref-ctl"><span>Offset X</span><input type="range" id="refOffX" min="-0.5" max="0.5" step="0.01" value="0"></div>
-        <div class="ref-ctl"><span>Offset Y</span><input type="range" id="refOffY" min="-0.5" max="0.5" step="0.01" value="0"></div>
+        <div class="ref-ctl"><label for="refOffX">Offset X</label><input type="range" id="refOffX" aria-label="Reference image offset X" min="-0.5" max="0.5" step="0.01" value="0"></div>
+        <div class="ref-ctl"><label for="refOffY">Offset Y</label><input type="range" id="refOffY" aria-label="Reference image offset Y" min="-0.5" max="0.5" step="0.01" value="0"></div>
         <div class="ref-toggles">
           <label><input type="checkbox" id="refFront"> In front</label>
           <label><input type="checkbox" id="refCombine"> Combine on export</label>
@@ -173,7 +173,7 @@
     </div>
   </div>
 </div>
-<input type="file" id="refFile" accept="image/*" hidden>
+<input type="file" id="refFile" accept="image/*" aria-label="Choose a reference image" hidden>
 
 <div class="workspace">
   <section class="ws-browser">
@@ -193,7 +193,7 @@
       <div class="mp-list" id="mpList"></div>
     </div>
     <div class="usercats" id="userCats" data-desktop></div>
-    <input type="file" id="mpFile" accept="application/json,.json" hidden>
+    <input type="file" id="mpFile" accept="application/json,.json" aria-label="Open a .crunchyvfx project" hidden>
     <div class="presetbar" id="presets" style="margin-top:10px"></div>
   </section>
   <section class="ws-editor">
@@ -1011,6 +1011,7 @@ function syncSoundUI() {
 {
   const sndFile = document.createElement("input");
   sndFile.type = "file";
+  sndFile.setAttribute("aria-label", "Load a sound file");
   sndFile.accept = "audio/*,.wav,.mp3,.ogg,.flac";
   sndFile.hidden = true;
   document.body.appendChild(sndFile);
@@ -1168,6 +1169,12 @@ const isDesktop = !!window.__TAURI__;
 
 const STAGE_PARAM_HOSTS = { frameSize: "stageFrameSize", fps: "stageFps" };
 
+// Attribute-safe text. No PARAMS label needs it today, but these strings are interpolated straight
+// into markup and the table is edited constantly — a label with an apostrophe would otherwise break
+// the attribute it sits in, and the failure would be a silently unnamed control.
+const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 for (const [group, ps] of Object.entries(groups)) {
   const panel = document.createElement("div");
   panel.className = "panel";
@@ -1191,8 +1198,12 @@ for (const [group, ps] of Object.entries(groups)) {
     if (min === 0 && max === 1 && step === 1) {
       const row = document.createElement("div");
       row.className = "row switch-row";
-      row.innerHTML = "<label>" + label + "</label>" +
-        '<label class="switch"><input type="checkbox" data-key="' + key + '"><span class="switch-track"></span></label>' +
+      // The checkbox is wrapped in a second, text-less <label> for the switch styling — which
+      // associates a label containing no words, so it announced as an unnamed checkbox too.
+      const sid = "p-" + key;
+      row.innerHTML = "<label for=\"" + sid + "\">" + label + "</label>" +
+        '<label class="switch"><input type="checkbox" id="' + sid + '" data-key="' + key +
+        '" aria-label="' + esc(label + " — " + group) + '"><span class="switch-track"></span></label>' +
         "<output></output>";
       host.appendChild(row);
       const el = row.querySelector("input"), out = row.querySelector("output");
@@ -1211,7 +1222,9 @@ for (const [group, ps] of Object.entries(groups)) {
     if (kind === "enum") {
       const row = document.createElement("div");
       row.className = "waverow";
-      row.innerHTML = "<label>" + label + "</label><select data-key=\"" + key + "\">" +
+      const eid = "p-" + key;
+      row.innerHTML = "<label for=\"" + eid + "\">" + label + "</label><select id=\"" + eid +
+        "\" data-key=\"" + key + "\" aria-label=\"" + esc(label + " — " + group) + "\">" +
         p[9].map((w, i) => "<option value=\"" + i + "\">" + w + "</option>").join("") + "</select>";
       host.appendChild(row);
       const el = row.querySelector("select");
@@ -1221,16 +1234,28 @@ for (const [group, ps] of Object.entries(groups)) {
     } else {
       const row = document.createElement("div");
       row.className = "row";
-      row.innerHTML = "<label>" + label + "</label>" +
-        "<input type=\"range\" data-key=\"" + key + "\" min=\"" + min + "\" max=\"" + max +
+      // `for`/`id` rather than a bare <label>: without the pairing the visible text is decoration,
+      // the control announces as an unnamed slider, and clicking the word does nothing. 388 of the
+      // app's 1019 controls were in that state — every generated slider.
+      //
+      // aria-label carries the GROUP too, because a dozen panels have a "Speed" and a name is read
+      // out of context. It still starts with the visible text, so what you see is what is spoken.
+      const id = "p-" + key;
+      row.innerHTML = "<label for=\"" + id + "\">" + label + "</label>" +
+        "<input type=\"range\" id=\"" + id + "\" data-key=\"" + key + "\" aria-label=\"" +
+        esc(label + " — " + group) + "\" min=\"" + min + "\" max=\"" + max +
         "\" step=\"" + step + "\" value=\"" + state[key] + "\"><output></output>";
       host.appendChild(row);
       const input = row.querySelector("input"), out = row.querySelector("output");
       inputs[key] = input; outputs[key] = out;
       out.textContent = fmt(p, state[key]);
+      // A slider announces a bare number. The readout beside it already carries the unit (and,
+      // for an enum, the name rather than the index) — aria-valuetext says the same thing.
+      input.setAttribute("aria-valuetext", out.textContent);
       input.addEventListener("input", () => {
         state[key] = +input.value;
         out.textContent = fmt(p, state[key]);
+        input.setAttribute("aria-valuetext", out.textContent);
         noteLockEdit(key);       // a hand edit is a deliberate choice — the lock should keep it
         updateMacros();          // …and must move the macro that owns this param
         scheduleRender();
@@ -1421,7 +1446,7 @@ function ratioLabel(w, h) {
         '<button id="palClear">✕ Clear</button>' +
       '</div>' +
       '<input id="palPaste" class="pal-paste" type="text" placeholder="…or paste hex codes: 1a1c2c, 5d275d, …" spellcheck="false">' +
-      '<input type="file" id="palFile" accept=".hex,.gpl,.txt,.pal,text/plain" hidden>';
+      '<input type="file" id="palFile" accept=".hex,.gpl,.txt,.pal,text/plain" aria-label="Load a palette file" hidden>';
     panel.appendChild(box);
     palSwatches = box.querySelector("#palSws");
     palInfo = box.querySelector("#palInfo");
@@ -1549,11 +1574,11 @@ function rampFromClassic() {
       '<div class="ramp-body" id="rampBody" hidden>' +
         '<canvas id="rampCanvas" width="256" height="34"></canvas>' +
         '<div class="ramp-hint">Click to add a stop · drag to move · the selected stop is edited below</div>' +
-        '<div class="ramp-ctl"><span>Hue</span><input type="range" id="rH" min="0" max="359" step="1"><span class="hint" id="rHV"></span></div>' +
-        '<div class="ramp-ctl"><span>Sat</span><input type="range" id="rS" min="0" max="1" step="0.01"><span class="hint" id="rSV"></span></div>' +
-        '<div class="ramp-ctl"><span>Light</span><input type="range" id="rL" min="0" max="1" step="0.01"><span class="hint" id="rLV"></span></div>' +
-        '<div class="ramp-ctl"><span>Alpha</span><input type="range" id="rA" min="0" max="1" step="0.01"><span class="hint" id="rAV"></span></div>' +
-        '<div class="ramp-ctl"><span>Size</span><input type="range" id="rZ" min="0" max="3" step="0.01"><span class="hint" id="rZV"></span></div>' +
+        '<div class="ramp-ctl"><span>Hue</span><input type="range" id="rH" aria-label="Ramp stop hue" min="0" max="359" step="1"><span class="hint" id="rHV"></span></div>' +
+        '<div class="ramp-ctl"><span>Sat</span><input type="range" id="rS" aria-label="Ramp stop sat" min="0" max="1" step="0.01"><span class="hint" id="rSV"></span></div>' +
+        '<div class="ramp-ctl"><span>Light</span><input type="range" id="rL" aria-label="Ramp stop light" min="0" max="1" step="0.01"><span class="hint" id="rLV"></span></div>' +
+        '<div class="ramp-ctl"><span>Alpha</span><input type="range" id="rA" aria-label="Ramp stop alpha" min="0" max="1" step="0.01"><span class="hint" id="rAV"></span></div>' +
+        '<div class="ramp-ctl"><span>Size</span><input type="range" id="rZ" aria-label="Ramp stop size" min="0" max="3" step="0.01"><span class="hint" id="rZV"></span></div>' +
         '<div class="ramp-btns"><button id="rampDel">✕ Delete stop</button>' +
           '<span class="ramp-presets" id="rampPresets"></span></div>' +
       '</div>';
@@ -1986,7 +2011,7 @@ function renderSpriteLib() {
     row.innerHTML = '<div class="is-btns"><button id="isLoad">📂 Load PNG</button><button id="isClear">✕ Clear</button></div>' +
       '<div class="is-info" id="isInfo"></div>' +
       '<div class="sprite-lib" id="spriteLib" data-desktop></div>' +
-      '<input type="file" id="isFile" accept="image/*" hidden>';
+      '<input type="file" id="isFile" accept="image/*" aria-label="Import a particle sprite" hidden>';
     panel.insertBefore(row, panel.firstChild.nextSibling);
     imgSpriteInfo = row.querySelector("#isInfo");
     spriteLibBox = row.querySelector("#spriteLib");
@@ -2175,7 +2200,10 @@ function syncParamInputs() {
       continue;
     }
     el.value = state[p[0]];
-    if (outputs[p[0]]) outputs[p[0]].textContent = fmt(p, state[p[0]]);
+    if (outputs[p[0]]) {
+      outputs[p[0]].textContent = fmt(p, state[p[0]]);
+      el.setAttribute("aria-valuetext", outputs[p[0]].textContent);
+    }
   }
 }
 function syncUI() {
@@ -2505,9 +2533,12 @@ const macroInputs = {};
 for (const m of MACROS) {
   const row = document.createElement("div");
   row.className = "macro-row";
-  row.innerHTML = '<span class="macro-name">' + m.name + "</span>" +
+  // The name is in its own span and the ends are two more, so the input itself had nothing to be
+  // named by. The scale belongs in the name: "Violence" alone does not say which way is which.
+  row.innerHTML = '<span class="macro-name" id="' + m.id + '-l">' + m.name + "</span>" +
     '<span class="macro-end">' + m.left + "</span>" +
-    '<input type="range" id="' + m.id + '" min="0" max="1" step="0.01" value="0">' +
+    '<input type="range" id="' + m.id + '" aria-label="' + esc(m.name + " — " + m.left + " to " + m.right) +
+    '" min="0" max="1" step="0.01" value="0">' +
     '<span class="macro-end macro-end-r">' + m.right + "</span>";
   macroBox.appendChild(row);
   const input = row.querySelector("input");
@@ -3620,9 +3651,15 @@ function emissiveFrames(frames, st) {
 }
 
 // ---------- Engine sidecars ----------
-// Only formats whose shape I can state with confidence. Godot and Unity want editor-version-
-// specific resource files that I can't verify without the editor, so they're deliberately absent
-// rather than guessed at — a sidecar that ALMOST imports is worse than none.
+// Only formats whose shape can be stated with confidence — a sidecar that ALMOST imports is worse
+// than none. Generic JSON, Aseprite and Phaser are verified against their own loaders; Godot 4's
+// .tres is verified in the editor (4.7, headless import + GDScript load).
+//
+// UNITY IS DELIBERATELY ABSENT, and should stay that way until someone has the editor open. A .meta
+// is GUID-based and version-specific, and a malformed one does not merely fail to import — it can
+// disturb the project's asset database, which is damage to someone else's project rather than a
+// broken file they can delete. The sheet itself imports into Unity fine; it is only the sidecar
+// that is missing, and the dialog says so rather than leaving a Unity user hunting for the option.
 function sidecarFor(kind, sh, name, fps) {
   const durMs = Math.round(1000 / fps);
   const cell = (i) => ({ x: (i % sh.cols) * sh.w, y: Math.floor(i / sh.cols) * sh.h, w: sh.w, h: sh.h });
@@ -3658,8 +3695,9 @@ function sidecarFor(kind, sh, name, fps) {
   }
   if (kind === "godot") {
     // Godot 4 SpriteFrames: one AtlasTexture sub-resource per cell, referenced by the animation.
-    // NOTE: written from the documented .tres shape and NOT verified in the editor — see the
-    // dialog note. `load_steps` is a hint Godot recomputes, and the uid is omitted so it assigns
+    // VERIFIED in Godot 4.7: imported headless and loaded via GDScript for grid, strip and trimmed
+    // sheets — correct class, animation, frame count, speed, loop flag, regions and atlas path, no
+    // import errors. `load_steps` is a hint Godot recomputes, and the uid is omitted so it assigns
     // one on import.
     const subs = [];
     const refs = [];
@@ -3718,6 +3756,13 @@ expModal.innerHTML =
         '<option value="godot">Godot 4 SpriteFrames (.tres)</option>' +
         '<option value="none">None</option>' +
       '</select></div>' +
+      // A Unity user scanning this list needs to know the omission is a decision, not an
+      // oversight — otherwise they go looking for the option that isn't there.
+      '<div class="exp-row exp-note-row" data-only="sheet"><span></span>' +
+        '<span class="exp-subnote">Using Unity? The sheet imports normally — set Sprite Mode ' +
+        'to Multiple and slice by cell size. No <b>.meta</b> is written on purpose: it is ' +
+        'GUID-based and version-specific, and a malformed one can disturb your project\'s ' +
+        'asset database.</span></div>' +
       '<div class="exp-row"><span>Sizes</span><span class="exp-scales" id="expScales"></span></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
       '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
@@ -5630,7 +5675,7 @@ const TOUR = [
 
   // And shipping it.
   { target: "#expOpen", title: "9 · Export for your engine",
-    body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Unity, Aseprite or Phaser. Multiple sizes in one go." },
+    body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Aseprite or Phaser — and multiple sizes in one go. Unity takes the sheet directly; the dialog explains why no .meta is written." },
   { target: "#share", title: "Bonus · every effect is a link",
     body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
   { target: null, title: "That's it ✨",

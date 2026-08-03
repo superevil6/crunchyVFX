@@ -1436,6 +1436,178 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- preset quality
+    // Three batches of presets were written this session and HALF of them were wrong on first
+    // render — always one of two faults, and every one passed "the preset renders" because it did
+    // render, just badly. These are those two faults, measured.
+    {
+      const litOf = (cv) => {
+        const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n++; return n;
+      };
+
+      // FAULT 1: the clip outliving the effect. Dead frames at the end are not cosmetic — they are
+      // blank cells in the exported sheet, so the user pays for them in sheet size and file size.
+      // Measured against each preset's OWN peak, so a faint effect is judged on its own terms.
+      // `exact`, or this measures nothing. Earlier blocks leave a sound hold active, and applyPreset
+      // overlays held values LAST — including duration and life, the two this assertion is about.
+      // Without it the loop judged every preset with its timing overwritten and found nothing wrong,
+      // which is how a green assertion ends up proving only that it ran.
+      const tail = [];
+      for (const name of Object.keys(PRESETS)) {
+        applyPreset(PRESETS[name], name, true);
+        const per = renderFrames(state, { size: 64, fit: true }).canvases.map(litOf);
+        const peak = Math.max.apply(null, per);
+        if (peak <= 0) continue;                       // "renders at all" is a different assertion
+        const thr = Math.max(1, peak * 0.02);
+        let last = 0;
+        for (let i = 0; i < per.length; i++) if (per[i] >= thr) last = i;
+        const deadFrames = per.length - 1 - last;
+        const used = (last + 1) / per.length;
+        // Both conditions: a short clip losing its final frame is rounding, not a fault.
+        if (deadFrames >= 4 && used < 0.75) {
+          tail.push(name + " (" + Math.round(used * 100) + "% of " + per.length + ", " +
+                    deadFrames + " dead)");
+        }
+      }
+      ok(tail.length === 0, "no preset leaves dead frames at the end of its clip",
+         tail.join(", ") || "all " + Object.keys(PRESETS).length + " use their clip");
+
+      // FAULT 2: Fit shrinking particles to specks. Under Fit the bounding box across ALL frames
+      // sets the scale, so a fast or far-travelling effect scales itself into nothing — the fix is
+      // always less travel and bigger particles, never more particles.
+      //
+      // Only judged where the particles ARE the picture: plenty of presets use them as incidental
+      // detail behind a beam or a web (Nano Swarm's 3px nodes hang off its web layer), and those
+      // are a style choice rather than a mistake.
+      const specks = [];
+      for (const name of Object.keys(PRESETS)) {
+        applyPreset(PRESETS[name], name, true);   // same reason: size is in the hold's intensity group
+        const withP = renderFrames(state, { size: 64, fit: true }).canvases.reduce((a, c) => a + litOf(c), 0);
+        if (!withP) continue;
+        const keep = state.opacity;
+        state.opacity = 0;                              // structure layers only
+        const withoutP = renderFrames(state, { size: 64, fit: true }).canvases.reduce((a, c) => a + litOf(c), 0);
+        state.opacity = keep;
+        if ((withP - withoutP) / withP < 0.2) continue; // particles are not carrying this one
+
+        // At the preset's OWN frame size — the size it actually exports at. Measuring in a 64px
+        // preview and demanding a whole pixel judged every preset at a resolution it never uses and
+        // flagged 24 of them; the same particles are 2.5px in the 192px frame they declare.
+        const prep = renderPrep(Object.assign({}, state), { fit: true });
+        const sizes = [];
+        for (let f = 0; f < prep.sim.nFrames; f++) {
+          const arr = prep.sim.frames[f], n = prep.sim.counts[f];
+          for (let i = 0; i < n; i++) {
+            const o = i * P_STRIDE, k = arr[o + P_KIND];
+            if (k === K_PART || k === K_PART2) sizes.push(arr[o + P_SIZE]);
+          }
+        }
+        if (sizes.length < 8) continue;
+        sizes.sort((a, b) => a - b);
+        const px = sizes[Math.floor(sizes.length / 2)] * prep.k;
+        // Below a pixel there is nothing to see — not a small particle, an absent one.
+        if (px < 1) specks.push(name + " (" + px.toFixed(2) + "px)");
+      }
+      ok(specks.length === 0, "no preset renders its particles smaller than a pixel",
+         specks.join(", ") || "clean");
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- every control has a name
+    // 388 of 1019 controls announced as an unnamed slider: the generated rows drew a <label> that
+    // was never associated with its input, so the visible word was decoration. A UI audit found it;
+    // this keeps it found, because the next generated control would arrive the same way.
+    {
+      // The real accessible-name rules, not "does a label element exist" — a switch row wraps its
+      // checkbox in a SECOND, text-less label, which counts as labelled while naming nothing.
+      const accName = (el) => {
+        const aria = (el.getAttribute("aria-label") || "").trim();
+        if (aria) return aria;
+        const by = el.getAttribute("aria-labelledby");
+        if (by) {
+          const t = by.split(/\s+/).map((id) => {
+            const n = document.getElementById(id);
+            return n ? n.textContent.trim() : "";
+          }).join(" ").trim();
+          if (t) return t;
+        }
+        if (el.labels) for (const l of el.labels) if (l.textContent.trim()) return l.textContent.trim();
+        const own = (el.textContent || "").trim();
+        if (own) return own;
+        return (el.title || el.getAttribute("placeholder") || "").trim();
+      };
+      const ctrls = Array.from(document.querySelectorAll("button, input, select, textarea"));
+      const unnamed = ctrls.filter((e) => !accName(e));
+      ok(unnamed.length === 0, "every control has an accessible name",
+         unnamed.length + " unnamed" + (unnamed.length
+           ? ": " + unnamed.slice(0, 6).map((e) => e.tagName.toLowerCase() + "#" + (e.id || "?")).join(", ")
+           : " of " + ctrls.length));
+
+      // The visible word must be part of the spoken name, or pointer and speech users are working
+      // from different labels for the same control.
+      const mismatched = [];
+      for (const pr of PARAMS) {
+        const el = inputs[pr[0]];
+        if (!el) continue;
+        const n = accName(el);
+        if (n && n.indexOf(pr[1]) < 0) mismatched.push(pr[0] + ": \"" + n + "\" lacks \"" + pr[1] + "\"");
+      }
+      ok(mismatched.length === 0, "each control's spoken name contains its visible label",
+         mismatched.slice(0, 4).join("; "));
+
+      // …and the group disambiguates the dozen panels that each own a "Speed".
+      const speeds = PARAMS.filter((pr) => pr[1] === "Speed" && inputs[pr[0]]);
+      const names = speeds.map((pr) => accName(inputs[pr[0]]));
+      ok(speeds.length < 2 || new Set(names).size === names.length,
+         "same-named controls in different panels are distinguishable", names.join(" | "));
+
+      // Clicking the visible label should focus the control — the pairing that was missing.
+      const probe = inputs.count;
+      ok(!!probe && !!probe.id && !!document.querySelector('label[for="' + probe.id + '"]'),
+         "a generated row's label is associated with its input", probe && probe.id);
+
+      // A slider announces a bare number; the unit is what makes it meaningful.
+      ok((inputs.speed.getAttribute("aria-valuetext") || "").indexOf("px/s") >= 0,
+         "a value is announced with its unit", inputs.speed.getAttribute("aria-valuetext"));
+    }
+
+    // ---------------------------------------------------------------- engines we claim
+    // Naming an engine in the copy is a promise that its metadata comes out of the exporter. Unity
+    // was named in the tour and the Flatpak description while no Unity sidecar existed and none was
+    // planned — a user picking Export would have found four options, none of them theirs.
+    {
+      const offered = Array.from(expMetaSel.options).map((o) => o.value).filter((v) => v !== "none");
+      ok(offered.length >= 3, "the exporter offers engine metadata", offered.join(", "));
+
+      // Every engine named in user-facing copy must be one the exporter actually writes for.
+      const copy = [];
+      for (const t of TOUR) copy.push(t.body || "");
+      for (const t of TUTORIALS) for (const st of t.steps) copy.push(st.body || "");
+      copy.push(document.getElementById("expOpen").title || "");
+      // Match the PROMISE construction — "metadata for A, B or C" — and check the engines inside
+      // that list. Looking for an engine name anywhere near the word "metadata" is too crude: it
+      // fires on copy that explicitly says an engine gets NO sidecar, which is the honest sentence
+      // this whole fix exists to allow.
+      const NAMES = { Godot: "godot", Aseprite: "aseprite", Phaser: "phaser", Unity: "unity" };
+      const claimed = [];
+      for (const c of copy) {
+        const m = /(?:metadata|sidecars?)\s+for\s+([^.;]+)/i.exec(c);
+        if (!m) continue;
+        for (const nm in NAMES) {
+          if (m[1].indexOf(nm) >= 0 && offered.indexOf(NAMES[nm]) < 0) claimed.push(nm);
+        }
+      }
+      ok(claimed.length === 0,
+         "no copy promises engine metadata the exporter cannot write", claimed.join(", "));
+
+      // …and the absence is explained where someone would look for it, rather than just missing.
+      const note = document.querySelector(".exp-subnote");
+      ok(!!note && /Unity/.test(note.textContent),
+         "the export dialog says why there is no Unity sidecar");
+    }
+
     // ---------------------------------------------------------------- Tutorials
     // These are selectors into a UI that moves, which is the whole risk. A stale one dims the page
     // around nothing and reads as a broken app — and it is not hypothetical: "#randomBtn,#randomize"

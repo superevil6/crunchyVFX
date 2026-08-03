@@ -115,6 +115,13 @@ stale code, which looks exactly like "my fix did nothing".
 `await`, so it writes `results.txt` via a download — run it with a profile configured to auto-save
 downloads and read the file.
 
+**Two preset faults are asserted now, because half of every batch had one.** A clip that outlives
+its effect (dead frames at the end are blank cells in the exported sheet) and particles Fit has
+shrunk below a pixel. Both loops apply presets with `applyPreset(…, exact)` — earlier suite blocks
+leave a sound hold active, and it overlays `duration`, `life` and `size`, which is exactly what
+they measure. They catch the mechanical half; the contact sheet is still the only thing that
+catches "this doesn't look like its name".
+
 **For anything visual, render a contact sheet and actually look at it.** Assertions prove an effect
 draws; only your eyes prove it looks like the thing it's named after. Several presets passed every
 assertion while being nearly invisible.

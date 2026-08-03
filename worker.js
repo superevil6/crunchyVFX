@@ -34,10 +34,13 @@
  * copy had three hard-coded counts, all three stale. Same class of mistake, smaller blast radius.)
  * =================================================================================================
  *
- * UNVERIFIED against a real Cloudflare runtime from this machine — there is none here, the same
- * caveat both siblings carry. The pure helpers below are covered by `node tests/worker.test.mjs`;
- * the ASSETS binding, HTMLRewriter and version_metadata wiring must be confirmed on a PREVIEW
- * deploy before the domain points at it. DEPLOY.md has the checklist.
+ * VERIFIED on a real Cloudflare runtime — unlike both siblings, whose workers still carry an
+ * "UNVERIFIED" note. `npx wrangler dev --local` runs workerd here, and the stamping, cache headers,
+ * .assetsignore exclusions, share-card rewriting, image repointing and a full app boot were all
+ * confirmed through it. The pure helpers are additionally covered by `node tests/worker.test.mjs`.
+ *
+ * What local runs still cannot prove: that the version_metadata binding is actually enabled on the
+ * deployed Worker, and that the custom domain resolves. DEPLOY.md's checklist covers both.
  */
 
 // Used only if the version_metadata binding is missing. It logs when that happens, because the
