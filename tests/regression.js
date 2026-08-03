@@ -105,7 +105,7 @@
     // Non-PARAMS fields are the ones that leak if mishandled — check every one round-trips AND resets.
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
-                  shapeMix: "2,3", emit2ShapeMix: "5" }, "extras");
+                  shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2" }, "extras");
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -1432,6 +1432,78 @@
         ok(litAll(renderFrames(state, { size: 96, fit: true })) > 0,
            "a swept-pitch sound produces a visible effect, not a blank frame");
       }
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- Timing
+    // Sequencing existed in name only: three delay params in three unrelated panels, and every
+    // other layer pinned to frame 0. These pin both halves — that a delay now WORKS for any layer,
+    // and that the panel showing them lists what is actually on.
+    {
+      ok(PATCH_EXTRAS.layerDelay === "", "no delay is the neutral default, so old patches are unchanged",
+         JSON.stringify(PATCH_EXTRAS.layerDelay));
+
+      // Parsing has to survive whatever a patch carries — it is a hand-editable string in a URL.
+      ok(Object.keys(parseLayerDelays("")).length === 0, "an empty delay string is no delays");
+      ok(parseLayerDelays("Growth:0.25").Growth === 0.25, "a delay parses");
+      ok(parseLayerDelays("Growth:0.25,Lines:0.1").Lines === 0.1, "…and so does a second one");
+      ok(parseLayerDelays("junk,:,Growth:notanumber,Lines:0.2").Lines === 0.2,
+         "junk entries are dropped rather than poisoning the rest");
+      ok(parseLayerDelays("Growth:-5").Growth === undefined, "a negative delay is ignored");
+      ok(parseLayerDelays("Growth:999").Growth === MAX_DELAY,
+         "an absurd delay clamps to the point past which nothing could show", "" + MAX_DELAY);
+
+      // The one that matters: a delayed layer must actually be absent early and present later.
+      // A BLANK patch, not a preset: applyPreset resets every param to its neutral default, so this
+      // leaves exactly one layer on. Explosion was the wrong starting point — its flash, shockwave
+      // and glow were what the pixel counts were actually measuring.
+      applyPreset({}, "blank");
+      state.lines = 0.9; state.lineCount = 16; state.lineLife = 0.3; state.duration = 1;
+      state.count = 1; state.opacity = 0;          // isolate the layer under test
+      state.layerDelay = "";
+      const undelayed = renderFrames(state, { size: 96, fit: false });
+      state.layerDelay = "Lines:0.4";
+      const delayed = renderFrames(state, { size: 96, fit: false });
+      const px = (r, i) => {
+        const cv = r.canvases[i];
+        const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0; for (let j = 3; j < d.length; j += 4) if (d[j] > 8) n++; return n;
+      };
+      ok(px(undelayed, 1) > 0, "the layer draws early when it is not delayed", px(undelayed, 1) + " px");
+      ok(px(delayed, 1) === 0, "…and is absent early once it is", px(delayed, 1) + " px");
+      const late = Math.min(delayed.canvases.length - 1, Math.round(0.5 * state.fps));
+      ok(px(delayed, late) > 0, "…then appears after the delay", px(delayed, late) + " px at frame " + late);
+
+      // A layer is SKIPPED before its delay, never run with a negative time — these functions
+      // divide by their own life and would otherwise run backwards from nowhere.
+      state.layerDelay = "Lines:" + (state.duration + 1);
+      const never = renderFrames(state, { size: 96, fit: false });
+      let any = 0;
+      for (let i = 0; i < never.canvases.length; i++) any += px(never, i);
+      ok(any === 0, "a delay past the clip means nothing is drawn, not garbage", any + " px");
+
+      // The panel lists what is ON, not all 43 systems.
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      state.layerDelay = "";
+      renderTiming();
+      const rows = () => timeModal.querySelectorAll(".time-row").length;
+      const bare = rows();
+      ok(bare >= 1 && !!timeModal.querySelector(".time-anchor"),
+         "the particles anchor the list even with no layers on", bare + " rows");
+      state.lines = 0.9;
+      renderTiming();
+      ok(rows() > bare, "switching a layer on gives it a row", rows() + " rows");
+
+      // Layer B drives its REAL param rather than a shadow copy, or the two would disagree.
+      state.emit2Count = 120; state.emit2Delay = 0.2;
+      renderTiming();
+      const names = Array.from(timeModal.querySelectorAll(".time-name")).map((e) => e.textContent);
+      ok(names.indexOf("Layer B") >= 0, "Layer B appears once it is on", names.join(", "));
+
+      timeModal.querySelector("#timeReset").click();
+      ok(state.layerDelay === "" && state.emit2Delay === PARAM_BY_KEY.emit2Delay[5],
+         "reset puts every layer back to starting together", JSON.stringify(state.layerDelay));
 
       applyPreset(PRESETS["Explosion"], "Explosion");
     }

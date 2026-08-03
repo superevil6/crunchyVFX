@@ -1203,3 +1203,19 @@
     .lib-exp { grid-template-columns: minmax(0, 1fr) auto; }
     .lib-exp-meta { grid-column: 1 / -1; }
   }
+
+  /* ---------- Timing ---------- */
+  /* One row per ACTIVE layer: name, when it starts, the number. The anchor row (particles) is
+     disabled rather than hidden — the others need something to read against. */
+  .time-box { width: min(560px, 96vw); }
+  .time-body { padding: 14px 18px; max-height: 60vh; overflow-y: auto; }
+  .time-row {
+    display: grid; grid-template-columns: 120px minmax(0, 1fr) 52px;
+    align-items: center; gap: 10px; margin-bottom: 7px;
+  }
+  .time-name { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .time-val { font: 11px ui-monospace, monospace; color: var(--muted); text-align: right; }
+  .time-slider { width: 100%; }
+  .time-anchor .time-name { color: var(--muted); }
+  .time-anchor .time-val { color: var(--muted); opacity: 0.6; }
+  @media (max-width: 600px) { .time-row { grid-template-columns: 90px minmax(0, 1fr) 46px; } }

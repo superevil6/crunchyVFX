@@ -53,6 +53,10 @@ an unrelated effect rather than a sibling. Add an enum and it's handled; an asse
 order, and a wrong index is a plausible-looking preset that draws the wrong particle. Ask the
 running app: `SHAPES.indexOf("smoke")`.
 
+**A new structure layer needs a `stage()` wrapper** in `drawFrame`, plus its group name in
+`TIMED_LAYERS`. Miss either and the layer works but can never be sequenced — and nothing fails,
+because "starts at 0" looks exactly like "has no delay set".
+
 **Preset values bypass the slider clamp.** A preset object is written straight into `state`, so an
 out-of-range value doesn't error — it produces a quietly broken effect. There's an assertion for
 it; keep it passing.

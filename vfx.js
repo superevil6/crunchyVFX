@@ -128,6 +128,28 @@ function shapeSet(primary, mix) {
   return out;
 }
 
+// Per-layer start delays, keyed by the PARAMS group name so a row in the Timing panel and a panel
+// header say the same word. Carried as one string ("Shockwave:0.05,Growth:0.2") rather than ~25 new
+// PARAMS rows, which would have added a slider to every layer panel to express one idea.
+//
+// Empty is the neutral default: everything starts at 0, exactly as it did before this existed.
+// Values are clamped to the duration ceiling — a delay longer than any clip means a layer that
+// simply never appears, which looks like a broken effect rather than a setting.
+function parseLayerDelays(str) {
+  const out = {};
+  if (!str) return out;
+  for (const part of String(str).split(",")) {
+    const i = part.lastIndexOf(":");
+    if (i < 1) continue;
+    const k = part.slice(0, i).trim();
+    const v = parseFloat(part.slice(i + 1));
+    if (!k || !isFinite(v) || v <= 0) continue;      // 0 is the default; storing it just bloats
+    out[k] = Math.max(0, Math.min(MAX_DELAY, v));
+  }
+  return out;
+}
+const MAX_DELAY = 3;        // the duration ceiling — past this nothing could ever be seen
+
 // ---------- simulation ----------
 // Returns { frames: [Float32Array], counts: Int32Array, bbox, nFrames, fps, fs }.
 // World units are pixels at the patch's NOMINAL frame size (st.frameSize); rasterize() scales.
@@ -375,11 +397,12 @@ function simulate(st) {
       }
       // the two extra layers are analytic — no integration, just "what does it look like at t"
       for (let k = 0; k < shots; k++) {
+        const simDelays = parseLayerDelays(st.layerDelay);
         const t0 = k * st.shotDelay, sc = Math.pow(st.shotScale, k);
         const jx = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 21) : 0;
         const jy = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 22) : 0;
         if (st.flash > 0) {
-          const u = (t - t0) / st.flashLife;
+          const u = (t - t0 - (simDelays.Flash || 0)) / st.flashLife;
           if (u >= 0 && u < 1) {
             const o = n * P_STRIDE;
             scratch[o + P_X] = ox + jx; scratch[o + P_Y] = oy + jy;
@@ -397,7 +420,7 @@ function simulate(st) {
           }
         }
         if (st.wave > 0) {
-          const u = (t - t0) / st.waveLife;
+          const u = (t - t0 - (simDelays.Shockwave || 0)) / st.waveLife;
           if (u >= 0 && u < 1) {
             const o = n * P_STRIDE;
             // half the frame at waveSpeed 1 → the ring exactly reaches the edge, never past it
@@ -683,32 +706,41 @@ function drawFrame(sim, f, g, st, xf) {
   const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
   // Structure layers draw first, so sparks and debris land on top of the beam/growth rather than
   // behind it. They share the blend mode, so an additive patch gets an additive beam.
+  //
+  // Every one of them is staged rather than called directly. Each already took `t` as an argument,
+  // so a start delay is a shift AT THE CALL SITE — none of the twenty-odd draw functions had to
+  // learn about timing, and a layer added later gets sequencing by being wrapped the same way.
+  // Before its delay a layer is skipped entirely rather than drawn with a negative time: these
+  // functions divide by their own life, and t < 0 would run them backwards from nowhere.
+  const delays = parseLayerDelays(st.layerDelay);
+  const stage = (name, fn) => {
+    const d = delays[name] || 0;
+    if (t >= d) fn(t - d);
+  };
   {
-    drawDecal(g, st, t, xf, fs, ox, oy);   // the floor mark goes under everything
-    drawSweep(g, st, t, xf, fs, ox, oy);
-    drawFracture(g, st, t, xf, fs, ox, oy, seed);
-    drawDrip(g, st, t, xf, fs, ox, oy, seed);
-    drawTunnel(g, st, t, xf, fs, ox, oy);
-    drawGrowth(g, st, t, xf, fs, ox, oy, seed);
-    drawVortex(g, st, t, xf, fs, ox, oy);
-    drawWeather(g, st, t, xf, fs, ox, oy, seed);
-    drawSigil(g, st, t, xf, fs, ox, oy, seed);
-    drawChain(g, st, t, xf, fs, ox, oy, seed);
-    drawBeam(g, st, t, xf, fs, ox, oy, seed);
-    drawRibbon(g, st, t, xf, fs, ox, oy);
-    drawArc(g, st, t, xf, fs, ox, oy, seed);
-    drawShatter(g, st, t, xf, fs, ox, oy, seed);
-    drawLines(g, st, t, xf, fs, ox, oy, seed);
-    drawRipples(g, st, t, xf, fs, ox, oy);
-    drawRift(g, st, t, xf, fs, ox, oy, seed);
-    drawTumble(g, st, t, xf, fs, ox, oy, seed);
+    stage("Decal", (tt) => drawDecal(g, st, tt, xf, fs, ox, oy));
+    stage("Sweep", (tt) => drawSweep(g, st, tt, xf, fs, ox, oy));
+    stage("Fracture", (tt) => drawFracture(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Drip", (tt) => drawDrip(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Tunnel", (tt) => drawTunnel(g, st, tt, xf, fs, ox, oy));
+    stage("Growth", (tt) => drawGrowth(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Vortex", (tt) => drawVortex(g, st, tt, xf, fs, ox, oy));
+    stage("Weather", (tt) => drawWeather(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Sigil", (tt) => drawSigil(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Chain", (tt) => drawChain(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Beam", (tt) => drawBeam(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Ribbon", (tt) => drawRibbon(g, st, tt, xf, fs, ox, oy));
+    stage("Arc", (tt) => drawArc(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Shatter", (tt) => drawShatter(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Lines", (tt) => drawLines(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Ripples", (tt) => drawRipples(g, st, tt, xf, fs, ox, oy));
+    stage("Rift", (tt) => drawRift(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Tumble", (tt) => drawTumble(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Swarm", (tt) => drawSwarm(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Crackle", (tt) => drawCrackle(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Orbit", (tt) => drawOrbit(g, st, tt, xf, fs, ox, oy, seed));
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
-    drawSwarm(g, st, t, xf, fs, ox, oy, seed);
-    drawCrackle(g, st, t, xf, fs, ox, oy, seed);
-    // Orbit draws LAST of the structure layers: its whole point is that things pass in front of
-    // the subject, so it has to sit above the beam/growth it is orbiting.
-    drawOrbit(g, st, t, xf, fs, ox, oy, seed);
   }
   for (let i = 0; i < n; i++) {
     const o = i * P_STRIDE;

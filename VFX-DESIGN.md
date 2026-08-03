@@ -416,6 +416,23 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    **My Effects deliberately stays in the left column** — it is a browsing surface used constantly
    while editing, not somewhere you go and open. BGM's own lesson is that moving a feature leaves the
    tour spotlighting the wrong control while every assertion passes; moving it is a separate call.
+2e. **Layer timing** — **done (2026-07-30).** *"I know effects can be sequenced, but it's not
+   immediately obvious how."* Investigating turned that from a clarity problem into a capability one:
+   of ~43 systems exactly **three** params could stagger anything (`emit2Delay`, `shotDelay`,
+   `chainLag`), in three unrelated panels, none of them saying "sequence". Every other layer began at
+   frame 0 with no way to move it, so clearer UI would have advertised something that barely existed.
+
+   Every structure layer already took `t` as an argument and was called from one place, so the delay
+   is applied **at the call site** — a `stage(name, fn)` wrapper in `drawFrame`. None of the twenty-odd
+   draw functions learned about timing, and a layer added later gets sequencing by being wrapped the
+   same way. Before its delay a layer is *skipped*, never called with a negative time: they divide by
+   their own life and would run backwards from nowhere. Flash and Shockwave are simulated rather than
+   drawn, so they take the delay on the `t0` they already had for chained shots.
+
+   Stored as one `PATCH_EXTRAS` string keyed by group name (`"Shockwave:0.05,Growth:0.2"`) rather than
+   ~25 new PARAMS rows, which would have put a slider in every layer panel to express one idea. The
+   Timing panel lists only the layers that are ON — showing all 43 would be a wall of zeroes — with
+   particles as a disabled anchor row at 0, because everything else is staged against them.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,

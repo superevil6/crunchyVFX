@@ -51,6 +51,7 @@
   <div class="controls-right">
     <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution">⬇ Export…</button>
     <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
+    <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke">⏱ Timing</button>
     <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
     <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder">⤓ Drag out</button>
     <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it">📚 Library</button>
@@ -731,7 +732,10 @@ const GLYPH_DEFAULT = "★";
 // the primary `shape`. A list can't be a slider row, and "" (just the primary) is the neutral
 // default, so every existing patch keeps rendering exactly as it did.
 const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", ramp: "", bubbleText: "", paletteLock: "",
-                       shapeMix: "", emit2ShapeMix: "" };
+                       shapeMix: "", emit2ShapeMix: "",
+                       // Per-layer start delays, "Group:seconds" joined by commas. One string
+                       // instead of ~25 PARAMS rows, and "" means everything starts together.
+                       layerDelay: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -4568,6 +4572,108 @@ shareModal.querySelector("#shareCopy").addEventListener("click", async () => {
   }
 });
 
+// ---------- Timing ----------
+// You could always stage an effect — but only three params could stagger anything (Layer B's start
+// delay, the burst's shot delay, the chain's lag), they sat in three unrelated panels, and none of
+// them said "sequence". Every other layer began at frame 0 with no way to move it. So this is two
+// things at once: a real start delay for every layer, and one place that shows the order.
+//
+// It lists only the layers that are ON. A timing panel showing all 43 systems would be a wall of
+// zeroes, and the question being answered is "what happens when in THIS effect".
+const timeModal = document.createElement("div");
+timeModal.className = "modal";
+timeModal.hidden = true;
+timeModal.innerHTML =
+  '<div class="modal-box time-box">' +
+    '<div class="modal-head"><h2>⏱ Timing</h2>' +
+      '<span class="hint">When each layer starts. Particles are the anchor at 0.</span>' +
+      '<button id="timeClose">✕ Close</button></div>' +
+    '<div class="time-body"><div id="timeRows"></div>' +
+      '<p class="share-note" id="timeNote"></p></div>' +
+    '<div class="modal-foot"><button id="timeReset">Everything at 0</button>' +
+      '<span id="timeMsg" class="hint"></span></div>' +
+  '</div>';
+document.body.appendChild(timeModal);
+
+// The layer groups that own a delay. Particles are deliberately absent: they are the thing
+// everything else is staged against, so "delay the particles" is just "delay everything else less".
+const TIMED_LAYERS = ["Flash", "Shockwave", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
+  "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
+  "Rift", "Tumble", "Swarm", "Crackle", "Orbit"];
+
+function layerDelayMap() { return parseLayerDelays(state.layerDelay); }
+function setLayerDelay(name, secs) {
+  const m = layerDelayMap();
+  if (secs > 0) m[name] = secs; else delete m[name];
+  state.layerDelay = Object.keys(m).sort().map((k) => k + ":" + m[k]).join(",");
+}
+
+function renderTiming() {
+  const box = timeModal.querySelector("#timeRows");
+  const note = timeModal.querySelector("#timeNote");
+  box.innerHTML = "";
+  const on = LAYER_GROUPS.filter((L) => L.is() && TIMED_LAYERS.indexOf(L.g) >= 0).map((L) => L.g);
+  const m = layerDelayMap();
+
+  // The anchor row is not editable — it is there so the others have something to read against.
+  const rows = [{ name: "Particles", delay: 0, anchor: true }]
+    .concat(on.map((g) => ({ name: g, delay: m[g] || 0 })));
+  if (state.emit2Count > 0) rows.push({ name: "Layer B", delay: state.emit2Delay, b: true });
+
+  if (rows.length === 1) {
+    note.textContent = "Only the particles are on. Add a layer from the bar under the stage and it " +
+      "shows up here with its own start time.";
+  } else {
+    note.textContent = "Clip is " + state.duration.toFixed(2) + "s — a delay past that means the " +
+      "layer never appears.";
+  }
+
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "time-row" + (r.anchor ? " time-anchor" : "");
+    const nm = document.createElement("div");
+    nm.className = "time-name";
+    nm.textContent = r.name;
+    row.appendChild(nm);
+
+    const sl = document.createElement("input");
+    sl.type = "range"; sl.min = 0; sl.max = Math.max(0.5, state.duration); sl.step = 0.01;
+    sl.value = r.delay;
+    sl.className = "time-slider";
+    sl.disabled = !!r.anchor;
+    const val = document.createElement("div");
+    val.className = "time-val";
+    val.textContent = r.delay.toFixed(2) + "s";
+    sl.addEventListener("input", () => {
+      const v = parseFloat(sl.value);
+      val.textContent = v.toFixed(2) + "s";
+      // Layer B already had a real start delay before this panel existed; drive the actual param
+      // rather than shadowing it, so the Layer B panel and this row can never disagree.
+      if (r.b) state.emit2Delay = v; else setLayerDelay(r.name, v);
+      syncUI();
+      rerender();
+    });
+    sl.addEventListener("change", commitHistory);
+    row.appendChild(sl); row.appendChild(val);
+    box.appendChild(row);
+  }
+}
+
+document.getElementById("timeBtn").addEventListener("click", () => {
+  timeModal.querySelector("#timeMsg").textContent = "";
+  renderTiming();
+  timeModal.hidden = false;
+});
+timeModal.querySelector("#timeClose").addEventListener("click", () => { timeModal.hidden = true; });
+timeModal.addEventListener("click", (e) => { if (e.target === timeModal) timeModal.hidden = true; });
+timeModal.querySelector("#timeReset").addEventListener("click", () => {
+  state.layerDelay = "";
+  state.emit2Delay = PARAM_BY_KEY.emit2Delay[5];
+  syncUI(); rerender(); commitHistory();
+  renderTiming();
+  timeModal.querySelector("#timeMsg").textContent = "All layers start together again.";
+});
+
 // ---------- Library (DESKTOP ONLY) ----------
 // CrunchyBGM's split, applied here: sort by VERB, not by feature. Export and Share turn this effect
 // into a file; the Library is the shelf you come back to — the sprites you imported and the effects
@@ -5512,13 +5618,17 @@ const TOUR = [
     body: "Seven sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
   { target: "#shapeSection", title: "5 · Pick a particle",
     body: SHAPES.length + " shapes, from soft glows to flames, gears and skulls. Click as many as you like — a mixed selection gives each particle its own shape. Filter by name, draw your own, or import a PNG." },
-  { target: "#layerBar", title: "6 · Stack more systems",
+  { target: "#timeBtn", title: "6 · Stage it in time",
+    body: "Layers all start together unless you say otherwise. Timing gives each one a start delay, "
+      + "so a flash can land, then the shockwave, then the smoke — the difference between one event "
+      + "and a sequence. It lists only the layers you have switched on." },
+  { target: "#layerBar", title: "7 · Stack more systems",
     body: LAYER_GROUPS.length + " of them — shockwaves, lightning, ribbons, weather, lens flares. Click a chip to add one; each brings its own controls." },
-  { target: "#matchBtn", title: "7 · Match a sound",
+  { target: "#matchBtn", title: "8 · Match a sound",
     body: "Paste a CrunchySFX link and the effect is built from the sound — same length, same punch — and the audio is synthesised right here, then exported beside the sheet." },
 
   // And shipping it.
-  { target: "#expOpen", title: "8 · Export for your engine",
+  { target: "#expOpen", title: "9 · Export for your engine",
     body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Unity, Aseprite or Phaser. Multiple sizes in one go." },
   { target: "#share", title: "Bonus · every effect is a link",
     body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
