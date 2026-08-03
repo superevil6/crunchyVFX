@@ -1345,6 +1345,103 @@ window.PRESETS = {
     hue: 46, hueLife: -8, sat: 0.9, bright: 1, coreWhite: 0.4, blend: 1,
     glow: 0.4, duration: 1.5, fps: 24, frameSize: 5,
   },
+
+  // ---- Status effects & HUD (2026-07-30) ----
+  // A category the library had nothing for: the moment a game tells you your state CHANGED —
+  // shielded, poisoned, locked on, slowed. It is also where the leftover shapes belong, because
+  // what was left after three batches is icon vocabulary (shield, reticle, hazard, hourglass) that
+  // wants to POP and settle rather than fly apart. Each one leads with a different motion so ten
+  // symbol effects don't become ten of the same effect.
+  "Shield Up": {
+    shape: 46, shapeMix: "2", count: 5, opacity: 0.9, emitter: 2, emitRadius: 0.16, emitTime: 0.2,
+    speed: 60, speedVar: 0.2, drag: 0.8,
+    size: 24, sizeVar: 0.15, grow: 0.2, life: 0.9, lifeVar: 0.15,
+    fadeIn: 0.1, fadeOut: 0.5,
+    wave: 0.7, waveSpeed: 0.55, waveWidth: 0.18, waveLife: 0.45,
+    hue: 200, hueLife: 18, sat: 0.7, bright: 1, coreWhite: 0.3, blend: 1,
+    glow: 0.3, duration: 1, fps: 24, frameSize: 5,
+  },
+  "Poisoned": {
+    shape: 31, shapeMix: "28", count: 13, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 40,
+    emitRadius: 0.07, emitTime: 0.7,
+    speed: 52, speedVar: 0.5, drag: 0.55, gravity: -95, turb: 0.3,
+    size: 21, sizeVar: 0.45, grow: 0.15, life: 1.3, lifeVar: 0.3,
+    fadeIn: 0.18, fadeOut: 0.55,
+    hue: 96, hueLife: 22, hueVar: 0.15, sat: 0.85, bright: 0.95, coreWhite: 0.15, blend: 1,
+    glow: 0.35, duration: 1.6, fps: 24, frameSize: 5, originY: 0.62,
+  },
+  "Target Lock": {
+    shape: 57, shapeMix: "37", count: 4, opacity: 1, emitter: 2, emitRadius: 0.3, emitTime: 0,
+    speed: 10, speedVar: 0, drag: 0.25, radial: -120,
+    size: 36, sizeVar: 0, spin: 0, spinVar: 0,
+    life: 1, lifeVar: 0, fadeIn: 0.1, fadeOut: 0.3,
+    lines: 0.5, lineCount: 4, lineInner: 0.3, lineOuter: 0.55, lineWidth: 2, lineLife: 0.4,
+    hue: 8, hueLife: 10, sat: 0.85, bright: 1, coreWhite: 0.5,
+    glow: 0.4, duration: 1, fps: 24, frameSize: 5,
+  },
+  "Speed Boost": {
+    shape: 83, shapeMix: "22", count: 8, opacity: 1, emitter: 4, emitAngle: 270, emitSpread: 12,
+    emitRadius: 0.2, emitTime: 0.55,
+    speed: 175, speedVar: 0.25, drag: 0.45,
+    size: 34, sizeVar: 0.2, life: 0.75, lifeVar: 0.15, fadeIn: 0.1, fadeOut: 0.5,
+    trail: 0.4,
+    hue: 190, hueLife: -25, sat: 0.7, bright: 1, coreWhite: 0.7,
+    glow: 0.5, duration: 1, fps: 24, frameSize: 5, originX: 0.66,
+  },
+  "Time Slow": {
+    shape: 53, count: 6, opacity: 1, emitter: 2, emitRadius: 0.16, emitTime: 0.5,
+    speed: 26, speedVar: 0.3, drag: 0.7, gravity: -18,
+    size: 27, sizeVar: 0.2, spin: 40, spinVar: 0.3,
+    life: 1.6, lifeVar: 0.2, fadeIn: 0.2, fadeOut: 0.5,
+    ripple: 0.7, rippleCount: 3, rippleSpeed: 0.45, rippleWidth: 3, rippleLife: 1.4,
+    hue: 265, hueLife: 20, sat: 0.55, bright: 1, coreWhite: 0.4,
+    glow: 0.4, duration: 1.8, fps: 24, frameSize: 5,
+  },
+  "Magnetized": {
+    shape: 68, shapeMix: "27", count: 14, opacity: 1, emitter: 2, emitRadius: 0.36, emitTime: 0.45,
+    speed: 18, speedVar: 0.4, drag: 0.35,
+    attract: 460, attractX: 0.5, attractY: 0.5, attractFalloff: 0.35,
+    size: 20, sizeVar: 0.3, spin: 150, spinVar: 0.5,
+    life: 1.1, lifeVar: 0.2, fadeIn: 0.12, fadeOut: 0.4,
+    hue: 320, hueLife: -20, sat: 0.75, bright: 1, coreWhite: 0.4,
+    glow: 0.4, duration: 1.3, fps: 24, frameSize: 5,
+  },
+  "Hazard Alert": {
+    shape: 69, shapeMix: "26", count: 7, opacity: 1, emitter: 2, emitRadius: 0.2, emitTime: 0.2,
+    speed: 34, speedVar: 0.2, drag: 0.65,
+    size: 28, sizeVar: 0.2, grow: 0.1, life: 1, lifeVar: 0.15,
+    fadeIn: 0.08, fadeOut: 0.45, alphaCurve: 0.7,
+    flash: 0.7, flashSize: 0.3, flashLife: 0.1,
+    hue: 44, hueLife: -12, sat: 1, bright: 1, coreWhite: 0.35, blend: 1,
+    glow: 0.45, duration: 1.2, fps: 24, frameSize: 5,
+  },
+  "Curse Mark": {
+    shape: 70, count: 1, opacity: 0,
+    orbit: 1, orbitUseShape: 1, orbitCount: 6, orbitRadius: 0.28, orbitSpeed: -1.1,
+    orbitTilt: 0.35, orbitSize: 26, orbitDepth: 0.3, orbitScatter: 0.05,
+    sigil: 0.7, sigilRings: 2, sigilRadius: 0.3, sigilLife: 1.4,
+    hue: 288, hueLife: -18, sat: 0.8, bright: 1, coreWhite: 0.3,
+    glow: 0.5, loopBlend: 0.4, duration: 1.6, fps: 24, frameSize: 5,
+  },
+  "Rally Banner": {
+    shape: 73, shapeMix: "48", count: 6, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 40,
+    emitRadius: 0.12, emitTime: 0.4,
+    speed: 70, speedVar: 0.3, drag: 0.6, gravity: -45,
+    size: 28, sizeVar: 0.2, spin: 40, spinVar: 0.4,
+    life: 1.2, lifeVar: 0.2, fadeIn: 0.12, fadeOut: 0.45,
+    hue: 36, hueLife: 14, sat: 0.9, bright: 1, coreWhite: 0.12, blend: 1,
+    glow: 0.18, duration: 1.5, fps: 24, frameSize: 5, originY: 0.62,
+  },
+  "Atom Charge": {
+    shape: 56, shapeMix: "58", count: 11, opacity: 1, emitter: 0, emitSpread: 360,
+    emitRadius: 0.06, emitTime: 0.3,
+    speed: 78, speedVar: 0.35, drag: 0.68,
+    size: 23, sizeVar: 0.25, spin: 220, spinVar: 0.4,
+    life: 1, lifeVar: 0.2, fadeIn: 0.1, fadeOut: 0.45,
+    ripple: 0.5, rippleCount: 2, rippleSpeed: 0.6, rippleWidth: 2, rippleLife: 0.8,
+    hue: 172, hueLife: 26, sat: 0.8, bright: 1, coreWhite: 0.55,
+    glow: 0.55, duration: 1.3, fps: 24, frameSize: 5,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1373,5 +1470,7 @@ window.PRESET_CATEGORIES = [
   ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes", "Heartbreak", "Stun Stars", "Sleepy Zzz", "Sweat Drop"]],
   ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl",
                   "Firefly Swarm", "Downpour", "Ash Fall", "Spore Drift", "Feather Fall", "Bird Flock", "Tornado Spin"]],
+  ["Status & HUD", ["Shield Up", "Poisoned", "Target Lock", "Speed Boost", "Time Slow",
+                    "Magnetized", "Hazard Alert", "Curse Mark", "Rally Banner", "Atom Charge"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
 ];
