@@ -489,7 +489,7 @@ const PARAMS = [
   ["orbitTrail", "Trail",       0, 1, 0.01, 0, "",     "Orbit"],
   ["orbitScatter","Scatter",    0, 1, 0.01, 0, "",     "Orbit"],
   // Off by default so every orbit preset that shipped with round beads still draws round beads.
-  ["orbitUseShape","Use particle shape", 0, 1, 1, 0, "", "Orbit"],
+  ["orbitUseShape","Draw shapes",  0, 1, 1, 0, "", "Orbit"],
 
   // Tumble — flat pieces turning over as they fall. Confetti, petals, leaves, paper, coins.
   ["tumble",     "Tumble",      0, 1, 0.01, 0, "",     "Tumble"],
@@ -736,7 +736,10 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        shapeMix: "", emit2ShapeMix: "",
                        // Per-layer start delays, "Group:seconds" joined by commas. One string
                        // instead of ~25 PARAMS rows, and "" means everything starts together.
-                       layerDelay: "" };
+                       layerDelay: "",
+                       // Orbit's own shape selection. Empty = follow the particle shape,
+                       // which is what every effect did before the picker existed.
+                       orbitShapes: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -2215,6 +2218,7 @@ function syncUI() {
   if (window.syncCustomSprite) window.syncCustomSprite();
   if (window.syncRampUI) window.syncRampUI();
   if (window.syncBShape) window.syncBShape();
+  if (window.syncOrbitShape) window.syncOrbitShape();
   updateImageSpriteUI();
   syncShapeButtons();
   updateShapePanels();
@@ -2405,6 +2409,67 @@ filterShapes();
       for (const i in btns) btns[i].classList.toggle("active", set.indexOf(+i) >= 0);
     };
     syncBShape();
+  }
+}
+
+// ---------- Orbit shape picker ----------
+// Orbit borrowed the emitter's selection when `orbitUseShape` landed, which made "stars circling a
+// stunned head" possible but not "stars circling a GLOW burst" — one selection served both. Its own
+// picker separates them.
+//
+// Selecting nothing is meaningful here rather than empty: it means follow the particles, which is
+// what every orbit effect did before this existed. So deselecting the last shape returns to
+// inheriting instead of refusing, which is the opposite of the main picker's rule — there, nothing
+// selected would mean nothing drawn.
+{
+  const panel = panels.querySelector('[data-group="Orbit"]');
+  if (panel) {
+    const wrap = document.createElement("div");
+    wrap.className = "b-shape";
+    wrap.innerHTML = '<div class="b-shape-head">Orbit shape</div>' +
+      '<div class="b-shape-note" id="orbitShapeNote"></div>' +
+      '<input type="text" class="b-shape-filter" placeholder="Filter…" autocomplete="off">' +
+      '<div class="b-shape-grid"></div>';
+    panel.appendChild(wrap);
+    const grid = wrap.querySelector(".b-shape-grid");
+    const note = wrap.querySelector("#orbitShapeNote");
+    const btns = {};
+    for (const [, names] of SHAPE_CATS) {
+      for (const name of names) {
+        const i = SHAPES.indexOf(name);
+        if (i < 0) continue;
+        const b = document.createElement("button");
+        b.className = "engine-btn";
+        b.textContent = name;
+        b.addEventListener("click", () => {
+          const cur = shapeList(state.orbitShapes);
+          const at = cur.indexOf(i);
+          if (at < 0) cur.push(i); else cur.splice(at, 1);
+          state.orbitShapes = cur.join(",");
+          // Picking a shape here obviously means "draw shapes", so don't make that a second step.
+          if (cur.length && state.orbitUseShape < 0.5) state.orbitUseShape = 1;
+          syncOrbitShape(); syncParamInputs(); commitHistory(); rerender();
+        });
+        grid.appendChild(b);
+        btns[i] = b;
+      }
+    }
+    const filter = wrap.querySelector(".b-shape-filter");
+    filter.addEventListener("input", () => {
+      const q = filter.value.trim().toLowerCase();
+      for (const i in btns) btns[i].hidden = !!q && btns[i].textContent.indexOf(q) < 0;
+    });
+    window.syncOrbitShape = function () {
+      const own = shapeList(state.orbitShapes);
+      for (const i in btns) btns[i].classList.toggle("active", own.indexOf(+i) >= 0);
+      note.textContent = state.orbitUseShape < 0.5
+        ? "Turn on Draw shapes to use these — the ring draws plain beads otherwise."
+        : (own.length
+            ? own.length + " selected"
+            : "Following the particle shape (" +
+              shapeSet(state.shape, state.shapeMix).map((x) => SHAPES[x]).join(", ") + ")");
+    };
+    syncOrbitShape();
   }
 }
 

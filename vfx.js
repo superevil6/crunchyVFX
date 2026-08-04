@@ -150,6 +150,21 @@ function parseLayerDelays(str) {
 }
 const MAX_DELAY = 3;        // the duration ceiling — past this nothing could ever be seen
 
+// A standalone shape list — no primary — for a layer that carries its OWN selection rather than
+// borrowing the emitter's. Empty is the neutral default and means "inherit", which is what keeps
+// adding one from changing any effect that never set it. Same validation as shapeSet's extras:
+// junk and out-of-range entries are dropped rather than drawn.
+function shapeList(str) {
+  const out = [];
+  if (!str) return out;
+  for (const part of String(str).split(",")) {
+    const i = Math.round(parseFloat(part));
+    if (!isFinite(i) || i < 0 || i >= SHAPES.length || out.indexOf(i) >= 0) continue;
+    out.push(i);
+  }
+  return out;
+}
+
 // ---------- simulation ----------
 // Returns { frames: [Float32Array], counts: Int32Array, bbox, nFrames, fps, fs }.
 // World units are pixels at the patch's NOMINAL frame size (st.frameSize); rasterize() scales.
@@ -1867,7 +1882,13 @@ function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
   // on they draw the emitter's selected shape SET instead, one shape per body by index, so a mixed
   // selection gives a ring of alternating things. Default off: every existing orbit preset (Shield
   // Orbit, Power Rings) keeps the exact beads it shipped with.
-  const orbitSet = st.orbitUseShape > 0.5 ? shapeSet(st.shape, st.shapeMix) : null;
+  // Orbit's own selection if it has one, otherwise the emitter's — so "stars circling a glow burst"
+  // is expressible, while an effect that never touched the orbit picker keeps following the
+  // particles exactly as it did before the picker existed.
+  const orbitOwn = shapeList(st.orbitShapes);
+  const orbitSet = st.orbitUseShape > 0.5
+    ? (orbitOwn.length ? orbitOwn : shapeSet(st.shape, st.shapeMix))
+    : null;
   g.save();
   g.globalAlpha = st.orbit * c.a;
   g.fillStyle = c.css;

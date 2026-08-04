@@ -1242,3 +1242,6 @@
   .exp-note-row { align-items: flex-start; }
   .exp-subnote { font-size: 11px; color: var(--muted); line-height: 1.5; max-width: 460px; }
   .exp-subnote b { color: var(--ink); font-weight: 600; }
+  /* The orbit picker reuses the Layer B compact styling; the note explains what "nothing selected"
+     means, which is the one place these two pickers differ. */
+  .b-shape-note { font-size: 11px; color: var(--muted); line-height: 1.45; margin: 2px 0 6px; }

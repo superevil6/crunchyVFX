@@ -29,6 +29,11 @@ live in `shapeMix` (comma-joined indices, a `PATCH_EXTRAS` string) and Layer B m
 draws — `state.shape` alone silently ignores every shape after the first. It's split that way
 because `shape` is a stored index in every preset and share link and had to keep its old meaning.
 
+**An empty shape selection means different things in different pickers.** For the emitter and
+Layer B it would mean "draw nothing", so the last shape cannot be deselected. For Orbit it means
+"follow the particles", so deselecting the last one is how you get back to inheriting. That
+asymmetry is deliberate — it is what let Orbit gain a picker without changing any existing effect.
+
 **Every `PARAMS` default must be neutral/off.** `applyPreset` resets to defaults then overlays, so
 a non-neutral default silently changes every existing preset that doesn't mention that key.
 

@@ -397,6 +397,14 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    (*Shield Orbit*, *Power Rings*) are beads on purpose and a silent change to shipped output is
    worse than a new switch. `layerColour()` now returns h/s/l alongside the CSS string, which is
    what any structure layer needs to reach the sprite cache.
+
+   **Its own picker followed (2026-07-30).** Borrowing the emitter's selection made "stars circling a
+   stunned head" possible but not "stars circling a GLOW burst" — one selection served both roles.
+   `orbitShapes` is a standalone list in `PATCH_EXTRAS`, and **empty means FOLLOW rather than draw
+   nothing**, which is the inverse of the main picker's rule and the reason adding it changed no
+   existing effect. Deselecting the last shape therefore returns to inheriting instead of refusing,
+   and the panel says which state it is in — an empty picker that silently means something is worse
+   than one that tells you.
 2d. **Library (desktop)** — **done (2026-07-30).** Ported from CrunchyBGM §101, and the useful part
    was its rule: split by **verb**, not by feature. Export and Share turn *this* effect into a file;
    the Library is the shelf you come back to. Two things were filed wrongly by that test — imported

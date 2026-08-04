@@ -105,7 +105,8 @@
     // Non-PARAMS fields are the ones that leak if mishandled — check every one round-trips AND resets.
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
-                  shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2" }, "extras");
+                  shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
+                  orbitShapes: "3,10" }, "extras");
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -1432,6 +1433,55 @@
         ok(litAll(renderFrames(state, { size: 96, fit: true })) > 0,
            "a swept-pitch sound produces a visible effect, not a blank frame");
       }
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- orbit's own shape
+    // Orbit borrowed the emitter's selection, so "stars circling a glow burst" was not expressible.
+    // The rule that makes adding a picker safe: an empty selection means FOLLOW, not "draw nothing".
+    {
+      ok(PATCH_EXTRAS.orbitShapes === "",
+         "no orbit selection is the neutral default", JSON.stringify(PATCH_EXTRAS.orbitShapes));
+      ok(shapeList("").length === 0 && shapeList("3,10").join(",") === "3,10",
+         "a standalone shape list parses");
+      ok(shapeList("999,-2,abc,,7").join(",") === "7",
+         "…and drops junk rather than drawing it", shapeList("999,-2,abc,,7").join(","));
+
+      // Inheritance: with nothing of its own, orbit follows the particles — which is exactly what
+      // the presets that shipped before this picker existed rely on.
+      applyPreset(PRESETS["Stun Stars"], "Stun Stars", true);
+      ok(!state.orbitShapes, "a shipped orbit preset carries no selection of its own");
+      state.shape = SHAPES.indexOf("star"); state.shapeMix = "";
+      const inheritStar = litAll(renderFrames(state, { size: 96, fit: true }));
+      state.shape = SHAPES.indexOf("skull");
+      const inheritSkull = litAll(renderFrames(state, { size: 96, fit: true }));
+      ok(inheritStar !== inheritSkull,
+         "with no selection the ring follows the particle shape", inheritStar + " vs " + inheritSkull);
+
+      // Independence: give orbit its own and the particle shape stops mattering to the ring.
+      state.orbitShapes = String(SHAPES.indexOf("heart"));
+      state.shape = SHAPES.indexOf("star");
+      const ownA = litAll(renderFrames(state, { size: 96, fit: true }));
+      state.shape = SHAPES.indexOf("skull");
+      const ownB = litAll(renderFrames(state, { size: 96, fit: true }));
+      ok(ownA === ownB, "with its own selection the ring ignores the particle shape",
+         ownA + " vs " + ownB);
+      ok(ownA !== inheritStar, "…and draws something different from what it inherited");
+
+      // The toggle still gates it: a selection with Draw shapes off is still beads.
+      state.orbitUseShape = 0;
+      const beads = litAll(renderFrames(state, { size: 96, fit: true }));
+      state.orbitUseShape = 1;
+      ok(beads !== ownB, "Draw shapes still switches between beads and shapes", beads + " vs " + ownB);
+
+      // The picker exists and lives in the Orbit panel, not floating loose.
+      const note = document.getElementById("orbitShapeNote");
+      ok(!!note && !!note.closest('[data-group="Orbit"]'),
+         "the orbit picker sits inside the Orbit panel");
+      state.orbitShapes = ""; syncOrbitShape();
+      ok(/[Ff]ollowing/.test(note.textContent),
+         "…and says so when it is inheriting", note.textContent.slice(0, 48));
 
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
