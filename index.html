@@ -551,6 +551,39 @@ const PARAMS = [
   ["gridWidth",  "Line width",  0.2, 6, 0.1, 1, "px",  "Grid"],
   ["gridSpin",   "Spin",       -4, 4, 0.05, 0.3, "rev/s","Grid"],
   ["gridLife",   "Life",        0.05, 3, 0.01, 1, "s", "Grid"],
+
+  // Volumetric shafts fanning from the origin — soft-edged, and the gaps matter as much as the beams.
+  ["shafts",     "Light shafts",0, 1, 0.01, 0, "",     "Light shafts"],
+  ["shaftCount", "Count",       1, 24, 1, 7, "",       "Light shafts"],
+  ["shaftWidth", "Width",       1, 60, 1, 14, "°",     "Light shafts"],
+  ["shaftLength","Length",      0.2, 1.5, 0.01, 0.85, "","Light shafts"],
+  ["shaftSpin",  "Spin",       -4, 4, 0.05, 0.2, "rev/s","Light shafts"],
+  ["shaftLife",  "Life",        0.05, 3, 0.01, 1.2, "s","Light shafts"],
+
+  // Water ON the lens: it clings and sags rather than falling through the scene.
+  ["drops",      "Lens droplets",0, 1, 0.01, 0, "",    "Droplets"],
+  ["dropCount",  "Count",       1, 60, 1, 14, "",      "Droplets"],
+  ["dropSize",   "Size",        0.2, 2, 0.01, 0.7, "", "Droplets"],
+  ["dropSag",    "Sag",         0, 1, 0.01, 0.35, "",  "Droplets"],
+
+  // Four-point stars popping on and off — the gap is the effect.
+  ["twinkle",    "Twinkle",     0, 1, 0.01, 0, "",     "Twinkle"],
+  ["twinkleCount","Count",      1, 60, 1, 16, "",      "Twinkle"],
+  ["twinkleSize","Size",        0.1, 2, 0.01, 0.5, "", "Twinkle"],
+  ["twinkleRate","Rate",        0.2, 8, 0.1, 1.6, "/s","Twinkle"],
+
+  // A ring pulsing out of EVERY particle, staggered so no two are in step.
+  ["prings",     "Particle rings",0, 1, 0.01, 0, "",   "Particle rings"],
+  ["pringRate",  "Rate",        0.2, 8, 0.1, 1.4, "/s","Particle rings"],
+  ["pringSize",  "Reach",       0.1, 2, 0.01, 0.5, "", "Particle rings"],
+  ["pringWidth", "Line width",  0.2, 5, 0.1, 1, "px",  "Particle rings"],
+
+  // CRT interlace — a display laid over the finished picture, stacking with Crunch rather than
+  // competing with it.
+  ["scan",       "Scanlines",   0, 1, 0.01, 0, "",     "Scanlines"],
+  ["scanGap",    "Spacing",     2, 16, 1, 4, "px",     "Scanlines"],
+  ["scanDepth",  "Depth",       0, 1, 0.01, 0.5, "",   "Scanlines"],
+  ["scanRoll",   "Roll",        0, 4, 0.05, 0, "",     "Scanlines"],
   // Off by default so every orbit preset that shipped with round beads still draws round beads.
   ["orbitUseShape","Draw shapes",  0, 1, 1, 0, "", "Orbit"],
 
@@ -2148,6 +2181,11 @@ const LAYER_GROUPS = [
   { g: "Silhouette",  is: () => state.silhouette > 0, on: () => { state.silhouette = 0.8; } },
   { g: "Arms",        is: () => state.arms > 0,       on: () => { state.arms = 0.7; } },
   { g: "Grid",        is: () => state.grid > 0,       on: () => { state.grid = 0.6; } },
+  { g: "Light shafts",is: () => state.shafts > 0,     on: () => { state.shafts = 0.6; } },
+  { g: "Droplets",    is: () => state.drops > 0,      on: () => { state.drops = 0.6; } },
+  { g: "Twinkle",     is: () => state.twinkle > 0,    on: () => { state.twinkle = 0.8; } },
+  { g: "Particle rings", is: () => state.prings > 0,  on: () => { state.prings = 0.7; } },
+  { g: "Scanlines",   is: () => state.scan > 0,       on: () => { state.scan = 0.6; } },
   { g: "Shockwave",   is: () => state.wave > 0,       on: () => { state.wave = 0.6; } },
   { g: "Trails",      is: () => state.trail > 0 || state.echo > 0, on: () => { state.trail = 0.5; } },
   { g: "Glow",        is: () => state.glow > 0,       on: () => { state.glow = 0.5; } },
@@ -4781,7 +4819,8 @@ document.body.appendChild(timeModal);
 
 // The layer groups that own a delay. Particles are deliberately absent: they are the thing
 // everything else is staged against, so "delay the particles" is just "delay everything else less".
-const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Arms", "Grid", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
+const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Arms", "Grid",
+  "Light shafts", "Droplets", "Twinkle", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
   "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
   "Rift", "Tumble", "Swarm", "Crackle", "Orbit"];
 

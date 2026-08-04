@@ -1569,6 +1569,61 @@ window.PRESETS = {
     hue: 178, hueLife: 18, sat: 0.75, bright: 1, coreWhite: 0.5,
     glow: 0.45, duration: 1.5, fps: 24, frameSize: 5, originY: 0.6,
   },
+
+  // ---- Atmosphere (2026-07-30) ----
+  // Five systems about the space an effect happens IN — light through it, weather on the lens,
+  // glints off it — plus rings that make every particle feel alive rather than inert.
+  "Cathedral Light": {
+    shape: 5, count: 14, opacity: 1, emitter: 3, emitRadius: 0.24, emitTime: 1,
+    speed: 14, speedVar: 0.6, drag: 0.6, gravity: -18, turb: 0.2,
+    size: 20, sizeVar: 0.5, grow: 0.2, life: 2, lifeVar: 0.4, fadeIn: 0.3, fadeOut: 0.5,
+    shafts: 0.5, shaftCount: 6, shaftWidth: 11, shaftLength: 0.95, shaftSpin: 0.05, shaftLife: 2.4,
+    hue: 44, hueLife: 8, sat: 0.45, bright: 1, coreWhite: 0.35,
+    glow: 0.35, loopBlend: 0.4, duration: 2.4, fps: 24, frameSize: 5, originY: 0.2,
+  },
+  "Rift Light": {
+    shape: 1, count: 24, opacity: 1, emitter: 2, emitRadius: 0.08, emitTime: 0.5,
+    speed: 90, speedVar: 0.5, drag: 0.5,
+    size: 13, sizeVar: 0.4, sparkLen: 0.5, life: 0.9, lifeVar: 0.3, fadeOut: 0.5,
+    shafts: 0.8, shaftCount: 10, shaftWidth: 8, shaftLength: 0.8, shaftSpin: 0.8, shaftLife: 1.2,
+    hue: 285, hueLife: 30, sat: 0.8, bright: 1, coreWhite: 0.6,
+    glow: 0.5, duration: 1.3, fps: 24, frameSize: 5,
+  },
+  "Rain On Glass": {
+    shape: 0, count: 1, opacity: 0,
+    drops: 0.8, dropCount: 26, dropSize: 0.75, dropSag: 0.45,
+    weather: 0.5, weatherCount: 90, weatherAngle: 190, weatherSpeed: 2.2,
+    weatherLength: 0.16, weatherSize: 0.8,
+    hue: 205, hueLife: 5, sat: 0.35, bright: 1, coreWhite: 0.5,
+    glow: 0.25, loopBlend: 0.5, duration: 2, fps: 24, frameSize: 5,
+  },
+  "Glint Field": {
+    shape: 0, count: 12, opacity: 1, emitter: 6, emitRadius: 0.3, emitTime: 1,
+    speed: 10, speedVar: 0.6, drag: 0.6, size: 8, sizeVar: 0.5,
+    life: 1.8, lifeVar: 0.4, fadeIn: 0.3, fadeOut: 0.4,
+    twinkle: 0.9, twinkleCount: 22, twinkleSize: 0.55, twinkleRate: 1.8,
+    hue: 52, hueLife: 10, sat: 0.4, bright: 1, coreWhite: 0.8,
+    glow: 0.45, loopBlend: 0.5, duration: 2, fps: 24, frameSize: 5,
+  },
+  "Sonar Motes": {
+    shape: 0, count: 12, opacity: 1, emitter: 3, emitRadius: 0.22, emitTime: 0.6,
+    speed: 22, speedVar: 0.5, drag: 0.5, turb: 0.2,
+    size: 11, sizeVar: 0.4, life: 1.7, lifeVar: 0.3, fadeIn: 0.2, fadeOut: 0.45,
+    prings: 0.85, pringRate: 1.2, pringSize: 0.55, pringWidth: 1.2,
+    hue: 168, hueLife: 20, sat: 0.75, bright: 1, coreWhite: 0.5,
+    glow: 0.45, duration: 1.9, fps: 24, frameSize: 5,
+  },
+  "Old Broadcast": {
+    // Scanlines only darken where there is already alpha, so they need broad areas to cut across.
+    // The first version used small specks and the bands had nothing to band.
+    shape: 0, shapeMix: "4", count: 16, opacity: 1, emitter: 6, emitRadius: 0.26, emitTime: 0.8,
+    speed: 30, speedVar: 0.7, drag: 0.5,
+    size: 34, sizeVar: 0.5, grow: 0.15, life: 0.9, lifeVar: 0.4, fadeIn: 0.1, fadeOut: 0.45,
+    scan: 0.8, scanGap: 4, scanDepth: 0.6, scanRoll: 0.6,
+    chroma: 0.35, chromaAmount: 0.4,
+    hue: 130, hueLife: 15, sat: 0.5, bright: 1, coreWhite: 0.45,
+    glow: 0.3, duration: 1.4, fps: 24, frameSize: 5,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1603,5 +1658,7 @@ window.PRESET_CATEGORIES = [
                       "Dream Drift", "Muzzle Cone", "Searchbeam"]],
   ["Symmetry & Stylise", ["Mandala Burst", "Snow Mandala", "Backlit Burst", "Hit Blank",
                           "Galaxy Spin", "Summon Grid"]],
+  ["Atmosphere", ["Cathedral Light", "Rift Light", "Rain On Glass", "Glint Field",
+                  "Sonar Motes", "Old Broadcast"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
 ];

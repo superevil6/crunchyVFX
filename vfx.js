@@ -751,6 +751,8 @@ function drawFrame(sim, f, g, st, xf) {
   };
   {
     stage("Bokeh", (tt) => drawBokeh(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Droplets", (tt) => drawDroplets(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Twinkle", (tt) => drawTwinkle(g, st, tt, xf, fs, ox, oy, seed));
     stage("Decal", (tt) => drawDecal(g, st, tt, xf, fs, ox, oy));
     stage("Sweep", (tt) => drawSweep(g, st, tt, xf, fs, ox, oy));
     stage("Fracture", (tt) => drawFracture(g, st, tt, xf, fs, ox, oy, seed));
@@ -761,6 +763,7 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Weather", (tt) => drawWeather(g, st, tt, xf, fs, ox, oy, seed));
     stage("Sigil", (tt) => drawSigil(g, st, tt, xf, fs, ox, oy, seed));
     stage("Chain", (tt) => drawChain(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Light shafts", (tt) => drawShafts(g, st, tt, xf, fs, ox, oy, seed));
     stage("Grid", (tt) => drawGrid(g, st, tt, xf, fs, ox, oy, seed));
     stage("Arms", (tt) => drawArms(g, st, tt, xf, fs, ox, oy, seed));
     stage("Cone", (tt) => drawCone(g, st, tt, xf, fs, ox, oy, seed));
@@ -775,6 +778,7 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Swarm", (tt) => drawSwarm(g, st, tt, xf, fs, ox, oy, seed));
     stage("Crackle", (tt) => drawCrackle(g, st, tt, xf, fs, ox, oy, seed));
     stage("Orbit", (tt) => drawOrbit(g, st, tt, xf, fs, ox, oy, seed));
+    drawPRings(g, sim, f, st, xf);
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
   }
@@ -2098,6 +2102,133 @@ function drawGrid(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// ---------- light shafts ----------
+// Volumetric shafts fanning from the origin — light through a window, a rift, a boss doorway. Cone
+// is ONE solid wedge and Lines are hard-edged rays; a shaft is neither, it is a soft-edged beam
+// with a bright root that fades to nothing, and the gaps between shafts are as much of the look as
+// the shafts. Widths are hashed per shaft, because evenly-spaced identical beams read as a fan.
+function drawShafts(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.shafts <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.shaftLife));
+  if (u >= 1) return;
+  const n = Math.max(1, Math.round(st.shaftCount));
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.45);
+  const len = st.shaftLength * fs * xf.k * (0.4 + 0.6 * Math.min(1, u * 2));
+  const fade = u < 0.2 ? u / 0.2 : 1 - (u - 0.2) / 0.8;
+  const spin = t * st.shaftSpin;
+  g.save();
+  g.translate(ox, oy);
+  g.rotate(spin);
+  for (let i = 0; i < n; i++) {
+    const base = (i / n) * Math.PI * 2;
+    const wob = 0.45 + rnd(seed, i, 96) * 1.1;             // uneven, or it reads as a paper fan
+    const half = st.shaftWidth * DEG * 0.5 * wob;
+    const grad = g.createLinearGradient(0, 0, Math.cos(base) * len, Math.sin(base) * len);
+    grad.addColorStop(0, c.css);
+    grad.addColorStop(0.25, c.css);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalAlpha = st.shafts * c.a * clamp01(fade) * (0.5 + 0.5 * rnd(seed, i, 97));
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(Math.cos(base - half) * len, Math.sin(base - half) * len);
+    g.lineTo(Math.cos(base + half) * len, Math.sin(base + half) * len);
+    g.closePath();
+    g.fill();
+  }
+  g.restore();
+}
+
+// ---------- lens droplets ----------
+// Water sitting ON the lens rather than falling through the scene. That is the whole distinction
+// from the Weather layer: these do not move with the world, they cling, sag slowly and catch a
+// highlight — which is what tells you there is a camera between you and the effect.
+function drawDroplets(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.drops <= 0) return;
+  const n = Math.max(1, Math.round(st.dropCount));
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.55);
+  const W = g.canvas.width, H = g.canvas.height;
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const dx = rnd(seed, i, 98), dy = rnd(seed, i, 99), ds = rnd(seed, i, 100);
+    // Sag, not fall: a droplet on glass creeps and stops, so the drift is small and eased.
+    const sag = st.dropSag * H * 0.08 * (1 - Math.exp(-t * 1.5)) * (0.4 + ds);
+    const x = dx * W, y = dy * H + sag;
+    const r = Math.max(1.2, (0.4 + ds) * st.dropSize * Math.min(W, H) * 0.035);
+    g.globalAlpha = st.drops * c.a * (0.4 + 0.6 * ds);
+    const grad = g.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+    grad.addColorStop(0, c.css);
+    grad.addColorStop(0.55, "rgba(0,0,0,0)");
+    grad.addColorStop(0.85, c.css);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}
+
+// ---------- twinkle ----------
+// Four-point stars popping on and off at fixed points. Not particles: they never travel, and their
+// whole character is the POP — up and gone inside a few frames, on a hashed schedule so no two
+// share a beat. Particles with a star shape would drift and fade together; this reads as glinting.
+function drawTwinkle(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.twinkle <= 0) return;
+  const n = Math.max(1, Math.round(st.twinkleCount));
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.75);
+  const W = g.canvas.width, H = g.canvas.height;
+  const period = 1 / Math.max(0.1, st.twinkleRate);
+  g.save();
+  g.strokeStyle = c.css;
+  g.lineCap = "round";
+  for (let i = 0; i < n; i++) {
+    const tx = rnd(seed, i, 101), ty = rnd(seed, i, 102), ph = rnd(seed, i, 103);
+    const local = ((t / period) + ph) % 1;
+    if (local > 0.5) continue;                    // dark for half its cycle — the gap IS the twinkle
+    const k = Math.sin(local * Math.PI * 2);      // up and back down inside the visible half
+    if (k <= 0.01) continue;
+    const x = tx * W, y = ty * H;
+    const r = st.twinkleSize * Math.min(W, H) * 0.05 * k;
+    g.globalAlpha = st.twinkle * c.a * k;
+    g.lineWidth = Math.max(0.5, r * 0.18);
+    g.beginPath();
+    g.moveTo(x - r, y); g.lineTo(x + r, y);
+    g.moveTo(x, y - r); g.lineTo(x, y + r);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- particle rings ----------
+// A ring pulsing outward from EVERY particle, phase-offset by its id. The Ripples layer sends rings
+// from the origin, which says "something happened here"; this says "every one of these things is
+// pulsing" — sonar contacts, bubbles, charged motes. It reads the frame table for the same reason
+// the web and path-trail layers do: it needs where the particles actually are.
+function drawPRings(g, sim, f, st, xf) {
+  if (st.prings <= 0) return;
+  const arr = sim.frames[f], n = sim.counts[f];
+  const t = f / sim.fps;
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.4);
+  const maxR = st.pringSize * sim.fs * xf.k * 0.25;
+  const period = 1 / Math.max(0.1, st.pringRate);
+  g.save();
+  g.strokeStyle = c.css;
+  for (let i = 0; i < n; i++) {
+    const o = i * P_STRIDE;
+    if (arr[o + P_KIND] !== K_PART && arr[o + P_KIND] !== K_PART2) continue;
+    const a = arr[o + P_ALPHA];
+    if (a <= 0.02) continue;
+    const id = arr[o + P_ID];
+    const ph = ((t / period) + (id * 0.61803) % 1) % 1;    // golden-ratio stagger: no two in step
+    const r = ph * maxR;
+    if (r < 0.5) continue;
+    const x = arr[o + P_X] * xf.k + xf.dx, y = arr[o + P_Y] * xf.k + xf.dy;
+    g.globalAlpha = st.prings * c.a * a * (1 - ph) * (1 - ph);
+    g.lineWidth = Math.max(0.4, st.pringWidth * xf.k);
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
+  }
+  g.restore();
+}
+
 // ---------- tumble ----------
 // Flat pieces falling and turning over in pseudo-3D: confetti, petals, leaves, paper, coins. The
 // trick is that scaleY passes through zero — that instant of zero width IS the edge-on frame, and
@@ -2817,6 +2948,31 @@ function postProcess(cv, st, overlay, t) {
       d[i]     = d[i]     + (tone[0] - d[i])     * m;
       d[i + 1] = d[i + 1] + (tone[1] - d[i + 1]) * m;
       d[i + 2] = d[i + 2] + (tone[2] - d[i + 2]) * m;
+    }
+    g.putImageData(img, 0, 0);
+  }
+
+  if (st.scan > 0) {
+    // CRT interlace: every other band dimmed, optionally rolling. Distinct from the Crunch group,
+    // which reduces the IMAGE (fewer pixels, fewer colours) — this adds a display on top of it, so
+    // the two stack rather than compete. Only ever darkens, and only where there is already alpha,
+    // so on a transparent sprite it modulates the effect instead of laying bars across the frame.
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const gap = Math.max(2, Math.round(st.scanGap));
+    // `t` is what this function gets — the post chain has no frame index, and reaching for one
+    // is how the first version referenced a variable that does not exist here.
+    const roll = Math.round(st.scanRoll * h * (t / Math.max(0.01, st.duration)));
+    for (let y = 0; y < h; y++) {
+      const band = ((y + roll) % gap) / gap;
+      // A soft band rather than a hard on/off line: a hard one aliases badly once the sprite is
+      // scaled, which is the first thing an engine does to it.
+      const dim = 1 - st.scanDepth * (0.5 + 0.5 * Math.cos(band * Math.PI * 2)) * st.scan;
+      if (dim >= 0.999) continue;
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        if (d[o + 3] < 4) continue;
+        d[o] *= dim; d[o + 1] *= dim; d[o + 2] *= dim;
+      }
     }
     g.putImageData(img, 0, 0);
   }
