@@ -451,6 +451,47 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    which is `#rand`), no step spotlights the whole page, every card lands on screen, one row per
    entry, and the tutorial/welcome seen-marking split in both directions. BGM's §65 caveat carries
    over unchanged — a selector test catches a renamed control and never a moved feature.
+2g. **Share as a posting GIF** — **done (2026-07-30).** Not a second export format; a different
+   *job*. Export → GIF produces an asset: exact frame size, transparent, for an engine. This produces
+   a POST: 320/256/200px depending on frame count, composited onto the app's own dark stage colour,
+   looping forever, with an optional site tag.
+
+   The reason is distribution, not features. Effects do not travel the way sounds do — a sound is its
+   own payoff in one second, a sprite sheet is a supply you only want mid-project. A looping GIF
+   plays inline in Discord, Bluesky and Mastodon with no click and no context, so the effect can sell
+   itself to someone who was not looking for a tool.
+
+   Opaque on purpose: GIF carries 1-bit alpha and every effect here has soft edges, so a transparent
+   version fringes hard against whatever background a client uses. Resolution yields to frame count
+   because that is what actually blows up a GIF. The site tag defaults ON — it is the only reason the
+   file does any work once it leaves — with the checkbox beside it, and Export untouched, so the
+   "yours, unwatermarked" promise still describes the thing that promise is about.
+2h. **matchSound, measured** — **done (2026-07-30).** Fuzzing 160 patches across CrunchySFX's real
+   parameter ranges found **22% of matched sounds ending in dead frames** and **27% rendering their
+   particles below a pixel**. Two causes, both structural:
+
+   - **Length and envelope are independent inputs.** A two-second sound can have a tenth-second
+     decay, and mapping each in isolation produced a two-second clip holding a tenth of a second of
+     visuals. Stretching `life` would be the wrong reading — a snappy envelope should still look
+     snappy — so instead a long sound with a short envelope now spreads its births over the clip.
+     That is also the truer mapping: such a sound is *sustained*, and a stream of short-lived
+     particles is what sustained looks like.
+   - **Fit divides by the bounding box**, and that box depends on speed, radial, chained shots and
+     drag together, with `grow` shrinking particles below nominal on the way. Two analytic estimates
+     of "travel" were wrong (one by 3.6x), so the correction now **simulates the patch and measures**
+     what a particle would actually land as, scaling size until it reads. It iterates, because the
+     box *includes* the particle radius — growing them grows the box and cancels part of the fix.
+
+   **Ordering was the whole bug at one point.** The correction first sat mid-function, where `shots`
+   had not yet been derived from the sound's repeat count; it measured a one-shot bounding box,
+   decided the particles were fine, and shipped specks anyway. It must run after every mapping.
+
+   Result: sub-pixel 43 → 0, blank 9 → 1, dead-tail 36 → 3 of 160. The clamp added earlier never
+   fires on real input — no mapping leaves its range across the whole domain — so it stands purely
+   as defence against a hand-edited link.
+
+   Asserted with corners **and combinations**: single extreme inputs never produced a speck, and an
+   assertion built only from corners passed with the fix disabled. It took several extremes at once.
 3. **Collision / bounce** — deferred with it. It's the first param that implies a *scene*
    rather than a sprite, which is a bigger conceptual step than it looks.
 4. **Preset categories** — mirror the SFX ones (Explosions, Impacts, Magic, Pickups, UI,

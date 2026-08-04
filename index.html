@@ -5430,6 +5430,57 @@ function matchSound(obj) {
   p.fadeOut = clamp01(0.3 + d("release"));
   note("envelope → life " + p.life.toFixed(2) + "s");
 
+  // LENGTH and ENVELOPE are independent in CrunchySFX — a two-second sound can have a tenth-second
+  // decay — so mapping each in isolation produced a two-second clip holding a tenth of a second of
+  // visuals. Fuzzing the real parameter ranges put that at 22% of all matched sounds.
+  //
+  // Stretching `life` to fill the clip would be the wrong reading: a snappy envelope should still
+  // look snappy. A long sound with a short envelope is SUSTAINED, and the honest visual for that is
+  // a stream of short-lived particles rather than one lazy puff — which is exactly what emitTime
+  // says. Births spread so the last one dies about when the clip does.
+  if (p.life < p.duration * 0.85) {
+    p.emitTime = clamp01((p.duration - p.life) / p.duration);
+    note("envelope shorter than the sound → emitted over " +
+         Math.round(p.emitTime * 100) + "% of the clip rather than one burst");
+  }
+
+  // Under Fit the bounding box across every frame sets the scale, so a fast, long-lived sound scales
+  // its own particles into specks — 27% of matched sounds came out sub-pixel.
+  //
+  // MEASURED, not modelled. The box depends on speed, radial, chained shots and drag together, and
+  // `grow` (which defaults negative) shrinks particles below their nominal size on the way — a first
+  // attempt estimated travel analytically and under-read the real box by 3.6x. So simulate the patch
+  // once, look at what a particle would actually land as, and scale up if it would arrive invisible.
+  // This runs on a paste or a link open, not per frame, so one simulate is affordable.
+  // How big the median particle would actually land, at this patch's own frame size, with Fit on.
+  const renderedParticlePx = (patch) => {
+    const probe = {};
+    for (const q of PARAMS) probe[q[0]] = q[5];
+    for (const k2 in PATCH_EXTRAS) probe[k2] = PATCH_EXTRAS[k2];
+    Object.assign(probe, patch);
+    try {
+      const sim = simulate(probe);
+      const dims = frameDims(probe);
+      const bw = Math.max(1, sim.bbox.x1 - sim.bbox.x0), bh = Math.max(1, sim.bbox.y1 - sim.bbox.y0);
+      const fitK = Math.min(dims.w * 0.94 / bw, dims.h * 0.94 / bh);
+      const sizes = [];
+      for (let f = 0; f < sim.nFrames; f++) {
+        const arr = sim.frames[f], n = sim.counts[f];
+        for (let i = 0; i < n; i++) {
+          const o = i * P_STRIDE;
+          if (arr[o + P_KIND] === K_PART) sizes.push(arr[o + P_SIZE]);
+        }
+      }
+      if (sizes.length >= 8) {
+        sizes.sort((a, b) => a - b);
+        return sizes[Math.floor(sizes.length / 2)] * fitK;
+      }
+    } catch (e) { /* the visual mapping still stands without this correction */ }
+    return -1;
+  };
+
+
+
   // The crunch stage maps one-for-one, which is the whole brand.
   const bits = d("bitcrush"), ds = d("downsample");
   if (bits < 16) { p.posterize = Math.max(2, Math.round(bits * 2)); note("bitcrush " + bits + "-bit → " + p.posterize + " colour steps"); }
@@ -5449,6 +5500,30 @@ function matchSound(obj) {
   if (d("ringMod") > 0.05) { p.hueVar = clamp01(d("ringMod") * 0.6); note("ring mod → colour scatter"); }
   if (d("limiter") > 0.1 || d("transient") > 0.2) { p.shake = clamp01(Math.max(d("limiter"), d("transient")) * 0.4); note("limiter/transient → shake"); }
   p.emitSpread = Math.round(120 + d("width") * 240);
+
+  // MUST run last. It sat mid-function on the first attempt and measured a patch that did not exist
+  // yet: `shots` is derived from the sound's repeat count further down, and eight chained bursts
+  // make the bounding box several times larger. The correction was reading a one-shot box, deciding
+  // the particles were fine, and shipping specks. Everything the simulation depends on has to be on
+  // `p` before anything measures it.
+  {
+    const WANT = 2;                       // below this a particle stops reading as a shape
+    const before = renderedParticlePx(p);
+    // Iterated, because the bounding box INCLUDES the particle radius: making them bigger also makes
+    // the box bigger, which shrinks Fit again and cancels part of the correction. One pass left a
+    // fifth of all matched sounds still sub-pixel. It converges quickly — as size comes to dominate
+    // the box the ratio stops moving — so three passes is plenty and each is a few milliseconds.
+    if (before > 0.01 && before < WANT) {
+      for (let pass = 0; pass < 3; pass++) {
+        const px = renderedParticlePx(p);
+        if (px <= 0.01 || px >= WANT) break;
+        p.size = Math.min(96, p.size * Math.min(4, WANT / px));
+      }
+      const after = renderedParticlePx(p);
+      note("Fit would shrink these to " + before.toFixed(1) + "px → size raised to " +
+           Math.round(p.size) + " (" + after.toFixed(1) + "px)");
+    }
+  }
 
   // Clamp everything to its declared PARAMS range before handing it over.
   //

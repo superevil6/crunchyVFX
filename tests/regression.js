@@ -1436,6 +1436,81 @@
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
+    // ---------------------------------------------------------------- matched sounds
+    // matchSound maps an arbitrary CrunchySFX patch, so unlike a preset nothing static can vet its
+    // output. Fuzzing the real parameter ranges found 22% of matched sounds ending in dead frames
+    // and 27% rendering their particles below a pixel. These walk the corners — each input at each
+    // end, where a linear mapping breaks first.
+    {
+      const R = { duration: [0.05, 2], freq: [20, 4000], sweep: [-1, 1], noise: [0, 1],
+        boom: [0, 1], drive: [0, 1], decay: [0, 1], repeat: [1, 12], rate: [1, 30],
+        width: [0, 1], vibDepth: [0, 1], ringMod: [0, 1], limiter: [0, 1], transient: [-1, 1] };
+      // Corners alone are NOT enough — verified by disabling the fix and watching this pass. One
+      // extreme input at a time never produced a speck; it took several at once (a fast sweep AND a
+      // long decay AND a high repeat count) to blow the bounding box out. So the cases are corners
+      // plus a deterministic walk of combinations, which is what found the bug in the first place.
+      const cases = [];
+      for (const k in R) for (const end of [0, 1]) {
+        const sfx = { duration: 0.5 }; sfx[k] = R[k][end];
+        cases.push([k + "=" + R[k][end], sfx]);
+      }
+      let fseed = 12345;
+      const frnd = () => (fseed = (fseed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      for (let i = 0; i < 24; i++) {
+        const sfx = {};
+        for (const k in R) sfx[k] = R[k][0] + frnd() * (R[k][1] - R[k][0]);
+        sfx.wave = Math.floor(frnd() * 20);
+        cases.push(["combo#" + i, sfx]);
+      }
+
+      const oor = [], tiny = [];
+      {
+        for (const [label, sfx] of cases) {
+          const m = matchSound({ v: 1, s: sfx, t: label });
+
+          for (const key in m.patch) {
+            const row = PARAM_BY_KEY[key];
+            if (row && typeof m.patch[key] === "number" &&
+                (m.patch[key] < row[2] || m.patch[key] > row[3])) {
+              oor.push(label + " → " + key + "=" + m.patch[key]);
+            }
+          }
+
+          // The fix this pins: the size correction has to run AFTER every mapping, or it measures a
+          // patch without `shots` and cheerfully approves specks.
+          applyPreset(m.patch, label, true);
+          const prep = renderPrep(Object.assign({}, state), { fit: true });
+          const sizes = [];
+          for (let f = 0; f < prep.sim.nFrames; f++) {
+            const arr = prep.sim.frames[f], n = prep.sim.counts[f];
+            for (let i = 0; i < n; i++) {
+              const o = i * P_STRIDE;
+              if (arr[o + P_KIND] === K_PART) sizes.push(arr[o + P_SIZE]);
+            }
+          }
+          if (sizes.length < 8) continue;
+          sizes.sort((a, b) => a - b);
+          const px = sizes[Math.floor(sizes.length / 2)] * prep.k;
+          if (px < 1) tiny.push(label + " (" + px.toFixed(2) + "px)");
+        }
+      }
+      ok(oor.length === 0, "no sound maps to a value outside its param's range", oor.slice(0, 4).join(", "));
+      ok(tiny.length === 0, "no matched sound renders its particles below a pixel",
+         tiny.slice(0, 4).join(", ") || "all corners clear");
+
+      // A sound's length and its envelope are independent, so a long sound with a short decay must
+      // spread its births rather than leave the clip empty.
+      const sustained = matchSound({ v: 1, s: { duration: 1.8, decay: 0.05, freq: 400 }, t: "long" });
+      ok(sustained.patch.emitTime > 0.3,
+         "a long sound with a short envelope emits over the clip instead of one burst",
+         "emitTime=" + (sustained.patch.emitTime || 0).toFixed(2));
+      const snappy = matchSound({ v: 1, s: { duration: 0.2, decay: 0.5, freq: 400 }, t: "short" });
+      ok(!snappy.patch.emitTime,
+         "…while a short sound still fires as one burst", "emitTime=" + (snappy.patch.emitTime || 0));
+
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
     // ---------------------------------------------------------------- preset quality
     // Three batches of presets were written this session and HALF of them were wrong on first
     // render — always one of two faults, and every one passed "the preset renders" because it did
