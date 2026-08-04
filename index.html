@@ -518,6 +518,39 @@ const PARAMS = [
   ["coneLength", "Length",      0.1, 1.4, 0.01, 0.7, "","Cone"],
   ["coneSoft",   "Solid core",  0, 1, 0.01, 0.25, "",  "Cone"],
   ["coneLife",   "Life",        0.05, 3, 0.01, 0.5, "s","Cone"],
+
+  // Fold the frame into mirrored wedges — the one system that changes an effect's SYMMETRY.
+  ["kaleido",    "Kaleidoscope",0, 1, 0.01, 0, "",     "Kaleidoscope"],
+  ["kalCount",   "Segments",    2, 16, 1, 6, "",       "Kaleidoscope"],
+  ["kalSpin",    "Rotate",      0, 360, 1, 0, "°",     "Kaleidoscope"],
+
+  // A soft coloured edge where the effect meets nothing — backlight, not an outline.
+  ["rim",        "Rim light",   0, 1, 0.01, 0, "",     "Rim light"],
+  ["rimWidth",   "Width",       0.1, 1, 0.01, 0.4, "", "Rim light"],
+  ["rimHue",     "Hue offset",-180, 180, 1, 0, "°",    "Rim light"],
+
+  // The hit-flash: every colour flattened to one tone, the shape untouched.
+  ["silhouette", "Silhouette",  0, 1, 0.01, 0, "",     "Silhouette"],
+  ["silWhite",   "Toward white",0, 1, 0.01, 0.8, "",   "Silhouette"],
+
+  // Logarithmic spiral arms — a curve that exists whether or not anything travels along it.
+  ["arms",       "Arms",        0, 1, 0.01, 0, "",     "Arms"],
+  ["armCount",   "Count",       1, 12, 1, 4, "",       "Arms"],
+  ["armTurns",   "Turns",       0.1, 3, 0.01, 0.8, "", "Arms"],
+  ["armReach",   "Reach",       0.1, 1.2, 0.01, 0.55, "","Arms"],
+  ["armWidth",   "Width",       0.2, 8, 0.1, 2, "px",  "Arms"],
+  ["armSpin",    "Spin",       -8, 8, 0.1, 1.5, "rev/s","Arms"],
+  ["armLife",    "Life",        0.05, 3, 0.01, 1, "s", "Arms"],
+
+  // An expanding wireframe in perspective — a grid says "there is a plane here".
+  ["grid",       "Grid",        0, 1, 0.01, 0, "",     "Grid"],
+  ["gridCells",  "Rings",       2, 12, 1, 5, "",       "Grid"],
+  ["gridSpokes", "Spokes",      3, 24, 1, 8, "",       "Grid"],
+  ["gridReach",  "Reach",       0.1, 1.2, 0.01, 0.6, "","Grid"],
+  ["gridTilt",   "Tilt",        0, 1, 0.01, 0.7, "",   "Grid"],
+  ["gridWidth",  "Line width",  0.2, 6, 0.1, 1, "px",  "Grid"],
+  ["gridSpin",   "Spin",       -4, 4, 0.05, 0.3, "rev/s","Grid"],
+  ["gridLife",   "Life",        0.05, 3, 0.01, 1, "s", "Grid"],
   // Off by default so every orbit preset that shipped with round beads still draws round beads.
   ["orbitUseShape","Draw shapes",  0, 1, 1, 0, "", "Orbit"],
 
@@ -2110,6 +2143,11 @@ const LAYER_GROUPS = [
   { g: "Chromatic",   is: () => state.chroma > 0,     on: () => { state.chroma = 0.5; } },
   { g: "Bokeh",       is: () => state.bokeh > 0,      on: () => { state.bokeh = 0.5; } },
   { g: "Cone",        is: () => state.cone > 0,       on: () => { state.cone = 0.7; } },
+  { g: "Kaleidoscope",is: () => state.kaleido > 0,    on: () => { state.kaleido = 0.9; } },
+  { g: "Rim light",   is: () => state.rim > 0,        on: () => { state.rim = 0.7; } },
+  { g: "Silhouette",  is: () => state.silhouette > 0, on: () => { state.silhouette = 0.8; } },
+  { g: "Arms",        is: () => state.arms > 0,       on: () => { state.arms = 0.7; } },
+  { g: "Grid",        is: () => state.grid > 0,       on: () => { state.grid = 0.6; } },
   { g: "Shockwave",   is: () => state.wave > 0,       on: () => { state.wave = 0.6; } },
   { g: "Trails",      is: () => state.trail > 0 || state.echo > 0, on: () => { state.trail = 0.5; } },
   { g: "Glow",        is: () => state.glow > 0,       on: () => { state.glow = 0.5; } },
@@ -4743,7 +4781,7 @@ document.body.appendChild(timeModal);
 
 // The layer groups that own a delay. Particles are deliberately absent: they are the thing
 // everything else is staged against, so "delay the particles" is just "delay everything else less".
-const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
+const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Arms", "Grid", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
   "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
   "Rift", "Tumble", "Swarm", "Crackle", "Orbit"];
 

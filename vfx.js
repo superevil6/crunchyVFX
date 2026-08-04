@@ -655,6 +655,23 @@ function clearSpriteCache() { spriteCache.clear(); }
 
 function hsl(h, s, l) { return "hsl(" + (((h % 360) + 360) % 360) + "," + Math.round(clamp01(s) * 100) + "%," + Math.round(clamp01(l) * 100) + "%)"; }
 
+// The same colour as RGB components, for the passes that write pixels directly rather than setting
+// a fillStyle. Kept beside hsl() so the two can never disagree about what a colour means.
+function hslParts(h, s, l) {
+  const hh = ((((h % 360) + 360) % 360)) / 360, ss = clamp01(s), ll = clamp01(l);
+  if (ss <= 0) { const v = Math.round(ll * 255); return [v, v, v]; }
+  const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss;
+  const pp = 2 * ll - q;
+  const ch = (t) => {
+    if (t < 0) t += 1; else if (t > 1) t -= 1;
+    if (t < 1 / 6) return pp + (q - pp) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return pp + (q - pp) * (2 / 3 - t) * 6;
+    return pp;
+  };
+  return [Math.round(ch(hh + 1 / 3) * 255), Math.round(ch(hh) * 255), Math.round(ch(hh - 1 / 3) * 255)];
+}
+
 function makeSprite(shape, hue, sat, lum, st, frame) {
   const c = document.createElement("canvas");
   c.width = c.height = SPRITE_PX;
@@ -744,6 +761,8 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Weather", (tt) => drawWeather(g, st, tt, xf, fs, ox, oy, seed));
     stage("Sigil", (tt) => drawSigil(g, st, tt, xf, fs, ox, oy, seed));
     stage("Chain", (tt) => drawChain(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Grid", (tt) => drawGrid(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Arms", (tt) => drawArms(g, st, tt, xf, fs, ox, oy, seed));
     stage("Cone", (tt) => drawCone(g, st, tt, xf, fs, ox, oy, seed));
     stage("Beam", (tt) => drawBeam(g, st, tt, xf, fs, ox, oy, seed));
     stage("Ribbon", (tt) => drawRibbon(g, st, tt, xf, fs, ox, oy));
@@ -2006,6 +2025,79 @@ function drawCone(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// ---------- arms ----------
+// Logarithmic spiral arms sweeping out of the origin — a galaxy, a summoning, water going down a
+// drain. The Vortex layer curls PARTICLES around a centre and the spiral SHAPE draws one coil per
+// sprite; neither can draw the structure itself, which is what an arm is: a curve that exists
+// whether or not anything is travelling along it.
+function drawArms(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.arms <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.armLife));
+  if (u >= 1) return;
+  const n = Math.max(1, Math.round(st.armCount));
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.4);
+  const reach = st.armReach * fs * xf.k * Math.min(1, 0.25 + u * 1.4);
+  const spin = t * st.armSpin;
+  const fade = u < 0.2 ? u / 0.2 : 1 - (u - 0.2) / 0.8;
+  g.save();
+  g.globalAlpha = st.arms * c.a * clamp01(fade);
+  g.strokeStyle = c.css;
+  g.lineCap = "round";
+  const STEPS = 26;
+  for (let a = 0; a < n; a++) {
+    const base = (a / n) * Math.PI * 2 + spin;
+    g.beginPath();
+    for (let i = 0; i <= STEPS; i++) {
+      const f = i / STEPS;
+      // Logarithmic, so the arm opens out rather than coiling evenly — an even coil reads as a
+      // spring, this reads as something thrown outward while turning.
+      const r = reach * Math.pow(f, 0.75);
+      const th = base + f * st.armTurns * Math.PI * 2;
+      const x = ox + Math.cos(th) * r, y = oy + Math.sin(th) * r;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.lineWidth = Math.max(0.5, st.armWidth * xf.k * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
+// ---------- grid ----------
+// An expanding wireframe: tech overlays, hologram tables, a portal's floor. Deliberately drawn in
+// PERSPECTIVE rather than flat — a flat grid is wallpaper, a tilted one is a surface, and the whole
+// value of a grid is telling you there is a plane there.
+function drawGrid(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.grid <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.gridLife));
+  if (u >= 1) return;
+  const cells = Math.max(2, Math.round(st.gridCells));
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.45);
+  const reach = st.gridReach * fs * xf.k * (0.3 + 0.7 * Math.min(1, u * 1.6));
+  const squash = 1 - clamp01(st.gridTilt) * 0.88;
+  const fade = u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85;
+  g.save();
+  g.globalAlpha = st.grid * c.a * clamp01(fade);
+  g.strokeStyle = c.css;
+  g.lineWidth = Math.max(0.4, st.gridWidth * xf.k);
+  g.translate(ox, oy);
+  g.scale(1, squash);
+  // Concentric rings plus spokes: the polar form of a grid, which expands from a point the way an
+  // effect does. A square lattice would have to come from an edge.
+  for (let i = 1; i <= cells; i++) {
+    const r = reach * (i / cells);
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke();
+  }
+  const spokes = Math.max(3, Math.round(st.gridSpokes));
+  for (let i = 0; i < spokes; i++) {
+    const th = (i / spokes) * Math.PI * 2 + t * st.gridSpin;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(Math.cos(th) * reach, Math.sin(th) * reach);
+    g.stroke();
+  }
+  g.restore();
+}
+
 // ---------- tumble ----------
 // Flat pieces falling and turning over in pseudo-3D: confetti, petals, leaves, paper, coins. The
 // trick is that scaleY passes through zero — that instant of zero width IS the edge-on frame, and
@@ -2496,6 +2588,40 @@ function postProcess(cv, st, overlay, t) {
     g.putImageData(img, 0, 0);
   }
 
+  if (st.kaleido > 0 && st.kalCount >= 2) {
+    // Fold the frame into N mirrored wedges around the origin. This is the one system that changes
+    // an effect's SYMMETRY rather than its colour or motion, which is why a burst put through it
+    // stops being a burst and becomes a mandala — the source material is unchanged, the geometry is
+    // not. Mirroring alternate wedges (rather than rotating copies) is what makes the seams meet:
+    // rotation alone leaves a visible cut at every boundary.
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src.length);
+    const cx = st.originX * w, cy = st.originY * h;
+    const seg = (Math.PI * 2) / Math.round(st.kalCount);
+    const roll = st.kalSpin * DEG;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = x - cx, dy = y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        let th = Math.atan2(dy, dx) - roll;
+        th = ((th % seg) + seg) % seg;                    // into one wedge
+        if (th > seg / 2) th = seg - th;                  // mirror the far half back
+        th += roll;
+        const sx = Math.round(cx + Math.cos(th) * r), sy = Math.round(cy + Math.sin(th) * r);
+        const o = (y * w + x) * 4;
+        if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+        const s2 = (sy * w + sx) * 4;
+        const m = st.kaleido;
+        out[o]     = src[o]     + (src[s2]     - src[o])     * m;
+        out[o + 1] = src[o + 1] + (src[s2 + 1] - src[o + 1]) * m;
+        out[o + 2] = src[o + 2] + (src[s2 + 2] - src[o + 2]) * m;
+        out[o + 3] = src[o + 3] + (src[s2 + 3] - src[o + 3]) * m;
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
+  }
+
   if (st.zoom > 0) {
     // Radial blur — the frame smeared along lines radiating from the origin. Reads as rushing
     // toward the viewer, which is what an impact or a dash wants and what no per-particle setting
@@ -2637,6 +2763,60 @@ function postProcess(cv, st, overlay, t) {
       } else if (inside) {
         d[i + 3] = d[i + 3] + (255 - d[i + 3]) * mix;   // harden the body
       }
+    }
+    g.putImageData(img, 0, 0);
+  }
+
+  if (st.rim > 0) {
+    // A soft coloured edge where the effect meets nothing — backlight, not an outline. The Crunch
+    // outline traces the final alpha with a hard pixel border for pixel-art crispness; this is the
+    // opposite intent, a glow that says the shape is lit from behind. Built from the alpha gradient
+    // rather than a threshold, so it follows soft edges instead of quantising them.
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src);
+    const reach = Math.max(1, Math.round(st.rimWidth * frameRefPx(w, h) * 0.06));
+    const hue = st.hue + st.rimHue;
+    const col = hslParts(hue, st.sat, clamp01(0.5 + st.bright * 0.4));
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const a = src[o + 3];
+        if (a < 12) continue;
+        // How much emptiness is nearby: that is what makes an edge an edge.
+        let open = 0, n = 0;
+        for (let dy = -reach; dy <= reach; dy += reach) {
+          for (let dx = -reach; dx <= reach; dx += reach) {
+            const sx = x + dx, sy = y + dy;
+            n++;
+            if (sx < 0 || sy < 0 || sx >= w || sy >= h) { open++; continue; }
+            open += 1 - src[(sy * w + sx) * 4 + 3] / 255;
+          }
+        }
+        const edge = clamp01((open / n) * 1.8) * (a / 255);
+        if (edge <= 0.02) continue;
+        const m = st.rim * edge;
+        out[o]     = Math.min(255, src[o]     + col[0] * m);
+        out[o + 1] = Math.min(255, src[o + 1] + col[1] * m);
+        out[o + 2] = Math.min(255, src[o + 2] + col[2] * m);
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
+  }
+
+  if (st.silhouette > 0) {
+    // Flatten every colour to one tone — the hit-flash every action game uses, where a struck thing
+    // goes solid white for two frames. Flash draws a NEW sprite at the origin; this recolours what
+    // is already there, so the shape reads exactly as before and only its colour is gone. Alpha is
+    // untouched: the silhouette is the effect's own outline, not a shape of its own.
+    const img = g.getImageData(0, 0, w, h), d = img.data;
+    const tone = hslParts(st.hue, st.sat * (1 - clamp01(st.silWhite)), clamp01(0.5 + st.silWhite * 0.5));
+    const m = st.silhouette;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 4) continue;
+      d[i]     = d[i]     + (tone[0] - d[i])     * m;
+      d[i + 1] = d[i + 1] + (tone[1] - d[i + 1]) * m;
+      d[i + 2] = d[i + 2] + (tone[2] - d[i + 2]) * m;
     }
     g.putImageData(img, 0, 0);
   }

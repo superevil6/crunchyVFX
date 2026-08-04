@@ -1509,6 +1509,66 @@ window.PRESETS = {
     hue: 52, hueLife: 6, sat: 0.75, bright: 1, coreWhite: 0.4,
     glow: 0.35, duration: 1.6, fps: 24, frameSize: 5, originY: 0.78,
   },
+
+  // ---- Symmetry & stylise (2026-07-30) ----
+  // Five systems that restate an effect rather than adding to it: fold it, edge it, flatten it,
+  // or draw the structure it implies.
+  "Mandala Burst": {
+    shape: 3, count: 34, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.05,
+    speed: 130, speedVar: 0.5, drag: 0.55, spin: 120, spinVar: 0.6,
+    size: 16, sizeVar: 0.4, life: 1, lifeVar: 0.3, fadeOut: 0.45,
+    starPoints: 5, starInner: 0.35,
+    kaleido: 1, kalCount: 8, kalSpin: 0,
+    hue: 300, hueLife: 50, hueVar: 0.2, sat: 0.85, bright: 1, coreWhite: 0.4,
+    glow: 0.45, duration: 1.2, fps: 24, frameSize: 5,
+  },
+  "Snow Mandala": {
+    shape: 14, count: 22, opacity: 1, emitter: 2, emitRadius: 0.14, emitTime: 0.4,
+    speed: 70, speedVar: 0.4, drag: 0.6, spin: 60, spinVar: 0.4,
+    size: 19, sizeVar: 0.3, life: 1.2, lifeVar: 0.25, fadeIn: 0.1, fadeOut: 0.5,
+    flakeArms: 6, flakeBranch: 0.5,
+    kaleido: 0.95, kalCount: 6, kalSpin: 30,
+    hue: 195, hueLife: 20, sat: 0.5, bright: 1, coreWhite: 0.6,
+    glow: 0.4, duration: 1.5, fps: 24, frameSize: 5,
+  },
+  "Backlit Burst": {
+    // A rim needs an EDGE to sit on: smoke has none, so this leads with a hard-edged shape and a
+    // touch of alphaCut. The first attempt used smoke and the rim had nothing to grip.
+    shape: 21, shapeMix: "30", count: 16, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.05,
+    speed: 105, speedVar: 0.45, drag: 0.6, gravity: -40, spin: 90, spinVar: 0.6,
+    size: 24, sizeVar: 0.35, grow: 0.1, life: 1.1, lifeVar: 0.3,
+    fadeIn: 0.1, fadeOut: 0.5, alphaCut: 0.45,
+    rim: 1, rimWidth: 0.55, rimHue: 45,
+    hue: 262, hueLife: 18, sat: 0.6, bright: 0.7, coreWhite: 0.05, blend: 1,
+    glow: 0.25, duration: 1.4, fps: 24, frameSize: 5,
+  },
+  "Hit Blank": {
+    shape: 6, count: 24, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.04,
+    speed: 200, speedVar: 0.45, drag: 0.55, gravity: 150, spin: 300, spinVar: 0.8,
+    size: 15, sizeVar: 0.4, life: 0.5, lifeVar: 0.2, fadeOut: 0.45,
+    silhouette: 0.9, silWhite: 0.95,
+    flash: 0.8, flashSize: 0.24, flashLife: 0.1,
+    hue: 0, sat: 0.2, bright: 1, coreWhite: 0.5,
+    glow: 0.35, duration: 0.6, fps: 24, frameSize: 5,
+  },
+  "Galaxy Spin": {
+    shape: 0, count: 40, opacity: 1, emitter: 2, emitRadius: 0.22, emitTime: 0.6,
+    speed: 24, speedVar: 0.5, drag: 0.5, swirl: 150,
+    size: 9, sizeVar: 0.5, life: 1.6, lifeVar: 0.35, fadeIn: 0.2, fadeOut: 0.45,
+    arms: 0.75, armCount: 3, armTurns: 1.1, armReach: 0.6, armWidth: 2.2,
+    armSpin: 0.7, armLife: 1.8,
+    hue: 268, hueLife: 45, hueVar: 0.25, sat: 0.7, bright: 1, coreWhite: 0.45,
+    glow: 0.5, duration: 1.8, fps: 24, frameSize: 5,
+  },
+  "Summon Grid": {
+    shape: 4, count: 20, opacity: 1, emitter: 2, emitRadius: 0.2, emitTime: 0.5,
+    speed: 40, speedVar: 0.5, drag: 0.55, gravity: -60,
+    size: 10, sizeVar: 0.5, life: 1, lifeVar: 0.3, fadeIn: 0.15, fadeOut: 0.5,
+    grid: 0.7, gridCells: 5, gridSpokes: 10, gridReach: 0.65, gridTilt: 0.75,
+    gridWidth: 1.2, gridSpin: 0.25, gridLife: 1.4,
+    hue: 178, hueLife: 18, sat: 0.75, bright: 1, coreWhite: 0.5,
+    glow: 0.45, duration: 1.5, fps: 24, frameSize: 5, originY: 0.6,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1541,5 +1601,7 @@ window.PRESET_CATEGORIES = [
                     "Magnetized", "Hazard Alert", "Curse Mark", "Rally Banner", "Atom Charge"]],
   ["Camera & Light", ["Warp Speed", "Punch In", "Star Filter", "Signal Lost",
                       "Dream Drift", "Muzzle Cone", "Searchbeam"]],
+  ["Symmetry & Stylise", ["Mandala Burst", "Snow Mandala", "Backlit Burst", "Hit Blank",
+                          "Galaxy Spin", "Summon Grid"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
 ];
