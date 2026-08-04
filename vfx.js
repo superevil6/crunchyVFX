@@ -733,6 +733,7 @@ function drawFrame(sim, f, g, st, xf) {
     if (t >= d) fn(t - d);
   };
   {
+    stage("Bokeh", (tt) => drawBokeh(g, st, tt, xf, fs, ox, oy, seed));
     stage("Decal", (tt) => drawDecal(g, st, tt, xf, fs, ox, oy));
     stage("Sweep", (tt) => drawSweep(g, st, tt, xf, fs, ox, oy));
     stage("Fracture", (tt) => drawFracture(g, st, tt, xf, fs, ox, oy, seed));
@@ -743,6 +744,7 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Weather", (tt) => drawWeather(g, st, tt, xf, fs, ox, oy, seed));
     stage("Sigil", (tt) => drawSigil(g, st, tt, xf, fs, ox, oy, seed));
     stage("Chain", (tt) => drawChain(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Cone", (tt) => drawCone(g, st, tt, xf, fs, ox, oy, seed));
     stage("Beam", (tt) => drawBeam(g, st, tt, xf, fs, ox, oy, seed));
     stage("Ribbon", (tt) => drawRibbon(g, st, tt, xf, fs, ox, oy));
     stage("Arc", (tt) => drawArc(g, st, tt, xf, fs, ox, oy, seed));
@@ -1937,6 +1939,73 @@ function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// ---------- bokeh ----------
+// Soft out-of-focus discs drifting behind everything. Not particles: they never spawn, never die
+// and ignore the emitter — they are the depth an effect sits in rather than part of the effect, so
+// they are generated straight from the seed and moved by time alone. Ring-weighted rather than
+// solid, because a defocused highlight is brightest at its edge; that is what separates bokeh from
+// "blurry dots".
+function drawBokeh(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.bokeh <= 0) return;
+  const n = Math.max(1, Math.round(st.bokehCount));
+  const u = clamp01(t / Math.max(0.01, st.duration));
+  const c = layerColour(st, u, 0.35);
+  const W = g.canvas.width, H = g.canvas.height;
+  const drift = st.bokehDrift * Math.min(W, H) * 0.25;
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const bx = rnd(seed, i, 91), by = rnd(seed, i, 92), bs = rnd(seed, i, 93);
+    const x = bx * W + Math.sin(t * 0.7 + i * 2.1) * drift;
+    const y = by * H - t * drift * 0.6 + Math.cos(t * 0.5 + i * 1.3) * drift * 0.4;
+    const r = Math.max(1, (0.35 + bs) * st.bokehSize * Math.min(W, H) * 0.06);
+    const grad = g.createRadialGradient(x, y, r * 0.2, x, y, r);
+    const edge = clamp01(st.bokehRing);
+    grad.addColorStop(0, c.css);
+    grad.addColorStop(Math.max(0.05, 1 - edge * 0.55), c.css);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.globalAlpha = st.bokeh * c.a * (0.35 + 0.65 * bs);
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
+}
+
+// ---------- cone ----------
+// A wedge of light from the origin: muzzle glow, headlight, a spell's line of sight. The Beam layer
+// is a line of constant width, which cannot say "this spreads as it travels" — the whole point of a
+// cone. Widening along its length is the entire shape, so the gradient runs along it rather than
+// across, and the far edge fades rather than ending.
+function drawCone(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.cone <= 0) return;
+  const u = clamp01(t / Math.max(0.01, st.coneLife));
+  if (u >= 1) return;
+  // Low white bias: a cone drawn near-white reads as grey paint on an empty canvas rather than
+  // light, because additive over nothing just gives you the colour. Let its hue show.
+  const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.3);
+  const len = st.coneLength * fs * xf.k * (0.35 + 0.65 * Math.min(1, u * 2.2));
+  const half = st.coneSpread * DEG * 0.5;
+  const dir = (st.coneAngle - 90) * DEG;
+  // Fades out over its life rather than vanishing — a light that switches off reads as a dropped
+  // frame.
+  const fade = u < 0.25 ? u / 0.25 : 1 - (u - 0.25) / 0.75;
+  g.save();
+  g.globalAlpha = st.cone * c.a * clamp01(fade);
+  g.translate(ox, oy);
+  g.rotate(dir);
+  const grad = g.createLinearGradient(0, 0, len, 0);
+  grad.addColorStop(0, c.css);
+  grad.addColorStop(clamp01(st.coneSoft), c.css);
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(0, 0);
+  g.lineTo(Math.cos(-half) * len, Math.sin(-half) * len);
+  g.lineTo(Math.cos(half) * len, Math.sin(half) * len);
+  g.closePath();
+  g.fill();
+  g.restore();
+}
+
 // ---------- tumble ----------
 // Flat pieces falling and turning over in pseudo-3D: confetti, petals, leaves, paper, coins. The
 // trick is that scaleY passes through zero — that instant of zero width IS the edge-on frame, and
@@ -2427,6 +2496,47 @@ function postProcess(cv, st, overlay, t) {
     g.putImageData(img, 0, 0);
   }
 
+  if (st.zoom > 0) {
+    // Radial blur — the frame smeared along lines radiating from the origin. Reads as rushing
+    // toward the viewer, which is what an impact or a dash wants and what no per-particle setting
+    // can produce: Smear moves every pixel the same way, this moves each one along its OWN ray.
+    //
+    // MAX with falloff, not a mean, for the same reason smear does it: averaging divides a lone
+    // bright particle by the tap count and eats sparse effects, which is most of them here.
+    // `zoomInner` keeps a sharp core — a fully smeared frame has nothing left to be smeared from.
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src);
+    const cx = st.originX * w, cy = st.originY * h;
+    const ref = frameRefPx(w, h);
+    const reach = st.zoomAmount * 0.25;
+    const taps = Math.max(2, Math.min(20, Math.round(4 + st.zoomAmount * 14)));
+    const inner = st.zoomInner * ref * 0.5;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const ddx = x - cx, ddy = y - cy;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (dist < inner || dist < 0.5) continue;
+        let r = 0, gg = 0, b = 0, a = 0;
+        for (let k = 0; k < taps; k++) {
+          const f = 1 - (k / taps) * reach;            // sample back toward the centre
+          const sx = Math.round(cx + ddx * f), sy = Math.round(cy + ddy * f);
+          if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
+          const o2 = (sy * w + sx) * 4;
+          const fall = 1 - k / taps;
+          const av = src[o2 + 3] * fall;
+          if (av > a) { a = av; r = src[o2] * fall; gg = src[o2 + 1] * fall; b = src[o2 + 2] * fall; }
+        }
+        const o = (y * w + x) * 4, m = st.zoom;
+        out[o]     = Math.max(src[o],     r * m);
+        out[o + 1] = Math.max(src[o + 1], gg * m);
+        out[o + 2] = Math.max(src[o + 2], b * m);
+        out[o + 3] = Math.max(src[o + 3], a * m);
+      }
+    }
+    img.data.set(out);
+    g.putImageData(img, 0, 0);
+  }
+
   if (st.glow > 0) {
     const img = g.getImageData(0, 0, w, h), d = img.data;
     const bright = new Uint8ClampedArray(d.length);
@@ -2449,6 +2559,48 @@ function postProcess(cv, st, overlay, t) {
   // The overlay (speech bubble) lands here: past the glow so it isn't bloomed, ahead of the
   // pixel-art stages so it gets crunched with everything else.
   if (overlay) overlay(g);
+
+  if (st.streak > 0) {
+    // Anamorphic streaks: the bright cores drawn out into a cross, the way a lens flares a point of
+    // light. Distinct from Glow, which spreads a halo equally in all directions and therefore can
+    // never say "this is a LIGHT" rather than "this is bright" — direction is the whole signal.
+    // Additive, and built only from pixels above the threshold, so it decorates highlights instead
+    // of fogging the frame.
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const add = new Float32Array(w * h * 3);
+    const thr = st.streakThresh * 255;
+    const len = Math.max(2, Math.round(st.streakLength * frameRefPx(w, h) * 0.5));
+    const ang = st.streakAngle * DEG;
+    const arms = [[Math.cos(ang), Math.sin(ang)], [-Math.cos(ang), -Math.sin(ang)],
+                  [-Math.sin(ang), Math.cos(ang)], [Math.sin(ang), -Math.cos(ang)]];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const lum = (src[o] * 0.3 + src[o + 1] * 0.6 + src[o + 2] * 0.1) * (src[o + 3] / 255);
+        if (lum < thr) continue;
+        for (const [ax, ay] of arms) {
+          for (let k = 1; k <= len; k++) {
+            const sx = Math.round(x + ax * k), sy = Math.round(y + ay * k);
+            if (sx < 0 || sy < 0 || sx >= w || sy >= h) break;
+            const f = (1 - k / len) * (1 - k / len);
+            const t2 = (sy * w + sx) * 3;
+            add[t2]     = Math.max(add[t2],     src[o] * f);
+            add[t2 + 1] = Math.max(add[t2 + 1], src[o + 1] * f);
+            add[t2 + 2] = Math.max(add[t2 + 2], src[o + 2] * f);
+          }
+        }
+      }
+    }
+    for (let i = 0, j = 0; i < src.length; i += 4, j += 3) {
+      const m = st.streak;
+      if (add[j] + add[j + 1] + add[j + 2] <= 0) continue;
+      src[i]     = Math.min(255, src[i]     + add[j] * m);
+      src[i + 1] = Math.min(255, src[i + 1] + add[j + 1] * m);
+      src[i + 2] = Math.min(255, src[i + 2] + add[j + 2] * m);
+      src[i + 3] = Math.max(src[i + 3], Math.min(255, (add[j] + add[j + 1] + add[j + 2]) / 3 * m));
+    }
+    g.putImageData(img, 0, 0);
+  }
 
   if (st.merge > 0) {
     // Metaballs the cheap way: blur the field, then threshold it. Two soft particles whose halos
@@ -2486,6 +2638,41 @@ function postProcess(cv, st, overlay, t) {
         d[i + 3] = d[i + 3] + (255 - d[i + 3]) * mix;   // harden the body
       }
     }
+    g.putImageData(img, 0, 0);
+  }
+
+  if (st.chroma > 0) {
+    // Chromatic aberration: red and blue pulled apart along the ray from the centre, the way a real
+    // lens fails to focus every wavelength on one plane. Deliberately radial rather than a flat
+    // offset — a uniform shift reads as a printing error, a radial one reads as glass, and it
+    // leaves the centre clean so the subject stays readable.
+    //
+    // Placed after the light has been shaped and before the pixel-art crunch: it is a lens
+    // artefact, so it belongs on the image the lens formed, then gets crunched with everything else.
+    const img = g.getImageData(0, 0, w, h), src = img.data;
+    const out = new Uint8ClampedArray(src);
+    const cx = w / 2, cy = h / 2;
+    const amt = st.chromaAmount * frameRefPx(w, h) * 0.03;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const o = (y * w + x) * 4;
+        const ddx = (x - cx) / Math.max(1, cx), ddy = (y - cy) / Math.max(1, cy);
+        const ox2 = ddx * amt, oy2 = ddy * amt;
+        const rx = Math.round(x + ox2), ry = Math.round(y + oy2);
+        const bx = Math.round(x - ox2), by = Math.round(y - oy2);
+        if (rx >= 0 && ry >= 0 && rx < w && ry < h) {
+          const s2 = (ry * w + rx) * 4;
+          out[o] = src[o] + (src[s2] - src[o]) * st.chroma;
+          if (src[s2 + 3] > out[o + 3]) out[o + 3] = src[s2 + 3];
+        }
+        if (bx >= 0 && by >= 0 && bx < w && by < h) {
+          const s3 = (by * w + bx) * 4;
+          out[o + 2] = src[o + 2] + (src[s3 + 2] - src[o + 2]) * st.chroma;
+          if (src[s3 + 3] > out[o + 3]) out[o + 3] = src[s3 + 3];
+        }
+      }
+    }
+    img.data.set(out);
     g.putImageData(img, 0, 0);
   }
 

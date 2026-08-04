@@ -488,6 +488,36 @@ const PARAMS = [
   ["orbitDepth", "Depth",       0, 1, 0.01, 0.6, "",   "Orbit"],
   ["orbitTrail", "Trail",       0, 1, 0.01, 0, "",     "Orbit"],
   ["orbitScatter","Scatter",    0, 1, 0.01, 0, "",     "Orbit"],
+
+  // Radial blur — the frame smeared outward from the origin. Rushing-toward-you, for impacts.
+  ["zoom",       "Zoom blur",   0, 1, 0.01, 0, "",     "Zoom blur"],
+  ["zoomAmount", "Reach",       0, 1, 0.01, 0.4, "",   "Zoom blur"],
+  ["zoomInner",  "Sharp core",  0, 1, 0.01, 0.25, "",  "Zoom blur"],
+
+  // Anamorphic streaks on the bright cores — the lens saying "this is a light".
+  ["streak",     "Streaks",     0, 1, 0.01, 0, "",     "Streaks"],
+  ["streakLength","Length",     0.05, 1, 0.01, 0.35, "","Streaks"],
+  ["streakAngle","Angle",       0, 180, 1, 0, "°",     "Streaks"],
+  ["streakThresh","Threshold",  0.1, 1, 0.01, 0.6, "", "Streaks"],
+
+  // Chromatic aberration — radial R/B split, strongest at the edges like real glass.
+  ["chroma",     "Chromatic",   0, 1, 0.01, 0, "",     "Chromatic"],
+  ["chromaAmount","Amount",     0, 1, 0.01, 0.4, "",   "Chromatic"],
+
+  // Out-of-focus depth behind the effect.
+  ["bokeh",      "Bokeh",       0, 1, 0.01, 0, "",     "Bokeh"],
+  ["bokehCount", "Count",       1, 40, 1, 10, "",      "Bokeh"],
+  ["bokehSize",  "Size",        0.1, 2, 0.01, 0.6, "", "Bokeh"],
+  ["bokehDrift", "Drift",       0, 1, 0.01, 0.3, "",   "Bokeh"],
+  ["bokehRing",  "Edge",        0, 1, 0.01, 0.5, "",   "Bokeh"],
+
+  // A widening wedge of light — muzzle glow, headlight, line of sight.
+  ["cone",       "Cone",        0, 1, 0.01, 0, "",     "Cone"],
+  ["coneAngle",  "Direction",   0, 360, 1, 0, "°",     "Cone"],
+  ["coneSpread", "Spread",      4, 180, 1, 40, "°",    "Cone"],
+  ["coneLength", "Length",      0.1, 1.4, 0.01, 0.7, "","Cone"],
+  ["coneSoft",   "Solid core",  0, 1, 0.01, 0.25, "",  "Cone"],
+  ["coneLife",   "Life",        0.05, 3, 0.01, 0.5, "s","Cone"],
   // Off by default so every orbit preset that shipped with round beads still draws round beads.
   ["orbitUseShape","Draw shapes",  0, 1, 1, 0, "", "Orbit"],
 
@@ -2075,6 +2105,11 @@ function renderSpriteLib() {
 // that actually does something, so clicking it shows you the effect rather than more zeroes.
 const LAYER_GROUPS = [
   { g: "Flash",       is: () => state.flash > 0,      on: () => { state.flash = 0.8; } },
+  { g: "Zoom blur",   is: () => state.zoom > 0,       on: () => { state.zoom = 0.6; } },
+  { g: "Streaks",     is: () => state.streak > 0,     on: () => { state.streak = 0.7; } },
+  { g: "Chromatic",   is: () => state.chroma > 0,     on: () => { state.chroma = 0.5; } },
+  { g: "Bokeh",       is: () => state.bokeh > 0,      on: () => { state.bokeh = 0.5; } },
+  { g: "Cone",        is: () => state.cone > 0,       on: () => { state.cone = 0.7; } },
   { g: "Shockwave",   is: () => state.wave > 0,       on: () => { state.wave = 0.6; } },
   { g: "Trails",      is: () => state.trail > 0 || state.echo > 0, on: () => { state.trail = 0.5; } },
   { g: "Glow",        is: () => state.glow > 0,       on: () => { state.glow = 0.5; } },
@@ -4708,7 +4743,7 @@ document.body.appendChild(timeModal);
 
 // The layer groups that own a delay. Particles are deliberately absent: they are the thing
 // everything else is staged against, so "delay the particles" is just "delay everything else less".
-const TIMED_LAYERS = ["Flash", "Shockwave", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
+const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
   "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
   "Rift", "Tumble", "Swarm", "Crackle", "Orbit"];
 

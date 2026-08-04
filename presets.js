@@ -1442,6 +1442,73 @@ window.PRESETS = {
     hue: 172, hueLife: 26, sat: 0.8, bright: 1, coreWhite: 0.55,
     glow: 0.55, duration: 1.3, fps: 24, frameSize: 5,
   },
+
+  // ---- Camera & light (2026-07-30) ----
+  // Five systems that act on the IMAGE rather than on particles: what the lens does with the light
+  // an effect makes. Zoom blur and streaks want something bright to work on, so these lead with a
+  // simple burst and let the new layer do the talking.
+  "Warp Speed": {
+    shape: 1, count: 26, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.03,
+    speed: 160, speedVar: 0.45, drag: 0.55,
+    size: 22, sizeVar: 0.35, sparkLen: 0.6, sparkTaper: 0.8,
+    life: 0.6, lifeVar: 0.25, fadeOut: 0.5,
+    zoom: 0.85, zoomAmount: 0.6, zoomInner: 0.12,
+    hue: 205, hueLife: 20, sat: 0.6, bright: 1, coreWhite: 0.8,
+    glow: 0.45, duration: 0.8, fps: 24, frameSize: 5,
+  },
+  "Punch In": {
+    shape: 0, count: 26, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.05,
+    speed: 150, speedVar: 0.4, drag: 0.6,
+    size: 17, sizeVar: 0.4, life: 0.45, lifeVar: 0.2, fadeOut: 0.5,
+    flash: 0.9, flashSize: 0.3, flashLife: 0.12,
+    zoom: 0.7, zoomAmount: 0.85, zoomInner: 0.3,
+    hue: 34, hueLife: -20, sat: 0.9, bright: 1, coreWhite: 0.8,
+    glow: 0.4, duration: 0.6, fps: 24, frameSize: 5,
+  },
+  "Star Filter": {
+    shape: 3, count: 14, opacity: 1, emitter: 2, emitRadius: 0.18, emitTime: 0.5,
+    speed: 40, speedVar: 0.4, drag: 0.6, gravity: -30,
+    size: 15, sizeVar: 0.4, spin: 60, spinVar: 0.5,
+    life: 1.1, lifeVar: 0.3, fadeIn: 0.15, fadeOut: 0.5,
+    starPoints: 4, starInner: 0.28,
+    streak: 0.8, streakLength: 0.45, streakAngle: 0, streakThresh: 0.45,
+    hue: 48, hueLife: 12, sat: 0.5, bright: 1, coreWhite: 0.85,
+    glow: 0.4, duration: 1.4, fps: 24, frameSize: 5,
+  },
+  "Signal Lost": {
+    shape: 4, count: 60, opacity: 1, emitter: 6, emitRadius: 0.3, emitTime: 0.8,
+    speed: 60, speedVar: 0.8, drag: 0.4,
+    size: 10, sizeVar: 0.6, life: 0.5, lifeVar: 0.5, fadeOut: 0.4,
+    chroma: 0.75, chromaAmount: 0.7,
+    glitch: 0.5, glitchRate: 14,
+    hue: 180, hueLife: 40, hueVar: 0.4, sat: 0.75, bright: 1, coreWhite: 0.4,
+    duration: 1.1, fps: 24, frameSize: 5,
+  },
+  "Dream Drift": {
+    shape: 0, count: 18, opacity: 1, emitter: 3, emitRadius: 0.3, emitTime: 1,
+    speed: 16, speedVar: 0.6, drag: 0.5, gravity: -12, turb: 0.2,
+    size: 13, sizeVar: 0.5, life: 2, lifeVar: 0.4, fadeIn: 0.3, fadeOut: 0.5,
+    bokeh: 0.55, bokehCount: 12, bokehSize: 0.75, bokehDrift: 0.35, bokehRing: 0.6,
+    hue: 285, hueLife: 40, hueVar: 0.25, sat: 0.6, bright: 1, coreWhite: 0.35,
+    glow: 0.4, loopBlend: 0.5, duration: 2.2, fps: 24, frameSize: 5,
+  },
+  "Muzzle Cone": {
+    shape: 1, count: 20, opacity: 1, emitter: 1, emitAngle: 90, emitSpread: 30,
+    emitRadius: 0.03, speed: 260, speedVar: 0.4, drag: 0.6,
+    size: 11, sizeVar: 0.4, sparkLen: 0.5, sparkTaper: 0.7,
+    life: 0.35, lifeVar: 0.2, fadeOut: 0.5,
+    cone: 0.45, coneAngle: 90, coneSpread: 46, coneLength: 0.75, coneSoft: 0.12, coneLife: 0.22,
+    flash: 0.8, flashSize: 0.22, flashLife: 0.1,
+    hue: 42, hueLife: -22, sat: 0.9, bright: 1, coreWhite: 0.85,
+    glow: 0.5, duration: 0.3, fps: 24, frameSize: 5, originX: 0.3,
+  },
+  "Searchbeam": {
+    shape: 0, count: 1, opacity: 0,
+    cone: 0.35, coneAngle: 0, coneSpread: 30, coneLength: 1.1, coneSoft: 0.2, coneLife: 1.6,
+    bokeh: 0.3, bokehCount: 8, bokehSize: 0.5, bokehDrift: 0.2, bokehRing: 0.4,
+    hue: 52, hueLife: 6, sat: 0.75, bright: 1, coreWhite: 0.4,
+    glow: 0.35, duration: 1.6, fps: 24, frameSize: 5, originY: 0.78,
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1472,5 +1539,7 @@ window.PRESET_CATEGORIES = [
                   "Firefly Swarm", "Downpour", "Ash Fall", "Spore Drift", "Feather Fall", "Bird Flock", "Tornado Spin"]],
   ["Status & HUD", ["Shield Up", "Poisoned", "Target Lock", "Speed Boost", "Time Slow",
                     "Magnetized", "Hazard Alert", "Curse Mark", "Rally Banner", "Atom Charge"]],
+  ["Camera & Light", ["Warp Speed", "Punch In", "Star Filter", "Signal Lost",
+                      "Dream Drift", "Muzzle Cone", "Searchbeam"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
 ];
