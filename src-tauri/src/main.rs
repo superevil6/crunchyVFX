@@ -6,6 +6,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init()) // native Save dialog for exports
         .plugin(tauri_plugin_fs::init())     // write the chosen file to disk
         .plugin(tauri_plugin_drag::init())   // drag a sheet straight into Aseprite / an engine
+        .plugin(tauri_plugin_opener::init()) // the Crunchy suite dialog's links open in the browser
         .run(tauri::generate_context!())
         .expect("error while running CrunchyVFX");
 }

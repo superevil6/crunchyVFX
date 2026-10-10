@@ -820,3 +820,14 @@ this one has been run on `workerd` locally via `npx wrangler dev`, with the stam
 asset exclusions, share cards and a full app boot all confirmed. `node tests/worker.test.mjs` covers
 the pure helpers, and caught a real UTF-8 bug that SFX's equivalent still has (see DEPLOY.md's
 closing list).
+
+## 16. The Crunchy suite button (2026-10-09)
+
+A "✦ Crunchy suite" button sits at the end of the top bar's right-hand group (web and desktop both),
+opening a dialog of all five Crunchy tools with a line each and their links. It is a port: **canonical
+in CrunchyTile, TILE-DESIGN.md §80.** `suite.js` must stay **byte-identical** to Tile's — never edit it
+here; change a link or a line in Tile and copy the file again. The `suite-*` CSS block at the end of
+`styles.css` is Tile's verbatim too, plus one companion rule (`.suite-overlay[hidden]`) because this
+app has no global `[hidden] { display: none !important }`. It is mounted with `suiteMount("vfx", …)`;
+on desktop the links go through `tauri-plugin-opener`, scoped in `capabilities/default.json` to the
+suite's hosts.

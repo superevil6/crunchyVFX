@@ -59,6 +59,7 @@
     <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
     <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen">🎓 Tutorials</button>
     <button id="tourBtn" title="Replay the guided tour">? Tour</button>
+    <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music">✦ Crunchy suite</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -200,6 +201,11 @@
     <div class="macro" id="macros">
       <div class="macro-title">Quick shape — plain-language sliders that move the real controls for you</div>
     </div>
+    <div class="engine" id="layerScopeSection">
+      <div class="engine-title"><span>Editing particles</span><span class="hint" id="layerScopeHint"></span></div>
+      <div class="engine-cat-btns" id="layerScope"></div>
+      <div class="b-shape-note" id="layerScopeNote"></div>
+    </div>
     <div class="engine" id="shapeSection">
       <div class="engine-title"><span>Particle shape</span><span class="hint" id="shapeCount"></span></div>
       <div class="shapesearch"><input type="text" id="shapeSearch" placeholder="Filter shapes… (e.g. star)" autocomplete="off" spellcheck="false"></div>
@@ -225,7 +231,7 @@
   <h2>License</h2>
   <p><strong>Your effects are yours — free and clear.</strong> Every effect you create or export with CrunchyVFX is released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0 (public domain)</a>. Use them in anything — commercial games, videos, apps, whatever — forever. <strong>No attribution required, no credit, no strings.</strong> You never need to mention CrunchyVFX.</p>
   <p>Every particle shape is drawn in code — no third-party artwork is bundled, so nothing you export carries someone else's licence. If you <strong>import your own sprite or reference image</strong>, the CC0 dedication above doesn't extend to that file: its licensing is your responsibility.</p>
-  <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 Alex Cassells — all rights reserved. The CC0 dedication above covers the <em>effects you create</em>, not this tool's source code.</p>
+  <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 superevil6 — all rights reserved. The CC0 dedication above covers the <em>effects you create</em>, not this tool's source code.</p>
 </footer>
 
 <script src="presets.js"></script>
@@ -237,6 +243,9 @@
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
 <script src="apng.js"></script>
+<!-- The "Crunchy suite" dialog. CANONICAL in CrunchyTile (TILE-DESIGN §80): copied byte-identical,
+     never edited here; change a link or a line in Tile and copy it again. -->
+<script src="suite.js"></script>
 <script>
 "use strict";
 
@@ -1244,6 +1253,13 @@ for (const p of PARAMS) (groups[p[7]] ||= []).push(p);
 const panels = document.getElementById("panels");
 const outputs = {};
 const inputs = {};
+// The editable half of a slider row, keyed the same way `inputs` and `outputs` are. Separate from
+// `outputs` because a switch row still has a real <output> reading "on"/"off".
+//
+// DECLARED HERE, not beside the helpers that use it: the row builder below fills it at parse time,
+// and a `const` declared after that point is a temporal-dead-zone error that kills the rest of the
+// script — the UI above it builds, everything after it silently never runs.
+const numInputs = {};
 
 function fmt(p, val) {
   const [, , , , , , unit, , kind] = p;
@@ -1340,27 +1356,52 @@ for (const [group, ps] of Object.entries(groups)) {
       // aria-label carries the GROUP too, because a dozen panels have a "Speed" and a name is read
       // out of context. It still starts with the visible text, so what you see is what is spoken.
       const id = "p-" + key;
+      // THE READOUT IS EDITABLE. It used to be an <output>, which meant a wide range could only be
+      // reached by dragging: `count` spans 1..3000 in ~300 pixels, so the first ten values share
+      // about one pixel and "15 particles" is unhittable. Typing is the only practical way in.
+      // The unit moves into its own tag beside the box so the number stays selectable.
       row.innerHTML = "<label for=\"" + id + "\">" + label + "</label>" +
         "<input type=\"range\" id=\"" + id + "\" data-key=\"" + key + "\" aria-label=\"" +
         esc(label + " — " + group) + "\" min=\"" + min + "\" max=\"" + max +
-        "\" step=\"" + step + "\" value=\"" + state[key] + "\"><output></output>";
+        "\" step=\"" + step + "\" value=\"" + state[key] + "\">" +
+        "<span class=\"row-val\"><input type=\"number\" class=\"row-num\" id=\"" + id +
+        "-n\" data-key=\"" + key + "\" aria-label=\"" + esc(label + " — " + group + ", value") +
+        "\" min=\"" + min + "\" max=\"" + max + "\" step=\"" + step + "\">" +
+        (p[6] ? "<i class=\"row-unit\">" + esc(p[6]) + "</i>" : "") + "</span>";
       host.appendChild(row);
-      const input = row.querySelector("input"), out = row.querySelector("output");
-      inputs[key] = input; outputs[key] = out;
-      out.textContent = fmt(p, state[key]);
+      const input = row.querySelector("input[type=range]");
+      const num = row.querySelector(".row-num");
+      inputs[key] = input; numInputs[key] = num;
+      const showNum = () => { num.value = trimNum(state[key], step); };
+      showNum();
       // A slider announces a bare number. The readout beside it already carries the unit (and,
       // for an enum, the name rather than the index) — aria-valuetext says the same thing.
-      input.setAttribute("aria-valuetext", out.textContent);
+      input.setAttribute("aria-valuetext", fmt(p, state[key]));
       input.addEventListener("input", () => {
         state[key] = +input.value;
-        out.textContent = fmt(p, state[key]);
-        input.setAttribute("aria-valuetext", out.textContent);
+        showNum();
+        input.setAttribute("aria-valuetext", fmt(p, state[key]));
         noteLockEdit(key);       // a hand edit is a deliberate choice — the lock should keep it
         updateMacros();          // …and must move the macro that owns this param
         scheduleRender();
       });
       // one history entry per drag, not per pixel of movement
       input.addEventListener("change", () => commitHistory());
+      num.addEventListener("input", () => {
+        // An empty box is MID-EDIT, not a request for zero. Snapping the field to `min` the moment
+        // it is cleared makes it impossible to select-all-and-retype, which is the whole point.
+        if (num.value.trim() === "") return;
+        const v = snapToStep(+num.value, min, max, step);
+        if (!isFinite(v)) return;
+        state[key] = v;
+        input.value = v;
+        input.setAttribute("aria-valuetext", fmt(p, v));
+        noteLockEdit(key);
+        updateMacros();
+        scheduleRender();
+      });
+      // Normalise on commit, so a typed 9999 or 2.7-on-a-step-of-1 shows what actually landed.
+      num.addEventListener("change", () => { showNum(); commitHistory(); });
     }
   }
   panels.appendChild(panel);
@@ -2295,7 +2336,10 @@ function updateLayerPanels() {
 function updateShapePanels() {
   // Any SELECTED shape earns its panel, not just the primary one: mix an imported sprite in as a
   // second shape and you still need the columns/rows controls to reach it.
-  const set = shapeSet(state.shape, state.shapeMix);
+  // Either population earns the panel: blobLobes and friends are SHARED drawing params, so a blob
+  // selected only on Secondary still needs its controls reachable.
+  const set = shapeSet(state.shape, state.shapeMix).concat(
+    state.emit2Count > 0 ? shapeSet(state.emit2Shape || 0, state.emit2ShapeMix) : []);
   for (const [group, shapes] of Object.entries(PANEL_SHAPES)) {
     const el = panels.querySelector('[data-group="' + group + '"]');
     if (el) el.hidden = !shapes.some((s) => set.indexOf(s) >= 0);
@@ -2304,6 +2348,23 @@ function updateShapePanels() {
 
 // Split in two: applyMacro needs the sliders to move WITHOUT re-running the macro sync that
 // called it (that path recurses), so the param half stands alone.
+// How many decimals a step implies — 1 -> 0, 0.05 -> 2 — so the box shows 0.35 rather than
+// 0.35000000000000003 after a lerp.
+function stepDecimals(step) {
+  const s = String(step);
+  const dot = s.indexOf(".");
+  return dot < 0 ? 0 : s.length - dot - 1;
+}
+function trimNum(v, step) { return +(+v).toFixed(stepDecimals(step)); }
+// A typed value is not a dragged one: it can be out of range, or off-step. Clamp, then snap to the
+// grid the slider would have produced, so the two controls can never disagree about the value.
+function snapToStep(v, min, max, step) {
+  if (!isFinite(v)) return NaN;
+  const c = v < min ? min : v > max ? max : v;
+  const snapped = step > 0 ? Math.round((c - min) / step) * step + min : c;
+  return trimNum(snapped < min ? min : snapped > max ? max : snapped, step);
+}
+
 function syncParamInputs() {
   for (const p of PARAMS) {
     const el = inputs[p[0]];
@@ -2314,13 +2375,16 @@ function syncParamInputs() {
       continue;
     }
     el.value = state[p[0]];
-    if (outputs[p[0]]) {
-      outputs[p[0]].textContent = fmt(p, state[p[0]]);
-      el.setAttribute("aria-valuetext", outputs[p[0]].textContent);
-    }
+    el.setAttribute("aria-valuetext", fmt(p, state[p[0]]));
+    if (numInputs[p[0]]) numInputs[p[0]].value = trimNum(state[p[0]], p[4]);
+    if (outputs[p[0]]) outputs[p[0]].textContent = fmt(p, state[p[0]]);
   }
 }
 function syncUI() {
+  // Anything that repaints the whole UI has changed the effect out from under Busyness, so its
+  // baseline is stale. applyMacro deliberately calls syncParamInputs instead of syncUI, which is
+  // what keeps a drag from resetting itself mid-stroke.
+  busyReset();
   syncParamInputs();
   if (window.syncFrameRow) window.syncFrameRow();
   if (glyphInput) glyphInput.value = state.glyph;
@@ -2392,9 +2456,10 @@ const SHAPE_CATS = [
               "flower", "leaf", "hexagon", "gear", "plus", "gem",
               "skull", "feather", "coin", "comma", "butterfly", "eye", "mushroom", "shield",
               "ribbon", "bone", "paw", "ghost", "wing", "hourglass", "key", "flask", "atom",
-              "crown", "chain", "sun", "clover", "bird", "bomb", "magnet", "planet", "tornado",
+              "crown", "chain", "sun", "clover", "bird", "bomb", "grenade", "magnet", "planet", "tornado",
+              "bulb", "dice", "handcuffs", "paintbrush", "puzzle", "rose", "saxophone",
               "scroll", "sprout", "web", "lock", "egg", "heartbreak", "candy"]],
-  ["Symbol", ["glyph", "note", "rune", "hazard", "pentagram"]],
+  ["Symbol", ["glyph", "note", "rune", "hazard", "pentagram", "peace"]],
   // "custom" and "image" were implemented — the drawing grid, the PNG import with animated-strip
   // support, both covered by the suite — but listed in no category, so the picker never built a
   // button for them and no preset selected them. Fully working features with no door in.
@@ -2417,6 +2482,60 @@ function toggleShape(primaryKey, mixKey, i) {
   return true;
 }
 
+// ---------- Which particle population the shape + palette sections edit ----------
+// PURE UI STATE. Deliberately not a PARAMS entry and not a PATCH_EXTRA: it changes what the panel
+// POINTS AT, never what the effect is, so it must never reach a share link, a preset or breeding.
+//
+// "Main" / "Secondary", not "Layer A" / "Layer B", because TIMED_LAYERS already owns the word
+// LAYER in this app — 30 structure layers in the Timing dialog — and a second meaning would make
+// both of them harder to talk about.
+//
+// SECONDARY IS NOT A PEER, and the note under the switcher says so rather than pretending. It
+// borrows Layer A's hueVar, hueLife, spin and spinVar at birth (vfx.js), and has no core-white at
+// all by design — a hot core would make it compete with the population it exists to sit behind.
+let editLayer = "A";
+const LAYER_KEYS = {
+  A: { shape: "shape",      mix: "shapeMix",      hue: "hue",      sat: "sat",      blend: "blend" },
+  B: { shape: "emit2Shape", mix: "emit2ShapeMix", hue: "emit2Hue", sat: "emit2Sat", blend: "emit2Blend" },
+};
+const layerKeys = () => LAYER_KEYS[editLayer];
+// Says the three true things a user needs before touching anything, in the order they will hit
+// them: where Secondary's own colour sliders are, what it SHARES with Main, and what it simply
+// does not have. The middle one is the trap — those sliders sit in the Colour section looking
+// like Main's, and they move both populations at once.
+const LAYER_SHARED = "Secondary's own Hue, Saturation and Brightness sliders are in its panel " +
+  "below \u2014 the Colour section always drives Main. It borrows Hue drift, Hue variance and Spin " +
+  "from Main, so changing those changes both. It has no hot core, by design: it exists to sit " +
+  "behind Main rather than compete with it.";
+
+function syncLayerScope() {
+  const on = state.emit2Count > 0;
+  for (const b of layerScope.children) b.classList.toggle("active", b.dataset.layer === editLayer);
+  layerScopeHint.textContent = editLayer === "B"
+    ? "Secondary \u00b7 its own particles and palette"
+    : (on ? "Secondary is on and keeps its own colour" : "Secondary is off");
+  layerScopeNote.textContent = editLayer === "B" ? LAYER_SHARED : "";
+  layerScopeNote.hidden = editLayer !== "B";
+}
+
+const layerScope = document.getElementById("layerScope");
+const layerScopeHint = document.getElementById("layerScopeHint");
+const layerScopeNote = document.getElementById("layerScopeNote");
+for (const [key, label] of [["A", "Main"], ["B", "Secondary"]]) {
+  const b = document.createElement("button");
+  b.className = "engine-btn";
+  b.textContent = label;
+  b.dataset.layer = key;
+  b.addEventListener("click", () => {
+    editLayer = key;
+    // Switching to a population that is not running would show a picker driving nothing, so the
+    // switch turns it on — the same 120 the Layer B group toggle uses, and undoable like any edit.
+    if (key === "B" && !(state.emit2Count > 0)) state.emit2Count = 120;
+    syncUI(); commitHistory(); rerender();
+  });
+  layerScope.appendChild(b);
+}
+
 const shapeGrid = document.getElementById("shapeGrid");
 const shapeBtns = {};
 const shapeRows = [];
@@ -2431,7 +2550,8 @@ for (const [cat, names] of SHAPE_CATS) {
     b.className = "engine-btn";
     b.textContent = name;
     b.addEventListener("click", () => {
-      if (!toggleShape("shape", "shapeMix", i)) return;
+      const k = layerKeys();
+      if (!toggleShape(k.shape, k.mix, i)) return;
       syncShapeButtons(); updateShapePanels(); commitHistory(); rerender();
     });
     box.appendChild(b);
@@ -2452,7 +2572,8 @@ const shapeCount = document.getElementById("shapeCount");
 // selected — written by two different events. One owner, so neither can stomp the other's half.
 let shapeFilterShown = null;          // null = no filter active
 function updateShapeCount() {
-  const n = shapeSet(state.shape, state.shapeMix).length;
+  const k = layerKeys();
+  const n = shapeSet(state[k.shape], state[k.mix]).length;
   shapeCount.textContent = (shapeFilterShown === null
       ? SHAPES.length + " shapes"
       : shapeFilterShown + " of " + SHAPES.length)
@@ -2585,9 +2706,13 @@ filterShapes();
 }
 
 function syncShapeButtons() {
-  const set = shapeSet(state.shape, state.shapeMix);
+  const k = layerKeys();
+  const set = shapeSet(state[k.shape], state[k.mix]);
   for (const i in shapeBtns) shapeBtns[i].classList.toggle("active", set.indexOf(+i) >= 0);
   updateShapeCount();
+  syncLayerScope();
+  // The Layer B panel keeps its own compact picker; both drive emit2Shape, so both must be told.
+  if (typeof window.syncBShape === "function") window.syncBShape();
 }
 
 // ---------- Palettes ----------
@@ -2619,8 +2744,21 @@ for (const [name, patch] of PALETTES) {
   b.className = "engine-btn";
   b.textContent = name;
   b.addEventListener("click", () => {
-    for (const k in patch) state[k] = patch[k];
-    if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
+    // SCOPED to whichever population the switcher above has selected. Until that switcher existed
+    // every palette wrote Layer A keys only, so on the eight presets that run a second population
+    // a palette click recoloured half the picture and silently left the rest — which is exactly
+    // how "a second layer that isn't affected by the controls" got reported from the app.
+    if (editLayer === "B") {
+      // Three of the six keys a palette sets have NO Secondary equivalent: hueLife, hueVar and
+      // coreWhite. Applying the three that exist beats refusing the click, and the note under the
+      // switcher is where the user is told that Secondary borrows the other two from Main.
+      if ("hue" in patch) state.emit2Hue = patch.hue;
+      if ("sat" in patch) state.emit2Sat = patch.sat;
+      if ("blend" in patch) state.emit2Blend = patch.blend + 1;   // B_BLENDS prepends "match Layer A"
+    } else {
+      for (const k in patch) state[k] = patch[k];
+      if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
+    }
     syncUI(); commitHistory(); rerender();
   });
   paletteGrid.appendChild(b);
@@ -2633,6 +2771,34 @@ for (const [name, patch] of PALETTES) {
 // drift out of sync with the patch and start lying to you.
 const lerpN = (a, b, v) => a + (b - a) * v;
 const inv = (x, a, b) => clamp01((x - a) / (b - a));
+// ---------- Busyness ----------
+// DERIVED, not listed — the BREED_SKIP pattern. Anything whose key ends in "Count" is an amount of
+// things, so a system added later joins this macro without anyone having to remember to add it.
+//
+// `kalCount` is excluded by name and it is the only exception: kaleidoscope segments are SYMMETRY,
+// not density. Trebling them does not make an effect busier, it makes it a different effect.
+const BUSY_PARAMS = PARAMS.filter((p) =>
+  (/Count$/.test(p[0]) || p[0] === "count" || p[0] === "shatterPieces") && p[0] !== "kalCount");
+
+// This macro is RELATIVE where every other one is absolute, so it needs a baseline to scale from.
+// Captured the first time the slider moves and cleared by syncUI, i.e. whenever anything else
+// changes the effect — so 0.5 always means "what is on screen right now".
+let busyBase = null, busyV = 0.5;
+// A count belongs to a SYSTEM, and a switched-off system still holds its count at the PARAMS
+// default — bokeh's is 10, not 0. Scaling those would write odd values into systems that draw
+// nothing, which then ride along in share links and presets and surprise whoever switches bokeh on
+// later. LAYER_GROUPS already knows what is running; a group with no gate (the emitter itself) is
+// always running.
+const BUSY_GATE = {};
+for (const L of LAYER_GROUPS) BUSY_GATE[L.g] = L.is;
+function busyActive(group) { return BUSY_GATE[group] ? BUSY_GATE[group]() : true; }
+
+function busyCapture() {
+  busyBase = {};
+  for (const p of BUSY_PARAMS) busyBase[p[0]] = state[p[0]];
+}
+function busyReset() { busyBase = null; busyV = 0.5; }
+
 const MACROS = [
   { name: "Violence", id: "mViolence", left: "gentle", right: "brutal",
     to(v) {
@@ -2702,6 +2868,31 @@ const MACROS = [
       state.spin = Math.round(lerpN(0, 320, v));
     },
     from() { return inv(state.swirl, 0, 520); } },
+  // The only macro that scales rather than sets, because "how many particles" does not mean the
+  // same thing in two effects the way "how much swirl" does. 40 is a dense splatter and a thin
+  // explosion, and the counts WITHIN one effect are tuned against each other — Paint Splatter is
+  // 44 main against 22 secondary, and a macro that flattened both to one number would destroy the
+  // relationship the preset is made of. So this multiplies the baseline: ratios survive.
+  //
+  // Multiplying preserves the ratios, which is why this is safe to point at 18 params at once —
+  // a macro that lerped counts to absolute values would flatten every effect into the same one.
+  // It is NOT enough on its own though: an inactive system still holds its count at the PARAMS
+  // default, so each param is gated on whether its system is actually running.
+  { name: "Busyness", id: "mBusy", left: "sparse", right: "swarming",
+    to(v) {
+      if (!busyBase) busyCapture();
+      busyV = clamp01(v);
+      // Asymmetric on purpose: thinning out is more useful than piling on, and 3x a 400-particle
+      // burst is already past what the frame can show.
+      const f = busyV <= 0.5 ? lerpN(0.15, 1, busyV / 0.5) : lerpN(1, 3, (busyV - 0.5) / 0.5);
+      for (const p of BUSY_PARAMS) {
+        if (!busyActive(p[7])) continue;
+        const b = busyBase[p[0]];
+        if (!(b > 0)) continue;
+        state[p[0]] = snapToStep(b * f, p[2], p[3], p[4]);
+      }
+    },
+    from() { return busyV; } },
 ];
 
 const macroBox = document.getElementById("macros");
@@ -3118,7 +3309,8 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
                        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46,
                        47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
                        59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
-                       76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87];
+                       76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
+                       89, 90, 91, 92, 93, 94, 95, 96];
 function randomize() {
   for (const p of PARAMS) state[p[0]] = p[5];
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
@@ -4587,21 +4779,92 @@ const BREED_SKIP = new Set(["duration", "fps", "seed"]);
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-function mutateGenome(src, amount) {
+// Which groups are actually IN PLAY for a given effect. Two kinds of irrelevance:
+//   * a system that is switched off — LAYER_GROUPS already knows;
+//   * a shape's detail panel when that shape is not selected — PANEL_SHAPES already knows.
+// Both reuse the tables the UI uses to decide what to SHOW, which is the same question.
+const GATED_GROUPS = new Set(LAYER_GROUPS.map((L) => L.g));
+// Not every eligible param is worth varying equally. `count`, `speed`, `size` and `life` are what
+// one member of a family differs BY; `sigilTicks` is tuning nobody will notice at 64px. Weighting
+// the draw toward the core groups is what stops the fix for chaos overshooting into eight children
+// that differ only in params you cannot see — which is exactly what the first attempt did.
+const VARY_WEIGHT = { Emitter: 4, Motion: 4, Life: 4, Color: 3 };
+const SHAPE_GROUPS = new Set(Object.keys(PANEL_SHAPES));
+function activeGroups(src) {
+  return withState(src, () => {
+    const on = new Set();
+    for (const L of LAYER_GROUPS) if (L.is()) on.add(L.g);
+    const shapes = shapeSet(state.shape, state.shapeMix).concat(
+      state.emit2Count > 0 ? shapeSet(state.emit2Shape || 0, state.emit2ShapeMix) : []);
+    for (const [group, list] of Object.entries(PANEL_SHAPES))
+      if (list.some((sh) => shapes.indexOf(sh) >= 0)) on.add(group);
+    return on;
+  });
+}
+
+// A VARIATION IS A SIBLING, NOT A ROLL OF THE DICE. The first version mutated every non-skipped
+// param with a 45% chance each, by a share of its FULL RANGE. Measured on three presets that came
+// out at ~200 of 440 params changed and ~15 entirely new systems switched on per child — because a
+// system master sits at 0 with a range of 0..1, so any nudge at all turns it on. A pack of eight
+// "near-identical" paint splatters arrived carrying sigils, tunnels, web, haze and chromatic
+// aberration. That is not a family, it is eight unrelated effects.
+//
+// Three changes, in order of how much they mattered:
+//   1. only params belonging to systems the effect ALREADY USES are eligible;
+//   2. a bounded handful move, not half the table;
+//   3. the step is capped against the VALUE, not just the range — `count` runs to 3000, so 14% of
+//      range was +-420 on an effect built from 44 particles.
+function mutateGenome(src, amount, opts) {
+  opts = opts || {};
   const g = {};
-  for (const p of PARAMS) {
-    const k = p[0];
-    g[k] = src[k];
-    // Skipped keys are the ones that decide WHAT the effect is rather than how it looks —
-    // mutating them gives you a different effect, not a sibling of this one.
-    if (BREED_SKIP.has(k)) continue;
-    if (Math.random() > 0.55) continue;
-    const span = (p[3] - p[2]) * amount;
-    let v = g[k] + (Math.random() * 2 - 1) * span;
-    v = Math.max(p[2], Math.min(p[3], v));
-    g[k] = p[4] >= 1 ? Math.round(v / p[4]) * p[4] : Math.round(v * 1000) / 1000;
-  }
+  for (const p of PARAMS) g[p[0]] = src[p[0]];
   for (const k in PATCH_EXTRAS) g[k] = src[k];
+
+  const on = activeGroups(src);
+  // A param sitting at zero on a default of zero is a dimension this effect DOES NOT USE — wind,
+  // radial and swirl on a preset built from gravity alone. Moving one adds a new behaviour rather
+  // than varying an existing one, which is the same mistake as switching on a new system, one
+  // level down. Derived from the value, so it needs no list and cannot go stale.
+  const used = [], rest = [];
+  for (const p of PARAMS) {
+    if (BREED_SKIP.has(p[0])) continue;
+    if ((GATED_GROUPS.has(p[7]) || SHAPE_GROUPS.has(p[7])) && !on.has(p[7])) continue;
+    const cur = g[p[0]];
+    const bucket = (cur === 0 && p[5] === 0) ? rest : used;
+    const w = VARY_WEIGHT[p[7]] || 1;
+    for (let i = 0; i < w; i++) bucket.push(p);    // weighted draw, cheapest form
+  }
+  if (!used.length && !rest.length) return g;
+
+  // `amount` (the Difference slider) now buys bigger steps AND more of them, but the count stays
+  // bounded. Sampling with replacement is deliberate: hitting the same param twice is a bigger
+  // move on one axis, which is a legitimate kind of sibling.
+  const n = Math.max(4, Math.min(16, Math.round(4 + amount * 30)));
+  const core = used.filter((p) => VARY_WEIGHT[p[7]]);
+  for (let i = 0; i < n; i++) {
+    // The FIRST change always lands on a core param, so no member of a pack can come out looking
+    // identical to its parent. With a handful of picks over a wide pool, some did.
+    const from = (i === 0 && core.length) ? core
+      : (used.length && (!rest.length || Math.random() < 0.85)) ? used : rest;
+    const p = pick(from);
+    const k = p[0], span = p[3] - p[2], cur = g[k];
+    const step = Math.min(span * amount, Math.max(Math.abs(cur), span * 0.02) * amount * 1.5);
+    // Snapped to the slider's own grid, so a child opens with values you could have dialled in by
+    // hand — the old rounding produced `size 18.406` and `drag 0.656` on steps of 0.5 and 0.01.
+    g[k] = snapToStep(cur + (Math.random() * 2 - 1) * step, p[2], p[3], p[4]);
+  }
+
+  // BREEDING IS ALLOWED TO DISCOVER; A VARIATION PACK IS NOT. The tour promises breed "finds
+  // things you'd never reach by dragging sliders", and that has to stay true — so a bred child may
+  // gain ONE new system, at odds that leave most of the litter recognisable. Variations never do.
+  if (opts.explore && Math.random() < 0.3) {
+    const off = LAYER_GROUPS.filter((L) => !on.has(L.g));
+    if (off.length) {
+      const L = pick(off);
+      const after = withState(g, () => { L.on(); return snapshotState(); });
+      for (const p of PARAMS) g[p[0]] = after[p[0]];
+    }
+  }
   return g;
 }
 function crossGenome(a, b) {
@@ -4612,7 +4875,7 @@ function crossGenome(a, b) {
 }
 function breedChild(parents, amount) {
   const a = pick(parents), b = pick(parents);
-  return mutateGenome(a === b ? a : crossGenome(a, b), amount);
+  return mutateGenome(a === b ? a : crossGenome(a, b), amount, { explore: true });
 }
 function fullGenome(patch) {
   const g = {};
@@ -5909,7 +6172,7 @@ const TOUR = [
   { target: "#foundry", title: "2 · Foundry — invent originals",
     body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
   { target: "#breed,#variations", title: "3 · Breed — evolve by eye",
-    body: "Breed makes nine children of the current effect; keep your favourites and breed again. It finds things you'd never reach by dragging sliders. Variations does the same jitter but exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
+    body: "Breed makes nine children of the current effect; keep your favourites and breed again. It roams — a child can pick up a system the parent never had, which is how it finds things you'd never reach by dragging sliders. Variations stays put instead: it nudges what the effect already uses and exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
 
   // Then the refining tools, coarse to fine.
   { target: "#macros", title: "4 · Shape it in plain language",
@@ -6114,8 +6377,9 @@ const TUTORIALS = [
           + "again. Two or three rounds converges somewhere you couldn't have reached by dragging "
           + "sliders, because it moves a dozen at once." },
       { target: "#variations", before: closeAll, title: "Variations is for shipping",
-        body: "Same jitter, different purpose: it exports a whole family — hit_01 … hit_08 — so "
-          + "repeated hits in your game don't read as a loop. One effect, eight siblings." },
+        body: "Deliberately tamer than Breed: it only nudges what this effect already uses, so a "
+          + "pack stays recognisably one effect. It exports the whole family — hit_01 … hit_08 — "
+          + "so repeated hits in your game don't read as a loop. One effect, eight siblings." },
       { target: "#foundry", before: closeAll, title: "The Foundry starts from an idea",
         body: "Pick a kind of effect and an art style and it invents candidates from nothing. Use it "
           + "when you know what you want but not what it should look like." },
@@ -6224,6 +6488,14 @@ tutModal.addEventListener("click", (e) => { if (e.target === tutModal) tutModal.
   const v = document.getElementById("verLine");
   if (v) v.textContent = "CrunchyVFX v" + APP_VERSION + (isDesktop ? " · desktop" : " · web");
 }
+
+// ---------- The Crunchy suite (suite.js, canonical in CrunchyTile) ----------
+// Web and desktop both get it. The desktop webview won't leave for a browser on its own, so there
+// the links go through the opener plugin (scoped in src-tauri/capabilities/default.json).
+const suiteDialog = suiteMount("vfx", {
+  button: document.getElementById("suiteBtn"),
+  openUrl: window.__TAURI__ && window.__TAURI__.opener ? (url) => window.__TAURI__.opener.openUrl(url) : null,
+});
 
 // ---------- Apply the desktop gate ----------
 // Anything carrying data-desktop simply isn't there on the web, rather than being visible and

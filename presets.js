@@ -71,6 +71,41 @@ window.PRESETS = {
     coreWhite: 0.1, blend: 1, alphaCut: 0.5, duration: 0.8, fps: 24,
   },
 
+  // Paint is OPAQUE and it STICKS, and those two facts drove every value here. Alpha blend, not
+  // additive — additive paint glows, which reads as fire. `coreWhite: 0` for the same reason: a hot
+  // core is the single strongest "this is an explosion" cue in the whole app. High drag so droplets
+  // decelerate and stop instead of sailing off, and almost no fadeOut, because wet paint does not
+  // dim — it lands and sits there. That is why `life` outlasts `duration`: nothing should die on
+  // screen.
+  //
+  // ONE COLOUR, NOT TWO. Layer B started as a contrasting second paint and read as confetti; it is
+  // the SAME hue darker instead, which is what gives the mass depth rather than variety.
+  //
+  // LAYER B'S BRIGHTNESS IS NOT LAYER A'S. `emit2Bright` is written straight to the particle's
+  // lightness (vfx.js, the Layer B birth block), while Layer A's runs through
+  // `0.45 + 0.55 * coreWhite`. So `emit2Bright: 1` is lightness 1.0 — pure white at any saturation,
+  // which is exactly what the first draft of this preset shipped by accident. 0.34 is a dark paint.
+  //
+  // Travel is deliberately SHORT. Fit scales to the bounding box, so faster droplets only buy a
+  // wider box and shrink everything inside it; the version with twice this speed was a field of
+  // specks. Less travel, bigger particles — the same rule that governs every burst in here.
+  "Paint Splatter": {
+    shape: 15, shapeMix: "36,75",       // blob + comma + specks: droplets, flicked streaks, mist
+    emitter: 0, count: 44, emitRadius: 0.03, emitTime: 0.02, emitSpread: 360,
+    speed: 150, speedVar: 0.8, drag: 0.6, gravity: 210, spin: 90, spinVar: 1,
+    life: 1.4, lifeVar: 0.35, size: 16, sizeVar: 0.8, grow: -0.05,
+    fadeIn: 0, fadeOut: 0.06, alphaCurve: 0,   // paint arrives at full opacity; it does not ease in
+    blobLobes: 8, blobRough: 0.35,      // rounder than the default; 5 faceted lobes read as gems
+    hue: 332, hueLife: 0, hueVar: 0.05, sat: 0.95, bright: 1, coreWhite: 0, blend: 1,
+    emit2Count: 22, emit2Shape: 15, emit2ShapeMix: "36",
+    emit2Spread: 360, emit2Radius: 0.03, emit2Speed: 130, emit2SpeedVar: 0.8,
+    emit2Gravity: 210, emit2Drag: 0.6, emit2Size: 13, emit2SizeVar: 0.7,
+    emit2Grow: -0.05, emit2Life: 1.4, emit2LifeVar: 0.35, emit2FadeIn: 0,
+    emit2FadeOut: 0.06, emit2Hue: 338, emit2Sat: 0.95, emit2Bright: 0.34,
+    emit2Opacity: 1, emit2Blend: 2,
+    duration: 1.1, fps: 24,
+  },
+
   // ---------- Magic ----------
   "Magic Sparkle": {
     shape: 3, emitter: 3, count: 70, emitRadius: 0.16, emitTime: 0.7,
@@ -1761,7 +1796,7 @@ window.PRESET_CATEGORIES = [
                   "Firework", "Water Ripple", "Sonar Ping", "Glitch Out", "Goo Split", "Comet Path",
                   "Sun Glint", "Corrupt Blip", "Glass Web", "Slime Drip", "Molten Drip",
                   "Radar Sweep", "Searchlight", "Rift Split"]],
-  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash",
+  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Paint Splatter", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash",
                   "Scorch Mark", "Landing Puff", "Speed Dash", "Focus Lines", "Crit Pop", "Whip Pan",
                   "Ground Crack", "Katana Cut", "Sword Clash", "Rock Slide", "Ninja Strike", "Axe Chop", "Perfect Parry"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud",

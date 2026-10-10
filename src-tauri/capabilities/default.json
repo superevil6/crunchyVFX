@@ -14,6 +14,15 @@
     "fs:allow-read-file",
     "drag:default",
     {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://*.sevi66.workers.dev/*" },
+        { "url": "https://sevi66.itch.io/*" },
+        { "url": "https://crunchytile.com/*" },
+        { "url": "https://crunchyui.com/*" }
+      ]
+    },
+    {
       "identifier": "fs:scope",
       "allow": [
         {

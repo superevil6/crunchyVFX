@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 9] = [
+const FRONTEND: [&str; 10] = [
     "index.html",
     "favicon.png",
     "presets.js",
@@ -17,6 +17,8 @@ const FRONTEND: [&str; 9] = [
     "vfx.js",
     "gif.js",
     "apng.js",
+    // The "Crunchy suite" dialog — canonical in CrunchyTile, kept byte-identical.
+    "suite.js",
     "styles.css",
 ];
 
