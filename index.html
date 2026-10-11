@@ -264,8 +264,8 @@
 (function guardCoreFiles() {
   const CSS_BUILD = 1;   // must match --css-build in styles.css
   const CORE = [
-    { file: "suite.js", want: 4, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
-    { file: "crunchy-icons.js", want: 6, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
+    { file: "suite.js", want: 5, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
+    { file: "crunchy-icons.js", want: 7, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
