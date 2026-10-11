@@ -426,6 +426,40 @@
         }
       }
 
+      // ------------------------------------------- a pipeline writes LOOSE FILES to its folder
+      // runExportToFolder used to get its bytes by swapping out window.download, clicking the
+      // Export button and polling on a timer. Whatever download() received was what got written —
+      // and for any export with more than one file that is the ZIP, so a pipeline aimed at a
+      // folder dropped `effect.zip` in it instead of the sheet and sidecar an engine can read.
+      // It calls buildExportFiles() directly now, so the folder gets the same list the button
+      // would have zipped.
+      {
+        const realTauri = window.__TAURI__;
+        const written = [], dirs = [];
+        window.__TAURI__ = {
+          fs: {
+            mkdir: async (d) => { dirs.push(d); },
+            writeFile: async (path, bytes) => { written.push({ path: path, n: bytes.length }); },
+          },
+        };
+        try {
+          applyPreset(PRESETS["Explosion"], "Explosion");
+          expFormat.value = "sheet"; expMetaSel.value = "godot";
+          expTrim.checked = false; expPot.checked = false; expEmis.checked = false;
+          await runExportToFolder("/tmp/pipe");
+          const names = written.map((w) => w.path.replace("/tmp/pipe/", ""));
+          ok(written.length >= 2, "a pipeline folder gets every file, not one archive",
+             names.join(", "));
+          ok(!names.some((n) => /\.zip$/.test(n)), "…and none of them is a .zip", names.join(", "));
+          ok(names.some((n) => /\.png$/.test(n)) && names.some((n) => /\.tres$/.test(n)),
+             "…the sheet and its Godot sidecar are both there", names.join(", "));
+          ok(written.every((w) => w.n > 0), "…and every one has bytes in it");
+        } finally {
+          window.__TAURI__ = realTauri;
+          expMetaSel.value = "generic";
+        }
+      }
+
       // -------------------------------------------------------------- A/B compare
       applyPreset(PRESETS["Explosion"], "Explosion");
       const hueA = state.hue;

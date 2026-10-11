@@ -246,6 +246,10 @@
 <!-- The "Crunchy suite" dialog. CANONICAL in CrunchyTile (TILE-DESIGN §80): copied byte-identical,
      never edited here; change a link or a line in Tile and copy it again. -->
 <script src="suite.js"></script>
+<!-- The desktop tier's project folder. VENDORED from CrunchyTile, which is canonical: only
+     PROJECT_APP, projectAssetValid and projectReadme differ here (PROJECTS-HANDOFF.md §6).
+     Pure — no DOM, no app state — so it is safe to load anywhere in this list. -->
+<script src="project.js"></script>
 <script>
 "use strict";
 
@@ -3599,12 +3603,17 @@ function framesAtScale(mult) {
 //
 // Deliberately plain JSON, not a binary container: it should stay diffable and hand-editable, and
 // an effect is a few dozen numbers.
-const PROJECT_VERSION = 1;
+// NAMED AWAY FROM `PROJECT_*`, which the vendored project.js owns. Both are classic scripts sharing
+// one global scope, so two `const PROJECT_VERSION` declarations are a parse-time SyntaxError that
+// kills whichever script loads second — here the whole app, silently, with a bare "Script error."
+// The emitted JSON is unchanged: this names the `.crunchyvfx` single-file format, not the folder
+// project, and only ever appears as a value.
+const VFXFILE_VERSION = 1;
 
 function buildProject() {
   return {
     app: "crunchyvfx",
-    version: PROJECT_VERSION,
+    version: VFXFILE_VERSION,
     saved: new Date().toISOString(),
     label: effectLabel,
     editor: snapshotState(),
@@ -3743,8 +3752,7 @@ async function dragOutSheet() {
     // Carry the sidecar too, so dropping into Godot lands the .tres beside its texture rather
     // than a bare PNG you then have to describe by hand.
     if (expMetaSel.value !== "none") {
-      const ext = expMetaSel.value === "godot" ? ".tres" : ".json";
-      const metaPath = await tempFilePath(base + ext);
+      const metaPath = await tempFilePath(base + sidecarExt());
       await T.fs.writeFile(metaPath, new TextEncoder().encode(
         sidecarFor(expMetaSel.value, sh, base, rendered.fps)));
       items.push(metaPath);
@@ -3865,6 +3873,13 @@ async function streamFrameFiles(mult, opts, base, files) {
 }
 
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
+// STRICTER THAN `sanitize`, and both are needed. `sanitize` keeps dots and underscores because it names
+// an export the user asked for and should recognise. `slugify` names a FILE ON DISK inside a project and
+// a FOLDER INSIDE SOMEONE'S GAME, so it is reduced to a-z0-9 and dashes: no dots to be read as an
+// extension, nothing a file system or an engine's importer could object to. project.js calls it.
+function slugify(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "effect";
+}
 const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 
 // Every export in the app funnels through here, so this is the only place that needs to know
@@ -4028,6 +4043,11 @@ function emissiveFrames(frames, st) {
 // disturb the project's asset database, which is damage to someone else's project rather than a
 // broken file they can delete. The sheet itself imports into Unity fine; it is only the sidecar
 // that is missing, and the dialog says so rather than leaving a Unity user hunting for the option.
+// The file extension a sidecar kind implies. A helper rather than the same ternary written out at
+// three call sites: the batch path had it as a hardcoded ".json", so a Godot batch wrote
+// SpriteFrames text into a file Godot will not load. One place to be right is one place to fix.
+function sidecarExt() { return expMetaSel.value === "godot" ? ".tres" : ".json"; }
+
 function sidecarFor(kind, sh, name, fps) {
   const durMs = Math.round(1000 / fps);
   const cell = (i) => ({ x: (i % sh.cols) * sh.w, y: Math.floor(i / sh.cols) * sh.h, w: sh.w, h: sh.h });
@@ -4084,8 +4104,14 @@ function sidecarFor(kind, sh, name, fps) {
                 "region = Rect2(" + c.x + ", " + c.y + ", " + c.w + ", " + c.h + ")\n" + marg);
       refs.push('{\n"duration": 1.0,\n"texture": SubResource("AtlasTexture_' + i + '")\n}');
     }
+    // THE TEXTURE PATH IS RELATIVE TO THE .tres, not absolute from the project root. `res://<name>.png`
+    // only resolves when the PNG sits at the very top of the Godot project, so it broke the moment the
+    // pair went anywhere else — inside a batch's `<name>/` folder, or inside `res://crunchyvfx/<slug>/`.
+    // Godot resolves an ext_resource path against the resource file's own folder; CrunchyTile probed
+    // that directly against Godot 4.7.2 (a .tres in res://deep/nested/ found its PNG beside it) and
+    // ships every .tres this way. Relative is also what lets the exported folder be dropped anywhere.
     return '[gd_resource type="SpriteFrames" load_steps=' + (sh.n + 2) + ' format=3]\n\n' +
-      '[ext_resource type="Texture2D" path="res://' + name + '.png" id="1_tex"]\n\n' +
+      '[ext_resource type="Texture2D" path="' + name + '.png" id="1_tex"]\n\n' +
       subs.join("\n") + "\n[resource]\nanimations = [{\n" +
       '"frames": [' + refs.join(", ") + "],\n" +
       '"loop": true,\n"name": &"default",\n"speed": ' + fps.toFixed(1) + "\n}]\n";
@@ -4268,69 +4294,85 @@ expModal.querySelector("#expClose").addEventListener("click", () => { expModal.h
 expModal.addEventListener("click", (e) => { if (e.target === expModal) expModal.hidden = true; });
 
 // One export routine for every combination — a single zip when more than one file comes out.
+// ONE FUNCTION BUILDS THE FILES; THE CALLERS DECIDE WHERE THEY GO. This used to live inside the
+// Export button, so the only way for a pipeline to get the same bytes was to replace
+// `window.download` with a collector, click the button, and poll for the result on a 120ms timer
+// with a 20-second bail-out. That meant export settings could only be exercised by driving the UI,
+// a slow render raced the timeout, and whatever `download` happened to receive was what got
+// written — which for anything multi-file is the ZIP, so a pipeline pointed at a folder dropped a
+// `.zip` in it instead of the files an engine can read.
+//
+// Returning the list fixes all three, and it is the shape the project/engine export in
+// PROJECTS-HANDOFF.md needs: `[{ name, data }]`, the same bytes the button would have zipped.
+async function buildExportFiles(onProgress) {
+  const fmt = expFormat.value, base = sanitize(effectLabel), scales = chosenScales();
+  if (!scales.length) throw new Error("Pick at least one size");
+  const files = [];
+  for (const mult of scales) {
+    const suffix = scales.length > 1 ? "@" + mult + "x" : "";
+    const opts = { trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked };
+    // The emissive mask is built from the finished frames, so that one option still needs the
+    // whole sequence in memory. Everything else streams.
+    const needsAllFrames = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
+    const frames = needsAllFrames ? framesAtScale(mult) : null;
+
+    if (fmt === "sheet") {
+      const sh = frames ? buildSheet(Object.assign({ frames: frames }, opts))
+                        : await buildSheetStreaming(mult, opts);
+      const blob = await canvasBlob(sh.cv);
+      files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+      if (expMetaSel.value !== "none") {
+        files.push({ name: base + suffix + sidecarExt(),
+          data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
+      }
+      if (expEmis.checked) {
+        // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
+        // doesn't line up with its colour sheet is worse than no mask.
+        const em = buildSheet({ frames: emissiveFrames(sh.frames, state), layout: expLayout.value, pot: expPot.checked });
+        const eb = await canvasBlob(em.cv);
+        files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
+      }
+      releaseCanvas(sh.cv);
+    } else if (fmt === "apng") {
+      // encodeApng() takes the whole sequence; APNG is a single container with an inter-frame
+      // dependency chain, so there is nothing to stream it into.
+      let out = frames;
+      if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
+      const bytes = await encodeApng(out, rendered.fps);
+      files.push({ name: base + suffix + ".png", data: bytes });
+    } else {
+      await streamFrameFiles(mult, opts, base + suffix, files);
+    }
+    // Release ONLY frames this export created. At 1x with no reference image, framesAtScale()
+    // returns the live preview canvases themselves rather than copies — releasing those blanks
+    // the stage and makes every later buildSheet() produce an empty sheet, with no error
+    // anywhere. That is a silent, delayed failure, so the identity check matters.
+    if (frames && frames !== rendered.canvases) for (const cv of frames) releaseCanvas(cv);
+    // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
+    // (same engine, same encoder), so what you drop into an engine is a matched pair rather
+    // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
+    // doesn't change with the sprite's resolution.
+    if (synthSound && expSound.checked && mult === 1 && typeof CrunchySynth !== "undefined") {
+      try {
+        const wav = CrunchySynth.encodeWav(synthSound.L, synthSound.R,
+                                           { rate: synthSound.rate, depth: 16, channels: 2 });
+        files.push({ name: base + ".wav", data: new Uint8Array(wav) });
+      } catch (e) {
+        console.warn("crunchyvfx: could not encode the synthesised sound —", e);
+      }
+    }
+    if (onProgress) onProgress(mult);
+  }
+  return { files, base };
+}
+
 expModal.querySelector("#expGo").addEventListener("click", async () => {
   if (!rendered) return;
-  const fmt = expFormat.value, base = sanitize(effectLabel), scales = chosenScales();
-  if (!scales.length) { expMsg.textContent = "Pick at least one size"; return; }
   expMsg.textContent = "Rendering…";
-  const files = [];
   try {
-    for (const mult of scales) {
-      const suffix = scales.length > 1 ? "@" + mult + "x" : "";
-      const opts = { trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked };
-      // The emissive mask is built from the finished frames, so that one option still needs the
-      // whole sequence in memory. Everything else streams.
-      const needsAllFrames = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
-      const frames = needsAllFrames ? framesAtScale(mult) : null;
-
-      if (fmt === "sheet") {
-        const sh = frames ? buildSheet(Object.assign({ frames: frames }, opts))
-                          : await buildSheetStreaming(mult, opts);
-        const blob = await canvasBlob(sh.cv);
-        files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
-        if (expMetaSel.value !== "none") {
-          const ext = expMetaSel.value === "godot" ? ".tres" : ".json";
-          files.push({ name: base + suffix + ext,
-            data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
-        }
-        if (expEmis.checked) {
-          // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
-          // doesn't line up with its colour sheet is worse than no mask.
-          const em = buildSheet({ frames: emissiveFrames(sh.frames, state), layout: expLayout.value, pot: expPot.checked });
-          const eb = await canvasBlob(em.cv);
-          files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
-        }
-        releaseCanvas(sh.cv);
-      } else if (fmt === "apng") {
-        // encodeApng() takes the whole sequence; APNG is a single container with an inter-frame
-        // dependency chain, so there is nothing to stream it into.
-        let out = frames;
-        if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
-        const bytes = await encodeApng(out, rendered.fps);
-        files.push({ name: base + suffix + ".png", data: bytes });
-      } else {
-        await streamFrameFiles(mult, opts, base + suffix, files);
-      }
-      // Release ONLY frames this export created. At 1x with no reference image, framesAtScale()
-      // returns the live preview canvases themselves rather than copies — releasing those blanks
-      // the stage and makes every later buildSheet() produce an empty sheet, with no error
-      // anywhere. That is a silent, delayed failure, so the identity check matters.
-      if (frames && frames !== rendered.canvases) for (const cv of frames) releaseCanvas(cv);
-      // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
-      // (same engine, same encoder), so what you drop into an engine is a matched pair rather
-      // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
-      // doesn't change with the sprite's resolution.
-      if (synthSound && expSound.checked && mult === 1 && typeof CrunchySynth !== "undefined") {
-        try {
-          const wav = CrunchySynth.encodeWav(synthSound.L, synthSound.R,
-                                             { rate: synthSound.rate, depth: 16, channels: 2 });
-          files.push({ name: base + ".wav", data: new Uint8Array(wav) });
-        } catch (e) {
-          console.warn("crunchyvfx: could not encode the synthesised sound —", e);
-        }
-      }
+    const { files, base } = await buildExportFiles((mult) => {
       expMsg.textContent = "Rendering… " + mult + "×";
-    }
+    });
     if (files.length === 1) {
       download(new Blob([files[0].data], { type: "image/png" }), files[0].name);
     } else {
@@ -4451,7 +4493,7 @@ async function batchExport(which, opts) {
       const blob = await canvasBlob(sh.cv);
       files.push({ name: base + "/" + base + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
       if (expMetaSel.value !== "none") {
-        files.push({ name: base + "/" + base + ".json",
+        files.push({ name: base + "/" + base + sidecarExt(),
           data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base, rendered.fps)) });
       }
       expMsg.textContent = "Rendering " + (i + 1) + "/" + sets.length + " — " + name;
@@ -4591,30 +4633,25 @@ expModal.querySelector("#expPipeSave").addEventListener("click", () => {
   });
 }
 
-// Run the CURRENT single-effect export straight into a folder. Shares the dialog's own export path
-// by intercepting download() rather than duplicating it — the moment there are two copies of the
-// export logic, one of them starts lagging behind.
+// Run the CURRENT single-effect export straight into a folder, through the very function the
+// Export button calls. The folder gets the LOOSE FILES an engine can read — the sheet, the sidecar,
+// the emissive mask, the wav — where the old intercept-download version wrote whatever the button
+// would have handed the browser, i.e. a single `.zip` for any export with more than one file.
 async function runExportToFolder(folder) {
-  const real = window.download;
-  const captured = [];
-  window.download = (blob, name) => { captured.push({ blob, name }); };
+  if (!rendered) { expMsg.textContent = "Nothing to export yet"; return; }
+  expMsg.textContent = "Rendering…";
   try {
-    await new Promise((res) => {
-      const go = expModal.querySelector("#expGo");
-      go.click();
-      const wait = setInterval(() => {
-        if (captured.length) { clearInterval(wait); res(); }
-      }, 120);
-      setTimeout(() => { clearInterval(wait); res(); }, 20000);
+    const { files } = await buildExportFiles((mult) => {
+      expMsg.textContent = "Rendering… " + mult + "×";
     });
-  } finally {
-    window.download = real;
+    if (!files.length) { expMsg.textContent = "Nothing was produced"; return; }
+    await writeFilesToFolder(files, folder);
+    const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
+    expMsg.textContent = "Wrote " + files.length + " file" + (files.length > 1 ? "s" : "") +
+      " · " + kb + " KB to " + folder;
+  } catch (e) {
+    expMsg.textContent = "Export failed: " + e.message;
   }
-  if (!captured.length) { expMsg.textContent = "Nothing was produced"; return; }
-  const files = [];
-  for (const c of captured) files.push({ name: c.name, data: new Uint8Array(await c.blob.arrayBuffer()) });
-  await writeFilesToFolder(files, folder);
-  expMsg.textContent = "Wrote " + files.map((f) => f.name).join(", ") + " to " + folder;
 }
 
 loadPipelines();

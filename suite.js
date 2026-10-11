@@ -4,7 +4,7 @@
 // with links to the other Crunchy applications and one liner about what they do."
 //
 // PORTABLE and CANONICAL HERE, like textures.js: copy this file into a sibling unchanged, then call
-// suiteMount("<its id>", …). CHANGE A LINK OR A LINE HERE FIRST, then copy it out, so the five apps never
+// suiteMount("<its id>", …). CHANGE A LINK OR A LINE HERE FIRST, then copy it out, so the apps never
 // disagree about each other. Its styles are the `suite-*` block in styles.css (the suite's shared custom
 // properties only).
 //
@@ -13,27 +13,32 @@
 //
 // LINKS: a web link only once that deploy answers, a desktop link only once its store page is published.
 // A tool with neither says "coming soon". A dead link from a store-bought app looks worse than none.
-// When the suite domain lands (crunchy-suite.md, "Hosting and domains"), the web links change HERE, AND in
+// Each tool has its own .com (crunchysfx.com, crunchyvfx.com and crunchybgm.com are live, crunchytile.com since
+// 2026-10-09; crunchyui.com was bought that day). When a link changes, change it HERE, AND in
 // each desktop app's capability scope (src-tauri/capabilities: opener:allow-open-url), which opens only
 // the hosts listed there. A link outside that scope does nothing on desktop.
 
-const SUITE_BUILD = 1;
+const SUITE_BUILD = 3;
 const CRUNCHY_SUITE = [
   { id: "tile", name: "CrunchyTile", icon: "▦",
     what: "Tilesets, backdrops, objects and rooms for top-down and side-scrolling games, ready for Godot and Unity.",
-    web: "", desktop: "" },
+    web: "https://crunchytile.com/", desktop: "" },
   { id: "ui", name: "CrunchyUI", icon: "▣",
     what: "Game UI: panels, buttons, bars, frames, slots, cursors and icons, with 9-slice insets.",
     web: "", desktop: "" },
   { id: "sfx", name: "CrunchySFX", icon: "♪",
     what: "Sound effects from scratch: coins, lasers, explosions, robot voices and more, as WAV.",
-    web: "https://crunchysfx.sevi66.workers.dev/", desktop: "https://sevi66.itch.io/crunchysfx" },
+    web: "https://crunchysfx.com/", desktop: "https://sevi66.itch.io/crunchysfx" },
   { id: "vfx", name: "CrunchyVFX", icon: "✸",
     what: "Sprite effects: explosions, hit sparks, magic, smoke and weather, as sprite sheets.",
-    web: "https://crunchyvfx.sevi66.workers.dev/", desktop: "" },
+    web: "https://crunchyvfx.com/", desktop: "" },
   { id: "bgm", name: "CrunchyBGM", icon: "♫",
     what: "Background music: whole game scores in seamless loops, with layers your engine mixes live.",
-    web: "https://crunchybgm.sevi66.workers.dev/", desktop: "" },
+    web: "https://crunchybgm.com/", desktop: "" },
+  // Added 2026-10-09 (build 3) from CrunchyCharacter, at AJ's request. No domain or store page yet.
+  { id: "character", name: "CrunchyCharacter", icon: "♟",
+    what: "Animated pixel-art characters for top-down RPGs: idle and walk in every facing, ready for Godot and RPG Maker.",
+    web: "", desktop: "" },
 ];
 // The mission statement's one line (crunchy-suite.md §1). Quoted, never reworded.
 const SUITE_LINE = "Crunchy tools make the art and sound for your game, so you can spend your time on the game.";

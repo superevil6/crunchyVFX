@@ -12,14 +12,36 @@
     "fs:allow-write-file",
     "fs:allow-mkdir",
     "fs:allow-read-file",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-read-dir",
+    "fs:allow-exists",
+    "fs:allow-remove",
     "drag:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [
-        { "url": "https://*.sevi66.workers.dev/*" },
-        { "url": "https://sevi66.itch.io/*" },
-        { "url": "https://crunchytile.com/*" },
-        { "url": "https://crunchyui.com/*" }
+        {
+          "url": "https://*.sevi66.workers.dev/*"
+        },
+        {
+          "url": "https://sevi66.itch.io/*"
+        },
+        {
+          "url": "https://crunchytile.com/*"
+        },
+        {
+          "url": "https://crunchyui.com/*"
+        },
+        {
+          "url": "https://crunchysfx.com/*"
+        },
+        {
+          "url": "https://crunchyvfx.com/*"
+        },
+        {
+          "url": "https://crunchybgm.com/*"
+        }
       ]
     },
     {

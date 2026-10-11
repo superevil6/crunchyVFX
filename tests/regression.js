@@ -154,8 +154,30 @@
     ok(tres.indexOf('[gd_resource type="SpriteFrames"') === 0, "Godot sidecar declares its type");
     ok((tres.match(/sub_resource type="AtlasTexture"/g) || []).length === gsh.n,
        "one AtlasTexture per frame", gsh.n + " cells");
-    ok(tres.indexOf('path="res://fx.png"') > 0 && tres.indexOf('"speed": 24.0') > 0,
-       "…and points at the sheet with the right frame rate");
+    // RELATIVE, never `res://…`. An absolute path only resolves when the PNG sits at the top of the
+    // Godot project, so the pair broke inside a batch's `<name>/` folder and would break inside
+    // `res://crunchyvfx/<slug>/`. Godot resolves an ext_resource against the .tres's own folder
+    // (CrunchyTile probed it against 4.7.2). The `res://` absence is the half that catches a
+    // regression — the previous version of this assertion pinned the bug in place.
+    // ONE helper decides the sidecar's extension for all three export paths. The batch path used to
+    // hardcode ".json", so a Godot batch shipped SpriteFrames text in a file Godot refuses — the
+    // only export path where the sidecar kind and its extension could disagree.
+    {
+      const was = expMetaSel.value;
+      const seen = {};
+      for (const kind of ["generic", "aseprite", "phaser", "godot"]) {
+        expMetaSel.value = kind;
+        seen[kind] = sidecarExt();
+      }
+      expMetaSel.value = was;
+      ok(seen.godot === ".tres" && seen.generic === ".json" &&
+         seen.aseprite === ".json" && seen.phaser === ".json",
+         "the sidecar extension follows its kind",
+         JSON.stringify(seen));
+    }
+    ok(tres.indexOf('path="fx.png"') > 0 && tres.indexOf("res://") < 0 &&
+       tres.indexOf('"speed": 24.0') > 0,
+       "…and points at the sheet relatively, with the right frame rate");
     // Trimmed cells must carry an AtlasTexture margin, or a trimmed sheet sits offset in-engine.
     // Verified in Godot 4.7: with the margin, get_size() reports the UNTRIMMED size.
     const gtrim = buildSheet({ trim: true });
