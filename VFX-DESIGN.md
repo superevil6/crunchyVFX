@@ -823,6 +823,10 @@ closing list).
 
 ## 16. The Crunchy suite button (2026-10-09)
 
+> **Partly superseded by §17 (2026-10-11):** `suite.js` and its `suite-*` styles now come from **crunchyCore**
+> (`node tools/pull-core.mjs`), not as a hand copy from CrunchyTile; the `suite-*` block left `styles.css` for
+> `crunchy-base.css`. The mount and the opener scope below are unchanged.
+
 A "✦ Crunchy suite" button sits at the end of the top bar's right-hand group (web and desktop both),
 opening a dialog of all five Crunchy tools with a line each and their links. It is a port: **canonical
 in CrunchyTile, TILE-DESIGN.md §80.** `suite.js` must stay **byte-identical** to Tile's — never edit it
@@ -831,3 +835,77 @@ here; change a link or a line in Tile and copy the file again. The `suite-*` CSS
 app has no global `[hidden] { display: none !important }`. It is mounted with `suiteMount("vfx", …)`;
 on desktop the links go through `tauri-plugin-opener`, scoped in `capabilities/default.json` to the
 suite's hosts.
+
+## 17. The suite's shared look: angular, pixel icons, a violet accent (2026-10-11)
+
+**Why.** A friend, on CrunchyBGM: "too round, and was obviously AI generated, make it more angular". AJ agreed and
+asked for one styling standard across the suite: chrome that belongs to pixel art. This follows crunchyTile's
+TILE-DESIGN.md §105 (Tile first), CONSOLIDATION-PLAN.md §9 (the direction and the six accents) and CrunchyBGM's
+BGM-DESIGN.md §614 (the closest worked example). Pass 1 of the consolidation: the LOOK only. No behaviour, storage
+key, share link or export changed; `project.js` (§13's half-done desktop project) is untouched, as are the core's
+library/settings/desktop files, which are pass 2.
+
+**What.**
+- **crunchyCore adopted.** `tools/core-files.json` lists `tools/core-commit.mjs`, `suite.js`, `crunchy-base.css` and
+  `crunchy-icons.js`; the three app files are GENERATED copies (header "GENERATED from crunchyCore"; never edit them
+  here; `node tools/pull-core.mjs --check`). `suite.js` was a hand copy of Tile's and is now the core's (build 4: each
+  tool in its own accent, with a pixel icon). The base-3 MIGRATION is done: VFX's `suite-*` block left `styles.css`.
+  VFX's own `lib-*` rules STAY: they style VFX's own Library dialog (imported particles + exports, §13), not the core's
+  `library.js`; only `.lib-title` shares a name with a core rule, and VFX's later rule sets what that dialog needs.
+- **Registered.** `crunchy-base.css` is linked BEFORE `styles.css`; `crunchy-icons.js` loads after `suite.js`.
+  `FRONTEND` in `src-tauri/build.rs` is 13; `tests/build.py` rebases both; the desktop workflow's copy line, the
+  subresource counts in `worker.js`, `DEPLOY.md` and `.assetsignore` moved (eleven: nine scripts, two stylesheets);
+  neither file is matched by `.assetsignore`.
+- **A stamp guard (new; VFX had none).** A small script after the core files checks `SUITE_BUILD`,
+  `CRUNCHY_ICONS_BUILD`, `--base-build` and VFX's own `--css-build` (new, 1, in `styles.css`; bump it and `CSS_BUILD`
+  together). It is NOT fatal: a stale core file costs the look or an icon, never an effect, so it warns in the console
+  and puts a one-line `#stalecore` bar at the top. Its rows keep the shape `pull-core` reads (`file:` then `want:`; the
+  one-line `"crunchy-base.css is build "` check), so future pulls move the wants themselves.
+- **styles.css keeps layout and the accent only.** `--accent #c77dff`, `--accent-dk #7a3fb0`; text on an accent fill is
+  the base's `--on-accent` (every `#201005`/`#17131f`/`#05202a` went). The neutrals (`--bg --panel --panel2 --line
+  --ink --muted`) and `--accent2` were removed from `:root`: the base's apply (`--accent2` is the base's alias of the
+  neutral `--info`; the uses were renamed to `--info`). Buttons, selects, sliders and checkboxes are the base's: VFX's
+  own button colours, hover, press and `.primary`, and its round accent slider thumb, are gone.
+  - **106 `border-radius` declarations gone** (3 of them with the `suite-*` block); none is left. Nothing in VFX's
+    chrome is round by meaning: the effect, the shapes, the ramp and every preview are drawn on canvases, which keep
+    whatever they draw. **Checkerboards are content** and kept their exact colours (the stage, the dock, the breed /
+    variation / foundry cells, My Effects thumbnails, the sprite editor).
+  - **11 blurred shadows:** 9 floating things (menus, ghosts, the dock, the tour card and offer, the update banner)
+    became the base's hard `--lift`; the switch knob's became a 1 px hard step. **Glows:** the switch's hover halo and
+    its focus ring (now an outline), and the toolbar's `backdrop-filter: blur` (the bar is opaque now). **Gradients:**
+    the body's radial wash and the hero boxes' (and the inherited keyboard keys') went; the tour's 100vmax dimming
+    shadow stays, it is the spotlight, not decoration.
+  - **The toggle switch** is square: a bordered slot with a square knob that slides over and turns the accent.
+  - **Selects** are dark now (they were forced light against a GTK white-on-white popup): `background-color` and a
+    pixel caret as a `background-image` set as longhands AFTER the base's `select { background }`, so WebKit keeps a
+    caret; the option list keeps explicit colours so the platform menu can never go light-on-light.
+  - **Toggles that are ON** (Fit, Lock pixels, Hold sound, the aspect lock) are a pale `--info` fill with dark ink,
+    not the accent fill, which would make every switched-on toggle look like the primary Pause. **The generators**
+    (Randomize, Breed, Variations, Foundry, Match a sound, Reroll seed) keep their own family look, outlined in the
+    accent instead of the old cyan.
+  - **Flat buttons** (no fill, or the borderless half of a chip) opt out of the step; a FUSED chip (custom-category
+    chips, export pipelines) carries the step on the chip. Dialogs take the base's frame (2 px border, `--lift`);
+    headings use `--head`. A few inputs needed `input.` on their selectors: the base's `input[type=number]` outranks a
+    bare class, and turned the borderless slider values into boxes.
+- **Content colours did not move.** The old accent appeared in content in exactly one place, the ramp editor's
+  selected stop, drawn in JS as a literal `#ff7a45`: it never read `--accent`, so it stays orange. Effects, presets,
+  palettes and every exported pixel are untouched (the export never reads CSS).
+- **Pixel icons, not emoji**, in the whole toolbar, the stage controls, the Sound/Reference/My Effects heads, the
+  palette, ramp and sprite-import rows, every dialog title, Close and footer button, the grid cells' ✎ ★, and the (not
+  yet shown) desktop CTA. `iconsIn(document)` runs once before the app builds and once at the end (the dialogs are
+  built at startup from strings); labels a script rewrites (Play/Pause, Lock pixels, Hold sound, Dock preview,
+  Re-hold, Re-export My Effects) go through `setIconLabel`, because `textContent =` deletes the icon. Typographic
+  marks stay: the small ✕ row buttons (an assertion counts the layer-remove ✕), ▾/▶ carets, ↑, the sprite-editor
+  stamp names (● ◎ ■ ✚ ▲ ▦: they depict the stamp), the glyph and bubble quick picks (content), arrows in sentences.
+  Emoji were dropped from the tour titles, the tutorial names and the desktop list's bullets.
+- **No icon yet, so a word:** ⏱ Timing (a clock), 💾 Save project (a disk), ⬚ Safe (a safe frame), ⇄ Swap (a swap),
+  ⚗ Take 8 / Take 16 (an alembic), 🔇 (Hold sound off: the speaker stays, the `.on` fill says the state).
+
+**Proved.** The regression suite (480), the async suite (69), `tests/worker.test.mjs` (38), `tests/project.test.mjs`
+(47), `pull-core --check`, the pre-commit hook, cargo; looked at in WebKitGTK 4.1 (the desktop engine, in an offscreen
+view at 1400 x 900): the main window (web and with a stand-in `__TAURI__`), the parameter panels, the suite, Export,
+GIF, Share, Breed, Tutorials and the tour, for carets, contrast, icons and unchanged content.
+
+**Open.** `styles.css` still carries CrunchySFX rules VFX never renders (the keyboard, riff, scope, history rail,
+sequence tray and more): squared with the rest, but a candidate for deletion in a later pass.
+

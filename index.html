@@ -26,6 +26,9 @@
 <meta name="twitter:description" content="Design animated 2D game effects in your browser and export sheets your engine can read. Free, and what you make is yours.">
 <meta name="twitter:image" content="https://crunchyvfx.com/og.png">
 <meta name="description" content="Free, from-scratch 2D sprite-VFX generator in your browser — explosions, hit sparks, magic, smoke, pickups. Make an effect, export a PNG sprite sheet.">
+<!-- The suite's shared look (crunchyCore, VFX-DESIGN §17): GENERATED, never edited here. It loads BEFORE
+     styles.css, which keeps only VFX's layout and its violet accent. -->
+<link rel="stylesheet" href="crunchy-base.css">
 <link rel="stylesheet" href="styles.css">
 
 <header>
@@ -35,31 +38,31 @@
 
 <div class="controls">
   <div class="controls-left">
-    <button class="primary" id="playBtn">⏸ Pause</button>
-    <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>↶</button>
-    <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>↷</button>
-    <button id="rand" class="accent2">🎲 Randomize</button>
-    <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again">🧬 Breed</button>
-    <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack">📦 Variations</button>
-    <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style">⚒ Foundry</button>
-    <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect">🔊 Match a sound</button>
-    <button id="reroll" class="accent2" title="Same look, different arrangement">↻ Reroll seed</button>
-    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog). It centres on the effect's bounding box, so Origin X/Y are ignored while this is on.">⤢ Fit</button>
-    <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size">🔒 Lock pixels</button>
-    <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you">🔊 Hold sound</button>
+    <button class="primary" id="playBtn" data-icon="pause">Pause</button>
+    <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
+    <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
+    <button id="rand" class="accent2" data-icon="dice">Randomize</button>
+    <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again" data-icon="breed">Breed</button>
+    <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack" data-icon="package">Variations</button>
+    <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style" data-icon="hammer">Foundry</button>
+    <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect" data-icon="speaker">Match a sound</button>
+    <button id="reroll" class="accent2" title="Same look, different arrangement" data-icon="refresh">Reroll seed</button>
+    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog). It centres on the effect's bounding box, so Origin X/Y are ignored while this is on." data-icon="expand">Fit</button>
+    <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size" data-icon="lock">Lock pixels</button>
+    <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you" data-icon="speaker">Hold sound</button>
   </div>
   <div class="controls-right">
-    <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution">⬇ Export…</button>
-    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha">⬇ GIF</button>
-    <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke">⏱ Timing</button>
-    <button id="share" title="Copy a link that recreates this exact effect">🔗 Share link</button>
-    <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder">⤓ Drag out</button>
-    <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it">📚 Library</button>
-    <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">💾 Save project</button>
-    <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace">📁 Open project</button>
-    <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen">🎓 Tutorials</button>
-    <button id="tourBtn" title="Replay the guided tour">? Tour</button>
-    <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music">✦ Crunchy suite</button>
+    <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution" data-icon="download">Export…</button>
+    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha" data-icon="download">GIF</button>
+    <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke">Timing</button>
+    <button id="share" title="Copy a link that recreates this exact effect" data-icon="link">Share link</button>
+    <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder" data-icon="download">Drag out</button>
+    <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it" data-icon="grid">Library</button>
+    <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">Save project</button>
+    <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace" data-icon="folder">Open project</button>
+    <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen" data-icon="book">Tutorials</button>
+    <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
+    <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -79,7 +82,7 @@
       <span class="zoomgroup frame-wh">
         <span class="stage-param stage-param-inline" id="stageFrameSize" title="Preset square sizes"></span>
         <input type="number" id="frW" min="8" max="512" step="1" title="Frame width in pixels">
-        <button id="frLock" class="frame-lock" title="Lock the aspect ratio — change either box and the other follows">🔗</button>
+        <button id="frLock" class="frame-lock pxonly" title="Lock the aspect ratio — change either box and the other follows" aria-label="Lock the aspect ratio" data-icon="link"></button>
         <input type="number" id="frH" min="8" max="512" step="1" title="Frame height in pixels">
         <span class="hint" id="frOut"></span>
       </span>
@@ -94,7 +97,7 @@
     <div class="stage-ctl">
       <span class="stage-lbl">Dock</span>
       <span class="zoomgroup" id="dockGroup">
-        <button id="dockToggle" title="Keep a small preview pinned under the toolbar when you scroll away from the stage">📌 Dock preview</button>
+        <button id="dockToggle" title="Keep a small preview pinned under the toolbar when you scroll away from the stage" data-icon="pin">Dock preview</button>
       </span>
     </div>
     <div class="stage-ctl">
@@ -106,25 +109,25 @@
     <div class="stage-ctl">
       <span class="stage-lbl">Guides</span>
       <span class="zoomgroup" id="guideGroup">
-        <button data-guide="grid" title="Pixel grid at the current Pixelate block size">▦ Grid</button>
-        <button data-guide="safe" title="Safe frame — keep the effect inside this and it won't clip when scaled">⬚ Safe</button>
-        <button data-guide="onion" title="Ghost the previous and next frames">◑ Onion</button>
+        <button data-guide="grid" title="Pixel grid at the current Pixelate block size" data-icon="grid">Grid</button>
+        <button data-guide="safe" title="Safe frame — keep the effect inside this and it won't clip when scaled">Safe</button>
+        <button data-guide="onion" title="Ghost the previous and next frames" data-icon="layers">Onion</button>
       </span>
     </div>
     <div class="stage-ctl">
       <span class="stage-lbl">Compare</span>
       <span class="zoomgroup">
-        <button id="abHold" title="Remember this effect as A">⎘ Hold A</button>
-        <button id="abSwap" title="Swap between the held effect and the current one" disabled>⇄ Swap</button>
+        <button id="abHold" title="Remember this effect as A" data-icon="copy">Hold A</button>
+        <button id="abSwap" title="Swap between the held effect and the current one" disabled>Swap</button>
       </span>
     </div>
-    <div class="hint stage-hint" id="fitHint">⤢ <b>Fit</b> is on — the effect is scaled and centred to fill the frame, so <b>Origin X/Y</b> won't move it. Turn Fit off to place it yourself.</div>
+    <div class="hint stage-hint" id="fitHint"><b>Fit</b> is on — the effect is scaled and centred to fill the frame, so <b>Origin X/Y</b> won't move it. Turn Fit off to place it yourself.</div>
     <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
 
     <div class="refbox" id="sndBox">
       <div class="ref-head">
         <span>Sound</span>
-        <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together">📂 Load sound</button>
+        <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together" data-icon="upload">Load sound</button>
       </div>
       <div class="ref-body" id="sndBody" hidden>
         <div class="ref-name" id="sndName"></div>
@@ -149,7 +152,7 @@
     <div class="refbox" id="refBox">
       <div class="ref-head">
         <span>Reference</span>
-        <button id="refLoad" title="Drop a character sprite or sprite sheet behind the effect to judge scale — and optionally bake it into the export">📂 Load image</button>
+        <button id="refLoad" title="Drop a character sprite or sprite sheet behind the effect to judge scale — and optionally bake it into the export" data-icon="upload">Load image</button>
       </div>
       <div class="ref-body" id="refBody" hidden>
         <div class="ref-name" id="refNameEl"></div>
@@ -161,7 +164,7 @@
         <div class="ref-ctl"><label for="refScale">Scale</label>
           <input type="range" id="refScale" aria-label="Reference image scale" min="0.1" max="6" step="0.05" value="1">
           <span class="hint" id="refScaleV">1.00×</span>
-          <button id="refFit" title="Scale it to fill the frame">⤢</button>
+          <button id="refFit" title="Scale it to fill the frame" aria-label="Scale it to fill the frame" class="pxonly" data-icon="expand"></button>
         </div>
         <div class="ref-ctl"><label for="refOffX">Offset X</label><input type="range" id="refOffX" aria-label="Reference image offset X" min="-0.5" max="0.5" step="0.01" value="0"></div>
         <div class="ref-ctl"><label for="refOffY">Offset Y</label><input type="range" id="refOffY" aria-label="Reference image offset Y" min="-0.5" max="0.5" step="0.01" value="0"></div>
@@ -184,11 +187,11 @@
     </div>
     <div class="mypresets" id="mypresets" data-desktop>
       <div class="mp-head">
-        <span>★ My Effects</span>
+        <span data-icon="star">My Effects</span>
         <span class="mp-head-btns">
-          <button id="mpSave" title="Save the current effect to your library (stored in this browser)">＋ Save current</button>
-          <button id="mpExport" title="Download your library as a .json file you can back up or share">⬇</button>
-          <button id="mpImport" title="Load a library or a single effect .json">📂</button>
+          <button id="mpSave" title="Save the current effect to your library (stored in this browser)" data-icon="plus">Save current</button>
+          <button id="mpExport" title="Download your library as a .json file you can back up or share" aria-label="Download your library" class="pxonly" data-icon="download"></button>
+          <button id="mpImport" title="Load a library or a single effect .json" aria-label="Load a library" class="pxonly" data-icon="upload"></button>
         </span>
       </div>
       <div class="mp-list" id="mpList"></div>
@@ -243,15 +246,60 @@
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
 <script src="apng.js"></script>
-<!-- The "Crunchy suite" dialog. CANONICAL in CrunchyTile (TILE-DESIGN §80): copied byte-identical,
-     never edited here; change a link or a line in Tile and copy it again. -->
+<!-- The "Crunchy suite" dialog and the suite's pixel icons: GENERATED from crunchyCore by
+     `node tools/pull-core.mjs` (VFX-DESIGN §17). Never edit them here; change crunchyCore, then pull. -->
 <script src="suite.js"></script>
+<script src="crunchy-icons.js"></script>
 <!-- The desktop tier's project folder. VENDORED from CrunchyTile, which is canonical: only
      PROJECT_APP, projectAssetValid and projectReadme differ here (PROJECTS-HANDOFF.md §6).
      Pure — no DOM, no app state — so it is safe to load anywhere in this list. -->
 <script src="project.js"></script>
 <script>
 "use strict";
+// §17. THE CORE FILES' STAMPS. suite.js, crunchy-icons.js and crunchy-base.css come from crunchyCore and each
+// carries a build number; a stale file:// cache (or a half-copied desktop dist) can pair this page with an older
+// one. NOT fatal: a stale core file costs the look or an icon, never an effect, so this says so and carries on.
+// tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
+// one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
+(function guardCoreFiles() {
+  const CSS_BUILD = 1;   // must match --css-build in styles.css
+  const CORE = [
+    { file: "suite.js", want: 4, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
+    { file: "crunchy-icons.js", want: 6, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
+  ];
+  const root = getComputedStyle(document.documentElement);
+  const base = root.getPropertyValue("--base-build").trim();
+  const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
+  const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
+  // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
+  if (base !== "3") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 3");
+  if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
+  if (!bad.length) return;
+  console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
+  window.addEventListener("DOMContentLoaded", () => {
+    const bar = document.createElement("div");
+    bar.id = "stalecore";
+    bar.textContent = "Some files are out of date (" + bad.join("; ") + "). The app works, but parts of it may look "
+      + "wrong: reload with Ctrl+Shift+R (Cmd+Shift+R on macOS).";
+    document.body.insertBefore(bar, document.body.firstChild);
+  });
+})();
+</script>
+<script>
+"use strict";
+
+// ---------- Pixel icons, not emoji, in the chrome (§17) ----------
+// crunchyCore's crunchy-icons.js draws the suite's icons in code. Markup carries `data-icon="<name>"` and the
+// label text alone; iconsIn puts the drawn mark in front. A label a script REWRITES (Play/Pause, Lock pixels,
+// Hold sound, Dock preview, Re-hold) goes through setIconLabel, because `textContent =` deletes the icon along
+// with the old text. Guarded, so a missing icons file costs the marks and nothing else.
+function iconsIn(root) { if (typeof crunchyIconsApply === "function") crunchyIconsApply(root || document); }
+function setIconLabel(el, name, text) {
+  el.textContent = text;
+  el.setAttribute("data-icon", name);
+  iconsIn(el);
+}
+iconsIn(document);
 
 // ---------- Parameter model ----------
 // One row per control: [key, label, min, max, step, default, unit, group, kind?, enumList?].
@@ -1016,7 +1064,7 @@ addEventListener("resize", updateDock);
 const dockToggle = document.getElementById("dockToggle");
 function updateDockBtn() {
   dockToggle.classList.toggle("active", dockOn);
-  dockToggle.textContent = (dockOn ? "📌" : "📍") + " Dock preview";
+  setIconLabel(dockToggle, "pin", "Dock preview");
 }
 dockToggle.addEventListener("click", () => {
   dockOn = !dockOn;
@@ -1585,9 +1633,9 @@ function ratioLabel(w, h) {
       '<div class="pal-info" id="palInfo"></div>' +
       '<div class="pal-btns" id="palBuiltins"></div>' +
       '<div class="pal-btns">' +
-        '<button id="palLoad" title="Lospec .hex, GIMP/Aseprite .gpl, or paint.net .txt">📂 Load</button>' +
-        '<button id="palGrab8">⚗ Take 8</button><button id="palGrab16">⚗ Take 16</button>' +
-        '<button id="palClear">✕ Clear</button>' +
+        '<button id="palLoad" title="Lospec .hex, GIMP/Aseprite .gpl, or paint.net .txt" data-icon="upload">Load</button>' +
+        '<button id="palGrab8">Take 8</button><button id="palGrab16">Take 16</button>' +
+        '<button id="palClear" data-icon="close">Clear</button>' +
       '</div>' +
       '<input id="palPaste" class="pal-paste" type="text" placeholder="…or paste hex codes: 1a1c2c, 5d275d, …" spellcheck="false">' +
       '<input type="file" id="palFile" accept=".hex,.gpl,.txt,.pal,text/plain" aria-label="Load a palette file" hidden>';
@@ -1723,7 +1771,7 @@ function rampFromClassic() {
         '<div class="ramp-ctl"><span>Light</span><input type="range" id="rL" aria-label="Ramp stop light" min="0" max="1" step="0.01"><span class="hint" id="rLV"></span></div>' +
         '<div class="ramp-ctl"><span>Alpha</span><input type="range" id="rA" aria-label="Ramp stop alpha" min="0" max="1" step="0.01"><span class="hint" id="rAV"></span></div>' +
         '<div class="ramp-ctl"><span>Size</span><input type="range" id="rZ" aria-label="Ramp stop size" min="0" max="3" step="0.01"><span class="hint" id="rZV"></span></div>' +
-        '<div class="ramp-btns"><button id="rampDel">✕ Delete stop</button>' +
+        '<div class="ramp-btns"><button id="rampDel" data-icon="close">Delete stop</button>' +
           '<span class="ramp-presets" id="rampPresets"></span></div>' +
       '</div>';
     panel.appendChild(box);
@@ -2152,7 +2200,7 @@ function renderSpriteLib() {
   if (panel) {
     const row = document.createElement("div");
     row.className = "is-row";
-    row.innerHTML = '<div class="is-btns"><button id="isLoad">📂 Load PNG</button><button id="isClear">✕ Clear</button></div>' +
+    row.innerHTML = '<div class="is-btns"><button id="isLoad" data-icon="upload">Load PNG</button><button id="isClear" data-icon="close">Clear</button></div>' +
       '<div class="is-info" id="isInfo"></div>' +
       '<div class="sprite-lib" id="spriteLib" data-desktop></div>' +
       '<input type="file" id="isFile" accept="image/*" aria-label="Import a particle sprite" hidden>';
@@ -3222,8 +3270,9 @@ function renderMyEffects() {
     el.innerHTML =
       '<img class="up-thumb" alt="" title="Load into the editor">' +
       '<input class="up-name" spellcheck="false">' +
-      '<button class="up-use" title="Load into the editor">✎</button>' +
+      '<button class="up-use pxonly" title="Load into the editor" aria-label="Load into the editor" data-icon="edit"></button>' +
       '<button class="up-del" title="Delete">✕</button>';
+    iconsIn(el);
     const img = el.querySelector(".up-thumb");
     const url = effectThumb(item);
     if (url) img.src = url;
@@ -3364,7 +3413,7 @@ function randomize() {
 const playBtn = document.getElementById("playBtn");
 playBtn.addEventListener("click", () => {
   playing = !playing;
-  playBtn.textContent = playing ? "⏸ Pause" : "▶ Play";
+  setIconLabel(playBtn, playing ? "pause" : "play", playing ? "Pause" : "Play");
   // Resume from where you paused rather than snapping to frame 0, and bring the sound with it.
   if (playing) { ensureAudio(); restartLoop(frameIdx); } else stopSound();
 });
@@ -3389,7 +3438,7 @@ const lockBtn = document.getElementById("lockBtn");
 function updateLockBtn() {
   const n = Object.keys(lockedValues).length;
   lockBtn.classList.toggle("on", pixelLock);
-  lockBtn.textContent = (pixelLock ? "🔒" : "🔓") + " Lock pixels" + (pixelLock && n ? " (" + n + ")" : "");
+  setIconLabel(lockBtn, pixelLock ? "lock" : "unlock", "Lock pixels" + (pixelLock && n ? " (" + n + ")" : ""));
   lockBtn.title = !pixelLock
     ? "Off — presets bring their own frame size and Crunch settings."
     : n
@@ -3417,7 +3466,7 @@ function updateHoldUI() {
   if (!any) { sndHoldMsg.textContent = ""; return; }
   const n = Object.keys(heldSoundValues()).length;
   holdBtn.classList.toggle("on", soundHold.on);
-  holdBtn.textContent = (soundHold.on ? "🔊" : "🔇") + " Hold sound" + (soundHold.on && n ? " (" + n + ")" : "");
+  setIconLabel(holdBtn, "speaker", "Hold sound" + (soundHold.on && n ? " (" + n + ")" : ""));
   holdBtn.title = soundHold.on
     ? "Loading a preset will change the look but keep " +
       [soundHold.timing ? "length" : null, soundHold.intensity ? "intensity" : null].filter(Boolean).join(" and ") +
@@ -3445,7 +3494,7 @@ for (const [el, group] of [[holdTimingEl, "timing"], [holdIntensityEl, "intensit
 document.getElementById("undoBtn").addEventListener("click", undoEdit);
 document.getElementById("redoBtn").addEventListener("click", redoEdit);
 scrub.addEventListener("input", () => {
-  playing = false; playBtn.textContent = "▶ Play"; stopSound();
+  playing = false; setIconLabel(playBtn, "play", "Play"); stopSound();
   frameIdx = +scrub.value; drawStage();
 });
 document.getElementById("zoomGroup").addEventListener("click", (e) => {
@@ -3470,7 +3519,7 @@ const abSwapBtn = document.getElementById("abSwap");
 abHoldBtn.addEventListener("click", () => {
   abSnap = snapshotState();
   abSwapBtn.disabled = false;
-  abHoldBtn.textContent = "⎘ Re-hold";
+  setIconLabel(abHoldBtn, "copy", "Re-hold");
   msg.textContent = "Held as A — tweak, then Swap to compare";
 });
 abSwapBtn.addEventListener("click", () => {
@@ -4133,8 +4182,8 @@ expModal.className = "modal";
 expModal.hidden = true;
 expModal.innerHTML =
   '<div class="modal-box share-box">' +
-    '<div class="modal-head"><h2>⬇ Export</h2><span class="hint" id="expStat"></span>' +
-      '<button id="expClose">✕ Close</button></div>' +
+    '<div class="modal-head"><h2 data-icon="download">Export</h2><span class="hint" id="expStat"></span>' +
+      '<button id="expClose" data-icon="close">Close</button></div>' +
     '<div class="exp-body">' +
       '<div class="exp-row"><span>Format</span><select id="expFormat">' +
         '<option value="sheet">Sprite sheet (PNG)</option>' +
@@ -4164,18 +4213,18 @@ expModal.innerHTML =
       '<div class="exp-row" id="expSoundRow" hidden><span></span><label class="exp-chk"><input type="checkbox" id="expSound" checked title="The synthesised sound, written as a 16-bit stereo WAV beside the sheet"> Also export the sound (.wav)</label></div>' +
       '<div class="exp-row exp-pipes"><span>Pipelines</span><span class="exp-pipe-list" id="expPipes"></span></div>' +
       '<div class="exp-row"><span></span><span class="exp-pipe-btns">' +
-        '<button id="expPipeSave" title="Save the settings above as a named pipeline you can re-run">＋ Save these settings</button>' +
-        '<button id="expPipeFolder" data-desktop title="Point the selected pipeline at a folder — running it then writes straight there, no dialog">📁 Set folder</button>' +
+        '<button id="expPipeSave" title="Save the settings above as a named pipeline you can re-run" data-icon="plus">Save these settings</button>' +
+        '<button id="expPipeFolder" data-desktop title="Point the selected pipeline at a folder — running it then writes straight there, no dialog" data-icon="folder">Set folder</button>' +
       '</span></div>' +
       '<div class="exp-row exp-repack" data-desktop><span>Re-export pack</span><span class="exp-repack-opts" id="expRepack"></span></div>' +
       '<div class="exp-note" id="expNote"></div>' +
     '</div>' +
     '<div class="modal-foot">' +
-      '<button id="expGo" class="primary">⬇ Export</button>' +
-      '<button id="expClip" title="Straight into Aseprite or Photoshop, no file">📋 Copy sheet</button>' +
+      '<button id="expGo" class="primary" data-icon="download">Export</button>' +
+      '<button id="expClip" title="Straight into Aseprite or Photoshop, no file" data-icon="copy">Copy sheet</button>' +
       '<span class="exp-batch">' +
-        '<button id="expBatchMine" data-desktop title="Every effect in My Effects, as one zip of sheets + sidecars">📦 My Effects</button>' +
-        '<button id="expBatchAll" data-desktop title="Every built-in preset AND every saved effect, as one asset pack">📦 Everything</button>' +
+        '<button id="expBatchMine" data-desktop title="Every effect in My Effects, as one zip of sheets + sidecars" data-icon="package">My Effects</button>' +
+        '<button id="expBatchAll" data-desktop title="Every built-in preset AND every saved effect, as one asset pack" data-icon="package">Everything</button>' +
       '</span>' +
       '<span class="hint" id="expMsg"></span>' +
     '</div>' +
@@ -4543,7 +4592,7 @@ let activePipe = -1;
   }
   const go = document.createElement("button");
   go.id = "expRepackGo";
-  go.textContent = "📦 Re-export My Effects";
+  setIconLabel(go, "package", "Re-export My Effects");
   go.title = "Render every saved effect again, with the ticked groups replaced by the editor's " +
              "current settings — a style pass across the whole pack";
   repackBox.appendChild(go);
@@ -4684,14 +4733,14 @@ gifModal.innerHTML =
   '<div class="modal-box gif-box">' +
     '<div class="modal-head"><h2>Export GIF</h2>' +
       '<span class="hint">Plays anywhere. Costs you colours and soft edges.</span>' +
-      '<button id="gifClose">✕ Close</button></div>' +
+      '<button id="gifClose" data-icon="close">Close</button></div>' +
     '<div class="gif-body">' +
       '<div class="gif-stats" id="gifStats"></div>' +
       '<div id="gifWarn"></div>' +
     '</div>' +
     '<div class="modal-foot">' +
-      '<button id="gifPrep" title="Hard-edge the sprite and snap to a frame rate GIF can actually hit">✨ Prep for GIF</button>' +
-      '<button id="gifGo" class="primary">⬇ Export GIF</button>' +
+      '<button id="gifPrep" title="Hard-edge the sprite and snap to a frame rate GIF can actually hit" data-icon="sparkle">Prep for GIF</button>' +
+      '<button id="gifGo" class="primary" data-icon="download">Export GIF</button>' +
       '<span id="gifMsg" class="hint"></span>' +
     '</div>' +
   '</div>';
@@ -4993,6 +5042,7 @@ function tickMinis(ts) {
 requestAnimationFrame(tickMinis);
 
 // Build a standard grid cell: a playing thumbnail plus a button bar.
+const GRID_CELL_ICONS = { "✎": "edit", "★": "star" };
 function makeGridCell(genome, label, buttons, size) {
   const cell = document.createElement("div");
   cell.className = "breed-cell";
@@ -5004,7 +5054,11 @@ function makeGridCell(genome, label, buttons, size) {
   if (label) { const s = document.createElement("span"); s.className = "cell-label"; s.textContent = label; bar.appendChild(s); }
   for (const [text, title, fn] of buttons) {
     const b = document.createElement("button");
-    b.textContent = text; b.title = title;
+    b.title = title;
+    // The cell's ✎ / ★ are drawn icons (§17); anything else stays its text.
+    const icon = GRID_CELL_ICONS[text];
+    if (icon) { b.className = "pxonly"; b.setAttribute("aria-label", title); b.setAttribute("data-icon", icon); iconsIn(b); }
+    else b.textContent = text;
     b.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
     bar.appendChild(b);
   }
@@ -5038,7 +5092,7 @@ shareModal.innerHTML =
   '<div class="modal-box share-box">' +
     '<div class="modal-head"><h2>Share effect</h2>' +
       '<span class="hint">Name it (optional), then copy the link.</span>' +
-      '<button id="shareClose">✕ Close</button></div>' +
+      '<button id="shareClose" data-icon="close">Close</button></div>' +
     '<div class="share-body">' +
       '<label class="share-lbl" for="shareName">Name</label>' +
       '<input id="shareName" class="share-input" type="text" placeholder="Name your effect" maxlength="60" autocomplete="off">' +
@@ -5050,13 +5104,13 @@ shareModal.innerHTML =
       // GIF plays inline in Discord, Bluesky and Mastodon with no click and no context, so the
       // effect can sell itself to someone who was not looking for a tool.
       '<div class="share-gifrow">' +
-        '<button id="shareGif">🎞 GIF for posting</button>' +
+        '<button id="shareGif" data-icon="image">GIF for posting</button>' +
         '<label class="share-tag"><input type="checkbox" id="shareGifTag" checked> add site tag</label>' +
       '</div>' +
       '<p class="share-note" id="shareGifNote">Bigger than the export, on a solid backdrop, looping ' +
         'forever — sized to paste into a chat rather than to import into an engine.</p>' +
     '</div>' +
-    '<div class="modal-foot"><button id="shareCopy" class="primary">🔗 Copy link</button>' +
+    '<div class="modal-foot"><button id="shareCopy" class="primary" data-icon="link">Copy link</button>' +
       '<span id="shareMsg" class="hint"></span></div>' +
   '</div>';
 document.body.appendChild(shareModal);
@@ -5107,9 +5161,9 @@ timeModal.className = "modal";
 timeModal.hidden = true;
 timeModal.innerHTML =
   '<div class="modal-box time-box">' +
-    '<div class="modal-head"><h2>⏱ Timing</h2>' +
+    '<div class="modal-head"><h2>Timing</h2>' +
       '<span class="hint">When each layer starts. Particles are the anchor at 0.</span>' +
-      '<button id="timeClose">✕ Close</button></div>' +
+      '<button id="timeClose" data-icon="close">Close</button></div>' +
     '<div class="time-body"><div id="timeRows"></div>' +
       '<p class="share-note" id="timeNote"></p></div>' +
     '<div class="modal-foot"><button id="timeReset">Everything at 0</button>' +
@@ -5213,9 +5267,9 @@ libModal.className = "modal";
 libModal.hidden = true;
 libModal.innerHTML =
   '<div class="modal-box lib-box">' +
-    '<div class="modal-head"><h2>📚 Library</h2>' +
+    '<div class="modal-head"><h2 data-icon="grid">Library</h2>' +
       '<span class="hint">The things that outlive the effect you are editing.</span>' +
-      '<button id="libClose">✕ Close</button></div>' +
+      '<button id="libClose" data-icon="close">Close</button></div>' +
     '<div class="lib-body">' +
       '<div class="lib-group">' +
         '<div class="lib-title">Imported particles</div>' +
@@ -5406,13 +5460,13 @@ breedModal.className = "modal";
 breedModal.hidden = true;
 breedModal.innerHTML =
   '<div class="modal-box">' +
-    '<div class="modal-head"><h2>🧬 Breed</h2>' +
+    '<div class="modal-head"><h2 data-icon="breed">Breed</h2>' +
       '<span class="hint">Click the ones you like, then breed again. Generation <b id="breedGen">1</b></span>' +
-      '<button id="breedClose">✕ Close</button></div>' +
+      '<button id="breedClose" data-icon="close">Close</button></div>' +
     '<div class="breed-grid" id="breedGrid"></div>' +
     '<div class="modal-foot">' +
-      '<button id="breedNext" class="primary">🧬 Breed selected</button>' +
-      '<button id="breedReseed">🎲 Start over from the editor</button>' +
+      '<button id="breedNext" class="primary" data-icon="breed">Breed selected</button>' +
+      '<button id="breedReseed" data-icon="dice">Start over from the editor</button>' +
       '<span class="hint" id="breedMsg"></span>' +
     '</div>' +
   '</div>';
@@ -5467,18 +5521,18 @@ varModal.className = "modal";
 varModal.hidden = true;
 varModal.innerHTML =
   '<div class="modal-box">' +
-    '<div class="modal-head"><h2>📦 Variations</h2>' +
+    '<div class="modal-head"><h2 data-icon="package">Variations</h2>' +
       '<span class="hint">A family of near-identical effects, exported as one pack.</span>' +
-      '<button id="varClose">✕ Close</button></div>' +
+      '<button id="varClose" data-icon="close">Close</button></div>' +
     '<div class="var-opts">' +
       '<label>How many <input type="number" id="varCount" min="2" max="16" value="8"></label>' +
       '<label>Difference <input type="range" id="varAmt" min="0.03" max="0.4" step="0.01" value="0.14"><span class="hint" id="varAmtV">0.14</span></label>' +
       '<label>Name <input type="text" id="varName" value="effect" spellcheck="false"></label>' +
-      '<button id="varRoll">🎲 Reroll</button>' +
+      '<button id="varRoll" data-icon="dice">Reroll</button>' +
     '</div>' +
     '<div class="breed-grid" id="varGrid"></div>' +
     '<div class="modal-foot">' +
-      '<button id="varExport" class="primary">⬇ Export pack (.zip)</button>' +
+      '<button id="varExport" class="primary" data-icon="download">Export pack (.zip)</button>' +
       '<span class="hint" id="varMsg"></span>' +
     '</div>' +
   '</div>';
@@ -5593,13 +5647,13 @@ foundryModal.className = "modal";
 foundryModal.hidden = true;
 foundryModal.innerHTML =
   '<div class="modal-box">' +
-    '<div class="modal-head"><h2>⚒ Foundry</h2>' +
+    '<div class="modal-head"><h2 data-icon="hammer">Foundry</h2>' +
       '<span class="hint">Invent effects from scratch. Keep the good ones.</span>' +
-      '<button id="fndClose">✕ Close</button></div>' +
+      '<button id="fndClose" data-icon="close">Close</button></div>' +
     '<div class="var-opts">' +
       '<label>Type <select id="fndType"></select></label>' +
       '<label>Style <select id="fndStyle"></select></label>' +
-      '<button id="fndGen" class="primary">⚒ Generate 8</button>' +
+      '<button id="fndGen" class="primary" data-icon="hammer">Generate 8</button>' +
     '</div>' +
     '<div class="breed-grid" id="fndGrid"></div>' +
     '<div class="modal-foot"><span class="hint" id="fndMsg">Pick a type and hit Generate.</span></div>' +
@@ -6031,9 +6085,9 @@ matchModal.className = "modal";
 matchModal.hidden = true;
 matchModal.innerHTML =
   '<div class="modal-box share-box">' +
-    '<div class="modal-head"><h2>🔊 Match a sound</h2>' +
+    '<div class="modal-head"><h2 data-icon="speaker">Match a sound</h2>' +
       '<span class="hint">Paste a CrunchySFX share link.</span>' +
-      '<button id="matchClose">✕ Close</button></div>' +
+      '<button id="matchClose" data-icon="close">Close</button></div>' +
     '<div class="share-body">' +
       '<label class="share-lbl" for="matchIn">CrunchySFX link</label>' +
       '<input id="matchIn" class="share-input" type="text" placeholder="https://crunchysfx.com/?s=…" autocomplete="off" spellcheck="false">' +
@@ -6042,7 +6096,7 @@ matchModal.innerHTML =
         'Everything it changes is listed below before you apply it.</p>' +
       '<div id="matchOut"></div>' +
     '</div>' +
-    '<div class="modal-foot"><button id="matchApply" class="primary" disabled>✨ Apply to the editor</button>' +
+    '<div class="modal-foot"><button id="matchApply" class="primary" data-icon="sparkle" disabled>Apply to the editor</button>' +
       '<span id="matchMsg" class="hint"></span></div>' +
   '</div>';
 document.body.appendChild(matchModal);
@@ -6198,7 +6252,7 @@ makeCollapsible(document.getElementById("styleSection"),
 // on a share link: they came for THAT effect, not a tutorial.
 const TOUR_KEY = "crunchyvfx.tourseen.v1";
 const TOUR = [
-  { target: null, title: "Welcome to CrunchyVFX 👋",
+  { target: null, title: "Welcome to CrunchyVFX",
     body: "Make sprite VFX for your game — explosions, magic, weather, impacts — and export them as sheets your engine can read. Here's the 30-second version." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
@@ -6230,8 +6284,8 @@ const TOUR = [
     body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Aseprite or Phaser — and multiple sizes in one go. Unity takes the sheet directly; the dialog explains why no .meta is written." },
   { target: "#share", title: "Bonus · every effect is a link",
     body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
-  { target: null, title: "That's it ✨",
-    body: "Everything you make is yours, unwatermarked, at full resolution. Replay this any time with ? Tour — and 🎓 Tutorials goes deeper on the parts that don't explain themselves, like staging layers in time or running two emitters at once." },
+  { target: null, title: "That's it",
+    body: "Everything you make is yours, unwatermarked, at full resolution. Replay this any time with Tour — and Tutorials goes deeper on the parts that don't explain themselves, like staging layers in time or running two emitters at once." },
 ];
 
 let tourIdx = 0;
@@ -6291,7 +6345,7 @@ function showTourStep(i) {
   tourEl.querySelector(".tour-title").textContent = step.title;
   tourEl.querySelector(".tour-body").textContent = step.body;
   tourEl.querySelector(".tour-progress").textContent = (tourIdx + 1) + " / " + tourSteps.length;
-  tourEl.querySelector(".tour-next").textContent = last ? "Got it ✨" : "Next";
+  tourEl.querySelector(".tour-next").textContent = last ? "Got it" : "Next";
   tourEl.querySelector(".tour-prev").style.visibility = tourIdx === 0 ? "hidden" : "visible";
   tourEl.querySelector(".tour-skip").style.visibility = last ? "hidden" : "visible";
   // Only target things actually on screen: several steps point at desktop-only or collapsible UI,
@@ -6363,7 +6417,7 @@ const layerBOn = () => {
 
 const TUTORIALS = [
   {
-    id: "timing", name: "⏱ Stage it in time",
+    id: "timing", name: "Stage it in time",
     blurb: "Turn one event into a sequence — flash, then shockwave, then smoke.",
     steps: [
       { target: "#timeBtn", before: closeAll, title: "Layers start together",
@@ -6384,7 +6438,7 @@ const TUTORIALS = [
     ],
   },
   {
-    id: "layerb", name: "🔥 Two populations at once",
+    id: "layerb", name: "Two populations at once",
     blurb: "Fire AND smoke — a second emitter with its own everything.",
     steps: [
       { target: "#layerBar", before: layerBOn, title: "Layer B is not a sub-emitter",
@@ -6402,7 +6456,7 @@ const TUTORIALS = [
     ],
   },
   {
-    id: "invent", name: "🎲 Invent, don't tweak",
+    id: "invent", name: "Invent, don't tweak",
     blurb: "Randomize, Breed, Variations and the Foundry.",
     steps: [
       { target: "#rand", before: closeAll, title: "Start from an accident",
@@ -6423,7 +6477,7 @@ const TUTORIALS = [
     ],
   },
   {
-    id: "sound", name: "🔊 Build it from a sound",
+    id: "sound", name: "Build it from a sound",
     blurb: "Derive an effect from a CrunchySFX link, and keep them matched.",
     steps: [
       { target: "#matchBtn", before: closeAll, title: "A sound already describes an effect",
@@ -6440,7 +6494,7 @@ const TUTORIALS = [
     ],
   },
   {
-    id: "ship", name: "📦 Get it into your engine",
+    id: "ship", name: "Get it into your engine",
     blurb: "Sheets, sidecars, pipelines and re-exporting a whole pack.",
     steps: [
       { target: ".exp-body", before: openExport, title: "More than a PNG",
@@ -6461,7 +6515,7 @@ const TUTORIALS = [
 // Desktop-only, so it is listed only where it exists rather than spotlighting a hidden button.
 if (isDesktop) {
   TUTORIALS.push({
-    id: "library", name: "📚 Your shelf",
+    id: "library", name: "Your shelf",
     blurb: "Imported particles, and every effect you've exported.",
     steps: [
       { target: "#libBtn", before: closeAll, title: "Things that outlive this effect",
@@ -6483,9 +6537,9 @@ tutModal.className = "modal";
 tutModal.hidden = true;
 tutModal.innerHTML =
   '<div class="modal-box tut-box">' +
-    '<div class="modal-head"><h2>🎓 Tutorials</h2>' +
+    '<div class="modal-head"><h2 data-icon="book">Tutorials</h2>' +
       '<span class="hint">Short walkthroughs of the parts that don\'t explain themselves.</span>' +
-      '<button id="tutClose">✕ Close</button></div>' +
+      '<button id="tutClose" data-icon="close">Close</button></div>' +
     '<div class="tut-body" id="tutRows"></div>' +
   '</div>';
 document.body.appendChild(tutModal);
@@ -6526,7 +6580,7 @@ tutModal.addEventListener("click", (e) => { if (e.target === tutModal) tutModal.
   if (v) v.textContent = "CrunchyVFX v" + APP_VERSION + (isDesktop ? " · desktop" : " · web");
 }
 
-// ---------- The Crunchy suite (suite.js, canonical in CrunchyTile) ----------
+// ---------- The Crunchy suite (suite.js, from crunchyCore) ----------
 // Web and desktop both get it. The desktop webview won't leave for a browser on its own, so there
 // the links go through the opener plugin (scoped in src-tauri/capabilities/default.json).
 const suiteDialog = suiteMount("vfx", {
@@ -6558,7 +6612,7 @@ if (!isDesktop && ITCH_LIVE) {
   const cta = document.createElement("button");
   cta.id = "deskCta";
   cta.className = "primary";
-  cta.textContent = "🖥 Get the Desktop app";
+  setIconLabel(cta, "monitor", "Get the Desktop app");
   cta.title = "Get the desktop app on itch.io";
 
   const m = document.createElement("div");
@@ -6567,18 +6621,18 @@ if (!isDesktop && ITCH_LIVE) {
   m.innerHTML =
     '<div class="modal-box steam-box">' +
       '<div class="modal-head">' +
-        "<h2>🖥 CrunchyVFX Desktop</h2>" +
+        '<h2 data-icon="monitor">CrunchyVFX Desktop</h2>' +
         '<span class="hint">The web version stays free — the desktop app adds the workflow.</span>' +
-        '<button id="deskClose">✕ Close</button>' +
+        '<button id="deskClose" data-icon="close">Close</button>' +
       "</div>" +
       '<div class="steam-body">' +
         '<ul class="steam-feats">' +
-          "<li><b>★ My Effects library</b> — save, name and organise your own effects, kept on disk instead of in a browser store you can wipe by clearing cookies.</li>" +
-          "<li><b>📁 Custom categories</b> — group your effects however you work.</li>" +
-          "<li><b>📚 Library</b> — the particles you imported and every effect you have exported, with one click to load an old export back and change it.</li>" +
-          "<li><b>📦 Batch export</b> — render your whole library to sheets + sidecars in one click, as an asset pack.</li>" +
-          "<li><b>📂 Native save dialogs</b> — real system Save/Open, straight into your project folder.</li>" +
-          "<li><b>🔧 One-time purchase</b> — no account, no subscription; it supports development.</li>" +
+          "<li><b>My Effects library</b> — save, name and organise your own effects, kept on disk instead of in a browser store you can wipe by clearing cookies.</li>" +
+          "<li><b>Custom categories</b> — group your effects however you work.</li>" +
+          "<li><b>Library</b> — the particles you imported and every effect you have exported, with one click to load an old export back and change it.</li>" +
+          "<li><b>Batch export</b> — render your whole library to sheets + sidecars in one click, as an asset pack.</li>" +
+          "<li><b>Native save dialogs</b> — real system Save/Open, straight into your project folder.</li>" +
+          "<li><b>One-time purchase</b> — no account, no subscription; it supports development.</li>" +
         "</ul>" +
         '<p class="steam-note">Everything you make in the free web version is yours, unwatermarked, at full resolution. ' +
         "The desktop app is about keeping and organising your work — not about locking up your sprites.</p>" +
@@ -6614,4 +6668,6 @@ if (!loadSharedEffect() && !loadSharedSound()) {
   const pick = pickLaunchEffect();
   if (pick) applyPreset(PRESETS[pick], pick); else { rerender(); commitHistory(); }
 }
+// The dialogs above are built at startup from strings: give them their icons (§17).
+iconsIn(document);
 </script>

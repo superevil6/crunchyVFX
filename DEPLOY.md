@@ -118,7 +118,7 @@ two-line fix.
 Tauri and Flatpak sources. Without it, `assets.directory: "."` publishes the **entire repo** on
 every path a crawler can find.
 
-The published set is exactly: `index.html`, the eight sibling scripts (suite.js and project.js are the seventh and eighth), `styles.css`, and
+The published set is exactly: `index.html`, the nine sibling scripts (suite.js, project.js and crunchy-icons.js are the last three), the two stylesheets (`crunchy-base.css`, `styles.css`), and
 `favicon.png` / `apple-touch-icon.png` / `og.png`. **If you add a file the app loads at runtime, it
 must not be matched by `.assetsignore`** — re-run the verification below after adding one.
 
@@ -150,7 +150,7 @@ that, so clear `flatpak/build-dir` and `flatpak/repo` before a local wrangler ru
 
 Confirmed locally on that runtime:
 
-- all nine subresources stamped (eight scripts + the stylesheet), every one with the same version
+- all eleven subresources stamped (nine scripts + the two stylesheets), every one with the same version
 - `index.html` `no-cache`; `vfx.js?v=…` immutable; bare `vfx.js` `no-cache`
 - `.assetsignore` works — `CLAUDE.md`, `VFX-DESIGN.md`, `worker.js`, `wrangler.jsonc` and
   `tests/` all 404, while every app file is 200

@@ -1,24 +1,27 @@
 @charset "utf-8";
-/* CrunchySFX — styles, extracted from index.html for organization.
-   Linked via <link rel="stylesheet" href="styles.css"> in the <head>.
-   Static CSS only. Keep this file beside index.html; the desktop build copies both
-   (see src-tauri/build.rs). */
+/* CrunchyVFX — styles. Linked AFTER crunchy-base.css (crunchyCore: the suite's shared look) in index.html.
+   Static CSS only. Keep this file beside index.html; the desktop build copies both (see src-tauri/build.rs).
+
+   §17 (the suite's shared look, crunchyTile TILE-DESIGN.md §105, CONSOLIDATION-PLAN.md §9): the base owns the
+   neutrals (--bg, --panel, --panel2, --line, --line2, --ink, --muted, --bad, --info, with --accent2 kept as an alias
+   of --info for older blocks), square corners, the hard step and lift shadows, buttons, selects, sliders and checkboxes. This file
+   keeps VFX's LAYOUT and its ACCENT. Square is for chrome: the effect itself, its checkerboards and every canvas
+   are content and keep their own colours. No blurred shadows, no glows, no decorative gradients. */
   :root {
-    --bg: #14121a;
-    --panel: #1e1b28;
-    --panel2: #262231;
-    --ink: #e8e4f0;
-    --muted: #9a92ad;
-    --accent: #ff7a45;
-    --accent2: #45d0ff;
-    --line: #322c40;
+    /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
+       rules a feature depends on. */
+    --css-build: 1;
+    /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
+       text on an accent fill is the base's --on-accent. */
+    --accent: #c77dff;
+    --accent-dk: #7a3fb0;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: radial-gradient(1200px 600px at 70% -10%, #241f30, var(--bg));
+    background: var(--bg);
     color: var(--ink);
-    font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font: 14px/1.4 var(--font);
     min-height: 100vh;
   }
   header {
@@ -45,17 +48,16 @@
   .panel {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
     padding: 14px 16px 16px;
   }
-  .cw-canvas { width: 100%; height: 130px; background: var(--panel2); border-radius: 8px; display: block; cursor: crosshair; touch-action: none; }
-  .cw-canvas.cw-drop { outline: 2px dashed #ff7a45; outline-offset: -2px; background: rgba(255,122,69,0.08); }
+  .cw-canvas { width: 100%; height: 130px; background: var(--panel2); display: block; cursor: crosshair; touch-action: none; }
+  .cw-canvas.cw-drop { outline: 2px dashed var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .cw-btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
   .cw-btns button { padding: 5px 9px; font-size: 12px; }
   .cw-ab { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; }
   .cw-ab > span:first-child { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   .cw-slot { padding: 3px 12px; font-size: 12px; }
-  .cw-slot.active { background: #ff7a45; border-color: #ff7a45; color: #17131f; }
+  .cw-slot.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .cw-ab-hint { font-size: 11px; color: var(--muted); margin-left: auto; }
   .cw-img { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; flex-wrap: wrap; }
   .cw-img-btn { padding: 5px 9px; font-size: 12px; }
@@ -67,12 +69,12 @@
   .mw-list { display: flex; flex-wrap: wrap; gap: 8px; }
   .mw-empty { color: var(--muted); font-size: 12px; }
   .mw-tile { width: 76px; }
-  .mw-thumb { display: block; width: 72px; height: 40px; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
-  .mw-thumb:hover { border-color: #ff7a45; }
+  .mw-thumb { display: block; width: 72px; height: 40px; background: var(--panel2); border: 1px solid var(--line); cursor: pointer; }
+  .mw-thumb:hover { border-color: var(--accent); }
   .mw-row { display: flex; gap: 2px; margin-top: 2px; }
-  .mw-name { flex: 1; min-width: 0; font-size: 11px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; }
+  .mw-name { flex: 1; min-width: 0; font-size: 11px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 2px 4px; }
   .mw-del { padding: 0 5px; font-size: 11px; line-height: 1; }
-  .speech-input { width: 100%; box-sizing: border-box; margin: 4px 0 8px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  input.speech-input { width: 100%; box-sizing: border-box; margin: 4px 0 8px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 8px 10px; font: inherit; }
   .irrow { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
   .ir-load { padding: 5px 10px; font-size: 12px; }
   .ir-name { color: var(--muted); font-size: 12px; word-break: break-all; }
@@ -80,7 +82,8 @@
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--accent2);
+    font-family: var(--head);
+    color: var(--info);
     margin: 0 0 12px;
     display: flex;
     align-items: center;
@@ -93,7 +96,7 @@
   .layer-remove {
     padding: 0; width: 20px; height: 20px; line-height: 1;
     font-size: 11px; color: var(--muted);
-    background: none; border: 1px solid transparent; border-radius: 4px;
+    background: none; border: 1px solid transparent; box-shadow: none;
     opacity: 0.35; transition: opacity 0.12s, color 0.12s, border-color 0.12s;
     flex: none;
   }
@@ -101,7 +104,7 @@
      affordance you can't discover without hunting isn't one. */
   .panel:hover .layer-remove, .layer-remove:focus-visible { opacity: 1; }
   .layer-remove:hover {
-    color: #ff8080; border-color: #ff4d4d; background: rgba(255, 77, 77, 0.1);
+    color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent);
   }
   .row {
     display: grid;
@@ -113,18 +116,18 @@
   /* The value beside a slider is TYPEABLE — a 1..3000 range cannot be dragged to 15. The unit
      sits outside the box so the number itself stays easy to select and replace. */
   .row-val { display: flex; align-items: baseline; gap: 2px; justify-content: flex-end; min-width: 0; }
-  .row-num {
+  input.row-num {
     width: 100%; min-width: 0; padding: 2px 3px;
     font: inherit; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right;
     color: var(--ink); background: transparent;
-    border: 1px solid transparent; border-radius: 4px;
+    border: 1px solid transparent;
   }
   .row-num:hover { border-color: var(--line); }
-  .row-num:focus { outline: none; border-color: var(--accent2); background: var(--panel2); }
+  .row-num:focus { outline: none; border-color: var(--accent); background: var(--panel2); }
   /* Spinners would eat half the column and never get clicked at this size. */
   .row-num::-webkit-outer-spin-button,
   .row-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .row-num { -moz-appearance: textfield; appearance: textfield; }
+  input.row-num { -moz-appearance: textfield; appearance: textfield; }
   .row-unit { color: var(--muted); font-size: 11px; font-style: normal; flex: none; }
   .row label { color: var(--muted); font-size: 12px; }
   .row output {
@@ -133,48 +136,25 @@
     color: var(--ink);
     font-size: 12px;
   }
-  input[type=range] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 4px;
-    border-radius: 3px;
-    background: var(--panel2);
-    outline: none;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 2px solid #1a1622;
-  }
-  input[type=range]::-moz-range-thumb {
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 2px solid #1a1622;
-  }
+  /* Sliders are the base's (crunchy-base.css: a square knob on a flat track, FLOOR). */
   select {
     width: 100%;
-    /* Force our own colors + a light color-scheme so the OS/GTK theme can't render the
-       native dropdown as white-on-white (unreadable under some system themes). */
-    background: #f4f2f7;
-    color: #14121a;
-    color-scheme: light;
+    /* The base sets `select { background: var(--panel2) }`; the caret below is a background-IMAGE, so it is set
+       with longhands after it and survives. appearance:none removes WebKit's native arrow, so without this caret
+       a select reads as a text box. */
+    background-color: var(--panel2);
+    color: var(--ink);
     -webkit-appearance: none;
     appearance: none;
-    border: 1px solid var(--line);
-    border-radius: 7px;
+    border: 1px solid var(--line2);
     padding: 6px 26px 6px 8px;
     font: inherit;
-    /* custom caret (native arrow is gone with appearance:none) */
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2314121a' stroke-width='1.5'/></svg>");
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' shape-rendering='crispEdges'><path d='M0 0h10v2H0zM2 2h6v2H2zM4 4h2v2H4z' fill='%23ece9f2'/></svg>");
     background-repeat: no-repeat;
     background-position: right 9px center;
   }
+  /* The option list is drawn by the platform (a GTK menu in the desktop app), which can ignore the select's
+     colours: both are set so it can never come out light-on-light. */
   select option { background: #ffffff; color: #14121a; }
   .waverow {
     display: grid;
@@ -199,45 +179,37 @@
     flex-wrap: wrap;
     justify-content: space-between;   /* left & right clusters to the edges; each wraps to its own row when cramped */
     padding: 10px 24px;
-    background: rgba(20,18,26,0.85);
-    backdrop-filter: blur(8px);
+    background: var(--bg);
     border-bottom: 1px solid var(--line);
   }
   /* Each cluster is its own flex group so it wraps as a UNIT (the whole right cluster drops to a
      second, left-aligned row when the bar is too narrow) — and still wraps internally on very small screens. */
   .controls-left, .controls-right { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+  /* Buttons are the base's (colour, 1 px border, the hard step, hover, the pressed sink, .primary); this keeps
+     VFX's size only. */
   button {
-    background: var(--panel2);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 8px;
     padding: 9px 14px;
     font: inherit;
     cursor: pointer;
-    transition: background .12s, transform .05s;
   }
-  button:hover { background: #302a3d; }
-  button:active { transform: translateY(1px); }
   button:disabled { opacity: 0.4; cursor: default; transform: none; }
-  .icon-btn { padding: 9px 11px; font-size: 16px; line-height: 1; }
-  button.primary {
-    background: var(--accent);
-    color: #201005;
-    border-color: transparent;
-    font-weight: 600;
-  }
-  button.primary:hover { background: #ff8a5c; }
-  button.accent2 { border-color: var(--accent2); color: var(--accent2); }
+  .icon-btn { padding: 9px 12px; }
+  /* An icon with no label beside it sits centred, without the gap the base leaves before a label. */
+  .icon-btn .pxi, .pxonly .pxi { margin-right: 0; }
+  /* The generators (Randomize, Breed, Variations, Foundry, Match, Reroll): outlined in the accent, so the
+     "make me something" row reads as one family beside the plain tools. Was the shared cyan. */
+  button.accent2 { border-color: var(--accent); color: var(--accent); }
+  button.accent2:hover { border-color: var(--ink); }
   /* Export WAV — the primary output action, flagged with a green border so it stands out in the IO cluster. */
   button.export-btn { border-color: #4fd18a; color: #7ce0a6; }
   button.export-btn:hover { border-color: #7ce0a6; color: var(--ink); }
   .spacer { flex: 1; }
-  #recordbtn.recording { border-color: #ff4d4d; color: #ff8080; animation: recpulse 1.1s ease-in-out infinite; }
+  #recordbtn.recording { border-color: var(--bad); color: var(--bad); animation: recpulse 1.1s ease-in-out infinite; }
   @keyframes recpulse { 0%, 100% { background: var(--panel2); } 50% { background: #3a1f28; } }
   .dragchip { cursor: grab; }
   .dragchip:active { cursor: grabbing; }
   .fmtgroup { display: inline-flex; gap: 5px; align-items: center; }
-  .fmtgroup select { width: auto; padding: 7px 24px 7px 8px; font-size: 12px; border-radius: 8px; }
+  .fmtgroup select { width: auto; padding: 7px 24px 7px 8px; font-size: 12px; }
   .fmt-loop { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
   .fmt-loop input { cursor: pointer; }
   /* Inherited from CrunchySFX as `width:100%; height:90px` for the oscilloscope. Deliberately
@@ -245,7 +217,6 @@
      preview to a 90px letterbox. Canvases here size themselves. */
   canvas {
     background: var(--panel2);
-    border-radius: 8px;
     display: block;
   }
   .hint { color: var(--muted); font-size: 12px; }
@@ -253,21 +224,20 @@
     max-width: 1200px; margin: 30px 24px 44px; padding: 16px 18px;
     border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.65;
   }
-  footer.license h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); margin: 0 0 8px; }
+  footer.license h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--info); margin: 0 0 8px; }
   footer.license p { margin: 0 0 8px; max-width: 780px; }
-  footer.license a { color: var(--accent2); }
+  footer.license a { color: var(--info); }
   footer.license strong { color: var(--ink); }
   footer.license .tool-notice { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
   kbd {
     background: var(--panel2);
     border: 1px solid var(--line);
     border-bottom-width: 2px;
-    border-radius: 5px;
     padding: 1px 6px;
     font: 11px ui-monospace, monospace;
   }
   .presetbar { display: flex; flex-direction: column; gap: 8px; }
-  .preset-section { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+  .preset-section { border: 1px solid var(--line); background: var(--panel); overflow: hidden; }
   .preset-section > summary {
     list-style: none; cursor: pointer; user-select: none;
     padding: 9px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.4px;
@@ -286,24 +256,23 @@
   .presetbar button:hover { border-left-color: var(--fam, var(--accent)); }
   .fam-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 2px; font-size: 11px; color: var(--muted); }
   .fam-key { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-  .fam-key i { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  .fam-key i { width: 9px; height: 9px; flex: none; }
   .presetsearch { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
   #presetSearch {
     width: 280px; max-width: 100%;
     background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px;
+    border: 1px solid var(--line);
     padding: 7px 10px; font: inherit;
   }
   #presetSearch::placeholder { color: var(--muted); }
-  #presetSearch:focus { outline: none; border-color: var(--accent2); }
+  #presetSearch:focus { outline: none; border-color: var(--accent); }
 
   /* Crunchiness macro slider */
   .macro {
     max-width: 1200px;
     margin: 16px 24px 0;
-    background: linear-gradient(90deg, #221d2b, #2c2233);
+    background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
     padding: 12px 16px 14px;
   }
   .macro-title {
@@ -314,15 +283,14 @@
   .engine {
     max-width: 1200px;
     margin: 12px 24px 0;
-    background: linear-gradient(90deg, #221d2b, #2c2233);
+    background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
     padding: 12px 16px 14px;
   }
   .engine-title {
     display: flex; align-items: center; justify-content: flex-start; gap: 12px;
     font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--accent2); font-weight: 600; margin-bottom: 10px;
+    color: var(--info); font-weight: 600; margin-bottom: 10px;
   }
   .engine-title > span { margin-right: auto; }   /* label anchored left; lock/clean pushed to the right */
   .engine-grid { display: flex; flex-direction: column; gap: 9px; }
@@ -334,17 +302,17 @@
   .engine-cat-label { flex-shrink: 0; min-width: 84px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
   .engine-cat-btns { display: flex; flex-wrap: wrap; gap: 7px; }
   .engine-btn {
-    padding: 7px 12px; font-size: 13px; border-radius: 8px; cursor: pointer;
+    padding: 7px 12px; font-size: 13px; cursor: pointer;
     background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
     transition: background .1s, color .1s, border-color .1s;
   }
-  .engine-btn:hover { color: var(--ink); border-color: var(--accent2); }
-  .engine-btn.active { background: var(--accent); color: #201005; border-color: transparent; font-weight: 600; }
+  .engine-btn:hover { color: var(--ink); border-color: var(--info); }
+  .engine-btn.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
   /* Console skin (hero section below Engine) — same block as .macro/.engine, reuses .engine-btn pills */
   .console {
     max-width: 1200px; margin: 10px 24px 0;
-    background: linear-gradient(90deg, #221d2b, #2c2233);
-    border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line); padding: 12px 16px 14px;
   }
   .console-grid { display: flex; flex-wrap: wrap; gap: 7px; }
   /* Collapsible hero sections (Quick Shape / Engine / Console) — click the header to fold. */
@@ -389,7 +357,7 @@
   }
   .hist-head h2 {
     margin: 0; font-size: 12px; letter-spacing: 1px;
-    text-transform: uppercase; color: var(--accent2);
+    text-transform: uppercase; color: var(--info);
   }
   .hist-head button { padding: 4px 9px; font-size: 11px; }
   #histlist { flex: 1; overflow-y: auto; padding: 10px; }
@@ -400,10 +368,9 @@
     gap: 8px; align-items: center;
     background: var(--panel2);
     border: 1px solid var(--line);
-    border-radius: 9px;
     padding: 8px; margin-bottom: 8px;
   }
-  .hist-thumb { width: 74px; height: 34px; background: #14121a; border-radius: 5px; display: block; }
+  .hist-thumb { width: 74px; height: 34px; background: #14121a; display: block; }
   .hist-meta { min-width: 0; }
   .hist-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink); }
   .hist-sub { display: block; font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -416,12 +383,12 @@
   /* Sequence tray */
   .seqbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     margin: 12px 24px 0; padding: 10px 12px; max-width: 1200px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-  .seq-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 600; }
+    background: var(--panel); border: 1px solid var(--line); }
+  .seq-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--info); font-weight: 600; }
   .seq-list { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 160px; }
   .seq-empty { font-size: 12px; color: var(--muted); }
   .seq-chip { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 8px;
-    background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; cursor: grab; }
+    background: var(--panel2); border: 1px solid var(--line); font-size: 12px; cursor: grab; }
   .seq-chip.drag { opacity: 0.4; }
   .seq-chip-name { color: var(--ink); }
   .seq-chip button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 3px; font-size: 12px; }
@@ -432,7 +399,7 @@
   .seq-gap span { min-width: 44px; }
 
   /* My Presets library (desktop) */
-  .mypresets { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 10px 12px; margin-top: 12px; margin-bottom: 12px; }
+  .mypresets { border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; margin-top: 12px; margin-bottom: 12px; }
   .mypresets[hidden] { display: none; }
   .mp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .mp-head > span { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; }
@@ -440,16 +407,16 @@
   .mp-head-btns { display: inline-flex; gap: 6px; }
   .mp-naming { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .mp-naming label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-  .mp-naming input { width: 150px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; font: inherit; font-size: 12px; }
+  .mp-naming input { width: 150px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 5px 8px; font: inherit; font-size: 12px; }
   .mp-naming .hint { font-family: monospace; }
   .mp-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
   .mp-empty { font-size: 12px; color: var(--muted); padding: 4px 2px; }
   .up-item { display: flex; align-items: center; gap: 6px; }
-  .up-item .up-name { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); font: inherit; font-size: 13px; padding: 4px 8px; }
-  .up-item .up-name:focus { outline: none; border-color: var(--accent2); }
-  .up-item button { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; cursor: pointer; padding: 3px 7px; font-size: 12px; line-height: 1; }
+  .up-item .up-name { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line); color: var(--ink); font: inherit; font-size: 13px; padding: 4px 8px; }
+  .up-item .up-name:focus { outline: none; border-color: var(--accent); }
+  .up-item button { background: none; border: 1px solid var(--line); color: var(--muted); cursor: pointer; padding: 3px 7px; font-size: 12px; line-height: 1; }
   .up-item button:hover { color: var(--accent); border-color: var(--accent); }
-  .up-badge { color: var(--accent2); font-size: 12px; flex: none; }
+  .up-badge { color: var(--info); font-size: 12px; flex: none; }
   .up-item .uc-grip { cursor: grab; flex: none; padding: 3px 5px; color: var(--muted); touch-action: none; }
   .up-item .uc-grip:active { cursor: grabbing; }
 
@@ -458,46 +425,46 @@
   .usercats[hidden] { display: none; }
   .uc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .uc-newbtn { padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--accent);
-    border: 1px dashed var(--accent); border-radius: 8px; background: none; cursor: pointer; }
+    border: 1px dashed var(--accent); background: none; cursor: pointer; }
   .uc-newbtn:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
   .uc-head .hint { font-size: 11px; }
   .usercat > summary { gap: 6px; }
   .usercat > summary .uc-name { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line);
-    border-radius: 6px; color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; padding: 3px 7px; }
-  .usercat > summary .uc-name:focus { outline: none; border-color: var(--accent2); }
+ color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; padding: 3px 7px; }
+  .usercat > summary .uc-name:focus { outline: none; border-color: var(--accent); }
   .usercat > summary .uc-del { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--muted);
-    border-radius: 6px; cursor: pointer; padding: 2px 7px; font-size: 12px; line-height: 1; }
+ cursor: pointer; padding: 2px 7px; font-size: 12px; line-height: 1; }
   .usercat > summary .uc-del:hover { color: var(--accent); border-color: var(--accent); }
   .uc-buttons { align-items: center; }
   .uc-empty { color: var(--muted); font-size: 12px; font-style: italic; padding: 2px 0 4px; }
   .uc-item { display: inline-flex; align-items: stretch; touch-action: none; }
   .uc-item .uc-item-btn { padding: 6px 10px; font-size: 12px; cursor: grab;
     border-left: 3px solid var(--fam, var(--line));
-    border-top-right-radius: 0; border-bottom-right-radius: 0; }
+ }
   .uc-item .uc-item-btn:active { cursor: grabbing; }
   .uc-item .uc-item-rm { padding: 0 6px; font-size: 11px; line-height: 1; color: var(--muted);
-    border: 1px solid var(--line); border-left: none; border-radius: 0 6px 6px 0; background: var(--panel2); cursor: pointer; }
+    border: 1px solid var(--line); border-left: none; background: var(--panel2); cursor: pointer; }
   .uc-item .uc-item-rm:hover { color: var(--accent); border-color: var(--accent); }
   /* drag affordances */
-  .uc-ghost { position: fixed; z-index: 9998; pointer-events: none; background: var(--accent); color: #201005;
-    font: 600 12px/1 inherit; padding: 6px 10px; border-radius: 7px; box-shadow: 0 6px 20px rgba(0,0,0,.5); white-space: nowrap; }
+  .uc-ghost { position: fixed; z-index: 9998; pointer-events: none; background: var(--accent); color: var(--on-accent);
+    font: 600 12px/1 inherit; padding: 6px 10px; box-shadow: var(--lift); white-space: nowrap; }
   body.uc-dragging { cursor: grabbing; }
   body.uc-dragging .usercat, body.uc-dragging .uc-newbtn { transition: box-shadow .08s ease; }
-  .uc-drop-hot { box-shadow: 0 0 0 2px var(--accent) inset, 0 0 0 2px var(--accent); border-radius: 10px; }
-  .uc-menu { position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.55); padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 170px; max-height: 60vh; overflow-y: auto; }
+  .uc-drop-hot { box-shadow: 0 0 0 2px var(--accent) inset, 0 0 0 2px var(--accent); }
+  .uc-menu { position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--line);
+    box-shadow: var(--lift); padding: 6px; display: flex; flex-direction: column; gap: 2px; min-width: 170px; max-height: 60vh; overflow-y: auto; }
   .uc-menu-h { font-size: 11px; color: var(--muted); padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-  .uc-menu button { text-align: left; background: none; border: none; color: var(--ink); border-radius: 6px; cursor: pointer; padding: 6px 8px; font: inherit; font-size: 12px; }
+  .uc-menu button { text-align: left; background: none; border: none; color: var(--ink); cursor: pointer; padding: 6px 8px; font: inherit; font-size: 12px; }
   .uc-menu button:hover { background: var(--panel2); color: var(--accent); }
-  .uc-menu .uc-menu-new { color: var(--accent); font-weight: 600; margin-top: 4px; border-top: 1px solid var(--line); border-radius: 0 0 6px 6px; }
+  .uc-menu .uc-menu-new { color: var(--accent); font-weight: 600; margin-top: 4px; border-top: 1px solid var(--line); }
   .uc-menu-empty { font-size: 12px; color: var(--muted); padding: 4px 8px; font-style: italic; }
 
   /* Update-available banner (desktop only) */
   .update-banner {
     position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 300;
     display: flex; align-items: center; gap: 12px; max-width: min(680px, 92vw);
-    background: var(--panel); border: 1px solid var(--accent); border-radius: 12px;
-    padding: 10px 12px 10px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.55); font-size: 13px;
+    background: var(--panel); border: 1px solid var(--accent);
+    padding: 10px 12px 10px 16px; box-shadow: var(--lift); font-size: 13px;
   }
   .update-banner button { padding: 6px 10px; font-size: 12px; }
 
@@ -505,17 +472,17 @@
   .modal { position: fixed; inset: 0; z-index: 200; background: rgba(10, 8, 14, 0.82);
     display: flex; align-items: center; justify-content: center; padding: 20px; }
   .modal[hidden] { display: none; }
-  .modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  .modal-box { background: var(--panel); border: 1px solid var(--line);
     width: min(940px, 100%); max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
   .modal-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
   .modal-head h2 { margin: 0; font-size: 16px; color: var(--accent); white-space: nowrap; }
   .modal-head .hint { flex: 1; }
   .breed-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 16px; overflow-y: auto; }
-  .breed-cell { border: 2px solid var(--line); border-radius: 10px; background: var(--panel2);
+  .breed-cell { border: 2px solid var(--line); background: var(--panel2);
     padding: 8px; cursor: pointer; transition: border-color 0.1s, box-shadow 0.1s; }
-  .breed-cell:hover { border-color: var(--accent2); }
+  .breed-cell:hover { border-color: var(--info); }
   .breed-cell.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-  .breed-cell canvas { width: 100%; height: 62px; display: block; background: #17131f; border-radius: 6px; }
+  .breed-cell canvas { width: 100%; height: 62px; display: block; background: #17131f; }
   .breed-cell-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
   .breed-cell-bar .breed-play { padding: 2px 9px; font-size: 12px; }
   .breed-tag { font-size: 11px; color: var(--muted); }
@@ -526,25 +493,25 @@
   .var-ctl label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--muted); }
   .var-ctl select { width: auto; }
   .var-ctl input[type=range] { width: 120px; }
-  .var-name { width: 130px; box-sizing: border-box; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; font: inherit; }
+  input.var-name { width: 130px; box-sizing: border-box; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 6px 9px; font: inherit; }
   /* Share dialog (name the sound + copy its link). .share-box overrides .modal-box width — must
      stay after it in the file so it wins at equal specificity. */
   .share-box { width: min(460px, 92vw); }
   .share-body { display: flex; flex-direction: column; padding: 14px 18px; }
   .share-lbl { font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
-  .share-input { width: 100%; box-sizing: border-box; background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font: inherit; }
-  .share-input[readonly] { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  input.share-input { width: 100%; box-sizing: border-box; background: var(--panel2); color: var(--ink);
+    border: 1px solid var(--line); padding: 9px 11px; font: inherit; }
+  input.share-input[readonly] { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
   /* Settings cog (header) + settings modal */
   /* Focus-mode toggle in the header: show/hide the whole preset browser. */
   .viewtoggle { margin-left: auto; align-self: center; background: var(--panel2); border: 1px solid var(--line);
-    color: var(--muted); font-size: 12px; padding: 6px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
-  .viewtoggle:hover { color: var(--ink); border-color: var(--accent2); }
-  .viewtoggle.active { color: var(--accent2); border-color: var(--accent2); }   /* browser visible */
+    color: var(--muted); font-size: 12px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+  .viewtoggle:hover { color: var(--ink); border-color: var(--info); }
+  .viewtoggle.active { color: var(--info); border-color: var(--info); }   /* browser visible */
   .workspace.browser-hidden .ws-browser { display: none; }   /* focus mode */
   .cog { align-self: center; background: transparent; border: 1px solid var(--line);
-    color: var(--muted); font-size: 16px; line-height: 1; padding: 6px 9px; border-radius: 8px; cursor: pointer; }
-  .cog:hover { color: var(--ink); border-color: var(--accent2); background: var(--panel2); }
+    color: var(--muted); font-size: 16px; line-height: 1; padding: 6px 9px; cursor: pointer; }
+  .cog:hover { color: var(--ink); border-color: var(--info); background: var(--panel2); }
   .settings-box { width: min(520px, 92vw); }
   .settings-body { padding: 4px 18px 14px; }
   .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -561,11 +528,11 @@
   .tour[hidden] { display: none; }
   /* 100vmax, not 9999px (2026-10-08): a shadow that wide is a ~20000 px texture, and with the tour open
      it closed CrunchyTile's browser window on AJ's machine. 100vmax still covers any viewport. */
-  .tour-hole { position: absolute; border-radius: 10px; border: 2px solid var(--accent2); pointer-events: none;
+  .tour-hole { position: absolute; border: 2px solid var(--accent); pointer-events: none;
     box-shadow: 0 0 0 100vmax rgba(8, 6, 12, 0.74); transition: left .18s, top .18s, width .18s, height .18s; }
   .tour-hole.notarget { border-color: transparent; box-shadow: 0 0 0 100vmax rgba(8, 6, 12, 0.82); }
   .tour-card { position: absolute; width: min(340px, 90vw); background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 15px 17px; box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55); }
+ padding: 15px 17px; box-shadow: var(--lift); }
   .tour-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
   .tour-body { font-size: 13.5px; color: var(--ink); line-height: 1.5; }
   .tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
@@ -576,8 +543,8 @@
   /* Share-link first-timer's tour offer (small dismissible banner, not the full overlay) */
   .tour-offer { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 260;
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
-    background: var(--panel); border: 1px solid var(--accent2); border-radius: 12px;
-    padding: 10px 12px 10px 16px; box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5); max-width: min(640px, 94vw); }
+    background: var(--panel); border: 1px solid var(--info);
+    padding: 10px 12px 10px 16px; box-shadow: var(--lift); max-width: min(640px, 94vw); }
   .tour-offer[hidden] { display: none; }
   .tour-offer-msg { font-size: 13.5px; color: var(--ink); }
   .tour-offer-go { padding: 7px 13px; font-size: 13px; }
@@ -585,32 +552,32 @@
   /* Foundry modal (curate original presets from procedural candidates) */
   .foundry-gen { display: flex; align-items: center; gap: 10px; padding: 12px 18px 0; flex-wrap: wrap; }
   .fnd-typel { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-  .fnd-typel select { width: auto; padding: 7px 24px 7px 8px; font-size: 12px; border-radius: 8px; }
+  .fnd-typel select { width: auto; padding: 7px 24px 7px 8px; font-size: 12px; }
   .fnd-styles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 18px 0; }
   .fnd-slabel { font-size: 12px; color: var(--muted); margin-right: 2px; }
   .fnd-style { cursor: pointer; }
   .fnd-style input { position: absolute; opacity: 0; width: 0; height: 0; }
   .fnd-style span { display: inline-block; padding: 4px 11px; font-size: 12px; border: 1px solid var(--line);
-    border-radius: 999px; color: var(--muted); background: var(--panel2); transition: border-color 0.1s, color 0.1s; }
-  .fnd-style:hover span { border-color: var(--accent2); color: var(--ink); }
+ color: var(--muted); background: var(--panel2); transition: border-color 0.1s, color 0.1s; }
+  .fnd-style:hover span { border-color: var(--info); color: var(--ink); }
   .fnd-style input:checked + span { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .fnd-style input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: 1px; }
+  .fnd-style input:focus-visible + span { outline: 1px solid var(--accent); outline-offset: 1px; }
   /* Web-only "Get the Desktop app" modal (premium features, Coming soon) */
   button[disabled] { opacity: 0.55; cursor: default; }
   button[disabled]:hover { background: var(--accent); }
   .steam-box { width: min(640px, 100%); }
   .steam-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    color: #201005; background: var(--accent); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+    color: var(--on-accent); background: var(--accent); padding: 3px 9px; white-space: nowrap; }
   .steam-body { padding: 18px; overflow-y: auto; }
   .steam-feats { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
   .steam-feats li { font-size: 14px; line-height: 1.45; color: var(--ink); }
-  .steam-feats b { color: var(--accent2); }
-  .steam-feats code { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+  .steam-feats b { color: var(--info); }
+  .steam-feats code { background: var(--panel2); border: 1px solid var(--line); padding: 1px 5px; font-size: 12px; }
   .steam-note { margin: 16px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .breed-cell-bar .fnd-keepbtn { padding: 2px 9px; font-size: 12px; }
   .breed-cell-bar .fnd-editbtn { flex: 1; padding: 4px 10px; font-size: 12px; font-weight: 600;
-    background: var(--accent); color: #201005; border-color: transparent; }
-  .breed-cell-bar .fnd-editbtn:hover { background: #ff8a5c; }
+    background: var(--accent); color: var(--on-accent); border-color: transparent; }
+  .breed-cell-bar .fnd-editbtn:hover { background: var(--accent); }
   .foundry-keep { padding: 4px 18px 0; border-top: 1px solid var(--line); margin-top: 4px; }
   .foundry-keep-head { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 8px; }
   .foundry-keep-head > span:first-child { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; }
@@ -629,7 +596,7 @@
   .scoperow canvas { width: 100%; height: 90px; display: block; }
   .scope-modes { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 6px; }
   .scope-mode { padding: 2px 9px; font-size: 11px; }
-  .scope-mode.active { background: #ff7a45; border-color: #ff7a45; color: #17131f; }
+  .scope-mode.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .scoperow.xy canvas { width: 320px; height: 320px; max-width: 100%; margin: 0 auto; aspect-ratio: 1 / 1; }
 
   /* Play-at-pitch keyboard (under the scope) */
@@ -638,16 +605,16 @@
   .kb-oct button { padding: 3px 8px; font-size: 12px; }
   .kb-octlabel b { color: var(--ink); }
   .kb-keys { position: relative; display: flex; flex: 1; min-width: 280px; height: 62px; user-select: none; touch-action: none; }
-  .kb-white { flex: 1; background: linear-gradient(#e9e6ef, #cfc9db); border: 1px solid #2a2533; border-radius: 0 0 5px 5px;
+  .kb-white { flex: 1; background: #dcd8e5; border: 1px solid #2a2533;
     display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; cursor: pointer; }
   .kb-white + .kb-white { border-left: none; }
   .kb-white .kb-lbl { color: #6b6478; font-size: 10px; font-weight: 600; }
   .kb-black { position: absolute; top: 0; width: 8%; height: 62%; transform: translateX(-50%); z-index: 2;
-    background: linear-gradient(#2a2533, #14121a); border: 1px solid #000; border-radius: 0 0 4px 4px;
+    background: #1f1b28; border: 1px solid #000;
     display: flex; align-items: flex-end; justify-content: center; padding-bottom: 3px; cursor: pointer; }
   .kb-black .kb-lbl { color: #b6aecb; font-size: 9px; font-weight: 600; }
-  .kb-white.active { background: linear-gradient(var(--accent), #d85f30); }
-  .kb-black.active { background: linear-gradient(var(--accent), #c25326); }
+  .kb-white.active { background: var(--accent); }
+  .kb-black.active { background: var(--accent); }
   .kb-hint { font-size: 11px; color: var(--muted); }
   .kb-hint b { color: var(--ink); font-weight: 600; }
   @media (max-width: 600px) { .kb-hint { display: none; } .keyboard { margin: 10px 12px 0; } }
@@ -656,12 +623,12 @@
   /* Bordered, collapsible hero-style box (matches .macro/.engine/.console). */
   .riff {
     max-width: 1200px; margin: 10px 24px 0;
-    background: linear-gradient(90deg, #221d2b, #2c2233);
-    border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px 14px;
+    background: var(--panel);
+    border: 1px solid var(--line); padding: 12px 16px 14px;
   }
   .riff-head {
     font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--accent2); font-weight: 600; margin-bottom: 10px;
+    color: var(--info); font-weight: 600; margin-bottom: 10px;
   }
   .riff.collapsed .riff-body { display: none; }
   .riff.collapsed { padding-bottom: 12px; }
@@ -669,19 +636,19 @@
   .riff-write:has(#riffWriteIn:checked) { color: var(--accent); font-weight: 600; }   /* Write mode active */
   .riff-ctl { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .riff-ctl label { display: inline-flex; align-items: center; gap: 5px; }
-  .riff-ctl input[type="number"] { width: 56px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; }
-  .riff-ctl select { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+  .riff-ctl input[type="number"] { width: 56px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 4px 6px; font: inherit; font-size: 12px; }
+  .riff-ctl select { background: var(--panel2); color: var(--ink); border: 1px solid var(--line); padding: 4px 6px; font-size: 12px; }
   .riff-ctl button { padding: 5px 10px; font-size: 12px; }
   .riff-hint { font-size: 11px; }
   .riff-hint b { color: var(--ink); font-weight: 600; }
   .riff-grid { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
-  .riff-cell { position: relative; height: 46px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  .riff-cell { position: relative; height: 46px; background: var(--panel2); border: 1px solid var(--line);
     color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .riff-cell.rest { color: var(--muted); font-weight: 400; }
-  .riff-cell.sel { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
-  .riff-cell.playing { background: var(--accent); color: #201005; border-color: transparent; }
+  .riff-cell.sel { border-color: var(--info); box-shadow: 0 0 0 1px var(--info) inset; }
+  .riff-cell.playing { background: var(--accent); color: var(--on-accent); border-color: transparent; }
   .riff-num { position: absolute; top: 3px; left: 5px; font-size: 9px; font-weight: 400; color: var(--muted); }
-  .riff-cell.playing .riff-num { color: #201005; }
+  .riff-cell.playing .riff-num { color: var(--on-accent); }
   @media (min-width: 1500px) { .riff { max-width: 1900px; } }
   @media (max-width: 600px) { .riff { margin: 8px 12px 0; } .riff-cell { height: 40px; font-size: 12px; } }
 
@@ -731,9 +698,7 @@
      slider handle and give buttons a comfortable minimum tap height. Gated on
      pointer:coarse so desktop mouse styling is untouched. */
   @media (pointer: coarse) {
-    input[type=range] { height: 6px; }
-    input[type=range]::-webkit-slider-thumb { width: 24px; height: 24px; }
-    input[type=range]::-moz-range-thumb { width: 24px; height: 24px; }
+    /* slider knobs: see the §17 block at the end */
     button { min-height: 40px; }
     .wavelock input, .fmt-loop input { width: 20px; height: 20px; }
   }
@@ -748,13 +713,13 @@
     padding: 14px 24px 0; max-width: 1200px;
   }
   .stage-box {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line);
     padding: 16px; display: flex; align-items: center; justify-content: center;
     min-width: 300px; min-height: 300px; flex: none;
   }
   /* The backdrop is preview-only — it exists so you can SEE what the alpha is doing.
      Exports are always transparent. */
-  .stage-wrap { line-height: 0; border-radius: 6px; overflow: hidden; }
+  .stage-wrap { line-height: 0; overflow: hidden; }
   .stage-wrap.bg-checker, .stage-wrap {
     background-image:
       linear-gradient(45deg, #2a2635 25%, transparent 25%, transparent 75%, #2a2635 75%),
@@ -764,7 +729,7 @@
   .stage-wrap.bg-dark { background: #0b0910; background-image: none; }
   .stage-wrap.bg-light { background: #e8e4f0; background-image: none; }
   /* transparent, so the backdrop swatch behind it is what you actually see through the alpha */
-  #stage { display: block; image-rendering: pixelated; background: transparent; border-radius: 0; }
+  #stage { display: block; image-rendering: pixelated; background: transparent; }
 
   .stage-side { display: flex; flex-direction: column; gap: 12px; min-width: 220px; flex: 1; padding-top: 4px; }
   .stage-info { font: 12px ui-monospace, monospace; color: var(--muted); }
@@ -774,8 +739,10 @@
   .stage-hint { font-size: 11px; line-height: 1.4; max-width: 320px; }
   .zoomgroup { display: inline-flex; gap: 4px; }
   .zoomgroup button { padding: 4px 9px; font-size: 11px; }
-  .zoomgroup button.active { background: var(--accent); color: #201005; border-color: transparent; }
-  button.on { background: var(--accent2); color: #05202a; border-color: transparent; }
+  .zoomgroup button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  /* A toggle that is ON (Fit, Lock pixels, Hold sound, the guides): a pale neutral fill, pressed in. Not the
+     accent fill, which would make every switched-on toggle look like the primary Pause. Was the shared cyan. */
+  button.on { background: var(--info); color: var(--on-accent); border-color: var(--info); }
 
   @media (max-width: 780px) {
     .stagerow { flex-direction: column; }
@@ -794,8 +761,8 @@
   .gif-box { width: min(560px, 100%); }
   .gif-body { padding: 16px 18px; overflow-y: auto; }
   .gif-stats { font: 12px ui-monospace, monospace; color: var(--muted); margin-bottom: 12px; }
-  .gif-warn, .gif-ok { font-size: 13px; line-height: 1.5; margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; }
-  .gif-warn { background: rgba(255, 122, 69, 0.09); border: 1px solid rgba(255, 122, 69, 0.35); }
+  .gif-warn, .gif-ok { font-size: 13px; line-height: 1.5; margin: 0 0 10px; padding: 10px 12px; }
+  .gif-warn { background: color-mix(in srgb, var(--accent) 9%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
   .gif-ok { background: rgba(124, 224, 166, 0.08); border: 1px solid rgba(124, 224, 166, 0.3); color: #a8e8c4; }
   .gif-warn b { color: var(--accent); }
   .gif-warn i { color: var(--ink); font-style: normal; font-weight: 600; }
@@ -805,17 +772,17 @@
   .glyph-row label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
   .glyph-row input {
     width: 100%; background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px;
+    border: 1px solid var(--line);
     padding: 6px 10px; font-size: 22px; text-align: center; line-height: 1.3;
   }
   .glyph-picks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
   .glyph-picks button { padding: 2px 6px; font-size: 16px; line-height: 1.4; min-width: 30px; }
 
   /* My Effects library: thumbnail + name + actions */
-  .mypresets { border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  .mypresets { border: 1px solid var(--line); background: var(--panel);
     padding: 10px 12px; margin-top: 12px; }
   .up-thumb {
-    width: 34px; height: 34px; flex: none; border-radius: 6px; cursor: pointer;
+    width: 34px; height: 34px; flex: none; cursor: pointer;
     background-color: #17131f;
     background-image:
       linear-gradient(45deg, #211d2b 25%, transparent 25%, transparent 75%, #211d2b 75%),
@@ -826,9 +793,9 @@
   .up-thumb:hover { border-color: var(--accent); }
 
   /* Reference underlay panel (beside the stage) */
-  .refbox { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 9px 11px; margin-top: 4px; }
+  .refbox { border: 1px solid var(--line); background: var(--panel); padding: 9px 11px; margin-top: 4px; }
   .ref-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .ref-head > span { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent2); font-weight: 600; }
+  .ref-head > span { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--info); font-weight: 600; }
   .ref-head button { padding: 4px 8px; font-size: 12px; }
   .ref-name { font-size: 11px; color: var(--muted); margin: 7px 0 6px; word-break: break-all; }
   .ref-ctl { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin: 5px 0; }
@@ -838,7 +805,7 @@
   .ref-ctl input[type=range] { flex: 1; min-width: 60px; }
   .ref-ctl input[type=number] {
     width: 48px; background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; font: inherit; font-size: 12px;
+    border: 1px solid var(--line); padding: 3px 5px; font: inherit; font-size: 12px;
   }
   .ref-ctl button { padding: 2px 7px; font-size: 12px; }
   .ref-toggles { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
@@ -855,7 +822,7 @@
      legible. pixelated keeps the upscale crisp instead of mushy. */
   .breed-cell canvas {
     width: 100%; max-width: 148px; height: auto; aspect-ratio: 1 / 1;
-    image-rendering: pixelated; border-radius: 6px;
+    image-rendering: pixelated;
     background-color: #17131f;
     background-image:
       linear-gradient(45deg, #211d2b 25%, transparent 25%, transparent 75%, #211d2b 75%),
@@ -871,7 +838,7 @@
   .var-opts input[type=text] { width: 120px; }
   .var-opts input[type=number], .var-opts input[type=text] {
     background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
-    border-radius: 6px; padding: 4px 7px; font: inherit; font-size: 12px;
+ padding: 4px 7px; font: inherit; font-size: 12px;
   }
   .var-opts select { width: auto; min-width: 110px; }
 
@@ -879,11 +846,11 @@
   .share-box { width: min(620px, 100%); }
   .share-body { padding: 14px 18px; }
   .share-lbl { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
-  .share-input {
+  input.share-input {
     width: 100%; background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit;
+    border: 1px solid var(--line); padding: 8px 10px; font: inherit;
   }
-  .share-input:focus { outline: none; border-color: var(--accent2); }
+  .share-input:focus { outline: none; border-color: var(--accent); }
   .share-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 12px 0 0; }
   /* The posting-GIF row sits under the link, separated by a rule: the link and the GIF are two
      different ways to send the same effect, not two steps of one flow. */
@@ -896,36 +863,36 @@
 
   /* ---- Custom categories ---------------------------------------------------- */
   .usercats { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-  .uc-cat { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); padding: 9px 11px; }
+  .uc-cat { border: 1px solid var(--line); background: var(--panel); padding: 9px 11px; }
   .uc-head { display: flex; align-items: center; gap: 8px; }
   .uc-name {
-    flex: 1; min-width: 0; background: none; border: 1px solid transparent; border-radius: 6px;
+    flex: 1; min-width: 0; background: none; border: 1px solid transparent;
     color: var(--accent); font: inherit; font-size: 12px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.6px; padding: 3px 5px;
   }
   .uc-name:hover { border-color: var(--line); }
-  .uc-name:focus { outline: none; background: var(--panel2); border-color: var(--accent2); }
+  .uc-name:focus { outline: none; background: var(--panel2); border-color: var(--accent); }
   .uc-del { padding: 2px 7px; font-size: 12px; }
   .uc-items { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-  .uc-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-  .uc-chip button { border: none; border-radius: 0; padding: 4px 8px; font-size: 12px; background: var(--panel2); }
+  .uc-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line); overflow: hidden; }
+  .uc-chip button { border: none; padding: 4px 8px; font-size: 12px; background: var(--panel2); }
   .uc-chip .uc-rm { color: var(--muted); border-left: 1px solid var(--line); padding: 4px 6px; }
-  .uc-chip .uc-rm:hover { color: #ff7a7a; }
+  .uc-chip .uc-rm:hover { color: var(--bad); }
   .uc-menu {
     position: fixed; z-index: 9999; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 10px; padding: 6px; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,.55);
+ padding: 6px; min-width: 180px; box-shadow: var(--lift);
     display: flex; flex-direction: column; gap: 2px;
   }
   .uc-menu-head { font-size: 11px; color: var(--muted); padding: 4px 8px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
-  .uc-menu button { text-align: left; background: none; border: none; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+  .uc-menu button { text-align: left; background: none; border: none; padding: 6px 8px; font-size: 13px; }
   .uc-menu button:hover { background: var(--panel2); color: var(--accent); }
-  .uc-menu-new { color: var(--accent2) !important; }
+  .uc-menu-new { color: var(--info) !important; }
 
   /* Custom drawn sprite editor + imported PNG particle */
   .cs-row { margin: 8px 0 4px; }
   .cs-canvas {
     width: 100%; max-width: 168px; height: auto; aspect-ratio: 1 / 1; display: block;
-    image-rendering: pixelated; cursor: crosshair; touch-action: none; border-radius: 8px;
+    image-rendering: pixelated; cursor: crosshair; touch-action: none;
     border: 1px solid var(--line); margin: 0 auto 8px;
     background-color: #17131f;
     background-image:
@@ -947,7 +914,7 @@
   .ramp-head button { padding: 3px 12px; font-size: 12px; }
   #rampCanvas {
     width: 100%; height: 34px; display: block; margin: 9px 0 5px;
-    border-radius: 7px; border: 1px solid var(--line); cursor: pointer; touch-action: none;
+ border: 1px solid var(--line); cursor: pointer; touch-action: none;
     background: none;
   }
   .ramp-hint { font-size: 10.5px; color: var(--muted); line-height: 1.4; margin-bottom: 7px; }
@@ -962,8 +929,8 @@
   .match-name { font-size: 14px; color: var(--accent); margin: 14px 0 6px; }
   .match-list { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: var(--ink); }
   .match-list li { margin: 2px 0; }
-  .match-bad { font-size: 13px; color: #ffb08a; background: rgba(255,122,69,0.09);
-    border: 1px solid rgba(255,122,69,0.35); border-radius: 8px; padding: 10px 12px; margin: 14px 0 0; }
+  .match-bad { font-size: 13px; color: #ffb08a; background: color-mix(in srgb, var(--accent) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); padding: 10px 12px; margin: 14px 0 0; }
   .match-bad code { font: 12px ui-monospace, monospace; color: var(--accent); }
 
   /* Export dialog */
@@ -985,15 +952,15 @@
   /* Palette lock */
   .pal-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
   .pal-sws { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0 6px; min-height: 4px; }
-  .pal-sw { width: 16px; height: 16px; border-radius: 3px; border: 1px solid rgba(0,0,0,.5); display: block; }
+  .pal-sw { width: 16px; height: 16px; border: 1px solid rgba(0,0,0,.5); display: block; }
   .pal-info { font-size: 10.5px; color: var(--muted); line-height: 1.45; margin-bottom: 8px; }
   .pal-btns { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
   .pal-btns button { padding: 3px 8px; font-size: 11px; }
-  .pal-paste {
+  input.pal-paste {
     width: 100%; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
-    border-radius: 7px; padding: 5px 8px; font: inherit; font-size: 11px; margin-top: 2px;
+ padding: 5px 8px; font: inherit; font-size: 11px; margin-top: 2px;
   }
-  .pal-paste:focus { outline: none; border-color: var(--accent2); }
+  .pal-paste:focus { outline: none; border-color: var(--accent); }
 
   .exp-batch { display: inline-flex; gap: 6px; margin-left: 6px; padding-left: 10px; border-left: 1px solid var(--line); }
   .exp-batch button { padding: 6px 10px; font-size: 12px; }
@@ -1001,12 +968,12 @@
   /* Docked preview — appears under the toolbar once the real stage scrolls away */
   .prevdock {
     position: fixed; right: 18px; z-index: 6;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 8px; box-shadow: var(--lift);
     display: flex; flex-direction: column; gap: 6px;
   }
   .prevdock[hidden] { display: none; }
-  .dock-wrap { line-height: 0; border-radius: 6px; overflow: hidden; cursor: zoom-out; }
+  .dock-wrap { line-height: 0; overflow: hidden; cursor: zoom-out; }
   .dock-wrap.bg-checker, .dock-wrap {
     background-image:
       linear-gradient(45deg, #2a2635 25%, transparent 25%, transparent 75%, #2a2635 75%),
@@ -1015,7 +982,7 @@
   }
   .dock-wrap.bg-dark { background: #0b0910; background-image: none; }
   .dock-wrap.bg-light { background: #e8e4f0; background-image: none; }
-  .dock-wrap canvas { display: block; image-rendering: pixelated; background: transparent; border-radius: 0; }
+  .dock-wrap canvas { display: block; image-rendering: pixelated; background: transparent; }
   .dock-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
     font: 11px ui-monospace, monospace; color: var(--muted); }
   .dock-bar button { padding: 1px 7px; font-size: 12px; line-height: 1.3; }
@@ -1044,15 +1011,15 @@
   .uc-ghost {
     position: fixed; z-index: 10000; pointer-events: none;   /* so elementFromPoint sees through it */
     background: var(--panel); border: 1px solid var(--accent); color: var(--ink);
-    border-radius: 7px; padding: 4px 9px; font-size: 12px;
-    box-shadow: 0 6px 18px rgba(0,0,0,.5);
+ padding: 4px 9px; font-size: 12px;
+    box-shadow: var(--lift);
   }
   body.uc-dragging { cursor: grabbing; }
   body.uc-dragging .up-thumb, body.uc-dragging .presetbar button { cursor: grabbing; }
   .uc-newdrop { display: none; }
   body.uc-dragging .uc-newdrop {
     display: block; text-align: center; font-size: 12px; color: var(--muted);
-    border: 1px dashed var(--line); border-radius: 10px; padding: 10px;
+    border: 1px dashed var(--line); padding: 10px;
   }
   .uc-cat.uc-hot, .uc-newdrop.uc-hot {
     border-color: var(--accent); color: var(--accent);
@@ -1065,14 +1032,14 @@
   .frame-wh input[type="number"] {
     width: 66px; padding: 4px 6px; font: inherit; font-size: 12px;
     background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 5px;
+    border: 1px solid var(--line);
   }
   .frame-wh .hint { margin-left: 2px; }
   .frame-lock {
     padding: 2px 6px; font-size: 12px; line-height: 1;
-    background: none; border: 1px solid var(--line); border-radius: 5px; color: var(--muted);
+    background: none; border: 1px solid var(--line); color: var(--muted);
   }
-  .frame-lock.on { color: var(--accent); border-color: var(--accent); }
+  .frame-lock.on { color: var(--on-accent); background: var(--info); border-color: var(--info); }
 
   /* Params built into the stage controls (Frame size, FPS) instead of a panel. They come out of
      the same generator, so they arrive as .row/.waverow — restyle them to match the neighbouring
@@ -1094,21 +1061,23 @@
      glance across a panel of thirty controls. */
   .switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
   .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  /* §17: a square switch (chrome): a bordered slot with a square knob inside it, sliding over when on. */
   .switch-track {
-    width: 34px; height: 14px; border-radius: 7px;
-    background: var(--line); transition: background .16s;
+    width: 32px; height: 16px; box-sizing: border-box;
+    background: var(--bg); border: 1px solid var(--line2); box-shadow: 1px 1px 0 var(--drop);
     display: inline-block; position: relative;
   }
   .switch-track::after {
-    content: ""; position: absolute; left: -1px; top: -3px;
-    width: 20px; height: 20px; border-radius: 50%;
-    background: #6d6480; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-    transition: transform .16s, background .16s;
+    content: ""; position: absolute; left: 2px; top: 2px;
+    width: 10px; height: 10px;
+    background: var(--muted);
+    transition: transform .12s, background .12s;
   }
-  .switch input:checked + .switch-track { background: rgba(255, 122, 69, 0.4); }
-  .switch input:checked + .switch-track::after { transform: translateX(15px); background: var(--accent); }
-  .switch input:focus-visible + .switch-track { box-shadow: 0 0 0 2px var(--accent2); }
-  .switch:hover .switch-track::after { box-shadow: 0 1px 3px rgba(0,0,0,.45), 0 0 0 6px rgba(255,122,69,.12); }
+  .switch input:checked + .switch-track { border-color: var(--accent); }
+  .switch input:checked + .switch-track::after { transform: translateX(16px); background: var(--accent); }
+  .switch input:focus-visible + .switch-track { outline: 1px solid var(--accent); outline-offset: 2px; }
+  .switch:hover .switch-track::after { background: var(--ink); }
+  .switch:hover input:checked + .switch-track::after { background: var(--accent); }
   .switch-row { align-items: center; }
 
   /* Export pipelines: named setting bundles, each a chip you can run or delete. */
@@ -1116,22 +1085,22 @@
   .exp-pipe-btns { display: flex; gap: 6px; }
   .exp-pipe-btns button { padding: 4px 9px; font-size: 12px; }
   .pipe-chip { display: inline-flex; align-items: stretch; border: 1px solid var(--line);
-               border-radius: 6px; overflow: hidden; }
+ overflow: hidden; }
   .pipe-chip.on { border-color: var(--accent); }
-  .pipe-chip button { border: none; border-radius: 0; padding: 4px 9px; font-size: 12px;
+  .pipe-chip button { border: none; padding: 4px 9px; font-size: 12px;
                       background: var(--panel2); }
   .pipe-chip .pipe-del { color: var(--muted); padding: 4px 7px; }
-  .pipe-chip .pipe-del:hover { color: #ff8080; background: rgba(255,77,77,0.12); }
+  .pipe-chip .pipe-del:hover { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
   .exp-repack-opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .exp-repack-opts button { padding: 4px 10px; font-size: 12px; }
 
   /* Sprite library: thumbnails of every PNG imported as a particle (desktop). */
   .sprite-lib { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
   .sprite-chip { position: relative; display: inline-flex; border: 1px solid var(--line);
-                 border-radius: 6px; overflow: hidden; background: var(--panel2); }
+ overflow: hidden; background: var(--panel2); }
   .sprite-chip.on { border-color: var(--accent); }
   .sprite-use {
-    width: 42px; height: 42px; padding: 0; border: none; border-radius: 0;
+    width: 42px; height: 42px; padding: 0; border: none;
     background-color: transparent; background-size: contain; background-repeat: no-repeat;
     background-position: center;
     /* Imported particles are usually pale on transparent; a checker makes them visible. */
@@ -1140,20 +1109,20 @@
   }
   .sprite-del {
     position: absolute; top: 0; right: 0; padding: 0 4px; font-size: 10px; line-height: 1.4;
-    border: none; border-radius: 0 0 0 5px; background: rgba(20,18,26,0.8); color: var(--muted);
+    border: none; background: rgba(20,18,26,0.8); color: var(--muted);
     opacity: 0; transition: opacity .12s;
   }
   .sprite-chip:hover .sprite-del { opacity: 1; }
-  .sprite-del:hover { color: #ff8080; background: rgba(255,77,77,0.25); }
+  .sprite-del:hover { color: var(--bad); background: color-mix(in srgb, var(--bad) 25%, transparent); }
 
   /* Shape filter — sits inside the Particle shape section, so it folds away with it. */
   .shapesearch { margin: 0 0 10px; }
   .shapesearch input {
     width: 100%; padding: 7px 10px; font: inherit; font-size: 12px;
     background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 7px;
+    border: 1px solid var(--line);
   }
-  .shapesearch input:focus { outline: none; border-color: var(--accent2); }
+  .shapesearch input:focus { outline: none; border-color: var(--accent); }
   .engine-title .hint { margin-left: auto; font-size: 11px; }
 
   /* Welcome tour (guided spotlight). .tour covers the screen and blocks the background; the hole's
@@ -1161,15 +1130,15 @@
   .tour { position: fixed; inset: 0; z-index: 300; }
   .tour[hidden] { display: none; }
   .tour-hole {
-    position: absolute; border-radius: 10px; border: 2px solid var(--accent2);
+    position: absolute; border: 2px solid var(--accent);
     pointer-events: none; transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
     box-shadow: 0 0 0 100vmax rgba(8, 6, 12, 0.82);
   }
   .tour-hole.notarget { border-color: transparent; box-shadow: 0 0 0 100vmax rgba(8, 6, 12, 0.82); }
   .tour-card {
     position: absolute; width: min(340px, 90vw);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 14px 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 14px 16px; box-shadow: var(--lift);
   }
   .tour-title { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
   .tour-body { font-size: 13.5px; color: var(--ink); line-height: 1.5; }
@@ -1182,10 +1151,10 @@
   .b-shape { margin-top: 10px; }
   .b-shape-head { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
                   color: var(--muted); margin-bottom: 6px; }
-  .b-shape-filter { width: 100%; padding: 5px 8px; font: inherit; font-size: 12px;
+  input.b-shape-filter { width: 100%; padding: 5px 8px; font: inherit; font-size: 12px;
                     background: var(--panel2); color: var(--ink);
-                    border: 1px solid var(--line); border-radius: 6px; margin-bottom: 7px; }
-  .b-shape-filter:focus { outline: none; border-color: var(--accent2); }
+                    border: 1px solid var(--line); margin-bottom: 7px; }
+  .b-shape-filter:focus { outline: none; border-color: var(--accent); }
   .b-shape-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 148px; overflow-y: auto; }
   .b-shape-grid .engine-btn { padding: 4px 8px; font-size: 11px; }
 
@@ -1196,13 +1165,13 @@
   .lib-group { margin-bottom: 18px; }
   .lib-title {
     font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--accent2); margin-bottom: 4px;
+    color: var(--info); margin-bottom: 4px;
   }
   .lib-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
   .lib-empty { font-size: 12px; color: var(--muted); font-style: italic; }
   .lib-sprites { display: flex; flex-wrap: wrap; gap: 6px; }
   .lib-sprite {
-    width: 52px; height: 52px; padding: 0; border-radius: 8px;
+    width: 52px; height: 52px; padding: 0;
     border: 1px solid var(--line); background-color: #14121a;
     background-size: contain; background-repeat: no-repeat; background-position: center;
     image-rendering: pixelated; cursor: pointer;
@@ -1214,7 +1183,7 @@
   .lib-exp {
     display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center; gap: 10px;
-    padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #14121a;
+    padding: 7px 10px; border: 1px solid var(--line); background: #14121a;
   }
   .lib-exp-name { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lib-exp-meta { font: 11px ui-monospace, monospace; color: var(--muted); white-space: nowrap; }
@@ -1248,7 +1217,7 @@
      that reads as a list item, which is a thing people click anywhere on. */
   .tut-row {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px;
-    text-align: left; padding: 10px 12px; border-radius: 9px;
+    text-align: left; padding: 10px 12px;
     border: 1px solid var(--line); background: #14121a; cursor: pointer;
   }
   .tut-row:hover { border-color: var(--accent); }
@@ -1264,34 +1233,35 @@
      means, which is the one place these two pickers differ. */
   .b-shape-note { font-size: 11px; color: var(--muted); line-height: 1.45; margin: 2px 0 6px; }
 
-/* THE CRUNCHY SUITE (§80, css-build 19): suite.js's dialog. PORTABLE like the lib-* block: the suite's shared
-   custom properties and `suite-*` classes only, so it copies into every Crunchy tool unchanged. */
-/* Self-contained: a host app may lack the global `[hidden] { display: none !important }`, and then this block's
-   `display: flex` would beat the browser's [hidden] and the dialog could never close (found porting to VFX). */
-.suite-overlay[hidden] { display: none !important; }
-.suite-overlay { position: fixed; inset: 0; z-index: 260; background: rgba(8, 7, 12, 0.78); display: flex;
-                 align-items: center; justify-content: center; padding: 16px; }
-.suite-panel { width: min(640px, 100%); max-height: 100%; overflow: auto; background: var(--panel);
-               border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
-.suite-head { display: flex; align-items: center; gap: 8px; }
-.suite-title { margin: 0; flex: 1; font-size: 17px; color: var(--accent); }
-.suite-close { font-size: 16px; line-height: 1; padding: 4px 9px; }
-.suite-line { margin: 6px 0 12px; color: var(--ink); }
-.suite-list { display: grid; gap: 8px; }
-.suite-tool { display: flex; align-items: center; gap: 12px; background: var(--panel2); border: 1px solid var(--line);
-              border-radius: 6px; padding: 10px 12px; }
-.suite-tool.here { border-color: var(--accent); }
-.suite-icon { font-size: 22px; width: 1.4em; text-align: center; color: var(--accent2); }
-.suite-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.suite-name { font-size: 14px; }
-.suite-what { font-size: 12.5px; color: var(--muted); }
-.suite-go { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
-.suite-link { font-size: 12.5px; color: var(--accent2); text-decoration: none; border: 1px solid var(--line);
-              border-radius: 4px; padding: 3px 9px; }
-.suite-link:hover { border-color: var(--accent2); }
-.suite-here, .suite-soon { font-size: 12px; color: var(--muted); }
-.suite-here { color: var(--accent); }
-.suite-foot { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
-@media (max-width: 520px) { .suite-tool { flex-wrap: wrap; } .suite-go { flex-direction: row; } }
-
+/* The Crunchy suite dialog's styles (`suite-*`) live in crunchy-base.css (crunchyCore) since VFX-DESIGN §17. */
 #suiteBtn { white-space: nowrap; }
+
+/* ==========================================================================================================
+   §17. THE SUITE'S LOOK, VFX's part of it (crunchy-base.css is the rest). Kept together at the end so it wins
+   ties with the older rules above without hunting for them.
+   ========================================================================================================== */
+/* FLAT buttons (no fill, or a borderless half of a chip) opt out of the base's hard step: a shadow under a
+   control that draws no box reads as a smudge. */
+.layer-remove, .seq-chip button, .up-item button, .uc-newbtn, .usercat > summary .uc-del, .uc-menu button,
+.tour-skip, .tour-offer-x, .frame-lock, .uc-chip button, .pipe-chip button, .sprite-use, .sprite-del,
+.uc-item .uc-item-btn, .uc-item .uc-item-rm, .cog { box-shadow: none; }
+.layer-remove:active, .seq-chip button:active, .up-item button:active, .uc-menu button:active, .tour-skip:active,
+.tour-offer-x:active, .frame-lock:active, .uc-chip button:active, .pipe-chip button:active, .sprite-use:active,
+.sprite-del:active { box-shadow: none; }
+/* A FUSED control (a chip of two buttons) carries the step on the chip, not on each half. */
+.uc-chip, .pipe-chip { box-shadow: var(--step) var(--step) 0 var(--drop); }
+/* Dialogs: the base's frame (2 px border, the hard lift), like the suite dialog beside them. */
+.modal-box { border: 2px solid var(--line2); box-shadow: var(--lift); }
+/* Headings in the base's heading face: section heads, dialog titles, the tour. */
+.modal-head h2, .tour-title, .mp-head > span:first-child, .ref-head > span, .engine-title, .lib-title, .foundry-keep-head > span:first-child {
+  font-family: var(--head);
+}
+.modal-head h2, .tour-title { text-transform: uppercase; letter-spacing: .03em; }
+/* Coarse pointers: a bigger knob, still the base's square one. */
+@media (pointer: coarse) {
+  input[type="range"] { height: 26px; }
+  input[type="range"]::-webkit-slider-thumb { width: 14px; height: 24px; margin-top: -10px; }
+  input[type="range"]::-moz-range-thumb { width: 14px; height: 24px; }
+}
+/* index.html's core-files guard: a stale crunchyCore copy or styles.css says so here (never fatal). */
+#stalecore { padding: 8px 24px; background: var(--panel2); border-bottom: 2px solid var(--bad); color: var(--ink); font-size: 13px; }

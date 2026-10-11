@@ -71,6 +71,13 @@ describing the wrong place. Re-read the tutorial copy by hand whenever a feature
 out-of-range value doesn't error — it produces a quietly broken effect. There's an assertion for
 it; keep it passing.
 
+**`suite.js`, `crunchy-base.css` and `crunchy-icons.js` are GENERATED from crunchyCore** (VFX-DESIGN §17). Never
+edit them; change `~/Code/crunchyCore`, then `node tools/pull-core.mjs` (`--check` verifies the copies). The base
+owns the shared look (neutrals, square corners, the hard step, buttons, selects, sliders, checkboxes); `styles.css`
+keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `border-radius`, no blurred shadows,
+glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
+(`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
+
 **`crunchysfx-synth.js` is GENERATED.** Never edit it. Change the CrunchySFX sources and run
 `python3 tools/pull-synth.py`. See VFX-DESIGN §9.
 
@@ -173,7 +180,8 @@ more particles.
 | `shapes.js` | particle drawings only, one `SHAPE_DEFS` record each |
 | `presets.js` | preset data + category layout |
 | `crunchysfx-synth.js` | **generated** — vendored CrunchySFX audio engine |
-| `styles.css` | all CSS |
+| `styles.css` | VFX's CSS: layout and the accent (the shared look is `crunchy-base.css`) |
+| `suite.js`, `crunchy-base.css`, `crunchy-icons.js` | **generated** from crunchyCore — the suite dialog, the shared look, the pixel icons |
 | `tests/` | `build.py` + the two browser suites + `worker.test.mjs`; see `tests/README.md` |
 | `tools/pull-synth.py` | re-vendors the synth engine from `../crunchyfx` |
 | `src-tauri/` | desktop wrapper; `flatpak/` is the Linux distributable |

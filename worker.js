@@ -12,10 +12,11 @@
  * =================================================================================================
  * WHY (1) EXISTS
  *
- * CrunchySFX loads three subresources and gets away without this. CrunchyVFX loads NINE —
- * presets.js, the vendored synth, shapes.js, vfx.js, gif.js, apng.js, suite.js, project.js and the
- * stylesheet — each cached independently by the browser, because the app must also open on file://
- * where modules and fetch are both CORS-blocked. Nine independent caches means a browser can pair a fresh
+ * CrunchySFX loads three subresources and gets away without this. CrunchyVFX loads ELEVEN —
+ * presets.js, the vendored synth, shapes.js, vfx.js, gif.js, apng.js, suite.js, crunchy-icons.js,
+ * project.js and the two stylesheets (crunchy-base.css, styles.css) — each cached independently by the
+ * browser, because the app must also open on file:// where modules and fetch are both CORS-blocked.
+ * Eleven independent caches means a browser can pair a fresh
  * index.html with a stale vfx.js and the app dies on a symbol that does not exist yet.
  *
  * That is not hypothetical for this codebase. It is exactly the failure that cost time TODAY: a

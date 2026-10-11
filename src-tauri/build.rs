@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 11] = [
+const FRONTEND: [&str; 13] = [
     "index.html",
     "favicon.png",
     "presets.js",
@@ -19,8 +19,12 @@ const FRONTEND: [&str; 11] = [
     "apng.js",
     // The desktop project folder — vendored from CrunchyTile (PROJECTS-HANDOFF.md).
     "project.js",
-    // The "Crunchy suite" dialog — canonical in CrunchyTile, kept byte-identical.
+    // The "Crunchy suite" dialog and the suite's pixel icons — GENERATED from crunchyCore
+    // (tools/pull-core.mjs), never edited here.
     "suite.js",
+    "crunchy-icons.js",
+    // The suite's shared look (crunchyCore), linked BEFORE styles.css.
+    "crunchy-base.css",
     "styles.css",
 ];
 
