@@ -187,23 +187,43 @@
     await projCheckUpdates();
     return ok(!Object.keys(projUpdates).length && !card("Explosion").querySelector(".lib-badge.hot"), Object.keys(projUpdates).join(","));
   });
-  await t("save/the-effect-opened-from-updates-in-place", async function () {
+  // SAVE NEVER OVERWRITES (crunchyCore plant.js 5; AJ, 2026-10-12): a taken name gets the next number, and only a card's
+  // Replace updates an effect. Each row removes its extra effect and makes the update the old row made, by Replace, so
+  // the rows after see the same folder as before.
+  const dropEffect = async function (name) {
+    await projDo(async function () { await plantDelete(project, plantFind(project, "effect", name)); });
+    projAfter(); await settle();
+  };
+  await t("save/the-effect-opened-from-saves-as-a-new-one", async function () {
     projOpenAsset(plantFind(project, "effect", "Explosion"));
     const was = sidecar("explosion"), png = M.bytes(ROOT + "/explosion/explosion.png");
     state.count = Math.max(2, Math.round(state.count / 2)); rerender();
     await press(document.getElementById("plantSave"));
-    const now = sidecar("explosion");
-    return ok(/Updated Explosion/.test(status()) && now.created === was.created && JSON.stringify(now.files) === JSON.stringify(was.files) &&
-              !same(M.bytes(ROOT + "/explosion/explosion.png"), png) && project.assets.filter(function (a) { return a.name === "Explosion"; }).length === 1, status());
+    await wait(function () { return !!sidecar("explosion-2"); }, 3000);
+    const now = sidecar("explosion"), two = sidecar("explosion-2");
+    const pass = now.modified === was.modified && same(M.bytes(ROOT + "/explosion/explosion.png"), png) && two && two.name === "Explosion 2" &&
+                 /“Explosion” was taken/.test(status());
+    const msg = status();
+    await dropEffect("Explosion 2");
+    document.getElementById("plantName").value = "Explosion";
+    await twice("Explosion", "Replace");                       // the update, the way it is made now
+    await wait(function () { return /Replaced Explosion/.test(status()); }, 3000);
+    const r = sidecar("explosion");
+    return ok(pass && r.created === was.created && JSON.stringify(r.files) === JSON.stringify(was.files) &&
+              !same(M.bytes(ROOT + "/explosion/explosion.png"), png) && project.assets.filter(function (a) { return a.name === "Explosion"; }).length === 1, msg + " / " + status());
   });
-  await t("save/over-another-effect-of-that-name-needs-a-second-press", async function () {
+  await t("save/a-taken-name-gets-the-next-number", async function () {
     applyPreset(PRESETS["Hit Spark"], "Explosion", true);
     const png = M.bytes(ROOT + "/explosion/explosion.png");
     await press(document.getElementById("plantSave"));
-    const asked = /already planted/.test(status()) && same(M.bytes(ROOT + "/explosion/explosion.png"), png);
-    await press(document.getElementById("plantSave"));
-    const replaced = !same(M.bytes(ROOT + "/explosion/explosion.png"), png) && /Updated Explosion/.test(status());
-    return ok(asked && replaced, status());
+    await wait(function () { return !!sidecar("explosion-2"); }, 3000);
+    const pass = same(M.bytes(ROOT + "/explosion/explosion.png"), png) && !!sidecar("explosion-2");
+    const msg = status();
+    await dropEffect("Explosion 2");
+    document.getElementById("plantName").value = "Explosion";
+    await twice("Explosion", "Replace");
+    await wait(function () { return /Replaced Explosion/.test(status()); }, 3000);
+    return ok(pass && !same(M.bytes(ROOT + "/explosion/explosion.png"), png) && /Replaced Explosion/.test(status()), msg + " / " + status());
   });
   await t("save/ctrl-s-and-save-current-go-to-the-folder-not-the-browser", async function () {
     applyPreset(PRESETS["Magic Sparkle"] || PRESETS[Object.keys(PRESETS)[1]], "Twinkle star", true);
@@ -512,6 +532,23 @@
   });
 
   // ---- safety ----
+  // crunchyCore plant.js 4 (the guard): a delete whose files a SCENE uses says so by name, and deletes on the next press
+  await t("guard/a-delete-whose-files-a-scene-uses-asks-first", async function () {
+    if (!project) await projDo(function () { return projOpen(GODOT); });
+    if (!library.isOpen()) library.open();
+    const s0 = lib().querySelector(".lib-search"); if (s0 && s0.value) { s0.value = ""; s0.dispatchEvent(new Event("input")); }
+    const a = project.assets.find(function (x) { return x.data.files.length > 0 && card(x.name); });
+    if (!a) return ok(false, "no planted asset with files on screen");
+    const scene = GODOT + "/scenes/uses-" + a.slug + ".tscn";
+    M.put(scene, 'path="res://' + project.rel + "/" + a.slug + "/" + a.data.files[0] + '"');
+    const msg = function () { const s = lib().querySelector(".lib-status"); return (s ? s.textContent : "") + " " + status(); };
+    const press = async function () { await twice(a.name, "Delete"); await settle(); };
+    await press(); await wait(function () { return /Press again to delete/.test(msg()); }, 3000);
+    const held = !!sidecar(a.slug) && /Press again to delete/.test(msg()) && msg().indexOf("uses-" + a.slug + ".tscn") >= 0;
+    await press(); await wait(function () { return !sidecar(a.slug) && !card(a.name); }, 3000);
+    M.files.delete(scene);
+    return ok(held && !sidecar(a.slug) && !card(a.name), msg());
+  });
   await t("safety/nothing-written-outside-crunchy-vfx", function () {
     const allowed = [ROOT + "/", UNITY + "/Assets/Crunchy/VFX/", PLAIN + "/crunchy/vfx/", "/home/aj/old.crunchyvfx"];
     const bad = writes().map(function (l) { return l.replace(/^(w|rm|rmdir) /, ""); })
