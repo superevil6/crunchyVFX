@@ -64,6 +64,7 @@
     <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
     <button id="setBtn" title="Settings: your preferences (the preview dock, Lock pixels, the tour)" data-icon="cog">Settings</button>
     <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
+    <button id="feedbackBtn" data-icon="mail" title="Tell the person who makes CrunchyVFX what happened, or an idea: from your own mail app, and you see everything it includes">Feedback</button>
     <span id="msg" class="hint"></span>
   </div>
 </div>
@@ -129,6 +130,7 @@
       <div class="ref-head">
         <span>Sound</span>
         <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together" data-icon="upload">Load sound</button>
+        <select id="sndGame" data-desktop hidden aria-label="Sounds in this game" title="A sound CrunchySFX planted in this game: linked, not copied, so the planted Godot scene plays it and a Replace in CrunchySFX reaches it (SUITE-LINKS.md)"><option value="">Sounds in this game…</option></select>
       </div>
       <div class="ref-body" id="sndBody" hidden>
         <div class="ref-name" id="sndName"></div>
@@ -136,6 +138,10 @@
         <div class="ref-ctl"><label for="sndOff">Offset</label>
           <input type="range" id="sndOff" aria-label="Sound offset" min="-500" max="500" step="5" value="0">
           <span class="hint" id="sndOffV">0 ms</span>
+        </div>
+        <div class="ref-ctl" id="sndFrameRow" data-desktop><label for="sndFrame">Impact</label>
+          <input type="number" id="sndFrame" aria-label="Impact frame" min="0" max="999" step="1" value="0" title="The frame the sound starts on: in the planted Godot scene when the game calls play(), and in this preview">
+          <span class="hint">frame: the sound starts here</span>
         </div>
         <div class="ref-toggles">
           <label><input type="checkbox" id="sndOn" checked> Play with preview</label>
@@ -260,6 +266,8 @@
 <script src="library.js"></script>
 <script src="settings.js"></script>
 <script src="desktop.js"></script>
+<!-- Feedback (VFX-DESIGN §20; crunchyCore, GENERATED like the files above; CrunchyTile TILE-DESIGN §118). -->
+<script src="feedback.js"></script>
 <script>
 "use strict";
 // §17. THE CORE FILES' STAMPS. suite.js, crunchy-icons.js, crunchy-base.css (and, §18, plant.js, library.js, settings.js,
@@ -277,6 +285,7 @@
     { file: "library.js", want: 4, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
     { file: "settings.js", want: 2, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
     { file: "desktop.js", want: 1, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
+    { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
@@ -1119,7 +1128,8 @@ function stopSound() {
 function playSound(atSec) {
   if (!snd.buf || !snd.on || !snd.ctx) return;
   stopSound();
-  const off = snd.offsetMs / 1000;
+  // the IMPACT FRAME (desktop, SUITE-LINKS.md §4) delays it as the planted scene does; 0 (the web's only value) is a no-op
+  const off = snd.offsetMs / 1000 + (rendered && soundFrame ? soundFrame / rendered.fps : 0);
   const into = (atSec || 0) - off;
   const src = snd.ctx.createBufferSource();
   src.buffer = snd.buf;
@@ -1139,6 +1149,13 @@ const synthAvailable = () => typeof CrunchySynth !== "undefined" && !!CrunchySyn
 
 // The rendered audio for the current effect, kept so exports can write the exact WAV you heard.
 let synthSound = null;   // { patch, name, L, R, rate }
+// A SUITE LINK (SUITE-LINKS.md §4, desktop, planted): the editor's sound is a WAV CrunchySFX planted in this game, used
+// WHERE IT IS (the planted Godot scene points at it, so a Replace in CrunchySFX reaches the game). null when the sound
+// is synthesised, loaded from a file, or none: any of those drops it.
+var soundLink = null;
+// THE IMPACT FRAME (AJ, 2026-10-12: "Wait for play ... Lets do impact frame"): the planted Godot scene starts its sound
+// on this frame when the game calls play(); the preview does too. 0: with the first frame.
+var soundFrame = 0;
 
 // A patch is a flat key/value object — the same shape as a decoded link's `s`, overlaid on the
 // engine's canonical defaults.
@@ -1147,6 +1164,7 @@ function synthesizePatch(patch, name) {
   const full = Object.assign({}, CrunchySynth.DEFAULTS, patch);
   const r = CrunchySynth.render(full);
   synthSound = { patch: full, name: name || "Sound", L: r.L, R: r.R, rate: CrunchySynth.SR };
+  soundLink = null;
   return synthSound;
 }
 
@@ -1166,6 +1184,8 @@ const sndBody = document.getElementById("sndBody");
 const sndNameEl = document.getElementById("sndName");
 const sndFitEl = document.getElementById("sndFit");
 function syncSoundUI() {
+  const g = document.getElementById("sndGame");
+  if (g && !g.hidden) g.value = soundLink ? soundLink.slug : "";
   sndBody.hidden = !snd.buf;
   if (!snd.buf) return;
   sndNameEl.textContent = snd.name + " · " + snd.buf.duration.toFixed(2) + "s";
@@ -1194,6 +1214,7 @@ function syncSoundUI() {
       const ctx = ensureAudio();
       snd.buf = await ctx.decodeAudioData(await f.arrayBuffer());
       synthSound = null;   // a loaded file replaces any synthesised audio; don't export the old WAV
+      soundLink = null;    // …and any linked one
       clearSoundHold();    // …and it isn't the matched sound the hold was describing either
       snd.name = f.name;
       syncSoundUI();
@@ -1205,7 +1226,7 @@ function syncSoundUI() {
     sndFile.value = "";
   });
   document.getElementById("sndClear").addEventListener("click", () => {
-    stopSound(); snd.buf = null; snd.name = ""; synthSound = null;
+    stopSound(); snd.buf = null; snd.name = ""; synthSound = null; soundLink = null;
     clearSoundHold();     // the hold describes THIS sound; it must not outlive it
     syncSoundUI();
   });
@@ -3637,7 +3658,7 @@ refCtl.combine.addEventListener("change", () => {
 // are exactly what they were. The planted Library renders a SAVED effect through the very same functions with a context
 // of its own (plantedCtx), so Update and Re-export write the bytes Export would, without loading the effect into the
 // editor. Only the reference compositing reads the global `ref` (drawRefFrame), and a planted context never has one.
-function liveExportCtx() { return { st: state, r: rendered, fit: fitOn, ref: ref, synth: synthSound }; }
+function liveExportCtx() { return { st: state, r: rendered, fit: fitOn, ref: ref, synth: synthSound, link: soundLink, soundFrame: soundFrame }; }
 const NO_REF = { img: null, combine: false, front: false };
 // Every export path goes through this, so "Combine on export" applies to the sheet, the PNG
 // sequence and the GIF alike rather than only the one it was written for.
@@ -4459,6 +4480,9 @@ function effectFields(name, exp, C) {
               exportName: String(name), base: sanitize(name), exp: exp, fit: !!C.fit };
   if (C.synth && exp.sound) f.sound = { patch: synthDiff(C.synth.patch), name: C.synth.name || "Sound" };
   if (C.ref.img && C.ref.combine) f.ref = C.ref.name || "a reference image";
+  // SUITE LINKS (desktop only, so a web zip's sidecar is byte-for-byte what it was): the linked sound, the impact frame
+  if (C.link) f.links = [C.link];
+  if (C.soundFrame > 0) f.soundFrame = C.soundFrame | 0;
   return f;
 }
 // A zip's sidecar file ({ name, data } like the export's): `stem.crunchy` describing `files`.
@@ -6657,6 +6681,24 @@ const suiteDialog = suiteMount("vfx", {
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (url) => window.__TAURI__.opener.openUrl(url) : null,
 });
 
+// ---------- Feedback (§20; crunchyCore feedback.js, CrunchyTile TILE-DESIGN §118; no telemetry) ----------
+// The person writes, sees every line that would go with it (untick any; the link to the effect is OFF unless they tick
+// it), and sends from their own mail app. Nothing is sent by the app. `var`: projStatus may run first.
+var feedback = feedbackMount({
+  app: "CrunchyVFX", version: APP_VERSION, button: document.getElementById("feedbackBtn"),
+  details: () => [["Build", isDesktop ? "desktop" : "web"],
+                  ["Effect", effectLabel + " (" + (SHAPES[state.shape] || state.shape) + ", " + state.fps + " fps, pixelate " + state.pixelate + ")"],
+                  ["Files", "suite " + SUITE_BUILD + ", crunchy-icons " + CRUNCHY_ICONS_BUILD + ", plant " + PLANT_BUILD + ", library " + LIBRARY_BUILD +
+                            ", settings " + SETTINGS_BUILD + ", desktop " + DESKTOP_BUILD + ", feedback " + FEEDBACK_BUILD +
+                            ", crunchy-base " + getComputedStyle(document.documentElement).getPropertyValue("--base-build").trim()]]
+    .concat(project ? [["Planted", (project.engine === "godot" ? "a Godot project" : project.engine === "unity" ? "a Unity project" : "a folder") + ", " + project.assets.length + " effects"]] : []),
+  // the Share dialog's link form (?e=), always the web build's: what anyone can open
+  share: () => WEB_BASE_URL + "?e=" + encodePatch(effectLabel && effectLabel !== "random" ? effectLabel : ""),
+  openUrl: isDesktop && window.__TAURI__.opener ? (u) => window.__TAURI__.opener.openUrl(u) : null,
+});
+// #msg is this app's status line: what it says goes to "Recent" too
+new MutationObserver(() => feedback.note(msg.textContent)).observe(msg, { childList: true, characterData: true, subtree: true });
+
 // ============================================================================================
 // THE PLANTED LIBRARY (VFX-DESIGN §18; crunchyCore plant.js + library.js, DESKTOP-ROADMAP.md step 4; the worked
 // examples are crunchyTile TILE-DESIGN.md §114, crunchyUI UI-DESIGN.md §18 and CrunchySFX's DESKTOP.md) — desktop only.
@@ -6697,6 +6739,7 @@ function projStatus(text) {
   const el = document.getElementById("plantMsg");
   if (el) el.textContent = text || "";
   library.status(text);
+  if (feedback) feedback.note(text);                       // the feedback dialog's "Recent" (memory only, §20)
 }
 function projRecent() {
   try { const r = JSON.parse(localStorage.getItem(PLANT_RECENT_KEY) || "[]"); return Array.isArray(r) ? r.filter((e) => e && typeof e.dir === "string") : []; }
@@ -6770,11 +6813,74 @@ function plantThumb(r) {
   releaseCanvas(cv);
   return url;
 }
-// THE SAME BYTES the Export dialog writes: buildExportFiles itself, with the effect's settings and its context.
+// THE SAME BYTES the Export dialog writes: buildExportFiles itself, with the effect's settings and its context. In a
+// Godot game, also the COMBINED SCENE (SUITE-LINKS.md §4): the sprite and its sound as one thing to drop in.
 async function exportFor(f, C) {
   const out = await buildExportFiles(null, Object.assign({ format: "sheet" }, expOf(f), { base: f.base, ctx: C }));
-  return { files: out.files.map((x) => ({ path: x.name, data: x.data })),
-           info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
+  const files = out.files.map((x) => ({ path: x.name, data: x.data }));
+  if (project && project.engine === "godot" && expOf(f).meta === "godot") files.push.apply(files, await effectSceneFiles(f, files));
+  return { files: files, info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
+}
+// THE COMBINED SCENE (SUITE-LINKS.md §4; AJ: "Wait for play, that sounds like a jumpscare waiting to happen. Lets do
+// impact frame"). `<base>.tscn`: a Node2D whose AnimatedSprite2D plays the effect's SpriteFrames and whose
+// AudioStreamPlayer2D holds its sound, with `<base>.gd`: NOTHING PLAYS ON LOAD; the game calls play(), and the sound
+// starts on `sound_frame` (the impact frame). The sound is the LINKED CrunchySFX WAV, by its res:// path (a Replace in
+// CrunchySFX reaches it); else the effect's own synthesised WAV beside it; else none. A link whose sound is gone is left
+// out (the card says so). Every path but the link's is relative, as the .tres is, so nothing else names res://.
+const EFFECT_SCENE_SCRIPT = [
+  "extends Node2D",
+  "## A CrunchyVFX effect, its sprite and its sound together. Nothing plays when it loads: call play().",
+  "## The sound starts on frame `sound_frame` (the impact frame). `finished` is emitted when a one-shot ends.",
+  "",
+  "signal finished",
+  "",
+  "@export var sound_frame := 0",
+  "",
+  "@onready var _sprite: AnimatedSprite2D = $Sprite",
+  "@onready var _sound: AudioStreamPlayer2D = get_node_or_null(\"Sound\")",
+  "",
+  "func _ready() -> void:",
+  "\t_sprite.stop()",
+  "\t_sprite.frame_changed.connect(_on_frame_changed)",
+  "\t_sprite.animation_finished.connect(func(): finished.emit())",
+  "",
+  "## Play the effect from its first frame; the sound joins on the impact frame.",
+  "func play() -> void:",
+  "\t_sprite.frame = 0",
+  "\t_sprite.play()",
+  "\tif sound_frame <= 0:",
+  "\t\t_play_sound()",
+  "",
+  "func stop() -> void:",
+  "\t_sprite.stop()",
+  "\tif _sound:",
+  "\t\t_sound.stop()",
+  "",
+  "func _on_frame_changed() -> void:",
+  "\tif _sprite.is_playing() and sound_frame > 0 and _sprite.frame == sound_frame:",
+  "\t\t_play_sound()",
+  "",
+  "func _play_sound() -> void:",
+  "\tif _sound and _sound.stream:",
+  "\t\t_sound.play()",
+  ""].join("\n");
+async function effectSceneFiles(f, files) {
+  const e = expOf(f), mult = e.scales.indexOf(1) >= 0 ? 1 : e.scales[0];
+  const tres = f.base + (e.scales.length > 1 ? "@" + mult + "x" : "") + ".tres";
+  if (!files.some((x) => x.path === tres)) return [];
+  let stream = null;
+  const l = plantLinks({ data: f })[0];
+  if (l && await plantLinkState(project, l) === "ok") stream = "res://" + plantLinkPath(project, l);
+  else if (!l && files.some((x) => x.path === f.base + ".wav")) stream = f.base + ".wav";
+  const res = ['[ext_resource type="Script" path="' + f.base + '.gd" id="1"]', '[ext_resource type="SpriteFrames" path="' + tres + '" id="2"]'];
+  if (stream) res.push('[ext_resource type="AudioStream" path="' + stream + '" id="3"]');
+  const node = String(f.exportName || f.base).replace(/[^A-Za-z0-9_]/g, "_") || "Effect";
+  const tscn = "[gd_scene load_steps=" + (res.length + 1) + " format=3]\n\n" + res.join("\n") + "\n\n" +
+    '[node name="' + node + '" type="Node2D"]\nscript = ExtResource("1")\nsound_frame = ' + (f.soundFrame | 0) + "\n\n" +
+    '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\nanimation = &"default"\n' +
+    (stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "");
+  const enc = new TextEncoder();
+  return [{ path: f.base + ".gd", data: enc.encode(EFFECT_SCENE_SCRIPT) }, { path: f.base + ".tscn", data: enc.encode(tscn) }];
 }
 // A SAVED effect rendered from its sidecar: its share string, its own Fit, its own sound, no reference image.
 async function plantedRender(f) {
@@ -6794,7 +6900,7 @@ async function plantedRender(f) {
 // ONLY an effect's own fields (a whole sidecar handed back by Update or Duplicate would carry stale bookkeeping)
 function effectOwn(f) {
   const o = { s: f.s, exp: expOf(f), fit: f.fit !== false };
-  ["sound", "ref", "categories", "from"].forEach((k) => { if (f[k] != null) o[k] = f[k]; });
+  ["sound", "ref", "categories", "from", "links", "soundFrame"].forEach((k) => { if (f[k] != null) o[k] = f[k]; });
   return o;
 }
 // SAVE one effect: its export and its sidecar, in place. `C`: the editor's own render, as editorCtx() caught it when
@@ -6866,7 +6972,7 @@ function projClose() {
   projAfter();
   projStatus("Closed. Save current adds to this browser's My Effects again.");
 }
-function projAfter() { projBarSync(); library.refresh(); }
+function projAfter() { projBarSync(); library.refresh(); projSoundsRefresh(); }
 
 // ---- saving the editor's effect ----
 function plantNameNow() {
@@ -6962,10 +7068,15 @@ async function projPlantFile() {
 // ---- "update available": this version of CrunchyVFX would export an effect differently ----
 let projCheckRun = 0;
 async function projCheckOne(a) {
+  const l = plantLinks(a)[0];
+  if (l) projLinkStates[a.slug] = await plantLinkState(project, l); else delete projLinkStates[a.slug];
   if (a.data.ref) return;                                        // its reference image is not in the sidecar: never second-guessed
   let made = null;
   try { made = await plantedRender(a.data); } catch (e) { return; }
-  if (plantNeedsUpdate(a, made.files)) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
+  // compared over the files its sidecar lists: an effect planted before the combined scene (or a web zip adopted here)
+  // is not "update available" just for lacking one (its next save adds it); a listed file no longer made still counts
+  const listed = made.files.filter((f) => a.data.files.indexOf(f.path) >= 0);
+  if (plantNeedsUpdate(a, listed)) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
 }
 // one effect at a time, yielding between them, so the app stays responsive; returns when all are checked
 function projCheckUpdates() {
@@ -7005,9 +7116,15 @@ function projOpenAsset(a) {
   if (f.sound && synthAvailable()) {
     const s = synthesizePatch(Object.assign({}, f.sound.patch), f.sound.name);
     loadSynthIntoPlayer(s); syncSoundUI();
-  } else if (synthSound) {
-    stopSound(); snd.buf = null; snd.name = ""; synthSound = null; syncSoundUI();
+  } else if (synthSound || soundLink) {
+    stopSound(); snd.buf = null; snd.name = ""; synthSound = null; soundLink = null; syncSoundUI();
   }
+  // its LINKED sound (SUITE-LINKS.md), and its impact frame
+  soundFrame = f.soundFrame | 0;
+  const sf = document.getElementById("sndFrame");
+  if (sf) sf.value = String(soundFrame);
+  const link = plantLinks(a)[0];
+  if (link) projDo(() => soundLinkLoad(link).catch(() => { projStatus(a.name + " links the sound “" + link.name + "”, which is no longer in " + project.rel.replace(/vfx$/, "sfx") + "."); }));
   // its export settings, so Save writes the same files in place
   applyPipelineSettings(Object.assign({ format: "sheet" }, expOf(f)));
   applyPreset(decodePatch(f.s) || {}, a.name, true);             // exact: the planted effect, not a preset choice
@@ -7016,6 +7133,43 @@ function projOpenAsset(a) {
   if (box) box.value = a.name;
   projStatus("Opened " + a.name + ". Replace on its card updates it in place (Save makes a new one): " + project.rel + "/" + a.slug + "/." +
     (f.ref ? " It was made with the reference image " + f.ref + " combined in: load it again to export it as planted." : ""));
+}
+
+// ---- SUITE LINKS (SUITE-LINKS.md §4): a sound CrunchySFX planted in this game ----
+// Its WAV, read from the game folder and heard in the preview; the editor's sound is then that link.
+async function soundLinkLoad(link) {
+  const bytes = new Uint8Array(await window.__TAURI__.fs.readFile(plantJoin(project.dir, plantLinkPath(project, link))));
+  const buf = await ensureAudio().decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+  stopSound();
+  snd.buf = buf; snd.name = link.name + " (CrunchySFX)";
+  synthSound = null; clearSoundHold();
+  soundLink = link;
+  syncSoundUI();
+  if (rendered) restartLoop(0);
+}
+let projSfx = [];                            // the sounds CrunchySFX planted here, as plantPeek gives them
+const projLinkStates = {};                   // slug → "ok" | "missing" for a planted effect's linked sound
+function projSoundsRefresh() {
+  const sel = document.getElementById("sndGame");
+  if (!sel) return Promise.resolve();
+  if (!project) { projSfx = []; sel.hidden = true; return Promise.resolve(); }
+  const P = project;
+  return plantPeek(P, "sfx", "sound").then((list) => {
+    if (project !== P) return;
+    projSfx = list.filter((x) => x.files.some((f) => /\.wav$/i.test(f)));
+    sel.textContent = "";
+    sel.appendChild(new Option(projSfx.length ? "Sounds in this game…" : "No CrunchySFX sounds in this game", ""));
+    projSfx.forEach((x) => sel.appendChild(new Option(x.name, x.slug)));
+    sel.hidden = false;
+    sel.disabled = !projSfx.length;
+    sel.value = soundLink ? soundLink.slug : "";
+  }).catch(() => { projSfx = []; });
+}
+async function projLinkSound(slug) {
+  const x = projSfx.find((p) => p.slug === slug);
+  if (!x) return;
+  await soundLinkLoad(plantLinkOf(x, x.files.find((f) => /\.wav$/i.test(f)), "reference"));
+  projStatus("Linked the sound “" + x.name + "” from CrunchySFX. Saved into this game, the effect's Godot scene plays it on the impact frame, and a Replace in CrunchySFX reaches it.");
 }
 
 // ---- the bar above the Library: the name a save uses, and Save ----
@@ -7090,6 +7244,10 @@ const library = libraryMount({
         const i = a.data.info || {};
         badges.push({ text: (i.frames ? i.frames + " fr · " + i.w + "×" + i.h + " · " + i.fps + " fps" : "effect"), title: expSummary(expOf(a.data)) + "\n" + resPath(a) });
         if (a.data.sound) badges.push({ text: "♪ sound", title: "Its synthesised sound is exported beside it (" + a.data.sound.name + ")" });
+        const ln = plantLinks(a)[0];
+        if (ln) badges.push(projLinkStates[a.slug] === "missing"
+          ? { hot: true, text: "linked sound missing", title: "“" + ln.name + "” is no longer in CrunchySFX's folder here: its next save leaves the sound out of the scene" }
+          : { text: "♪ " + ln.name, title: "Linked from CrunchySFX: " + plantLinkPath(project, ln) + " (the Godot scene plays it on frame " + (a.data.soundFrame | 0) + ")" });
         if (a.data.ref) badges.push({ text: "ref", title: "Made with the reference image " + a.data.ref + " combined in (not kept: load it again before saving)" });
         const at = new Date(a.data.modified || 0), when = isNaN(at) || !a.data.modified ? "" : at.toLocaleDateString();
         return { id: a.slug, name: a.name, kind: effectGroup(a), group: effectGroup(a), meta: (a.data.base || a.slug) + ".png" + (when ? " · " + when : ""), badges: badges, asset: a };
@@ -7193,6 +7351,14 @@ if (isDesktop) {
   msg2.id = "plantMsg"; msg2.className = "hint plant-msg"; msg2.setAttribute("aria-live", "polite");
   document.querySelector(".controls-right").appendChild(msg2);
   document.getElementById("plantSave").addEventListener("click", projSave);
+  const sndGame = document.getElementById("sndGame");
+  sndGame.addEventListener("focus", projSoundsRefresh);
+  sndGame.addEventListener("change", () => { const v = sndGame.value; if (v) projDo(() => projLinkSound(v)); });
+  document.getElementById("sndFrame").addEventListener("change", (e) => {
+    soundFrame = Math.max(0, Math.min(999, Math.round(Number(e.target.value) || 0)));
+    e.target.value = String(soundFrame);
+    if (rendered) restartLoop(0);
+  });
   document.getElementById("plantName").addEventListener("keydown", (e) => { if (e.key === "Enter") projSave(); });
   addEventListener("keydown", function (e) {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;

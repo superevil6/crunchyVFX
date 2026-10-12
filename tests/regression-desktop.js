@@ -159,10 +159,14 @@
     await press(document.getElementById("plantSave"));
     const d = sidecar("explosion");
     const files = M.list(ROOT + "/explosion/");
-    return ok(files.join(",") === [ROOT + "/explosion/explosion.crunchy", ROOT + "/explosion/explosion.png", ROOT + "/explosion/explosion.tres"].join(",") &&
+    // SUITE-LINKS.md §4: in a Godot game the combined scene and its script ride along; with no sound, no Sound node
+    const tscn = M.text(ROOT + "/explosion/explosion.tscn") || "";
+    return ok(files.join(",") === ["crunchy", "gd", "png", "tres", "tscn"].map(function (e) { return ROOT + "/explosion/explosion." + e; }).join(",") &&
+              /path="explosion\.tres"/.test(tscn) && /path="explosion\.gd"/.test(tscn) && /sound_frame = 0/.test(tscn) && !/AudioStreamPlayer2D/.test(tscn) &&
+              /func play\(\)/.test(M.text(ROOT + "/explosion/explosion.gd")) &&
               d && d.format === "crunchy-asset" && d.app === "crunchyvfx" && d.suite === "vfx" && d.kind === "effect" && d.name === "Explosion" &&
               d.exp.meta === "godot" && d.exp.trim === true && d.base === "explosion" && d.exportName === "Explosion" &&
-              JSON.stringify(d.files) === '["explosion.png","explosion.tres"]' && d.info.frames === rendered.canvases.length &&
+              JSON.stringify(d.files) === '["explosion.png","explosion.tres","explosion.gd","explosion.tscn"]' && d.info.frames === rendered.canvases.length &&
               /^data:image\/png;base64,/.test(d.thumb) && /^2:/.test(d.hash) && decodePatch(d.s).n === "Explosion" &&
               /path="explosion\.png"/.test(M.text(ROOT + "/explosion/explosion.tres")), files.join(",") + " " + status());
   });
@@ -177,7 +181,10 @@
     await press(document.getElementById("plantSave"));
     const d = sidecar("sparks"), ex = await exportNow("sparks");
     const names = ex.map(function (f) { return f.name; }).sort().join(",");
-    const r = d && JSON.stringify(d.files.slice().sort()) === JSON.stringify(ex.map(function (f) { return f.name; }).sort()) &&
+    // the planted files are the Export dialog's plus the combined scene, which plays the effect's own synthesised WAV
+    const tscn = M.text(ROOT + "/sparks/sparks.tscn") || "";
+    const r = d && JSON.stringify(d.files.slice().sort()) === JSON.stringify(ex.map(function (f) { return f.name; }).concat(["sparks.gd", "sparks.tscn"]).sort()) &&
+      /path="sparks@1x\.tres"/.test(tscn) && /type="AudioStream" path="sparks\.wav"/.test(tscn) &&
       ex.every(function (f) { return same(M.bytes(ROOT + "/sparks/" + f.name), f.data); }) && /sparks\.wav/.test(names) && /sparks@2x_emissive\.png/.test(names) &&
       /sparks@2x\.tres/.test(names) && d.sound && d.sound.name === "Spark sound" && d.exp.layout === "row";
     stopSound(); snd.buf = null; synthSound = null; syncSoundUI();
@@ -258,7 +265,7 @@
     const screen = encodePatch("x");
     await press(btn);
     await projCheckUpdates();
-    const fixed = sidecar("explosion").hash === plantHash([{ path: "explosion.png", data: png }, { path: "explosion.tres", data: M.bytes(ROOT + "/explosion/explosion.tres") }]) &&
+    const fixed = sidecar("explosion").hash === plantHash(sidecar("explosion").files.map(function (p) { return { path: p, data: M.bytes(ROOT + "/explosion/" + p) }; })) &&
       !card("Explosion").querySelector(".lib-badge.hot") && !libButton("Update all (1)");
     return ok(badge && others && btn && fixed && same(M.bytes(ROOT + "/explosion/explosion.png"), png) && encodePatch("x") === screen, status());
   });
@@ -529,6 +536,88 @@
     const r = userEffects.length === keepU.length + 6 && /Imported 6 effects/.test(msg.textContent);
     localStorage.setItem("crunchyvfx.userpresets.v1", keepE); userEffects = keepU; upSeq = keepSeq; renderMyEffects();
     return ok(r && legacyNow() === atBoot, msg.textContent);
+  });
+
+  // ---- SUITE LINKS (SUITE-LINKS.md §4): a sound CrunchySFX planted in the same game ----
+  // A real 16-bit mono WAV of n samples, as CrunchySFX would plant one (its sidecar too), written straight to the disk
+  const wavBytes = function (n) {
+    const b = new DataView(new ArrayBuffer(44 + n * 2)), w = function (o, t) { for (let i = 0; i < t.length; i++) b.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, "RIFF"); b.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); b.setUint32(16, 16, true); b.setUint16(20, 1, true); b.setUint16(22, 1, true);
+    b.setUint32(24, 22050, true); b.setUint32(28, 44100, true); b.setUint16(32, 2, true); b.setUint16(34, 16, true); w(36, "data"); b.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) b.setInt16(44 + i * 2, Math.round(8000 * Math.sin(i / 8)), true);
+    return new Uint8Array(b.buffer);
+  };
+  const SFX = GODOT + "/crunchy/sfx/boom";
+  const plantSfx = function (n) {
+    const wv = wavBytes(n);
+    M.put(SFX + "/boom.wav", wv);
+    M.put(SFX + "/boom.crunchy", JSON.stringify({ format: "crunchy-asset", version: 1, app: "crunchysfx", suite: "sfx", kind: "sound", name: "Boom", s: "boom",
+      files: ["boom.wav"], hash: plantHash([{ path: "boom.wav", data: wv }]), created: "2026-10-12T00:00:00Z", modified: "2026-10-12T00:00:00Z" }));
+  };
+  await t("link/the-picker-lists-the-sounds-crunchysfx-planted-here", async function () {
+    if (!project || project.dir !== GODOT) await projDo(function () { return projOpen(GODOT); });
+    plantSfx(11025);
+    await projSoundsRefresh();
+    const sel = document.getElementById("sndGame");
+    return ok(!sel.hidden && !sel.disabled && Array.from(sel.options).some(function (o) { return o.value === "boom" && o.textContent === "Boom"; }), sel.outerHTML.slice(0, 200));
+  });
+  await t("link/picking-one-links-it-and-the-preview-plays-it", async function () {
+    applyPreset(PRESETS["Explosion"], "Fireball", true);
+    const sel = document.getElementById("sndGame");
+    sel.value = "boom"; sel.dispatchEvent(new Event("change"));
+    await settle(); await wait(function () { return !!soundLink; }, 4000);
+    return ok(soundLink && soundLink.suite === "sfx" && soundLink.slug === "boom" && soundLink.file === "boom.wav" && soundLink.mode === "reference" &&
+              snd.buf && Math.abs(snd.buf.duration - 0.5) < 0.02 && /Boom \(CrunchySFX\)/.test(snd.name) && !synthSound, status());
+  });
+  await t("link/saved-the-scene-plays-the-sfx-wav-on-the-impact-frame-and-nothing-is-copied", async function () {
+    const f = document.getElementById("sndFrame");
+    f.value = "3"; f.dispatchEvent(new Event("change"));
+    document.getElementById("plantName").value = "Fireball";
+    await press(document.getElementById("plantSave"));
+    await wait(function () { return !!sidecar("fireball"); }, 4000);
+    const d = sidecar("fireball"), tscn = M.text(ROOT + "/fireball/fireball.tscn") || "";
+    return ok(d && d.links && d.links[0].slug === "boom" && d.soundFrame === 3 && soundFrame === 3 &&
+              /\[ext_resource type="AudioStream" path="res:\/\/crunchy\/sfx\/boom\/boom\.wav" id="3"\]/.test(tscn) && /sound_frame = 3/.test(tscn) &&
+              /type="AudioStreamPlayer2D"/.test(tscn) && !M.list(ROOT + "/fireball/").some(function (p) { return /\.wav$/.test(p); }) &&
+              Array.from(card("Fireball").querySelectorAll(".lib-badge")).some(function (b) { return /♪ Boom/.test(b.textContent); }), tscn.slice(0, 300) + " " + status());
+  });
+  await t("link/a-replace-in-sfx-reaches-the-game-with-nothing-re-exported", async function () {
+    const scene = M.text(ROOT + "/fireball/fireball.tscn");
+    plantSfx(22050);                                                 // CrunchySFX replaced "Boom" in place
+    const a = project.assets.find(function (x) { return x.slug === "fireball"; });
+    await projCheckOne(a);
+    return ok(M.text(ROOT + "/fireball/fireball.tscn") === scene && !projUpdates.fireball && projLinkStates.fireball === "ok");
+  });
+  await t("link/reopening-the-effect-brings-its-linked-sound-and-impact-frame-back", async function () {
+    applyPreset(PRESETS["Hit Spark"], "Other", true);
+    stopSound(); snd.buf = null; synthSound = null; soundLink = null; soundFrame = 0; syncSoundUI();
+    projOpenAsset(plantFind(project, "effect", "Fireball"));
+    await settle(); await wait(function () { return !!soundLink; }, 4000);
+    return ok(soundLink && soundLink.slug === "boom" && soundFrame === 3 && document.getElementById("sndFrame").value === "3" &&
+              snd.buf && Math.abs(snd.buf.duration - 1) < 0.02, status());
+  });
+  await t("link/a-synthesised-or-cleared-sound-drops-the-link", function () {
+    synthesizePatch({}, "Own");
+    const synthDrops = soundLink === null;
+    soundLink = plantLinks(plantFind(project, "effect", "Fireball"))[0];
+    document.getElementById("sndClear").click();
+    return ok(synthDrops && soundLink === null);
+  });
+  await t("link/the-sound-gone-from-sfx-shows-missing-and-the-next-save-leaves-it-out", async function () {
+    M.files.delete(SFX + "/boom.wav"); M.files.delete(SFX + "/boom.crunchy");
+    const a = project.assets.find(function (x) { return x.slug === "fireball"; });
+    await projCheckOne(a); library.refresh();
+    const missing = projLinkStates.fireball === "missing" &&
+      Array.from(card("Fireball").querySelectorAll(".lib-badge.hot")).some(function (b) { return /linked sound missing/.test(b.textContent); });
+    await twice("Fireball", "Re-export");
+    await wait(function () { return !/AudioStreamPlayer2D/.test(M.text(ROOT + "/fireball/fireball.tscn") || "x"); }, 4000);
+    return ok(missing && !/AudioStreamPlayer2D/.test(M.text(ROOT + "/fireball/fireball.tscn")) && /sprite_frames/.test(M.text(ROOT + "/fireball/fireball.tscn")), status());
+  });
+  await t("link/cleanup", async function () {
+    await projDo(async function () { await plantDelete(project, plantFind(project, "effect", "Fireball")); });
+    soundFrame = 0; document.getElementById("sndFrame").value = "0";
+    projAfter(); await settle();
+    return ok(!sidecar("fireball"));
   });
 
   // ---- safety ----

@@ -1034,3 +1034,60 @@ suite has a delete-guard row.
 opening a planted asset, changing to another and saving replaced the first. Save now always plants a NEW asset; a taken
 name gets the next number ("… 2", then "… 3"), and only a card's Replace (two clicks), Re-export and Update all write over a
 planted one. The desktop suite's same-name rows prove it and make their update through Replace.
+
+## 19. Suite links: a CrunchySFX sound, and the combined Godot scene (2026-10-12)
+
+**Why:** crunchyCore SUITE-LINKS.md §4, the first pair. AJ: both apps pointed at the same planted game, so an effect can
+use a sound CrunchySFX saved there, "for a combined export in an engine". On the scene: "Wait for play, that sounds like a
+jumpscare waiting to happen. Lets do impact frame."
+
+**What (desktop, planted; the web build and its exports are unchanged: all 278 frame and export hashes match):**
+- **"Sounds in this game"** (a select in the Sound panel's head): the sounds CrunchySFX planted here (crunchyCore
+  `plantPeek`). Picking one LINKS it (`soundLink`, a plant.js 7 "reference" link): its WAV is read from the game folder
+  and heard in the preview; the row says "Boom (CrunchySFX)". A synthesised sound, a loaded file or ✕ drops the link.
+- **Impact** (a frame number in the Sound panel, desktop only, `soundFrame`): the sound starts on that frame, in the
+  planted scene when the game calls play() and in the preview too. 0 = with the first frame (the web's only value, a
+  no-op there).
+- **The combined scene**, planted with every effect in a Godot game: `<base>.tscn` (a Node2D: an AnimatedSprite2D with
+  the effect's SpriteFrames, and, when it has a sound, an AudioStreamPlayer2D) and `<base>.gd`. NOTHING PLAYS ON LOAD:
+  `play()` starts the sprite from frame 0 and the sound on `sound_frame`; `stop()`; `finished` when a one-shot ends (a
+  looping SpriteFrames loops, its sound again each time round). The sound is the LINKED WAV by its res:// path, else the
+  effect's own synthesised `<base>.wav`, else none. Proved in a real Godot: nothing on load, silent from frame 0, the
+  sound exactly on frame 3, `finished` emitted.
+- **A Replace in CrunchySFX reaches the game with nothing re-exported** (the scene points at the file). If the sound is
+  deleted there, the card says "linked sound missing" (hot), and the next save (Re-export shows) leaves it out.
+- **Sidecar:** `links` (the one link) and `soundFrame`, both only when set, so a web zip's sidecar is byte for byte
+  what it was. project-app.js 2. Reopening an effect brings its link and impact frame back.
+- **"Update available"** compares only the files a sidecar lists: an effect planted before the scene existed, or a web
+  zip adopted here, is not flagged for lacking one; its next save adds it.
+- **Unity and plain folders:** the link is recorded and the guard sees it (SFX warns before deleting), but there is no
+  combined scene and no other file naming the WAV yet.
+
+**Found on the way:** Godot 4.4+ writes `<script>.gd.uid` beside every script, and plant.js removed only `.import`, so a
+deleted effect's folder stayed (VFX's own Godot check). crunchyCore plant.js 7 removes `.uid` too.
+
+**Proved:** the desktop suite 55 (8 new rows: the picker lists SFX's sounds, picking links and plays it, the saved scene
+plays the SFX WAV by res:// on frame 3 with no WAV copied, a Replace in SFX reaches it with nothing re-exported,
+reopening restores link and frame, a synth or ✕ drops the link, a sound gone shows missing and the next save leaves it
+out); web 11; plant.test 14; worker 38; the Godot check 11 (10 effects, after the .uid fix); the frame and export hashes
+278, identical (this suite needs more than a 3 GB cap: run it at 6 GB).
+
+## 20. Feedback, by the person's own email (2026-10-12)
+
+**Why:** the suite needs a feedback loop, and no telemetry (AJ: "no telemetry. I hate it myself"). Nothing here touches
+the network and that stays true: a report goes only when the person sends it from their own mail app. The canonical
+write-up is CrunchyTile's TILE-DESIGN.md §118; this is VFX's adoption of it.
+
+**What:** crunchyCore `feedback.js` (build 1; `crunchy-base.css` 7 for its `fb-*` look, `crunchy-icons.js` 8 for `mail`),
+GENERATED like the other core files, with a `want: 1` row in the core-file stamp guard. A **Feedback** button after
+Crunchy suite in the controls' right group opens it. The lines it shows, each untickable: the app and version, web or
+desktop, the effect (its label, particle, fps and pixelate), the core files' stamps, the planted folder and its effect
+count, the browser, the last status lines (`feedback.note`, fed by `projStatus` and by `#msg`, memory only), and the
+Share link's form `https://crunchyvfx.com/?e=…`, OFF unless ticked. The desktop's opener may open `mailto:*`
+(capabilities). Registered in index.html, `src-tauri/build.rs` (18), the CI workflow's `cp`; the subresource prose is
+now sixteen (fourteen scripts + two stylesheets) in worker.js, DEPLOY.md and .assetsignore.
+
+**Proved:** the web suite 12/12 (`feedback/the-dialog-shows-what-would-be-sent-and-the-link-is-off`: the header button
+opens it with its mail icon, the Effect line is ticked, the Files line names every stamp, the link is shown but unticked,
+the earlier status line is under Recent, the subject is "[CrunchyVFX] <first line>", Close closes), the desktop suite 55,
+plant 14, worker 38, cargo.

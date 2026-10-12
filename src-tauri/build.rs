@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 17] = [
+const FRONTEND: [&str; 18] = [
     "index.html",
     "favicon.png",
     "presets.js",
@@ -24,6 +24,8 @@ const FRONTEND: [&str; 17] = [
     "library.js",
     "settings.js",
     "desktop.js",
+    // The feedback dialog (VFX-DESIGN §20) — GENERATED from crunchyCore too.
+    "feedback.js",
     // The "Crunchy suite" dialog and the suite's pixel icons — GENERATED from crunchyCore
     // (tools/pull-core.mjs), never edited here.
     "suite.js",

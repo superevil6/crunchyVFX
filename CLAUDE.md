@@ -79,7 +79,7 @@ keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `bor
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
 
-**`plant.js`, `library.js`, `settings.js` and `desktop.js` are GENERATED from crunchyCore too** (§18), with the stamp
+**`plant.js`, `library.js`, `settings.js`, `desktop.js` and `feedback.js` are GENERATED from crunchyCore too** (§18, §20), with the stamp
 guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
 before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
 with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the
@@ -207,7 +207,7 @@ more particles.
 | `crunchysfx-synth.js` | **generated** — vendored CrunchySFX audio engine |
 | `styles.css` | VFX's CSS: layout and the accent (the shared look is `crunchy-base.css`) |
 | `suite.js`, `crunchy-base.css`, `crunchy-icons.js` | **generated** from crunchyCore — the suite dialog, the shared look, the pixel icons |
-| `plant.js`, `library.js`, `settings.js`, `desktop.js` | **generated** from crunchyCore — planting, the docked Library, ⚙ Settings, the desktop gate (§18) |
+| `plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js` | **generated** from crunchyCore — planting, the docked Library, ⚙ Settings, the desktop gate (§18), the Feedback dialog (§20) |
 | `project-app.js` | VFX's own `PROJECT_APP`: a planted effect's kind and sidecar fields (§18) |
 | `tests/` | `build.py`, the browser suites, the frame hash, the planted Library's suites, the Godot check; see `tests/README.md` |
 | `tools/pull-synth.py` | re-vendors the synth engine from `../crunchyfx` |

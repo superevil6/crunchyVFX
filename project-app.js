@@ -22,8 +22,11 @@
 //   categories  (optional) the My Effects categories it was filed under when it was planted
 //   from        (optional) "my-effects:<id>" or "file:<name>#<id>": what "Plant my effects" / "Plant a project file…"
 //               made it from, so nothing is planted twice
+//   links       (optional, SUITE-LINKS.md §4) [one crunchyCore plant.js 7 link]: the CrunchySFX sound it plays, used
+//               where it is: the Godot scene points at its res:// path, so a Replace in CrunchySFX reaches the game
+//   soundFrame  (optional) the impact frame: the Godot scene starts its sound on this frame when the game calls play()
 
-const PROJECT_APP_BUILD = 1;
+const PROJECT_APP_BUILD = 2;
 const PROJECT_APP = {
   id: "crunchyvfx",
   name: "CrunchyVFX",
@@ -38,6 +41,8 @@ const PROJECT_APP = {
     if (d.base != null && (typeof d.base !== "string" || !/^[\w.\- ]+$/.test(d.base))) return false;
     if (d.exp != null && (typeof d.exp !== "object" || Array.isArray(d.exp))) return false;
     if (d.sound != null && (typeof d.sound !== "object" || typeof d.sound.patch !== "object")) return false;
+    if (d.links != null && !Array.isArray(d.links)) return false;
+    if (d.soundFrame != null && !(Number.isInteger(d.soundFrame) && d.soundFrame >= 0)) return false;
     return true;
   },
 };

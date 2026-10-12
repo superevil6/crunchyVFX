@@ -17,7 +17,7 @@ theirs:
 
 | | CrunchySFX | CrunchyBGM | CrunchyVFX |
 |---|---|---|---|
-| Subresources the browser loads | 3 | 9 | **15** |
+| Subresources the browser loads | 3 | 9 | **16** |
 | Version-stamps them at the edge | no | yes | **yes** |
 | Rewrites Open Graph per share link | yes (`?s=`) | slot left open | **yes (`?e=`)** |
 | Repoints card images at the serving host | no | yes | **yes** |
@@ -151,7 +151,7 @@ that, so clear `flatpak/build-dir` and `flatpak/repo` before a local wrangler ru
 Confirmed locally on that runtime:
 
 - all eleven subresources stamped (nine scripts + the two stylesheets), every one with the same version (confirmed then;
-  fifteen since VFX-DESIGN §18: thirteen scripts + two stylesheets, the same stamping path, not re-run on workerd)
+  sixteen since VFX-DESIGN §20: fourteen scripts + two stylesheets, the same stamping path, not re-run on workerd)
 - `index.html` `no-cache`; `vfx.js?v=…` immutable; bare `vfx.js` `no-cache`
 - `.assetsignore` works — `CLAUDE.md`, `VFX-DESIGN.md`, `worker.js`, `wrangler.jsonc` and
   `tests/` all 404, while every app file is 200

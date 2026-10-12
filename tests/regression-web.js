@@ -103,6 +103,35 @@
     try { expModal.querySelector("#expGo").click(); await wait(function () { return !!name; }, 8000); } finally { download = keepDl; expMetaSel.value = "generic"; }
     return ok(name === "zip-one.png", name);
   });
+  // FEEDBACK (VFX-DESIGN §20; crunchyCore feedback.js, CrunchyTile TILE-DESIGN §118): the header button opens the core's
+  // dialog; every detail is shown and can be unticked; the link to the effect is OFF unless ticked; a status line said
+  // earlier is under Recent. (Send is never pressed here: on the web it navigates to a mailto: link.)
+  await t("feedback/the-dialog-shows-what-would-be-sent-and-the-link-is-off", function () {
+    projStatus("Saved Fire Jet");                              // a status line it should remember
+    document.getElementById("feedbackBtn").click();
+    const root = feedback.root(), dets = Array.from(root.querySelectorAll(".fb-det"));
+    const label = function (d) { return d.querySelector("b").textContent; };
+    const link = dets.find(function (d) { return /Link to what was on screen/.test(label(d)); });
+    const eff = dets.find(function (d) { return /^Effect/.test(label(d)); });
+    const recent = dets.find(function (d) { return /^Recent/.test(label(d)); });
+    const files = dets.find(function (d) { return /^Files/.test(label(d)); });
+    const open = feedback.isOpen() && !!root.querySelector(".fb-title .pxi") && !!document.querySelector("#feedbackBtn .pxi");
+    const ta = root.querySelectorAll("textarea");
+    ta[0].value = "Make a fire jet"; ta[1].value = "It looked great\nand more";
+    const r = feedbackReport({ app: "CrunchyVFX", trying: ta[0].value, happened: ta[1].value, details: [["Effect", eff ? eff.querySelector(".fb-val").textContent : ""]] });
+    feedback.close();
+    const bad = [];
+    if (!open) bad.push("the header button (with its mail icon) did not open the dialog with a mail icon in its title");
+    if (!eff || !eff.querySelector("input").checked) bad.push("no ticked 'Effect' line");
+    if (!files || !/feedback 1/.test(files.querySelector(".fb-val").textContent) || /undefined|missing/.test(files.querySelector(".fb-val").textContent)) bad.push("the Files line is wrong: " + (files ? files.querySelector(".fb-val").textContent : "none"));
+    if (!link) bad.push("no link line");
+    else if (link.querySelector("input").checked) bad.push("the link is ticked by default");
+    else if (!/^https:\/\/crunchyvfx\.com\/\?e=/.test(link.querySelector(".fb-val").textContent)) bad.push("the link is not crunchyvfx.com's ?e= form");
+    if (!recent || !/Saved Fire Jet/.test(recent.querySelector(".fb-val").textContent)) bad.push("the earlier status line is not under Recent");
+    if (r.subject !== "[CrunchyVFX] It looked great") bad.push("subject: " + r.subject);
+    if (feedback.isOpen()) bad.push("close left it open");
+    return bad.length ? { pass: false, detail: bad.join(" · ") + " (" + dets.map(label).join("|") + ")" } : { pass: true };
+  });
   await t("safety/the-web-build-wrote-nothing-to-the-browser-store", function () {
     return ok(JSON.stringify(store()) === atBoot, Object.keys(store()).join(","));
   });
