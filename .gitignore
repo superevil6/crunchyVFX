@@ -11,6 +11,7 @@
 # Generated test pages + their output — rebuild with `python3 tests/build.py`
 tests/run.html
 tests/run-async.html
+tests/run-*.html
 tests/out.png
 tests/results/
 

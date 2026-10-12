@@ -721,6 +721,11 @@ licence is theirs, and knowingly taken on.
 
 ## 13. Web vs desktop
 
+> **Updated by §18 (2026-10-11):** the desktop adds the PLANTED Library (your effects inside your game's folder) and
+> the core's Settings and desktop gate; VFX's own "Library" dialog is now "Imports & history"; the web's "Get the
+> Desktop app" button is the core's (desktop.js), shown only once suite.js has VFX's store link (the ITCH_LIVE flag is
+> gone). The table below is otherwise as it was.
+
 Same split as CrunchySFX, and the same principle: **the library and bulk workflow are the desktop
 app; making and exporting an effect is free forever on the web.** Nothing the free build produces
 is withheld, watermarked or resolution-capped.
@@ -909,3 +914,112 @@ GIF, Share, Breed, Tutorials and the tour, for carets, contrast, icons and uncha
 **Open.** `styles.css` still carries CrunchySFX rules VFX never renders (the keyboard, riff, scope, history rail,
 sequence tray and more): squared with the rest, but a candidate for deletion in a later pass.
 
+
+## 18. The planted Library, the core's Settings and desktop gate (2026-10-11)
+
+**Why.** Pass 2 of the suite consolidation, step 4 of crunchyCore's DESKTOP-ROADMAP.md (AJ's decisions §6: planting
+REPLACES separate project folders; one shared `crunchy/` with a child per app; `.crunchy` sidecars; zips carry
+sidecars; a docked Library panel; the suite view). Copied from the three apps AJ has tested by hand in the real app
+with a real Godot game: crunchyTile TILE-DESIGN.md §114 (and its "Card buttons" note), crunchyUI UI-DESIGN.md §18, and
+CrunchySFX's DESKTOP.md ("The planted Library"). The rule is unchanged (§13): the desktop sells workflow, never effects.
+
+**What a planted effect is.** Plant in a folder… (the Library: a panel docked on the right, Ctrl+L) picks a Godot
+game, a Unity project or any folder. Each effect saved there is `crunchy/vfx/<slug>/` (Unity `Assets/Crunchy/VFX/<slug>/`):
+EXACTLY what the Export dialog writes for it as a sprite sheet — `buildExportFiles` itself, so the bytes are the
+button's (the desktop suite compares them) — beside `<slug>.crunchy` (`project-app.js` lists its fields): the share
+string `s` that reopens it (the `?e=` encoding), `exp` (the export settings), `fit`, the synthesised `sound` as a
+CrunchySFX patch, `info` and a 96 px `thumb` for the card.
+- **The metadata follows the engine.** In a Godot project the sheet always gets its Godot 4 SpriteFrames `.tres` (that is
+  what planting there is for). In Unity the dialog's choice, never a `.tres` (Generic JSON instead); in a plain folder
+  the dialog's. Layout, trim, power-of-two, the emissive mask, the sizes and the sound come from the Export dialog; the
+  panel's bar says what Save will write ("Saves as: sheet · Godot SpriteFrames · trimmed · 1×"), and opening a planted
+  effect puts its settings back in the dialog. A planted effect is always a SHEET (frames zips and APNG are not engine
+  assets).
+- **Godot paths:** VFX's `.tres` already names its texture RELATIVELY (`path="<base>.png"`, PROJECTS-HANDOFF §2 bug 2,
+  fixed before), so nothing names its own `res://` path: no `plantSlugFor` dance (UI needed one), the web zip unchanged.
+  `exportName` and `base` are fixed at the first save, so a rename never moves or rewrites a file.
+- **Unity: allowed, as plain files.** A Unity project imports the sheet PNG as a texture and the JSON as a TextAsset; the
+  `.crunchy` becomes a harmless DefaultAsset with a `.meta`. Slicing is the person's (Sprite Mode Multiple, by cell size:
+  the JSON has the numbers), exactly as the Export dialog has always said; the panel says it when a Unity project is
+  planted. No `.meta` is written (still the §4 rule). Proved on the mock (files, bytes, `Assets/Crunchy/VFX/`); a live
+  Unity import is unverified (no Unity here), as in Tile and SFX.
+- **The export context.** To render a SAVED effect without loading it into the editor, the export functions take an
+  optional context `{ st, r, fit, ref, synth }` (`liveExportCtx()` is the default, so the Export dialog is byte-for-byte
+  what it was: the frame hash proves it). `plantedRender` builds one from a sidecar (the share string's state, its own Fit
+  and sound, no reference image), with the effect's own imported particle swapped into vfx.js's one image global for the
+  render (`withSpriteOf`) so a planted effect never borrows the editor's sprite.
+- **Card buttons, as the other three apps** (library.js 3): open (the picture), Rename (the name only), **Replace** (two
+  clicks: the editor's effect into that card, same name, same files), **Re-export** (only with "update available", via
+  `when`), Duplicate, Delete (two clicks: its files, Godot's `.import`s, the folder once empty; a person's own file keeps
+  the folder). Update all; recent planted folders; the suite view; Ctrl+S saves (Save over a DIFFERENT effect of the same
+  name asks twice). "Update available" is `plantNeedsUpdate` over a fresh render of the sidecar, one effect at a time in
+  the background; an effect saved with a reference image COMBINED in is never second-guessed (the sidecar can't keep the
+  image, like SFX's impulse responses).
+- **My Effects stays in the browser, untouched.** "Plant my effects" COPIES them in (each once: the sidecar's `from`),
+  with their category names as filter chips; "Plant a project file…" does the same for a `.crunchyvfx` file. While a
+  folder is planted, "Save current" in My Effects (and Ctrl+S) saves into it, and the head reads "My Effects (this
+  browser)"; closed, it is the browser save it always was. No storage key was renamed or reshaped; the only new one is
+  `crunchyvfx.recentPlanted.v1`.
+- **Zips carry sidecars** (decision 4): the Export zip (files at its root) gets `<base>.crunchy` at the root, named for the
+  zip; the batch pack one per effect folder (`<base>/<base>.crunchy`); the variations pack one per variation beside its two
+  files. A single-file export is still just the PNG. Proved adoptable: the Export zip unpacked into a planted folder opens
+  as a current asset.
+
+**VFX's own "Library" is now "Imports & history".** There must not be two things called Library, and library.js has no
+tabs. The least surprising option: the dialog (imported particles + export history, §13) keeps everything it does and
+where it opens from (the toolbar, the same place), is renamed "Imports & history", and is also a command in the planted
+panel. Its classes went from `lib-*` to `ih-*` (the core's `lib-*` rules would have styled it, and its own `.lib-title`
+would have restyled the core's panel), its ids from `lib*` to `ih*`; the tutorial and the regression suite follow. A core
+feature that would be better: **tabs (or "extra sections") in library.js**, so an app can show its own shelves (VFX's
+imports and history, BGM's six libraries) inside the one panel — the roadmap's original plan.
+
+**project.js is gone.** VFX's hand copy (§13's half-done desktop project, PROJECTS-HANDOFF.md) was loaded but never
+called: nothing in VFX ever wrote a project folder, so there is nothing to move in and the core's project.js is not
+needed. Removed with `tests/project.test.mjs`; `tests/plant.test.mjs` pins VFX's adapter over plant.js instead (and the
+regression suite's one reference, `PROJECT_VERSION`, was a latent bug: the `.crunchyvfx` file's version is
+`VFXFILE_VERSION`). `slugify`, which only project.js called, went with it (folders are plant.js's `plantSlug`, files
+`sanitize`, as the Export dialog names them). PROJECTS-HANDOFF.md is marked
+superseded. Its §2 bugs 1 and 2 had been fixed before; bug 3 (exports return files) was the shape this pass needed.
+
+**Settings and the desktop button come from the core.** ⚙ Settings (`settingsMount`, web and desktop) has VFX's two
+preferences as rows, each driving the control that owns it so the same keys are written the same way (`crunchyvfx.dock.v1`,
+`crunchyvfx.lockpixels.v1`), plus Replay the tour and Tutorials. `desktopMount("vfx", …)` replaced VFX's own `ITCH_LIVE`
+flag, dialog and `steam-*` styles: it hides `[data-desktop]` on the web and shows "Get the desktop app" ONLY once suite.js
+carries CrunchyVFX's store link — today it has none, so nothing shows (both suites assert it; the web suite also proves
+the button would appear with a link). No "pro", "premium" or "unlock" in the chrome (the suites scan it; a PRESET is
+called "Treasure Unlock", which is content).
+
+**Registered.** `tools/core-files.json` adds plant.js, library.js, settings.js, desktop.js (pulled from a COMMITTED core,
+6a77157; crunchy-base.css 3 → 5, no migration crossed); the stamp guard checks their builds (3, 3, 2, 1); `project-app.js`
+(VFX's own) loads before plant.js; `FRONTEND` in build.rs is 17; `tests/build.py` now rebases every sibling by pattern;
+the CI copy line, worker.js, DEPLOY.md and `.assetsignore` prose count fifteen subresources (thirteen scripts). Desktop
+permissions were already complete (read/write text, read-dir, exists, mkdir, remove; scope `$HOME/**`); the Flatpak gets
+`--filesystem=home` (was `xdg-download:rw`), as Tile's and SFX's. `--css-build` is 2.
+
+**Proved.**
+- **No rendered frame changed:** `tests/frame-hash.js` (run on HEAD 11e8d14 before any edit: `frame-hash.expected.txt`)
+  hashes every preset's frames (189, a third again with Fit off: 253), 21 Export-dialog outputs across every format,
+  layout, metadata, trim, pow2, mask, size and a sound, and the two batch packs' contents: 276 hashes, identical after.
+  (The batch lines hash what goes INTO the zip less `.crunchy` entries, the one intended difference.)
+- **Everything saved keeps opening:** `tests/make-fixtures.js` ran on HEAD before any edit and wrote `tests/fixtures/`
+  (the browser store under every `crunchyvfx.*` key, a `.crunchyvfx` file, a My Effects `.json`, five share links, and
+  the frames each opens to). `tests/regression-web.js` (11) and `tests/regression-desktop.js` (46) boot over that store and
+  prove it reads, renders and stays byte-identical, with "Plant my effects" leaving it so.
+- **The desktop suite** (the Tauri mock, `remove` takes only an empty folder): the docked panel; planting in Godot,
+  Unity and a plain folder; save files byte-equal to the Export dialog's (with emissive, two sizes and a sound too); a
+  fresh save is up to date when rendered back from its sidecar (image-sprite effects included); in-place update;
+  update available + Update all; Replace (two clicks) and Re-export (only with an update); rename keeps paths and bytes;
+  duplicate; delete prunes (and keeps a folder holding a person's file); Plant my effects and a project file; the suite
+  view; the zips' sidecars (and adopting one); Imports & history from both places; the Settings rows and their keys;
+  recent folders; nothing written outside `crunchy/vfx/`; no page errors.
+- **A real Godot** (`node tests/godot-check.mjs`, godot-mono 4.7): ten effects planted by the app (trimmed, a strip, two
+  sizes, an emissive mask, a sound, pow2, HEAD's My Effects with an imported particle), imported headless; every one of
+  the 11 SpriteFrames loads by `res://` with the exported frame count, fps, loop and frame size; every PNG is a texture;
+  the `.crunchy` is no resource and gets no `.import`; plant.js reads them back from the real disk; a delete takes the
+  `.import`s too, and after a re-import Godot no longer finds it.
+- The regression suite (482), the async suite (69), `tests/worker.test.mjs` (38), `tests/plant.test.mjs` (14),
+  `pull-core --check`, the pre-commit hook, cargo. Looked at in WebKitGTK (`tests/show.png`, `tests/show-desktop.js`).
+
+**Not yet.** A person clicking the native dialogs (AJ did for Tile, UI and SFX); a live Unity import. A `.tscn`
+(AnimatedSprite2D) per effect was proposed in PROJECTS-HANDOFF §4 but is not what the Export dialog writes, so it is not
+planted either; adding it would be an export change (web too) and a decision for AJ.

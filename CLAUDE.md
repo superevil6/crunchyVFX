@@ -41,7 +41,8 @@ a non-neutral default silently changes every existing preset that doesn't mentio
 the desktop build is blank, or the suite can't see it:
 1. `<script src>` in `index.html`
 2. `FRONTEND` in `src-tauri/build.rs` (bump the array length)
-3. the rebase list in `tests/build.py`
+3. the copy line in `.github/workflows/desktop-build.yml` (`tests/build.py` now rebases every sibling by pattern,
+   so it needs no edit), plus the subresource counts in the prose of `worker.js`, `DEPLOY.md` and `.assetsignore`
 
 **Anything not generated from `PARAMS` needs its own container.** Panels are built from PARAMS
 groups. Three separate times a finished feature turned out to be unreachable because it needed a
@@ -77,6 +78,13 @@ owns the shared look (neutrals, square corners, the hard step, buttons, selects,
 keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `border-radius`, no blurred shadows,
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
+
+**`plant.js`, `library.js`, `settings.js` and `desktop.js` are GENERATED from crunchyCore too** (§18), with the stamp
+guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
+before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
+with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the
+frame hash (below) is how you know the Export bytes did not move by accident. **Never rename or reshape a
+`crunchyvfx.*` storage key**: people's My Effects live there; planting COPIES from it and never writes it.
 
 **`crunchysfx-synth.js` is GENERATED.** Never edit it. Change the CrunchySFX sources and run
 `python3 tools/pull-synth.py`. See VFX-DESIGN §9.
@@ -134,6 +142,23 @@ leave a sound hold active, and it overlays `duration`, `life` and `size`, which 
 they measure. They catch the mechanical half; the contact sheet is still the only thing that
 catches "this doesn't look like its name".
 
+**The planted Library (§18) has its own async suites**, run by `node tests/run-ff.mjs <suite>` (a headless Firefox
+that prints the page's `VFX …` lines and kills its own process):
+
+```sh
+node tests/run-ff.mjs hash | grep -v '(console)' > /tmp/h.txt; diff tests/frame-hash.expected.txt /tmp/h.txt   # no frame moved
+node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (46)
+node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (11)
+node tests/plant.test.mjs                # project-app.js over plant.js, in Node
+node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
+python3 tests/build.py show && python3 tests/wkshot.py "file://$PWD/tests/run-show.html" "$PWD/tests/show.png" 1600 1000 40
+node tools/pull-core.mjs --check && sh .githooks/pre-commit && cargo build --manifest-path src-tauri/Cargo.toml
+```
+
+`tests/fixtures/` was made ONCE on HEAD 11e8d14 (before the planted Library) by `make-fixtures.js`; never regenerate it
+on a later build — it is the proof that what people saved before keeps opening. Regenerate `frame-hash.expected.txt`
+only when a render change is MEANT (and say so in VFX-DESIGN).
+
 **For anything visual, render a contact sheet and actually look at it.** Assertions prove an effect
 draws; only your eyes prove it looks like the thing it's named after. Several presets passed every
 assertion while being nearly invisible.
@@ -182,8 +207,19 @@ more particles.
 | `crunchysfx-synth.js` | **generated** — vendored CrunchySFX audio engine |
 | `styles.css` | VFX's CSS: layout and the accent (the shared look is `crunchy-base.css`) |
 | `suite.js`, `crunchy-base.css`, `crunchy-icons.js` | **generated** from crunchyCore — the suite dialog, the shared look, the pixel icons |
-| `tests/` | `build.py` + the two browser suites + `worker.test.mjs`; see `tests/README.md` |
+| `plant.js`, `library.js`, `settings.js`, `desktop.js` | **generated** from crunchyCore — planting, the docked Library, ⚙ Settings, the desktop gate (§18) |
+| `project-app.js` | VFX's own `PROJECT_APP`: a planted effect's kind and sidecar fields (§18) |
+| `tests/` | `build.py`, the browser suites, the frame hash, the planted Library's suites, the Godot check; see `tests/README.md` |
 | `tools/pull-synth.py` | re-vendors the synth engine from `../crunchyfx` |
 | `src-tauri/` | desktop wrapper; `flatpak/` is the Linux distributable |
 | `worker.js` + `wrangler.jsonc` | Cloudflare edge handler: version-stamps subresources, renders per-effect share cards. `DEPLOY.md` is the runbook |
 | `.assetsignore` | what the web deploy does **not** publish — without it, the whole repo ships |
+
+---
+
+## Status
+
+- **The planted Library (§18, 2026-10-11)**: the suite's desktop Library planted in the game (`crunchy/vfx/<slug>/`, each
+  effect's Export-dialog sheet + metadata beside a `.crunchy` sidecar), the core's Settings and desktop gate, zips with
+  sidecars, "Plant my effects" (copies; the browser store is never written), VFX's own dialog renamed "Imports &
+  history". project.js removed (never called). Waiting on: a person clicking the native dialogs; a live Unity import.

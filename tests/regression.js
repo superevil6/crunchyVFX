@@ -795,7 +795,7 @@
       effectLabel = "Ice Blast";
 
       const proj = buildProject();
-      ok(proj.app === "crunchyvfx" && proj.version === PROJECT_VERSION,
+      ok(proj.app === "crunchyvfx" && proj.version === VFXFILE_VERSION,
          "a project is stamped with app + version");
       const wire = JSON.parse(JSON.stringify(proj));    // it has to survive being a file
 
@@ -1218,13 +1218,15 @@
       ok(document.getElementById("expBatchAll").hidden &&
          document.getElementById("expBatchMine").hidden,
          "batch export is desktop-only — it exists to render the library");
-      // The desktop CTA is gated on ITCH_LIVE, because the store page 404s until it is published and
-      // a dead "buy it" link is worse than no link. Assert the flag actually CONTROLS the button —
-      // otherwise it can be flipped on launch day and do nothing, which is the failure mode a flag
-      // like this exists to prevent.
-      ok(!!document.getElementById("deskCta") === ITCH_LIVE,
-         "the desktop CTA appears exactly when the itch page is live",
-         "ITCH_LIVE=" + ITCH_LIVE + ", button " + (document.getElementById("deskCta") ? "present" : "absent"));
+      // The desktop CTA is the core's (desktop.js, §18): it exists ONLY once suite.js carries CrunchyVFX's store link,
+      // because a dead "buy it" link is worse than no link. Today there is none, so there is no button and no dialog;
+      // and if the link appears, the button must too (that is what the old ITCH_LIVE flag asserted).
+      const storeUrl = desktopStoreUrl("vfx");
+      ok(!!document.querySelector(".desk-cta") === !!storeUrl && !!document.querySelector(".desk-overlay") === !!storeUrl,
+         "the desktop button appears exactly when CrunchyVFX's store link exists",
+         "link " + (storeUrl || "none") + ", button " + (document.querySelector(".desk-cta") ? "present" : "absent"));
+      ok(!document.getElementById("deskCta"), "VFX's own desktop CTA is gone (the core's replaced it)");
+      ok(desktopGate && desktopGate.isDesktop === false && desktopGate.cta === null, "the core's gate ran, and shows nothing while there is no link");
 
       // The line is "library and bulk workflow are paid; making and exporting an effect is free".
       // If any of these ever ended up gated, the free build would stop being worth using.
@@ -1818,7 +1820,7 @@
       ok(localStorage.getItem(TOUR_KEY) === "1", "finishing the welcome tour still marks it seen");
       localStorage.removeItem(TOUR_KEY);
 
-      timeModal.hidden = true; libModal.hidden = true; expModal.hidden = true; tutModal.hidden = true;
+      timeModal.hidden = true; ihModal.hidden = true; expModal.hidden = true; tutModal.hidden = true;
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
 
@@ -1898,16 +1900,16 @@
     // The shelf: imported particles, and everything exported. The point of the second half is
     // "in case you wanted to make a change", so what it stores has to be the EFFECT, not a filename.
     {
-      const btn = document.getElementById("libBtn");
+      const btn = document.getElementById("ihBtn");
       ok(!!btn, "the Library has a way in");
       ok(btn.hidden, "…and it is desktop-only, like the rest of the shelf");
-      ok(!!document.getElementById("libSprites") && !!document.getElementById("libExports"),
+      ok(!!document.getElementById("ihSprites") && !!document.getElementById("ihExports"),
          "both shelves exist: imported particles and exported effects");
 
       // Each list lives inside its own group — BGM found its bank list orphaned three groups away
       // from the controls that filled it, so this is pinned structurally rather than by eye.
-      for (const id of ["libSprites", "libExports"]) {
-        ok(!!document.getElementById(id).closest(".lib-group"),
+      for (const id of ["ihSprites", "ihExports"]) {
+        ok(!!document.getElementById(id).closest(".ih-group"),
            id + " sits inside its own labelled group");
       }
 
@@ -1951,7 +1953,7 @@
       // "Clear export history" must not take the sprites with it: those are files someone chose to
       // bring in, and losing them to a button about history would be a nasty surprise.
       const sprites = userSprites.length;
-      libModal.querySelector("#libClear").click();
+      ihModal.querySelector("#ihClear").click();
       ok(exportLog.length === 0, "clearing empties the history");
       ok(userSprites.length === sprites, "…and leaves the imported sprites alone",
          sprites + " sprites before, " + userSprites.length + " after");

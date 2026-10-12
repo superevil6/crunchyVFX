@@ -57,11 +57,12 @@
     <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke">Timing</button>
     <button id="share" title="Copy a link that recreates this exact effect" data-icon="link">Share link</button>
     <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder" data-icon="download">Drag out</button>
-    <button id="libBtn" data-desktop title="Imported particles and everything you have exported — load one back to change it" data-icon="grid">Library</button>
+    <button id="ihBtn" data-desktop title="Imports &amp; history: imported particles and everything you have exported — load one back to change it" data-icon="grid">Imports &amp; history</button>
     <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">Save project</button>
     <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace" data-icon="folder">Open project</button>
     <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen" data-icon="book">Tutorials</button>
     <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
+    <button id="setBtn" title="Settings: your preferences (the preview dock, Lock pixels, the tour)" data-icon="cog">Settings</button>
     <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
     <span id="msg" class="hint"></span>
   </div>
@@ -250,29 +251,39 @@
      `node tools/pull-core.mjs` (VFX-DESIGN §17). Never edit them here; change crunchyCore, then pull. -->
 <script src="suite.js"></script>
 <script src="crunchy-icons.js"></script>
-<!-- The desktop tier's project folder. VENDORED from CrunchyTile, which is canonical: only
-     PROJECT_APP, projectAssetValid and projectReadme differ here (PROJECTS-HANDOFF.md §6).
-     Pure — no DOM, no app state — so it is safe to load anywhere in this list. -->
-<script src="project.js"></script>
+<!-- The desktop's planted Library, Settings and the desktop gate (VFX-DESIGN §18, crunchyCore DESKTOP-ROADMAP.md).
+     project-app.js is VFX's OWN (its PROJECT_APP: what a planted effect is), loaded BEFORE plant.js; plant.js,
+     library.js, settings.js and desktop.js are GENERATED from crunchyCore (never edit them here). plant.js and
+     project-app.js are pure; the other three touch the DOM only inside their functions. -->
+<script src="project-app.js"></script>
+<script src="plant.js"></script>
+<script src="library.js"></script>
+<script src="settings.js"></script>
+<script src="desktop.js"></script>
 <script>
 "use strict";
-// §17. THE CORE FILES' STAMPS. suite.js, crunchy-icons.js and crunchy-base.css come from crunchyCore and each
+// §17. THE CORE FILES' STAMPS. suite.js, crunchy-icons.js, crunchy-base.css (and, §18, plant.js, library.js, settings.js,
+// desktop.js) come from crunchyCore and each
 // carries a build number; a stale file:// cache (or a half-copied desktop dist) can pair this page with an older
 // one. NOT fatal: a stale core file costs the look or an icon, never an effect, so this says so and carries on.
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 1;   // must match --css-build in styles.css
+  const CSS_BUILD = 2;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 5, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 7, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
+    { file: "plant.js", want: 3, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
+    { file: "library.js", want: 4, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
+    { file: "settings.js", want: 2, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
+    { file: "desktop.js", want: 1, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
   const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
   const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
   // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
-  if (base !== "3") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 3");
+  if (base !== "6") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 6");
   if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
   if (!bad.length) return;
   console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
@@ -2145,7 +2156,7 @@ function recordExport(kind, detail, when) {
   exportLog.unshift(entry);
   if (exportLog.length > EXPORT_MAX) exportLog.length = EXPORT_MAX;
   saveExportLog();
-  if (typeof renderLibrary === "function") renderLibrary();
+  if (typeof renderImportsHistory === "function") renderImportsHistory();
   return entry;
 }
 
@@ -3155,6 +3166,7 @@ function applyPreset(obj, label, exact) {
   const held = exact ? {} : heldSoundValues();
   for (const k in held) state[k] = held[k];
   if (label) effectLabel = label;
+  plantNameSync();                           // the planted Library's name box follows it (desktop, §18)
   syncUI();
   frameIdx = 0;
   rerender();
@@ -3300,6 +3312,8 @@ function renderMyEffects() {
 }
 
 function saveCurrentEffect() {
+  // While a folder is PLANTED (§18), the save goes there instead: the browser's My Effects is left exactly as it is.
+  if (project) { projSave(); return; }
   const base = effectLabel && effectLabel !== "random" ? effectLabel : "My effect";
   let name = base, n = 2;
   while (userEffects.some((x) => x.name === name)) name = base + " " + n++;
@@ -3618,10 +3632,18 @@ refCtl.combine.addEventListener("change", () => {
 });
 
 // ---------- Export ----------
+// THE EXPORT CONTEXT (§18): what an export renders FROM — the state, its render, Fit, the reference and the
+// synthesised sound. The Export dialog uses the editor's own (liveExportCtx, the default everywhere below), so its bytes
+// are exactly what they were. The planted Library renders a SAVED effect through the very same functions with a context
+// of its own (plantedCtx), so Update and Re-export write the bytes Export would, without loading the effect into the
+// editor. Only the reference compositing reads the global `ref` (drawRefFrame), and a planted context never has one.
+function liveExportCtx() { return { st: state, r: rendered, fit: fitOn, ref: ref, synth: synthSound }; }
+const NO_REF = { img: null, combine: false, front: false };
 // Every export path goes through this, so "Combine on export" applies to the sheet, the PNG
 // sequence and the GIF alike rather than only the one it was written for.
-function compositeRef(canvases) {
-  if (!ref.img || !ref.combine) return canvases;
+function compositeRef(canvases, C) {
+  const R = (C || liveExportCtx()).ref;
+  if (!R.img || !R.combine) return canvases;
   return canvases.map((cv, i) => {
     const out = document.createElement("canvas");
     out.width = cv.width; out.height = cv.height;
@@ -3632,16 +3654,17 @@ function compositeRef(canvases) {
     return out;
   });
 }
-function outputCanvases() { return rendered ? compositeRef(rendered.canvases) : []; }
+function outputCanvases(C) { C = C || liveExportCtx(); return C.r ? compositeRef(C.r.canvases, C) : []; }
 
 // Re-rasterise the SAME simulation at a different resolution. This is the payoff of splitting
 // simulate from rasterize: a 2× or 4× export is a re-draw, not a re-simulation, so the motion is
 // pixel-for-pixel the same effect rather than a similar one.
-function framesAtScale(mult) {
-  if (!rendered) return [];
-  if (mult === 1) return outputCanvases();
-  const r = renderFrames(state, { size: Math.round(rendered.w * mult), fit: fitOn, sim: rendered.sim });
-  return compositeRef(r.canvases);
+function framesAtScale(mult, C) {
+  C = C || liveExportCtx();
+  if (!C.r) return [];
+  if (mult === 1) return outputCanvases(C);
+  const r = renderFrames(C.st, { size: Math.round(C.r.w * mult), fit: C.fit, sim: C.r.sim });
+  return compositeRef(r.canvases, C);
 }
 
 // ---------- Project files (DESKTOP ONLY) ----------
@@ -3832,11 +3855,12 @@ async function dragOutSheet() {
 // So when trimming, make a measuring pass first: stream every frame, union their bounds, release
 // each one. That costs a second render pass, but memory stays flat — and the whole point here is
 // that running out of memory is a hard failure while taking longer is a soft one.
-async function trimBoxStreamed(mult) {
-  const o = streamOpts(mult);
+async function trimBoxStreamed(mult, C) {
+  C = C || liveExportCtx();
+  const o = streamOpts(mult, C);
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  await streamFrames(state, o, (fr, i) => {
-    const composed = withRefFrame(fr, i);
+  await streamFrames(C.st, o, (fr, i) => {
+    const composed = withRefFrame(fr, i, C);
     const w = composed.width, h = composed.height;
     const d = composed.getContext("2d").getImageData(0, 0, w, h).data;
     for (let y = 0; y < h; y++) {
@@ -3854,8 +3878,9 @@ async function trimBoxStreamed(mult) {
 }
 
 // The reference image compositing that compositeRef() does for a whole array, for one frame.
-function withRefFrame(cv, i) {
-  if (!ref.img || !ref.combine) return cv;
+function withRefFrame(cv, i, C) {
+  const R = (C || liveExportCtx()).ref;
+  if (!R.img || !R.combine) return cv;
   const out = document.createElement("canvas");
   out.width = cv.width; out.height = cv.height;
   const g = out.getContext("2d");
@@ -3865,18 +3890,19 @@ function withRefFrame(cv, i) {
   return out;
 }
 
-const streamOpts = (mult) => ({
-  w: Math.round(rendered.w * mult), h: Math.round(rendered.h * mult),
-  fit: fitOn, sim: rendered.sim,
-});
+const streamOpts = (mult, C) => {
+  C = C || liveExportCtx();
+  return { w: Math.round(C.r.w * mult), h: Math.round(C.r.h * mult), fit: C.fit, sim: C.r.sim };
+};
 
 // Same result as buildSheet(), assembled a frame at a time. Peak memory is the sheet plus one
 // frame instead of the sheet plus the entire sequence.
-async function buildSheetStreaming(mult, opts) {
-  const o = streamOpts(mult);
-  const trim = opts.trim ? await trimBoxStreamed(mult) : null;
+async function buildSheetStreaming(mult, opts, C) {
+  C = C || liveExportCtx();
+  const o = streamOpts(mult, C);
+  const trim = opts.trim ? await trimBoxStreamed(mult, C) : null;
   const w = trim ? trim.w : o.w, h = trim ? trim.h : o.h;
-  const n = rendered.canvases.length;
+  const n = C.r.canvases.length;
   const layout = opts.layout || "grid";
   const cols = layout === "row" ? n : layout === "col" ? 1 : Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
@@ -3884,8 +3910,8 @@ async function buildSheetStreaming(mult, opts) {
   cv.width = opts.pot ? nextPot(cols * w) : cols * w;
   cv.height = opts.pot ? nextPot(rows * h) : rows * h;
   const g = cv.getContext("2d");
-  await streamFrames(state, o, (fr, i) => {
-    const composed = withRefFrame(fr, i);
+  await streamFrames(C.st, o, (fr, i) => {
+    const composed = withRefFrame(fr, i, C);
     const dx = (i % cols) * w, dy = Math.floor(i / cols) * h;
     if (trim) g.drawImage(composed, trim.x, trim.y, w, h, dx, dy, w, h);
     else g.drawImage(composed, dx, dy);
@@ -3899,13 +3925,14 @@ async function buildSheetStreaming(mult, opts) {
 
 // One PNG per frame, encoded and released as it is produced — the path where streaming saves the
 // most, since the compressed bytes are a fraction of the canvas they came from.
-async function streamFrameFiles(mult, opts, base, files) {
-  const o = streamOpts(mult);
-  const trim = opts.trim ? await trimBoxStreamed(mult) : null;
+async function streamFrameFiles(mult, opts, base, files, C) {
+  C = C || liveExportCtx();
+  const o = streamOpts(mult, C);
+  const trim = opts.trim ? await trimBoxStreamed(mult, C) : null;
   const tmp = document.createElement("canvas");
   if (trim) { tmp.width = trim.w; tmp.height = trim.h; }
-  await streamFrames(state, o, async (fr, i) => {
-    const composed = withRefFrame(fr, i);
+  await streamFrames(C.st, o, async (fr, i) => {
+    const composed = withRefFrame(fr, i, C);
     let src = composed;
     if (trim) {
       const tg = tmp.getContext("2d");
@@ -3922,13 +3949,6 @@ async function streamFrameFiles(mult, opts, base, files) {
 }
 
 function sanitize(name) { return String(name).replace(/[^\w.\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "effect"; }
-// STRICTER THAN `sanitize`, and both are needed. `sanitize` keeps dots and underscores because it names
-// an export the user asked for and should recognise. `slugify` names a FILE ON DISK inside a project and
-// a FOLDER INSIDE SOMEONE'S GAME, so it is reduced to a-z0-9 and dashes: no dots to be read as an
-// extension, nothing a file system or an engine's importer could object to. project.js calls it.
-function slugify(s) {
-  return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "effect";
-}
 const canvasBlob = (cv) => new Promise((res) => cv.toBlob(res, "image/png"));
 
 // Every export in the app funnels through here, so this is the only place that needs to know
@@ -4095,7 +4115,7 @@ function emissiveFrames(frames, st) {
 // The file extension a sidecar kind implies. A helper rather than the same ternary written out at
 // three call sites: the batch path had it as a hardcoded ".json", so a Godot batch wrote
 // SpriteFrames text into a file Godot will not load. One place to be right is one place to fix.
-function sidecarExt() { return expMetaSel.value === "godot" ? ".tres" : ".json"; }
+function sidecarExt(meta) { return (meta || expMetaSel.value) === "godot" ? ".tres" : ".json"; }
 
 function sidecarFor(kind, sh, name, fps) {
   const durMs = Math.round(1000 / fps);
@@ -4353,31 +4373,39 @@ expModal.addEventListener("click", (e) => { if (e.target === expModal) expModal.
 //
 // Returning the list fixes all three, and it is the shape the project/engine export in
 // PROJECTS-HANDOFF.md needs: `[{ name, data }]`, the same bytes the button would have zipped.
-async function buildExportFiles(onProgress) {
-  const fmt = expFormat.value, base = sanitize(effectLabel), scales = chosenScales();
+// `o` (optional; §18) overrides the dialog: { base, format, layout, meta, trim, pot, emissive, sound, scales, ctx }. The
+// planted Library passes its saved settings and a context; the Export button passes nothing and reads the dialog.
+function exportSettingsNow() {
+  return { format: expFormat.value, layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked,
+           pot: expPot.checked, emissive: expEmis.checked, sound: expSound.checked, scales: chosenScales() };
+}
+async function buildExportFiles(onProgress, o) {
+  o = Object.assign(exportSettingsNow(), o || {});
+  const C = o.ctx || liveExportCtx();
+  const fmt = o.format, base = o.base || sanitize(effectLabel), scales = o.scales;
   if (!scales.length) throw new Error("Pick at least one size");
   const files = [];
   for (const mult of scales) {
     const suffix = scales.length > 1 ? "@" + mult + "x" : "";
-    const opts = { trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked };
+    const opts = { trim: o.trim, layout: o.layout, pot: o.pot };
     // The emissive mask is built from the finished frames, so that one option still needs the
     // whole sequence in memory. Everything else streams.
-    const needsAllFrames = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
-    const frames = needsAllFrames ? framesAtScale(mult) : null;
+    const needsAllFrames = fmt === "apng" || (fmt === "sheet" && o.emissive);
+    const frames = needsAllFrames ? framesAtScale(mult, C) : null;
 
     if (fmt === "sheet") {
       const sh = frames ? buildSheet(Object.assign({ frames: frames }, opts))
-                        : await buildSheetStreaming(mult, opts);
+                        : await buildSheetStreaming(mult, opts, C);
       const blob = await canvasBlob(sh.cv);
       files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
-      if (expMetaSel.value !== "none") {
-        files.push({ name: base + suffix + sidecarExt(),
-          data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base + suffix, rendered.fps)) });
+      if (o.meta !== "none") {
+        files.push({ name: base + suffix + sidecarExt(o.meta),
+          data: new TextEncoder().encode(sidecarFor(o.meta, sh, base + suffix, C.r.fps)) });
       }
-      if (expEmis.checked) {
+      if (o.emissive) {
         // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
         // doesn't line up with its colour sheet is worse than no mask.
-        const em = buildSheet({ frames: emissiveFrames(sh.frames, state), layout: expLayout.value, pot: expPot.checked });
+        const em = buildSheet({ frames: emissiveFrames(sh.frames, C.st), layout: o.layout, pot: o.pot });
         const eb = await canvasBlob(em.cv);
         files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
       }
@@ -4386,25 +4414,25 @@ async function buildExportFiles(onProgress) {
       // encodeApng() takes the whole sequence; APNG is a single container with an inter-frame
       // dependency chain, so there is nothing to stream it into.
       let out = frames;
-      if (expTrim.checked) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
-      const bytes = await encodeApng(out, rendered.fps);
+      if (o.trim) { const box = alphaBBoxAll(frames); if (box) out = cropCanvases(frames, box); }
+      const bytes = await encodeApng(out, C.r.fps);
       files.push({ name: base + suffix + ".png", data: bytes });
     } else {
-      await streamFrameFiles(mult, opts, base + suffix, files);
+      await streamFrameFiles(mult, opts, base + suffix, files, C);
     }
     // Release ONLY frames this export created. At 1x with no reference image, framesAtScale()
     // returns the live preview canvases themselves rather than copies — releasing those blanks
     // the stage and makes every later buildSheet() produce an empty sheet, with no error
     // anywhere. That is a silent, delayed failure, so the identity check matters.
-    if (frames && frames !== rendered.canvases) for (const cv of frames) releaseCanvas(cv);
+    if (frames && frames !== C.r.canvases) for (const cv of frames) releaseCanvas(cv);
     // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
     // (same engine, same encoder), so what you drop into an engine is a matched pair rather
     // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
     // doesn't change with the sprite's resolution.
-    if (synthSound && expSound.checked && mult === 1 && typeof CrunchySynth !== "undefined") {
+    if (C.synth && o.sound && mult === 1 && typeof CrunchySynth !== "undefined") {
       try {
-        const wav = CrunchySynth.encodeWav(synthSound.L, synthSound.R,
-                                           { rate: synthSound.rate, depth: 16, channels: 2 });
+        const wav = CrunchySynth.encodeWav(C.synth.L, C.synth.R,
+                                           { rate: C.synth.rate, depth: 16, channels: 2 });
         files.push({ name: base + ".wav", data: new Uint8Array(wav) });
       } catch (e) {
         console.warn("crunchyvfx: could not encode the synthesised sound —", e);
@@ -4413,6 +4441,31 @@ async function buildExportFiles(onProgress) {
     if (onProgress) onProgress(mult);
   }
   return { files, base };
+}
+
+// ---------- The effect's sidecar (§18) ----------
+// What an effect IS, beside the files made from it: the planted Library writes it as `<slug>.crunchy` in the game, and
+// (DESKTOP-ROADMAP.md decision 4) every ZIP the web makes carries one too, so a web export can be adopted later. Its
+// `s` is the share string, the same ?e= a link carries. plantSidecar (crunchyCore plant.js) is pure: no desktop needed.
+//   effectFields(name, exp, C)   the fields: s, exportName, exp (the export settings), fit, sound, ref
+function synthDiff(full) {
+  const d = {}, D = typeof CrunchySynth !== "undefined" ? CrunchySynth.DEFAULTS : {};
+  for (const k in full) if (full[k] !== D[k]) d[k] = full[k];
+  return d;
+}
+function effectFields(name, exp, C) {
+  C = C || liveExportCtx();
+  const f = { s: C.st === state ? encodePatch(name) : withState(C.st, () => encodePatch(name)),
+              exportName: String(name), base: sanitize(name), exp: exp, fit: !!C.fit };
+  if (C.synth && exp.sound) f.sound = { patch: synthDiff(C.synth.patch), name: C.synth.name || "Sound" };
+  if (C.ref.img && C.ref.combine) f.ref = C.ref.name || "a reference image";
+  return f;
+}
+// A zip's sidecar file ({ name, data } like the export's): `stem.crunchy` describing `files`.
+function effectSidecarFile(stem, name, fields, files) {
+  const sc = plantSidecarFile(stem, plantSidecar("effect", name, fields,
+    files.map((f) => ({ path: f.name, data: f.data })), APP_VERSION));
+  return { name: sc.path, data: new TextEncoder().encode(sc.data) };
 }
 
 expModal.querySelector("#expGo").addEventListener("click", async () => {
@@ -4425,7 +4478,10 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
     if (files.length === 1) {
       download(new Blob([files[0].data], { type: "image/png" }), files[0].name);
     } else {
-      download(new Blob([makeZip(files)], { type: "application/zip" }), base + ".zip");
+      // The zip's files sit at its root, so its sidecar does too, named for the zip (§18).
+      const label = effectLabel && effectLabel !== "random" ? effectLabel : base;
+      const side = effectSidecarFile(base, label, effectFields(label, exportSettingsNow()), files);
+      download(new Blob([makeZip(files.concat([side]))], { type: "application/zip" }), base + ".zip");
     }
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
     expMsg.textContent = files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB";
@@ -4540,11 +4596,16 @@ async function batchExport(which, opts) {
       }
       const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
       const blob = await canvasBlob(sh.cv);
-      files.push({ name: base + "/" + base + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
+      const mine = [{ name: base + ".png", data: new Uint8Array(await blob.arrayBuffer()) }];
       if (expMetaSel.value !== "none") {
-        files.push({ name: base + "/" + base + sidecarExt(),
+        mine.push({ name: base + sidecarExt(),
           data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base, rendered.fps)) });
       }
+      // each effect's folder carries its sidecar (§18): what the pack made, and how to reopen it
+      const exp = { layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked, pot: expPot.checked,
+                    emissive: false, sound: false, scales: [1] };
+      mine.push(effectSidecarFile(base, name, Object.assign(effectFields(name, exp), { base: base }), mine));
+      for (const f of mine) files.push({ name: base + "/" + f.name, data: f.data });
       expMsg.textContent = "Rendering " + (i + 1) + "/" + sets.length + " — " + name;
       await new Promise((r) => setTimeout(r, 0));                 // let the UI breathe
     }
@@ -5251,7 +5312,12 @@ timeModal.querySelector("#timeReset").addEventListener("click", () => {
   timeModal.querySelector("#timeMsg").textContent = "All layers start together again.";
 });
 
-// ---------- Library (DESKTOP ONLY) ----------
+// ---------- Imports & history (DESKTOP ONLY; called "Library" until §18) ----------
+// RENAMED (VFX-DESIGN §18, 2026-10-11): the suite's planted Library (crunchyCore library.js, the docked panel) is
+// "Library" in every Crunchy tool now, so this dialog is "Imports & history" and its classes are ih-* (the core's
+// lib-* rules would otherwise style it, and its own would restyle the core's panel). What it does is unchanged; it
+// opens from the toolbar as before and from a command in the planted Library.
+//
 // CrunchyBGM's split, applied here: sort by VERB, not by feature. Export and Share turn this effect
 // into a file; the Library is the shelf you come back to — the sprites you imported and the effects
 // you have already shipped. Those two were the scattered ones: imported particles were reachable
@@ -5262,35 +5328,35 @@ timeModal.querySelector("#timeReset").addEventListener("click", () => {
 // editing, not something you go and open — and BGM's §101 lesson is that moving a feature leaves the
 // tour pointing at the wrong control while every assertion still passes. Moving it is a separate
 // decision from having a Library.
-const libModal = document.createElement("div");
-libModal.className = "modal";
-libModal.hidden = true;
-libModal.innerHTML =
-  '<div class="modal-box lib-box">' +
-    '<div class="modal-head"><h2 data-icon="grid">Library</h2>' +
+const ihModal = document.createElement("div");
+ihModal.className = "modal";
+ihModal.hidden = true;
+ihModal.innerHTML =
+  '<div class="modal-box ih-box">' +
+    '<div class="modal-head"><h2 data-icon="grid">Imports &amp; history</h2>' +
       '<span class="hint">The things that outlive the effect you are editing.</span>' +
-      '<button id="libClose" data-icon="close">Close</button></div>' +
-    '<div class="lib-body">' +
-      '<div class="lib-group">' +
-        '<div class="lib-title">Imported particles</div>' +
-        '<div class="lib-note">PNGs you brought in. Click one to use it as the particle shape.</div>' +
-        '<div class="lib-sprites" id="libSprites"></div>' +
+      '<button id="ihClose" data-icon="close">Close</button></div>' +
+    '<div class="ih-body">' +
+      '<div class="ih-group">' +
+        '<div class="ih-title">Imported particles</div>' +
+        '<div class="ih-note">PNGs you brought in. Click one to use it as the particle shape.</div>' +
+        '<div class="ih-sprites" id="ihSprites"></div>' +
       '</div>' +
-      '<div class="lib-group">' +
-        '<div class="lib-title">Exported effects</div>' +
-        '<div class="lib-note">Everything you have exported, newest first. <b>Load</b> puts the effect ' +
+      '<div class="ih-group">' +
+        '<div class="ih-title">Exported effects</div>' +
+        '<div class="ih-note">Everything you have exported, newest first. <b>Load</b> puts the effect ' +
           'back in the editor exactly as it went out, so you can change it and export again.</div>' +
-        '<div class="lib-exports" id="libExports"></div>' +
+        '<div class="ih-exports" id="ihExports"></div>' +
       '</div>' +
     '</div>' +
     '<div class="modal-foot">' +
-      '<button id="libClear">Clear export history</button>' +
-      '<span id="libMsg" class="hint"></span></div>' +
+      '<button id="ihClear">Clear export history</button>' +
+      '<span id="ihMsg" class="hint"></span></div>' +
   '</div>';
-document.body.appendChild(libModal);
-const libMsg = libModal.querySelector("#libMsg");
+document.body.appendChild(ihModal);
+const ihMsg = ihModal.querySelector("#ihMsg");
 
-function libWhen(ts) {
+function ihWhen(ts) {
   const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
   if (mins < 1) return "just now";
   if (mins < 60) return mins + "m ago";
@@ -5299,19 +5365,19 @@ function libWhen(ts) {
   return Math.round(h / 24) + "d ago";
 }
 
-function renderLibrary() {
-  const sBox = libModal.querySelector("#libSprites");
-  const eBox = libModal.querySelector("#libExports");
+function renderImportsHistory() {
+  const sBox = ihModal.querySelector("#ihSprites");
+  const eBox = ihModal.querySelector("#ihExports");
   if (!sBox || !eBox) return;
 
   sBox.innerHTML = "";
   if (!userSprites.length) {
-    sBox.innerHTML = '<span class="lib-empty">Nothing imported yet — the particle panel has the ' +
+    sBox.innerHTML = '<span class="ih-empty">Nothing imported yet — the particle panel has the ' +
                      'button, and anything you load lands here.</span>';
   } else {
     for (const sp of userSprites) {
       const b = document.createElement("button");
-      b.className = "lib-sprite";
+      b.className = "ih-sprite";
       b.title = sp.name + (sp.cols * sp.rows > 1 ? " — " + sp.cols + "×" + sp.rows + " strip" : "");
       b.style.backgroundImage = "url(" + sp.data + ")";
       b.addEventListener("click", () => {
@@ -5321,7 +5387,7 @@ function renderLibrary() {
         imgSpriteName = sp.name;
         applyImageSprite(sp.data);
         syncUI(); rerender(); commitHistory();
-        libMsg.textContent = "Particle sprite: " + sp.name;
+        ihMsg.textContent = "Particle sprite: " + sp.name;
       });
       sBox.appendChild(b);
     }
@@ -5329,27 +5395,27 @@ function renderLibrary() {
 
   eBox.innerHTML = "";
   if (!exportLog.length) {
-    eBox.innerHTML = '<span class="lib-empty">No exports yet. Once you export a sheet or a GIF it ' +
+    eBox.innerHTML = '<span class="ih-empty">No exports yet. Once you export a sheet or a GIF it ' +
                      'shows up here, and you can load it back to change it.</span>';
     return;
   }
   for (const en of exportLog) {
     const row = document.createElement("div");
-    row.className = "lib-exp";
+    row.className = "ih-exp";
     const label = document.createElement("div");
-    label.className = "lib-exp-name";
+    label.className = "ih-exp-name";
     label.textContent = en.name;
     const meta = document.createElement("div");
-    meta.className = "lib-exp-meta";
-    meta.textContent = en.kind + " · " + en.detail + " · " + libWhen(en.when);
+    meta.className = "ih-exp-meta";
+    meta.textContent = en.kind + " · " + en.detail + " · " + ihWhen(en.when);
     const load = document.createElement("button");
-    load.className = "lib-exp-load";
+    load.className = "ih-exp-load";
     load.textContent = "Load";
     load.addEventListener("click", () => {
       const patch = decodePatch(en.patch);
-      if (!patch) { libMsg.textContent = "That entry could not be read."; return; }
+      if (!patch) { ihMsg.textContent = "That entry could not be read."; return; }
       applyPreset(patch, en.name, true);   // exact: this is the artifact, not a preset choice
-      libModal.hidden = true;
+      ihModal.hidden = true;
       msg.textContent = "Loaded “" + en.name + "” from the library";
     });
     row.appendChild(label); row.appendChild(meta); row.appendChild(load);
@@ -5357,20 +5423,20 @@ function renderLibrary() {
   }
 }
 
-document.getElementById("libBtn").addEventListener("click", () => {
-  libMsg.textContent = "";
-  renderLibrary();
-  libModal.hidden = false;
+document.getElementById("ihBtn").addEventListener("click", () => {
+  ihMsg.textContent = "";
+  renderImportsHistory();
+  ihModal.hidden = false;
 });
-libModal.querySelector("#libClose").addEventListener("click", () => { libModal.hidden = true; });
-libModal.addEventListener("click", (e) => { if (e.target === libModal) libModal.hidden = true; });
-libModal.querySelector("#libClear").addEventListener("click", () => {
+ihModal.querySelector("#ihClose").addEventListener("click", () => { ihModal.hidden = true; });
+ihModal.addEventListener("click", (e) => { if (e.target === ihModal) ihModal.hidden = true; });
+ihModal.querySelector("#ihClear").addEventListener("click", () => {
   // Only the export history — the sprites are files someone chose to bring in, and throwing those
   // away from a button labelled "clear history" would be a nasty surprise.
   exportLog = [];
   saveExportLog();
-  renderLibrary();
-  libMsg.textContent = "Export history cleared.";
+  renderImportsHistory();
+  ihMsg.textContent = "Export history cleared.";
 });
 
 // ---------- Share as a posting GIF ----------
@@ -5577,15 +5643,18 @@ varModal.querySelector("#varExport").addEventListener("click", async () => {
       withState(varGenomes[i], () => {
         rendered = renderFrames(state, { fit: fitOn });
         const sh = buildSheet();
+        const s = encodePatch(base + "_" + nn), fit = fitOn;   // inside withState: this variation's
         sh.cv.toBlob(async (blob) => {
-          files.push({ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
-          files.push({
+          const mine = [{ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) }, {
             name: base + "_" + nn + ".json",
             data: new TextEncoder().encode(JSON.stringify({
               name: base + "_" + nn, frames: sh.n, fps: rendered.fps,
               frameW: sh.w, frameH: sh.h, cols: sh.cols, rows: sh.rows, loop: true,
             }, null, 2)),
-          });
+          }];
+          // each variation's sidecar beside its two files, at the zip's root (§18)
+          mine.push(effectSidecarFile(base + "_" + nn, base + "_" + nn, { s: s, exportName: base + "_" + nn, base: base + "_" + nn, fit: fit }, mine));
+          for (const f of mine) files.push(f);
           res();
         }, "image/png");
       });
@@ -6406,10 +6475,10 @@ document.getElementById("tourBtn").addEventListener("click", () => startTour());
 //
 // `before` opens whatever the step points at. Written as a hook per step rather than one setup per
 // tutorial so stepping BACKWARDS lands correctly too.
-const openTiming = () => { libModal.hidden = true; expModal.hidden = true; timeModal.hidden = false; renderTiming(); };
-const openLibrary = () => { timeModal.hidden = true; expModal.hidden = true; libModal.hidden = false; renderLibrary(); };
-const openExport = () => { timeModal.hidden = true; libModal.hidden = true; expModal.hidden = false; };
-const closeAll = () => { timeModal.hidden = true; libModal.hidden = true; expModal.hidden = true; };
+const openTiming = () => { ihModal.hidden = true; expModal.hidden = true; timeModal.hidden = false; renderTiming(); };
+const openImportsHistory = () => { timeModal.hidden = true; expModal.hidden = true; ihModal.hidden = false; renderImportsHistory(); };
+const openExport = () => { timeModal.hidden = true; ihModal.hidden = true; expModal.hidden = false; };
+const closeAll = () => { timeModal.hidden = true; ihModal.hidden = true; expModal.hidden = true; };
 const layerBOn = () => {
   closeAll();
   if (!(state.emit2Count > 0)) { state.emit2Count = 120; syncUI(); rerender(); }
@@ -6515,16 +6584,16 @@ const TUTORIALS = [
 // Desktop-only, so it is listed only where it exists rather than spotlighting a hidden button.
 if (isDesktop) {
   TUTORIALS.push({
-    id: "library", name: "Your shelf",
+    id: "library", name: "Imports & history",
     blurb: "Imported particles, and every effect you've exported.",
     steps: [
-      { target: "#libBtn", before: closeAll, title: "Things that outlive this effect",
-        body: "Export and Share turn the effect in front of you into a file. The Library is the "
+      { target: "#ihBtn", before: closeAll, title: "Things that outlive this effect",
+        body: "Export and Share turn the effect in front of you into a file. Imports & history is the "
           + "other half: what you brought in, and what you've already sent out." },
-      { target: "#libSprites", before: openLibrary, title: "Particles you imported",
+      { target: "#ihSprites", before: openImportsHistory, title: "Particles you imported",
         body: "Every PNG you load as a particle is kept here. Click one to use it again — you don't "
           + "have to go and find the file a second time." },
-      { target: "#libExports", before: openLibrary, title: "Load an old export back",
+      { target: "#ihExports", before: openImportsHistory, title: "Load an old export back",
         body: "Each export is stored with the whole effect, not just its name. Load puts it back in "
           + "the editor exactly as it went out — so widening a burst you shipped last week is a "
           + "slider and a re-export, not a rebuild from memory." },
@@ -6588,71 +6657,590 @@ const suiteDialog = suiteMount("vfx", {
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (url) => window.__TAURI__.opener.openUrl(url) : null,
 });
 
-// ---------- Apply the desktop gate ----------
-// Anything carrying data-desktop simply isn't there on the web, rather than being visible and
-// refusing to work — a dead control you can click is worse than one that doesn't exist. Runs
-// after boot so runtime-built UI (the export dialog) is included.
-{
-  if (!isDesktop) {
-    for (const el of document.querySelectorAll("[data-desktop]")) el.hidden = true;
-    // "＋ New category" is built per-menu at click time, so it's gated where it's created.
-  }
-}
-
-// ---------- WEB-ONLY: "Get the Desktop app" CTA ----------
-// The free build advertises the paid tier by saying plainly what it adds. Hidden on desktop, which
-// already has all of it. Mirrors the CrunchySFX modal so the two products read as one suite.
+// ============================================================================================
+// THE PLANTED LIBRARY (VFX-DESIGN §18; crunchyCore plant.js + library.js, DESKTOP-ROADMAP.md step 4; the worked
+// examples are crunchyTile TILE-DESIGN.md §114, crunchyUI UI-DESIGN.md §18 and CrunchySFX's DESKTOP.md) — desktop only.
+// You PLANT CrunchyVFX in a folder once: your game (the one holding project.godot, or a Unity project's Assets/ +
+// ProjectSettings/) or any folder. Every effect you save lands in crunchy/vfx/<effect>/ inside it (Unity:
+// Assets/Crunchy/VFX/<effect>/): exactly the sprite sheet the Export dialog writes for it — in a Godot project with its
+// Godot 4 SpriteFrames (.tres, pointing at the PNG beside it by a RELATIVE path, so nothing names res:// itself); in
+// Unity or a plain folder with the dialog's JSON metadata — plus the emissive mask, the extra sizes and the sound when
+// chosen, beside a small <effect>.crunchy that reopens it exactly (its share string, its export settings). Saving the
+// same name re-exports IN PLACE (same paths, so the game's references hold); a rename changes the name only
+// (`exportName` and `base` are fixed at the first save). The Library is a panel docked on the right, and lists what the
+// other Crunchy tools planted in the same game.
 //
-// …but only once there is something to sell. https://sevi66.itch.io/crunchyvfx currently returns
-// 404 (CrunchySFX's equivalent returns 200), so shipping this button would hand the first people to
-// see the tool a dead link on the way out. One flag, flipped the day the page is published — the
-// alternative is a code change made under launch pressure, which is when things get forgotten.
-const ITCH_LIVE = false;
-if (!isDesktop && ITCH_LIVE) {
-  const cta = document.createElement("button");
-  cta.id = "deskCta";
-  cta.className = "primary";
-  setIconLabel(cta, "monitor", "Get the Desktop app");
-  cta.title = "Get the desktop app on itch.io";
-
-  const m = document.createElement("div");
-  m.className = "modal";
-  m.hidden = true;
-  m.innerHTML =
-    '<div class="modal-box steam-box">' +
-      '<div class="modal-head">' +
-        '<h2 data-icon="monitor">CrunchyVFX Desktop</h2>' +
-        '<span class="hint">The web version stays free — the desktop app adds the workflow.</span>' +
-        '<button id="deskClose" data-icon="close">Close</button>' +
-      "</div>" +
-      '<div class="steam-body">' +
-        '<ul class="steam-feats">' +
-          "<li><b>My Effects library</b> — save, name and organise your own effects, kept on disk instead of in a browser store you can wipe by clearing cookies.</li>" +
-          "<li><b>Custom categories</b> — group your effects however you work.</li>" +
-          "<li><b>Library</b> — the particles you imported and every effect you have exported, with one click to load an old export back and change it.</li>" +
-          "<li><b>Batch export</b> — render your whole library to sheets + sidecars in one click, as an asset pack.</li>" +
-          "<li><b>Native save dialogs</b> — real system Save/Open, straight into your project folder.</li>" +
-          "<li><b>One-time purchase</b> — no account, no subscription; it supports development.</li>" +
-        "</ul>" +
-        '<p class="steam-note">Everything you make in the free web version is yours, unwatermarked, at full resolution. ' +
-        "The desktop app is about keeping and organising your work — not about locking up your sprites.</p>" +
-      "</div>" +
-      '<div class="modal-foot">' +
-        '<button class="primary" id="deskGet">Get it on itch.io ↗</button>' +
-        '<span class="hint">One-time purchase on itch.io.</span>' +
-      "</div>" +
-    "</div>";
-  document.body.appendChild(m);
-
-  const ITCH_URL = "https://sevi66.itch.io/crunchyvfx";
-  cta.addEventListener("click", () => { m.hidden = false; });
-  m.querySelector("#deskClose").addEventListener("click", () => { m.hidden = true; });
-  m.querySelector("#deskGet").addEventListener("click", () => window.open(ITCH_URL, "_blank", "noopener"));
-  m.addEventListener("click", (e) => { if (e.target === m) m.hidden = true; });
-  addEventListener("keydown", (e) => { if (e.key === "Escape" && !m.hidden) m.hidden = true; });
-  const bar = document.querySelector(".controls-right") || document.querySelector(".controls-left");
-  if (bar) bar.appendChild(cta);
+// THE BROWSER'S MY EFFECTS ARE NEVER TOUCHED. Its keys (crunchyvfx.userpresets.v1, .usercats.v1, .sprites.v1, …) keep
+// their shape and contents. "Plant my effects" COPIES them into the folder (each one once: the sidecar's `from`).
+// While a folder is planted, "Save current" in My Effects (and Ctrl+S) saves the effect into it rather than adding it to
+// the browser's My Effects; with none planted, it is exactly what it was. Nothing here deletes from the browser store.
+// The web build never reaches any of this: every entry point is created only when isDesktop.
+// ============================================================================================
+const PLANT_RECENT_KEY = "crunchyvfx.recentPlanted.v1", PLANT_RECENT_MAX = 8;
+const projFs = isDesktop && window.__TAURI__.fs ? plantTauriFs(window.__TAURI__.fs) : null;
+var project = null;                          // plant.js's P (plus .name) while a folder is planted (var: My Effects reads it)
+let projQueue = Promise.resolve();
+const projUpdates = {};                      // slug → true when this version would export it differently
+let projSuite = [];                          // the suite view: the other Crunchy tools' planted assets here
+let projArmed = "";                          // a Save over ANOTHER effect of the same name, pressed once already
+var projOpened = "";                         // the slug the editor's effect was opened from or saved to (var: plantNameSync may run first)
+// File work runs ONE AT A TIME, in order: a save and its export never interleave with the next.
+function projDo(fn) {
+  const next = projQueue.then(fn).catch(function (e) {
+    console.warn("crunchyvfx: planted —", e);
+    projStatus("Library: " + (e && e.message ? e.message : e));
+  });
+  projQueue = next;
+  return next;
 }
+function projStatus(text) {
+  const el = document.getElementById("plantMsg");
+  if (el) el.textContent = text || "";
+  library.status(text);
+}
+function projRecent() {
+  try { const r = JSON.parse(localStorage.getItem(PLANT_RECENT_KEY) || "[]"); return Array.isArray(r) ? r.filter((e) => e && typeof e.dir === "string") : []; }
+  catch (e) { return []; }
+}
+function projRemember(P) {
+  const r = projRecent().filter((e) => e.dir !== P.dir);
+  r.unshift({ name: P.name, dir: P.dir });
+  try { localStorage.setItem(PLANT_RECENT_KEY, JSON.stringify(r.slice(0, PLANT_RECENT_MAX))); } catch (e) { /* not essential */ }
+}
+function projForget(dir) {
+  try { localStorage.setItem(PLANT_RECENT_KEY, JSON.stringify(projRecent().filter((e) => e.dir !== dir))); } catch (e) { /* not essential */ }
+}
+function plantBase(dir) { return String(dir).replace(/[\/\\]+$/, "").split(/[\/\\]/).pop(); }
+
+// ---- one effect: its export settings, its render, its files ----
+// The metadata follows the ENGINE: a Godot project gets the SpriteFrames .tres (that is what planting there is for);
+// Unity gets the dialog's choice, but never a .tres it can't read (Generic JSON instead); a plain folder, the dialog's.
+// A planted effect is always a sprite SHEET (the engine asset); everything else comes from the Export dialog.
+function plantMetaFor(meta) {
+  if (project && project.engine === "godot") return "godot";
+  if (project && project.engine === "unity" && meta === "godot") return "generic";
+  return meta;
+}
+function plantExpNow() {
+  const e = exportSettingsNow();
+  delete e.format;
+  e.meta = plantMetaFor(e.meta);
+  return e;
+}
+const EXP_DEFAULT = { layout: "grid", meta: "godot", trim: true, pot: false, emissive: false, sound: true, scales: [1] };
+function expOf(f) {
+  const e = Object.assign({}, EXP_DEFAULT, f.exp || {});
+  e.scales = Array.isArray(e.scales) && e.scales.length ? e.scales.filter((k) => EXPORT_SCALES.indexOf(k) >= 0) : [1];
+  if (!e.scales.length) e.scales = [1];
+  return e;
+}
+function expSummary(e) {
+  const names = { godot: "Godot SpriteFrames", generic: "Generic JSON", aseprite: "Aseprite JSON", phaser: "Phaser atlas", none: "no metadata" };
+  return ["sheet", names[e.meta] || e.meta, e.trim ? "trimmed" : null, e.layout === "row" ? "strip" : e.layout === "col" ? "column" : null,
+          e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.scales.join("×, ") + "×"].filter(Boolean).join(" · ");
+}
+// The full state a share string reopens (applyPreset's reset-then-overlay, without touching the editor).
+function stateOfShare(s) {
+  const d = decodePatch(s) || {}, st = {};
+  for (const p of PARAMS) st[p[0]] = p[5];
+  for (const k in PATCH_EXTRAS) st[k] = PATCH_EXTRAS[k];
+  for (const k in d) if (k in st) st[k] = d[k];
+  return st;
+}
+// An imported particle (shape "image") draws from the one global image element (vfx.js). A saved effect's own image
+// is put there for its render and the editor's put back after, so a planted effect never borrows the editor's sprite.
+function loadImage(url) {
+  return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error("its imported particle image could not be read")); im.src = url; });
+}
+async function withSpriteOf(st, fn) {
+  const keep = imageSpriteEl, want = st.imageSprite || "";
+  if ((keep ? keep.src : "") === want) return fn();
+  const img = want ? await loadImage(want) : null;
+  imageSpriteEl = img; imageSpriteVersion++; clearSpriteCache();
+  try { return await fn(); } finally { imageSpriteEl = keep; imageSpriteVersion++; clearSpriteCache(); }
+}
+// The card's picture: one frame ~40% in (as My Effects' thumbnails), at most 96 px, kept in the sidecar.
+function plantThumb(r) {
+  const src = r.canvases[Math.min(r.canvases.length - 1, Math.round(r.canvases.length * 0.4))];
+  const k = Math.min(1, 96 / Math.max(src.width, src.height));
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(src.width * k)); cv.height = Math.max(1, Math.round(src.height * k));
+  cv.getContext("2d").drawImage(src, 0, 0, cv.width, cv.height);
+  const url = cv.toDataURL("image/png");
+  releaseCanvas(cv);
+  return url;
+}
+// THE SAME BYTES the Export dialog writes: buildExportFiles itself, with the effect's settings and its context.
+async function exportFor(f, C) {
+  const out = await buildExportFiles(null, Object.assign({ format: "sheet" }, expOf(f), { base: f.base, ctx: C }));
+  return { files: out.files.map((x) => ({ path: x.name, data: x.data })),
+           info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
+}
+// A SAVED effect rendered from its sidecar: its share string, its own Fit, its own sound, no reference image.
+async function plantedRender(f) {
+  const st = stateOfShare(f.s), fit = f.fit !== false;
+  return withSpriteOf(st, async () => {
+    clearSpriteCache();
+    const r = renderFrames(st, { fit: fit });
+    let synth = null;
+    if (f.sound && typeof CrunchySynth !== "undefined" && CrunchySynth.render) {
+      const full = Object.assign({}, CrunchySynth.DEFAULTS, f.sound.patch);
+      const a = CrunchySynth.render(full);
+      synth = { patch: full, name: f.sound.name, L: a.L, R: a.R, rate: CrunchySynth.SR };
+    }
+    return exportFor(f, { st: st, r: r, fit: fit, ref: NO_REF, synth: synth });
+  });
+}
+// ONLY an effect's own fields (a whole sidecar handed back by Update or Duplicate would carry stale bookkeeping)
+function effectOwn(f) {
+  const o = { s: f.s, exp: expOf(f), fit: f.fit !== false };
+  ["sound", "ref", "categories", "from"].forEach((k) => { if (f[k] != null) o[k] = f[k]; });
+  return o;
+}
+// SAVE one effect: its export and its sidecar, in place. `C`: the editor's own render, as editorCtx() caught it when
+// Save was pressed (the Export dialog's exact context, reference included); without one it is rendered from its share
+// string. Returns the asset.
+async function projPut(name, fields, C) {
+  const prev = plantFind(project, "effect", name);
+  const f = effectOwn(fields);
+  f.exportName = prev ? prev.data.exportName || prev.name : name;                     // fixed at the first save
+  f.base = prev && prev.data.base ? prev.data.base : sanitize(f.exportName);           // and the file names with it
+  const made = C ? await exportFor(f, C) : await plantedRender(f);
+  f.info = made.info;
+  f.thumb = made.thumb;
+  const a = await plantPut(project, { kind: "effect", name: name, fields: f, files: made.files, appVersion: APP_VERSION });
+  delete projUpdates[a.slug];
+  plantThumbs.delete(a.slug);
+  return a;
+}
+const resPath = (a) => project.rel + "/" + a.slug + "/" + (a.data.base || a.slug) + ".png";
+
+// ---- plant, open, close ----
+async function projOpen(dir) {
+  const P = await plantOpen(projFs, dir);
+  P.name = plantBase(dir);
+  project = P;
+  projRemember(P);
+  Object.keys(projUpdates).forEach((k) => { delete projUpdates[k]; });
+  plantThumbs.clear();
+  projSuite = [];
+  projOpened = "";
+  projAfter();
+  const n = projFromBrowser().length;
+  projStatus("Planted in " + P.name + " (" + (P.engine === "godot" ? "a Godot project, " : P.engine === "unity" ? "a Unity project, " : "") +
+    P.assets.length + (P.assets.length === 1 ? " effect" : " effects") + " in " + P.rel + ")." +
+    (P.engine === "unity" ? " Unity imports each sheet as one texture: set Sprite Mode to Multiple and slice it by cell size (the JSON beside it has the numbers)." : "") +
+    (P.skipped.length ? " Skipped, unreadable: " + P.skipped.join(", ") + "." : "") +
+    (n ? " Your browser's My Effects hold " + n + " effect" + (n === 1 ? "" : "s") + " not planted here: “Plant my effects” copies them in (the browser keeps them)." : ""));
+  projCheckUpdates();
+  projRefreshSuite();
+}
+async function pickFolder(title) {
+  const dir = await window.__TAURI__.dialog.open({ directory: true, multiple: false, title: title });
+  return Array.isArray(dir) ? dir[0] : dir;
+}
+async function projPlantPick() {
+  const dir = await pickFolder("Plant CrunchyVFX in your game's folder (Godot or Unity), or any folder");
+  if (dir) await projOpen(dir);
+}
+async function projOpenRecent(dir) {
+  let yes = null;
+  try { yes = await projFs.exists(dir); } catch (e) { yes = null; }
+  if (yes === false) { projForget(dir); projStatus("That folder is gone (moved or deleted): " + dir); return; }
+  // refused rather than missing: outside the home folder, a folder is reachable once picked in the dialog
+  if (yes === null) { projStatus("Can't reach " + dir + " without picking it again: use Plant in a folder…"); return; }
+  await projOpen(dir);
+}
+function projClose() {
+  project = null;
+  projSuite = [];
+  projOpened = "";
+  projCheckRun++;
+  projAfter();
+  projStatus("Closed. Save current adds to this browser's My Effects again.");
+}
+function projAfter() { projBarSync(); library.refresh(); }
+
+// ---- saving the editor's effect ----
+function plantNameNow() {
+  const box = document.getElementById("plantName");
+  const typed = box ? box.value.trim().slice(0, 60) : "";
+  return typed || (effectLabel && effectLabel !== "random" && effectLabel !== "effect" ? effectLabel : "My effect");
+}
+// The effect in the editor, as fields. Its share string is encodePatch's, so it reopens the effect exactly.
+function editorFields(name) { return effectFields(name, plantExpNow()); }
+// The editor's export context, CAUGHT NOW: the file work waits its turn in the queue, and an edit made meanwhile must
+// not reach this save. The state is copied (the same values render the same pixels); the render and sound are kept.
+function editorCtx() { rerender(); return Object.assign(liveExportCtx(), { st: Object.assign({}, state) }); }
+// Save the editor's effect into the planted folder. Saving over a DIFFERENT effect that already has the name asks for a
+// second press (it replaces those files in the game); the effect it was opened from is simply updated in place.
+function projSave() {
+  if (!project) { libraryShow(); projStatus("Plant CrunchyVFX in a folder first: your game's, or any."); return false; }
+  const name = plantNameNow();
+  const prev = plantFind(project, "effect", name), key = name.toLowerCase();
+  if (prev && prev.slug !== projOpened && projArmed !== key) {
+    projArmed = key;
+    projStatus("“" + prev.name + "” is already planted. Save again to replace it in place (same files, so your game gets the new effect), or give this one another name.");
+    return false;
+  }
+  projArmed = "";
+  if (!rendered || !chosenScales().length) { projStatus(rendered ? "Pick at least one size in the Export dialog." : "Nothing to save yet."); return false; }
+  const C = editorCtx(), fields = editorFields(name);          // a drag still waiting for its render is saved as it stands
+  projDo(async function () {
+    const a = await projPut(name, fields, C);
+    projOpened = a.slug;
+    projAfter();
+    projStatus((prev ? "Updated " : "Saved ") + a.name + " in " + project.rel + "/" + a.slug + "/ (" + expSummary(a.data.exp) + ")" +
+      (project.engine === "godot" ? ": res://" + project.rel + "/" + a.slug + "/" + a.data.base + ".tres." : ".") +
+      (a.data.ref ? " It has the reference image " + a.data.ref + " combined in, which a sidecar can't keep: load it again before saving it next time." : ""));
+  });
+  return true;
+}
+
+// ---- the browser's My Effects, and .crunchyvfx files: copied in, never moved ----
+function projFromBrowser() {
+  if (!project) return [];
+  return userEffects.filter((p) => p && typeof p.state === "object" && !project.assets.some((a) => a.data.from === "my-effects:" + p.id));
+}
+// A saved effect (My Effects, or one in a .crunchyvfx file) as fields: its state through the same encodePatch, Fit as
+// the editor has it (My Effects never kept Fit: loading one keeps the editor's), and its categories' names.
+function savedFields(p, cats) {
+  const st = Object.assign({}, p.state);
+  const f = { s: withState(st, () => encodePatch(String(p.name || "My effect"))), exp: plantExpNow(), fit: fitOn };
+  const names = (cats || []).filter((c) => c && Array.isArray(c.items) && c.items.some((i) => i && i.t === "u" && i.id === p.id)).map((c) => String(c.name || "Category"));
+  if (names.length) f.categories = names;
+  return f;
+}
+async function projPlantList(list, cats, from) {
+  let n = 0;
+  for (const p of list) {
+    const base = String(p.name || "My effect").trim().slice(0, 60) || "My effect";
+    let name = base, k = 2;
+    while (plantFind(project, "effect", name)) name = base + " " + k++;                // My Effects may repeat a name
+    projStatus("Planting " + (n + 1) + " of " + list.length + ": " + name + "…");
+    await projPut(name, Object.assign(savedFields(p, cats), { from: from + p.id }));
+    n++;
+  }
+  return n;
+}
+async function projPlantEffects() {
+  const list = projFromBrowser();
+  if (!list.length) { projStatus(userEffects.length ? "Every effect in My Effects is planted here already." : "My Effects is empty in this browser."); return; }
+  const n = await projPlantList(list, userCats, "my-effects:");
+  projAfter();
+  projStatus("Planted " + n + " of your effects in " + project.rel + ". My Effects in this browser is exactly as it was.");
+}
+// A .crunchyvfx project file (Save project): its effects planted, the file and this browser's store untouched (Open
+// project, which LOADS a file into the browser, is unchanged beside it).
+function projectFileOk(d) { return !!d && d.app === "crunchyvfx" && (Array.isArray(d.userEffects) || typeof d.editor === "object"); }
+async function projPlantFile() {
+  const T = window.__TAURI__;
+  let path = await T.dialog.open({ multiple: false, title: "Plant the effects of a CrunchyVFX project file", filters: [{ name: "CrunchyVFX project", extensions: ["crunchyvfx"] }] });
+  path = Array.isArray(path) ? path[0] : path;
+  if (!path) return;
+  const data = JSON.parse(new TextDecoder().decode(new Uint8Array(await T.fs.readFile(path))));
+  if (!projectFileOk(data)) throw new Error(plantBase(path) + " is not a CrunchyVFX project file.");
+  const from = "file:" + plantBase(path) + "#";
+  const all = (Array.isArray(data.userEffects) ? data.userEffects : []).filter((p) => p && typeof p.state === "object");
+  const list = all.filter((p) => !project.assets.some((a) => a.data.from === from + p.id));
+  const n = await projPlantList(list, Array.isArray(data.userCats) ? data.userCats : [], from);
+  projAfter();
+  projStatus("Planted " + n + " of the " + all.length + " effects in " + plantBase(path) + (all.length - n ? " (" + (all.length - n) + " were planted already)" : "") + ". The file is untouched.");
+}
+
+// ---- "update available": this version of CrunchyVFX would export an effect differently ----
+let projCheckRun = 0;
+async function projCheckOne(a) {
+  if (a.data.ref) return;                                        // its reference image is not in the sidecar: never second-guessed
+  let made = null;
+  try { made = await plantedRender(a.data); } catch (e) { return; }
+  if (plantNeedsUpdate(a, made.files)) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
+}
+// one effect at a time, yielding between them, so the app stays responsive; returns when all are checked
+function projCheckUpdates() {
+  const run = ++projCheckRun, P = project, list = P ? P.assets.slice() : [];
+  return (async function () {
+    for (const a of list) {
+      await new Promise((r) => setTimeout(r, 0));
+      if (run !== projCheckRun || project !== P) return;
+      await projCheckOne(a);
+    }
+    if (run === projCheckRun) library.refresh();
+  })();
+}
+async function projUpdateOne(a) {
+  if (a.data.ref) throw new Error(a.name + " has the reference image " + a.data.ref + " combined in, which a sidecar can't keep: open it, load the image again, and save.");
+  return projPut(a.name, a.data);
+}
+function projUpdateAll() {
+  return projDo(async function () {
+    const list = project.assets.filter((a) => projUpdates[a.slug]);
+    let n = 0;
+    for (const a of list) {
+      projStatus("Updating " + (n + 1) + " of " + list.length + ": " + a.name + "…");
+      await projUpdateOne(a);
+      n++;
+    }
+    projAfter();
+    projStatus(n ? "Updated " + n + (n === 1 ? " effect" : " effects") + " in " + project.rel + ", in place." : "Everything is up to date.");
+  });
+}
+
+// ---- open a planted effect in the editor ----
+function projOpenAsset(a) {
+  const f = a.data;
+  if (fitOn !== (f.fit !== false)) { fitOn = f.fit !== false; updateFitBtn(); }
+  // its sound, as planted: one it was saved with is rendered again; none means none (never the editor's leftover)
+  if (f.sound && synthAvailable()) {
+    const s = synthesizePatch(Object.assign({}, f.sound.patch), f.sound.name);
+    loadSynthIntoPlayer(s); syncSoundUI();
+  } else if (synthSound) {
+    stopSound(); snd.buf = null; snd.name = ""; synthSound = null; syncSoundUI();
+  }
+  // its export settings, so Save writes the same files in place
+  applyPipelineSettings(Object.assign({ format: "sheet" }, expOf(f)));
+  applyPreset(decodePatch(f.s) || {}, a.name, true);             // exact: the planted effect, not a preset choice
+  projOpened = a.slug;
+  const box = document.getElementById("plantName");
+  if (box) box.value = a.name;
+  projStatus("Opened " + a.name + ". Save (Ctrl+S) re-exports it in place: " + project.rel + "/" + a.slug + "/." +
+    (f.ref ? " It was made with the reference image " + f.ref + " combined in: load it again to export it as planted." : ""));
+}
+
+// ---- the bar above the Library: the name a save uses, and Save ----
+function projBarSync() {
+  const save = document.getElementById("plantSave"), cur = document.getElementById("plantWhere"), how = document.getElementById("plantHow");
+  if (!save) return;
+  save.disabled = !project;
+  cur.textContent = project ? "Planted in " + project.name : "Not planted";
+  cur.title = project ? plantJoin(project.dir, project.rel) : "";
+  if (how) how.textContent = project ? "Saves as: " + expSummary(Object.assign({}, EXP_DEFAULT, plantExpNow())) : "";
+  const mp = document.querySelector("#mypresets .mp-head > span");
+  if (mp) setIconLabel(mp, "star", project ? "My Effects (this browser)" : "My Effects");
+  const ms = document.getElementById("mpSave");
+  if (ms) ms.title = project ? "Save the current effect into the planted folder (" + project.name + "), as the Library's Save does"
+                             : "Save the current effect to your library (stored in this browser)";
+}
+
+// ---- the Library: a panel docked on the right ----
+const plantThumbs = new Map();               // slug → a loaded <img> of the sidecar's picture
+const libDock = isDesktop ? document.createElement("div") : null;
+if (libDock) {
+  libDock.id = "libDock";
+  libDock.innerHTML =
+    '<div class="plant-bar">' +
+      '<span id="plantWhere" class="hint">Not planted</span>' +
+      '<input id="plantName" type="text" maxlength="60" placeholder="Name (the current effect’s)" spellcheck="false" autocomplete="off" title="The name Save uses: the same name updates that effect in place">' +
+      '<button id="plantSave" class="primary" data-icon="save" title="Save this effect into the planted folder (Ctrl+S): the same name re-exports it in place">Save</button>' +
+      '<span id="plantHow" class="hint" title="The Export dialog’s settings (a sprite sheet; in a Godot project always with a SpriteFrames .tres)"></span>' +
+    '</div>';
+  document.body.appendChild(libDock);
+}
+const library = libraryMount({
+  title: "Library",
+  dock: libDock,
+  startHint: "Plant CrunchyVFX in your game: pick its folder (a Godot project, a Unity project), or any folder. Every effect you save " +
+    "lands in crunchy/vfx/ inside it: the sprite sheet the Export dialog would give (in a Godot project with its SpriteFrames .tres), " +
+    "ready for the engine, with a small .crunchy file beside it that reopens the effect exactly. Saving the same name updates it in " +
+    "place, so your game's references keep working. Your browser's My Effects stay where they are; “Plant my effects” copies them in.",
+  emptyHint: "Nothing planted yet. Press Save above (or Save current in My Effects, Ctrl+S) to plant the effect in the editor, or “Plant my effects”.",
+  project: () => (project ? { name: project.name, dir: plantJoin(project.dir, project.rel) } : null),
+  start: [
+    { label: "Plant in a folder…", title: "Pick your game's folder (Godot or Unity), or any folder", run: () => projDo(projPlantPick) },
+  ],
+  recent: projRecent,
+  openRecent: (dir) => projDo(() => projOpenRecent(dir)),
+  commands: function () {
+    const n = project ? project.assets.filter((a) => projUpdates[a.slug]).length : 0;
+    const mine = projFromBrowser().length;
+    return (n ? [{ label: "Update all (" + n + ")", primary: true, title: "Re-export, in place, every effect this version of CrunchyVFX would export differently", run: projUpdateAll }] : [])
+      .concat(mine ? [{ label: "Plant my effects (" + mine + ")", primary: !n, title: "Copy the effects in this browser's My Effects into the planted folder (each once; the browser keeps them, unchanged)",
+        run: () => projDo(projPlantEffects) }] : [])
+      .concat([
+        { label: "Plant a project file…", title: "Plant the effects of a .crunchyvfx project file (the file, and this browser's My Effects, stay as they are)", run: () => projDo(projPlantFile) },
+        { label: "Export settings…", title: "The Export dialog: its layout, trim, sizes, mask and sound are what Save plants", run: () => document.getElementById("expOpen").click() },
+        { label: "Imports & history…", title: "The particles you imported and every effect you have exported (this computer)", run: () => document.getElementById("ihBtn").click() },
+        { label: "Close", title: "Stop saving into this folder (nothing in it is touched)", run: () => projDo(projClose) },
+      ]);
+  },
+  // the filter chips: the My Effects categories effects were filed under when they were planted
+  kinds: function () {
+    if (!project) return [];
+    const seen = {}, out = [];
+    project.assets.forEach((a) => { const c = effectGroup(a); if (!seen[c]) { seen[c] = true; out.push({ key: c, label: c }); } });
+    return out.length > 1 ? out.sort((x, y) => (x.key === "Effects") - (y.key === "Effects") || x.key.localeCompare(y.key)) : [];
+  },
+  items: function () {
+    if (!project) return [];
+    return project.assets.slice().sort((x, y) => (effectGroup(x) === "Effects") - (effectGroup(y) === "Effects") || effectGroup(x).localeCompare(effectGroup(y)) || x.name.localeCompare(y.name))
+      .map(function (a) {
+        const badges = [];
+        if (projUpdates[a.slug]) badges.push({ hot: true, text: "update available", title: "This version of CrunchyVFX would export it differently: Re-export writes it again, in place" });
+        const i = a.data.info || {};
+        badges.push({ text: (i.frames ? i.frames + " fr · " + i.w + "×" + i.h + " · " + i.fps + " fps" : "effect"), title: expSummary(expOf(a.data)) + "\n" + resPath(a) });
+        if (a.data.sound) badges.push({ text: "♪ sound", title: "Its synthesised sound is exported beside it (" + a.data.sound.name + ")" });
+        if (a.data.ref) badges.push({ text: "ref", title: "Made with the reference image " + a.data.ref + " combined in (not kept: load it again before saving)" });
+        const at = new Date(a.data.modified || 0), when = isNaN(at) || !a.data.modified ? "" : at.toLocaleDateString();
+        return { id: a.slug, name: a.name, kind: effectGroup(a), group: effectGroup(a), meta: (a.data.base || a.slug) + ".png" + (when ? " · " + when : ""), badges: badges, asset: a };
+      });
+  },
+  thumb: function (it, cv) {
+    const url = it.asset.data.thumb;
+    cv.width = 96; cv.height = 96;
+    const paint = (img) => {
+      const g = cv.getContext("2d"), k = Math.min(96 / img.naturalWidth, 96 / img.naturalHeight);
+      const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+      g.clearRect(0, 0, 96, 96);
+      g.imageSmoothingEnabled = false;
+      g.drawImage(img, (96 - w) >> 1, (96 - h) >> 1, w, h);
+    };
+    if (typeof url !== "string" || url.indexOf("data:image/png;base64,") !== 0) return;   // a sidecar without its picture
+    const have = plantThumbs.get(it.asset.slug);
+    if (have && have.src === url && have.complete) { paint(have); return; }
+    const img = new Image();
+    img.onload = () => paint(img);                                // the canvas is on screen by then
+    img.src = url;
+    plantThumbs.set(it.asset.slug, img);
+  },
+  open: (it) => projOpenAsset(it.asset),
+  // THE NAME ONLY: the folder, every file's name and its bytes all stay, so nothing in the game moves
+  rename: function (it, name) {
+    const a = it.asset;
+    return projDo(async function () {
+      const box = document.getElementById("plantName"), was = a.name;
+      await plantRename(project, a, name);
+      if (box && box.value.trim() === was) box.value = a.name;
+      if (effectLabel === was) effectLabel = a.name;
+      projAfter();
+      projStatus("Renamed to " + a.name + ". Its files keep their paths (" + project.rel + "/" + a.slug + "/), so your game is untouched.");
+    });
+  },
+  suite: function () {
+    return projSuite.map(function (s) {
+      const tool = CRUNCHY_SUITE.find((t) => t.id === s.key) || { name: s.key };
+      const kinds = Object.keys(s.kinds).map((k) => s.kinds[k] + " " + k + (s.kinds[k] === 1 ? "" : "s")).join(", ");
+      const url = tool.web || tool.desktop;
+      return { key: s.key, name: tool.name, summary: kinds + " in " + s.rel, title: url ? "Open " + tool.name : "",
+               open: url ? () => window.__TAURI__.opener.openUrl(url) : null };
+    });
+  },
+  actions: [
+    // REPLACE (AJ, 2026-10-11, on SFX's card: "I would assume it would overwrite the saved sound with the one I currently
+    // have loaded in the editor"): the editor's effect into THIS card, same name, same files, so the game gets it.
+    // Two clicks, like Delete.
+    { label: "Replace", confirm: true, title: "Put the effect in the editor into this card: same name and same files, so your game gets the new effect",
+      run: (it) => projDo(async function () {
+        if (!rendered || !chosenScales().length) throw new Error("Nothing to save from the editor yet.");
+        const C = editorCtx(), f = editorFields(it.asset.name);
+        if (it.asset.data.categories) f.categories = it.asset.data.categories;     // still filed where it was
+        const a = await projPut(it.asset.name, f, C);
+        projOpened = a.slug;
+        projAfter();
+        projStatus("Replaced " + a.name + " with the editor's effect (" + project.rel + "/" + a.slug + "/).");
+      }) },
+    // RE-EXPORT: only where this version of CrunchyVFX would render the saved effect differently ("update available")
+    { label: "Re-export", title: "This version of CrunchyVFX would render it differently: re-export it from its saved settings, in place",
+      when: (it) => !!projUpdates[it.asset.slug],
+      run: (it) => projDo(async function () { await projUpdateOne(it.asset); projAfter(); projStatus("Re-exported " + it.name + " in place."); }) },
+    { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",
+      run: (it) => projDo(async function () {
+        if (it.asset.data.ref) throw new Error(it.name + " has a reference image combined in, which a sidecar can't keep: open it, load the image, and save it under a new name.");
+        let name = it.name + " copy", n = 2;
+        while (plantFind(project, "effect", name)) name = it.name + " copy " + n++;
+        const b = await projPut(name, it.asset.data);            // a new name: its own exportName and files
+        projAfter(); projStatus("Made " + b.name + " (" + project.rel + "/" + b.slug + "/).");
+      }) },
+    { label: "Delete", confirm: true, title: "Delete it from the planted folder: the files it exported and its .crunchy (nothing else)",
+      run: (it) => projDo(async function () {
+        await plantDelete(project, it.asset);
+        delete projUpdates[it.asset.slug];
+        plantThumbs.delete(it.asset.slug);
+        if (projOpened === it.asset.slug) projOpened = "";
+        projAfter(); projStatus("Deleted " + it.name + " and its files." + (project.engine === "godot" ? " Godot's .import files for them went too." : ""));
+      }) },
+  ],
+});
+function effectGroup(a) { const c = a.data.categories; return Array.isArray(c) && c.length && typeof c[0] === "string" ? c[0] : "Effects"; }
+function projRefreshSuite() {
+  if (!project) { projSuite = []; return Promise.resolve(); }
+  const P = project;
+  return plantSuiteView(P).then((v) => { if (project === P) { projSuite = v; library.refresh(); } }).catch(() => { projSuite = []; });
+}
+function libraryShow() { if (!library.isOpen()) { library.open(); projRefreshSuite(); } }
+function libraryToggle() { if (library.isOpen()) library.close(); else libraryShow(); }
+if (isDesktop) {
+  const libBtn = document.createElement("button");
+  libBtn.id = "libraryBtn"; libBtn.dataset.desktop = "";
+  libBtn.title = "The Library: your effects planted in your game's folder (Ctrl+L)";
+  setIconLabel(libBtn, "book", "Library");
+  libBtn.addEventListener("click", libraryToggle);
+  document.getElementById("ihBtn").before(libBtn);
+  const msg2 = document.createElement("span");
+  msg2.id = "plantMsg"; msg2.className = "hint plant-msg"; msg2.setAttribute("aria-live", "polite");
+  document.querySelector(".controls-right").appendChild(msg2);
+  document.getElementById("plantSave").addEventListener("click", projSave);
+  document.getElementById("plantName").addEventListener("keydown", (e) => { if (e.key === "Enter") projSave(); });
+  addEventListener("keydown", function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
+    if (e.key === "s" || e.key === "S") { e.preventDefault(); if (project) projSave(); else { libraryShow(); projStatus("Plant CrunchyVFX in a folder first: your game's, or any."); } }
+    else if (e.key === "l" || e.key === "L") { e.preventDefault(); libraryToggle(); }
+  });
+  // the export settings line follows the Export dialog
+  for (const el of [expLayout, expMetaSel, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", projBarSync);
+  for (const k of EXPORT_SCALES) expScaleBoxes[k].addEventListener("change", projBarSync);
+  iconsIn(libDock);
+  projBarSync();
+  // REOPEN THE LAST PLANTED FOLDER, quietly: if it moved, it is simply not open (the Library's recent list says so).
+  const last = projRecent()[0];
+  if (last) projDo(() => projFs.exists(last.dir).then((yes) => { if (yes) return projOpen(last.dir); }).catch(() => {}));
+}
+// The name box follows the effect in the editor: a preset, a link or a planted effect loads → its name.
+// (Called by applyPreset; declared as a function so it can be called before this block runs.)
+function plantNameSync() {
+  projOpened = "";
+  const box = document.getElementById("plantName");
+  if (box) box.value = effectLabel && effectLabel !== "random" && effectLabel !== "effect" ? effectLabel : "";
+}
+
+// ---------- Settings (settings.js, from crunchyCore; §18) ----------
+// PREFERENCES, which follow the person rather than the effect. Each row reads and writes the SAME storage the app
+// always used (crunchyvfx.dock.v1, crunchyvfx.lockpixels.v1) by driving the control that owns it, so the toolbar
+// buttons and this dialog can never disagree.
+const settingsDialog = settingsMount({
+  button: document.getElementById("setBtn"),
+  rows: [
+    { type: "check", id: "setDock", label: "Dock the preview",
+      sub: "Pin a small copy of the effect under the toolbar when you scroll away from the stage (the Dock preview button).",
+      get: () => dockOn, set: (on) => { if (dockOn !== on) document.getElementById("dockToggle").click(); } },
+    { type: "check", id: "setLock", label: "Lock pixels",
+      sub: "Keep the frame size and Crunch settings you chose when you load another effect (the Lock pixels button).",
+      get: () => pixelLock, set: (on) => { if (pixelLock !== on) lockBtn.click(); } },
+    { type: "button", label: "The guided tour", sub: "The 30-second walkthrough from the first visit.", text: "Replay the tour",
+      run: () => { settingsDialog.close(); startTour(); } },
+    { type: "button", label: "Tutorials", sub: "Short walkthroughs of the parts that don't explain themselves.", text: "Open tutorials",
+      run: () => { settingsDialog.close(); document.getElementById("tutBtn").click(); } },
+  ],
+});
+
+// ---------- The desktop gate and the web's one invitation (desktop.js, from crunchyCore; §18) ----------
+// Anything carrying data-desktop simply isn't there on the web, rather than being visible and refusing to work — a
+// dead control you can click is worse than one that doesn't exist. Runs after boot so runtime-built UI (the export
+// dialog) is included. ("＋ New category" is built per-menu at click time, so it's gated where it's created.)
+// The web's "Get the desktop app" button is the core's, and it appears ONLY once suite.js carries CrunchyVFX's store
+// link (one edit in crunchyCore, then a pull): until then nothing is shown. This replaced VFX's own ITCH_LIVE flag and
+// dialog. The list is what the desktop adds, said plainly: workflow, never effects.
+const desktopGate = desktopMount("vfx", {
+  place: document.querySelector(".controls-right"),
+  openUrl: window.__TAURI__ && window.__TAURI__.opener ? (u) => window.__TAURI__.opener.openUrl(u) : null,
+  adds: [
+    ["A Library planted in your game.", "Pick your Godot or Unity project (or any folder) once; every effect you save lands in crunchy/vfx/ inside it as the sprite sheet and SpriteFrames the Export dialog writes, with a small file beside it that reopens the effect exactly."],
+    ["Saves that update in place.", "Save the same effect again and its files are rewritten where they are, so your game picks up the change; a newer version of CrunchyVFX that would draw it differently says so, and re-exports on one click."],
+    ["My Effects and your categories,", "kept with your game instead of in a browser store that clearing site data wipes."],
+    ["Imports and export history.", "The particles you imported and every effect you have exported, ready to load back and change."],
+    ["Batch export and folder pipelines.", "Your whole library as an asset pack, or straight into a folder, with native Save and Open dialogs and drag-out into your engine."],
+  ],
+});
+
 // Open on a RANDOM effect rather than always the first one. With 118 in the library, always
 // landing on Explosion makes the tool look like it does one thing — and the first screen is the
 // only one some visitors ever see. A share link still wins: that person came for a specific

@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 13] = [
+const FRONTEND: [&str; 17] = [
     "index.html",
     "favicon.png",
     "presets.js",
@@ -17,8 +17,13 @@ const FRONTEND: [&str; 13] = [
     "vfx.js",
     "gif.js",
     "apng.js",
-    // The desktop project folder — vendored from CrunchyTile (PROJECTS-HANDOFF.md).
-    "project.js",
+    // The planted Library (VFX-DESIGN §18): VFX's own adapter, then plant.js, library.js, settings.js and
+    // desktop.js — GENERATED from crunchyCore (tools/pull-core.mjs), never edited here.
+    "project-app.js",
+    "plant.js",
+    "library.js",
+    "settings.js",
+    "desktop.js",
     // The "Crunchy suite" dialog and the suite's pixel icons — GENERATED from crunchyCore
     // (tools/pull-core.mjs), never edited here.
     "suite.js",

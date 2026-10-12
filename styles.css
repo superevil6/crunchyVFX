@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 1;
+    --css-build: 2;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -562,18 +562,8 @@
   .fnd-style:hover span { border-color: var(--info); color: var(--ink); }
   .fnd-style input:checked + span { border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .fnd-style input:focus-visible + span { outline: 1px solid var(--accent); outline-offset: 1px; }
-  /* Web-only "Get the Desktop app" modal (premium features, Coming soon) */
   button[disabled] { opacity: 0.55; cursor: default; }
   button[disabled]:hover { background: var(--accent); }
-  .steam-box { width: min(640px, 100%); }
-  .steam-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-    color: var(--on-accent); background: var(--accent); padding: 3px 9px; white-space: nowrap; }
-  .steam-body { padding: 18px; overflow-y: auto; }
-  .steam-feats { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
-  .steam-feats li { font-size: 14px; line-height: 1.45; color: var(--ink); }
-  .steam-feats b { color: var(--info); }
-  .steam-feats code { background: var(--panel2); border: 1px solid var(--line); padding: 1px 5px; font-size: 12px; }
-  .steam-note { margin: 16px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .breed-cell-bar .fnd-keepbtn { padding: 2px 9px; font-size: 12px; }
   .breed-cell-bar .fnd-editbtn { flex: 1; padding: 4px 10px; font-size: 12px; font-weight: 600;
     background: var(--accent); color: var(--on-accent); border-color: transparent; }
@@ -1160,37 +1150,37 @@
 
   /* ---------- Library (desktop) ---------- */
   /* Two shelves in one panel: what you brought in, and what you sent out. */
-  .lib-box { width: min(680px, 96vw); }
-  .lib-body { padding: 14px 18px; max-height: 62vh; overflow-y: auto; }
-  .lib-group { margin-bottom: 18px; }
-  .lib-title {
+  .ih-box { width: min(680px, 96vw); }
+  .ih-body { padding: 14px 18px; max-height: 62vh; overflow-y: auto; }
+  .ih-group { margin-bottom: 18px; }
+  .ih-title {
     font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
     color: var(--info); margin-bottom: 4px;
   }
-  .lib-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
-  .lib-empty { font-size: 12px; color: var(--muted); font-style: italic; }
-  .lib-sprites { display: flex; flex-wrap: wrap; gap: 6px; }
-  .lib-sprite {
+  .ih-note { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+  .ih-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+  .ih-sprites { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ih-sprite {
     width: 52px; height: 52px; padding: 0;
     border: 1px solid var(--line); background-color: #14121a;
     background-size: contain; background-repeat: no-repeat; background-position: center;
     image-rendering: pixelated; cursor: pointer;
   }
-  .lib-sprite:hover { border-color: var(--accent); }
-  .lib-exports { display: flex; flex-direction: column; gap: 4px; }
+  .ih-sprite:hover { border-color: var(--accent); }
+  .ih-exports { display: flex; flex-direction: column; gap: 4px; }
   /* Name, then metadata, then the action — the action stays in one column so a long effect name
      can never push Load off the edge. */
-  .lib-exp {
+  .ih-exp {
     display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center; gap: 10px;
     padding: 7px 10px; border: 1px solid var(--line); background: #14121a;
   }
-  .lib-exp-name { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lib-exp-meta { font: 11px ui-monospace, monospace; color: var(--muted); white-space: nowrap; }
-  .lib-exp-load { font-size: 12px; padding: 3px 10px; }
+  .ih-exp-name { font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ih-exp-meta { font: 11px ui-monospace, monospace; color: var(--muted); white-space: nowrap; }
+  .ih-exp-load { font-size: 12px; padding: 3px 10px; }
   @media (max-width: 600px) {
-    .lib-exp { grid-template-columns: minmax(0, 1fr) auto; }
-    .lib-exp-meta { grid-column: 1 / -1; }
+    .ih-exp { grid-template-columns: minmax(0, 1fr) auto; }
+    .ih-exp-meta { grid-column: 1 / -1; }
   }
 
   /* ---------- Timing ---------- */
@@ -1253,7 +1243,7 @@
 /* Dialogs: the base's frame (2 px border, the hard lift), like the suite dialog beside them. */
 .modal-box { border: 2px solid var(--line2); box-shadow: var(--lift); }
 /* Headings in the base's heading face: section heads, dialog titles, the tour. */
-.modal-head h2, .tour-title, .mp-head > span:first-child, .ref-head > span, .engine-title, .lib-title, .foundry-keep-head > span:first-child {
+.modal-head h2, .tour-title, .mp-head > span:first-child, .ref-head > span, .engine-title, .ih-title, .foundry-keep-head > span:first-child {
   font-family: var(--head);
 }
 .modal-head h2, .tour-title { text-transform: uppercase; letter-spacing: .03em; }
@@ -1265,3 +1255,30 @@
 }
 /* index.html's core-files guard: a stale crunchyCore copy or styles.css says so here (never fatal). */
 #stalecore { padding: 8px 24px; background: var(--panel2); border-bottom: 2px solid var(--bad); color: var(--ink); font-size: 13px; }
+
+/* THE PLANTED LIBRARY (desktop, VFX-DESIGN §18; crunchyCore plant.js + library.js's docked panel): a rail docked on the
+   right, the core's .lib-dock under VFX's name-and-Save bar. The page makes room for it while it is open (the body's
+   right gutter grows to its width, and the floating preview dock steps left of it); under 920px it overlays instead. */
+#libraryBtn { white-space: nowrap; }
+#libDock { position: fixed; top: 0; right: 0; bottom: 0; width: 400px; z-index: 7; display: flex; flex-direction: column;
+  background: var(--panel); border-left: 2px solid var(--line2); }
+#libDock:not(:has(> .lib-dock:not([hidden]))) { display: none; }
+body:has(#libDock > .lib-dock:not([hidden])) { padding-right: 400px; }
+body:has(#libDock > .lib-dock:not([hidden])) .prevdock { right: 418px; }
+#libDock > .lib-dock { flex: 1; min-height: 0; height: auto; border-left: 0; }
+#libDock .lib-panel.lib-docked { overflow: hidden; }
+#libDock .lib-pic { background-color: #1a1722; background-image: linear-gradient(45deg, #24202e 25%, transparent 25%, transparent 75%, #24202e 75%),
+  linear-gradient(45deg, #24202e 25%, transparent 25%, transparent 75%, #24202e 75%); background-size: 12px 12px; background-position: 0 0, 6px 6px; }
+.plant-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 12px 8px; border-bottom: 1px solid var(--line); }
+.plant-bar #plantWhere { flex-basis: 100%; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plant-bar #plantName { flex: 1; min-width: 8em; }
+.plant-bar button { padding: 6px 12px; }
+.plant-bar #plantHow { flex-basis: 100%; font-size: 11px; }
+.plant-bar #plantHow:empty { display: none; }
+.plant-msg { max-width: 46ch; font-size: 12px; }
+.plant-msg:empty { display: none; }
+@media (max-width: 920px) {
+  #libDock { width: min(420px, 100%); z-index: 150; box-shadow: var(--lift, none); }
+  body:has(#libDock > .lib-dock:not([hidden])) { padding-right: 300px; }
+  body:has(#libDock > .lib-dock:not([hidden])) .prevdock { right: 18px; }
+}

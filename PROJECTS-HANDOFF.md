@@ -1,5 +1,12 @@
 # CrunchyVFX: project folders, the Library, and export straight into Godot and Unity
 
+> **SUPERSEDED (2026-10-11) by planting: VFX-DESIGN.md §18** (crunchyCore DESKTOP-ROADMAP.md, AJ's decision: planting
+> REPLACES separate project folders). There is no project folder and no linked game: the Library is planted INSIDE the
+> game (`crunchy/vfx/<slug>/`, Unity `Assets/Crunchy/VFX/`), each effect's export beside a `.crunchy` sidecar. The hand
+> copy of project.js this document proposed was removed (VFX never called it). §2's bugs 1 and 2 were fixed before; bug 3
+> (exports return files) is what planting uses. §5's Library decision became option (b) with a rename: VFX's own dialog
+> is "Imports & history" (`ih-*`). Kept for the history; nothing below is a plan any more.
+
 A handoff from CrunchyTile (2026-10-09). CrunchyTile's desktop tier gained project folders, a visual Library,
 and linked Godot/Unity projects with re-export on save. AJ wants the same here:
 
