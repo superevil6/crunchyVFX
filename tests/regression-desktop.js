@@ -653,7 +653,8 @@
     const changed = Object.keys(was).filter(function (k) { return now[k] !== was[k]; });
     // the two preferences the Settings test toggled and put back, written again by the app in its own shape
     return ok(legacyNow() === atBoot && changed.every(function (k) { return k === "crunchyvfx.lockpixels.v1" || k === "crunchyvfx.dock.v1"; }) &&
-              Object.keys(now).every(function (k) { return k in was || k === PLANT_RECENT_KEY; }), changed.join(",") + " | " + Object.keys(now).join(","));
+              // the export dialog's remembered settings (2026-10-13) are a new key of their own, never a legacy one rewritten
+              Object.keys(now).every(function (k) { return k in was || k === PLANT_RECENT_KEY || k === EXP_PREF; }), changed.join(",") + " | " + Object.keys(now).join(","));
   });
   await t("words/no-pro-premium-or-unlock-in-the-library-or-settings", function () {
     library.open();

@@ -11,8 +11,9 @@
 //   s           the share string (encodePatch: the same ?e= a link carries): reopens the effect exactly
 //   exportName  the name it was FIRST planted under; `base` (its sanitize()d form) names every file and is what the .tres
 //               and the JSON metadata point at, so a rename never moves or rewrites a file
-//   exp         { layout, meta, trim, pot, emissive, sound, scales }: the export settings it was saved with (always a
-//               sprite sheet); Update re-exports with them
+//   exp         { layout, meta, trim, pot, emissive, sound, scales, playback }: the export settings it was saved with
+//               (always a sprite sheet; playback "auto" | "loop" | "once", absent = "auto", VFX-DESIGN §21); Update
+//               re-exports with them
 //   fit         Fit, as it was on (a render setting no share link carries)
 //   sound       (optional) { patch, name }: the synthesised sound written beside it (a CrunchySFX patch, as a diff from
 //               the engine's defaults), so Update can render the same WAV

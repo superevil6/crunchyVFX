@@ -1091,3 +1091,44 @@ now sixteen (fourteen scripts + two stylesheets) in worker.js, DEPLOY.md and .as
 opens it with its mail icon, the Effect line is ticked, the Files line names every stamp, the link is shown but unticked,
 the earlier status line is under Recent, the subject is "[CrunchyVFX] <first line>", Close closes), the desktop suite 55,
 plant 14, worker 38, cargo.
+
+## 21. Loop or one-shot, the export name, and other quick wins (2026-10-13)
+
+**The bug:** every sidecar said `"loop": true` (the Godot SpriteFrames .tres, the generic JSON, the Variations pack's JSON), so
+an explosion replayed forever in Godot, and the planted scene's `finished` signal (§19) could never fire: Godot does not
+emit `animation_finished` for a looping animation.
+
+**The choice:** a **Playback** row in the Export dialog (sheet format): *Auto* (the default), *Loop*, *Play once*. `loopFor`
+resolves it. **Auto loops exactly when the effect's Master "Seamless loop" is above 0.** Every looping preset has it (48:
+Rain, Aura Loop, Torch Flicker, Fire Jet…), so those still export looping. Everything else exports as a one-shot. Some
+continuous-looking presets without Seamless loop (Campfire Smoke, Spore Drift, Galaxy Spin, Poisoned, Magnetized,
+Old Broadcast…) now export as one-shots under Auto. Pick *Loop* for those, or turn on Seamless loop (which also hides
+the seam). `playback` rides in the export settings, so pipelines, the planted sidecar's `exp` and the batch sidecars
+carry it. A sidecar planted before this has no `playback` and reads as Auto, so its next re-export fixes a one-shot's
+.tres. `sidecarFor`'s new `loop` argument defaults to true, which was the old output.
+APNG stays looping forever: it is a viewing format, and a one-shot APNG would freeze on its blank last frame.
+
+**The frame hash moved, intentionally, in sidecar bytes only.** Ten EXPORT/BATCH lines changed: one-shot presets
+exported with Godot or Generic metadata. No FRAME line changed. Proof: with `loopFor` forced to `true`, the run
+matched the old expected file byte for byte. `frame-hash.expected.txt` was regenerated.
+
+**Proved in real Godot** (`tests/godot-check.mjs`, 14 checks): every planted .tres's loop flag is the effect's resolved
+Playback, and the planted combined scene, played in a running Godot (`--fixed-fps 60`, three times its length), emits
+`finished` exactly once and stops on its last frame when it is a one-shot. A looping one keeps playing and never emits it.
+
+**Also:**
+- **The Export name.** A Name field names every file. It defaults to the effect's label; a randomized or unnamed effect
+  gets `<shape>-<seed>` instead of "random". A typed name holds while the effect it was typed for is loaded.
+- **Remembered export settings.** They are kept in `crunchyvfx.export.v1`, a new key; no legacy key was touched.
+- **Randomize keeps Lock pixels and Hold sound**, as applyPreset does.
+- **A/B Swap restores A exactly** (`applyPreset(…, exact)`), and so does batch export when it puts the editor back.
+- **Escape closes the topmost `.modal`** through its own Close button. Every `.modal` has `role="dialog"`,
+  `aria-modal` and its heading as `aria-label`.
+- **Frame stepping:** `,` `.` and Left/Right step one frame and pause. Home/End jump to the first and last frames.
+- **Fit is part of the effect.** `snapshotEffect()` (undo, A/B, My Effects, the project file) carries `fit`. A share
+  string carries `fit: 0` only when Fit is off, so a fit-on string is unchanged. A planted sidecar keeps Fit in its own
+  `fit` field and leaves it out of `s`, so planted `s` strings are unchanged. A patch without `fit` leaves Fit alone,
+  which was the old behaviour.
+- **Copy and markup:** `<!DOCTYPE html>` and `<html lang="en">` (the page was in quirks mode; the layout screenshot is
+  unchanged). The duplicate meta description is removed. The tour opens with the suite's mission line and counts
+  `MACROS.length` sliders. The desktop pitch now says Save never overwrites (plant.js 5).

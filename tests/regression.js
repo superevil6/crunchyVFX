@@ -200,6 +200,104 @@
     ok(state.pixelate === 5, "a hand edit is pinned and survives loading an effect");
     lockedValues = {}; pixelLock = false;
 
+    // ---------------------------------------------------------------- quick wins (2026-10-13)
+    // Randomize carries Lock pixels and Hold sound across a roll, as applyPreset does.
+    pixelLock = true; lockedValues = {};
+    state.pixelate = 5; noteLockEdit("pixelate");
+    randomize();
+    ok(state.pixelate === 5, "Randomize keeps a pinned value (Lock pixels)", "pixelate " + state.pixelate);
+    lockedValues = {}; pixelLock = false; saveLockPref();
+    captureSoundHold({ duration: 1.2, count: 77 }, "held");
+    randomize();
+    ok(state.duration === 1.2 && state.count === 77, "Randomize keeps what a held sound dictates", state.duration + " / " + state.count);
+    clearSoundHold();
+    // …and its export name is "<shape>-<seed>", never "random"
+    ok(exportNameNow() === SHAPES[state.shape] + "-" + state.seed && exportNameNow() !== "random",
+       "a randomized effect exports as <shape>-<seed>", exportNameNow());
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    syncExpName();
+    ok(exportNameNow() === "Explosion", "the export name defaults to the effect's label");
+    expName.value = "My Boom";
+    ok(sanitize(exportNameNow()) === "my-boom", "a typed export name names the files", exportNameNow());
+    applyPreset(PRESETS["Hit Spark"], "Hit Spark");
+    ok(exportNameNow() === "Hit Spark", "…and a different effect gets its own name back", exportNameNow());
+    // A/B: Swap restores A exactly, never through the lock
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    const abCount = state.count, abPix = state.pixelate;
+    abHoldBtn.click();
+    pixelLock = true; lockedValues = { pixelate: 6 };
+    state.count = abCount + 50; rerender();
+    abSwapBtn.click();
+    ok(state.count === abCount && state.pixelate === abPix, "A/B Swap restores A exactly (no lock overlay)", state.count + " " + state.pixelate);
+    lockedValues = {}; pixelLock = false; saveLockPref();
+    // Fit is part of the effect: share string (only when off), undo, A/B; a planted `s` leaves it to its own field
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    if (!fitOn) fitBtn.click();
+    ok(!("fit" in decodePatch(encodePatch("x"))), "Fit on: the share string is what it always was");
+    fitBtn.click();
+    ok(!fitOn && decodePatch(encodePatch("x")).fit === 0, "Fit off rides in the share string");
+    ok(!("fit" in decodePatch(effectFields("x", exportSettingsNow()).s)), "…but not in a planted sidecar's s (Fit is its own field there)");
+    undoEdit();
+    ok(fitOn, "undo brings Fit back");
+    redoEdit();
+    ok(!fitOn, "redo turns it off again");
+    const offPatch = decodePatch(encodePatch("x"));
+    fitBtn.click();
+    applyPreset(offPatch, "x", true);
+    ok(!fitOn, "loading a link made with Fit off turns Fit off");
+    applyPreset(PRESETS["Explosion"], "Explosion");
+    ok(!fitOn, "a preset (no fit key) leaves Fit as it is");
+    fitBtn.click();
+    ok(fitOn, "Fit back on");
+    // Loop or one-shot (VFX-DESIGN §21)
+    ok(loopFor("auto", { loopBlend: 0 }) === false && loopFor("auto", { loopBlend: 0.5 }) === true &&
+       loopFor("loop", { loopBlend: 0 }) === true && loopFor("once", { loopBlend: 0.9 }) === false,
+       "Playback: Auto loops only with Seamless loop; Loop and Once say so");
+    {
+      const lsh = buildSheet({});
+      ok(sidecarFor("godot", lsh, "fx", 24).indexOf('"loop": true') > 0, "a .tres loops by default (the old behaviour)");
+      ok(sidecarFor("godot", lsh, "fx", 24, false).indexOf('"loop": false') > 0, "a one-shot .tres does not loop");
+      ok(JSON.parse(sidecarFor("generic", lsh, "fx", 24, false)).loop === false &&
+         JSON.parse(sidecarFor("generic", lsh, "fx", 24)).loop === true, "the generic JSON carries the same flag");
+    }
+    // the export settings are remembered
+    {
+      const was = expMetaSel.value;
+      expMetaSel.value = "phaser"; expMetaSel.dispatchEvent(new Event("change"));
+      let kept = null;
+      try { kept = JSON.parse(localStorage.getItem(EXP_PREF)); } catch (e) { /* blocked */ }
+      ok(kept && kept.meta === "phaser" && kept.playback === expPlay.value, "export settings are remembered", JSON.stringify(kept));
+      expMetaSel.value = was; expMetaSel.dispatchEvent(new Event("change"));
+    }
+    // Escape closes an open dialog; every dialog is one to assistive tech
+    {
+      const mods = [...document.querySelectorAll(".modal")];
+      ok(mods.length >= 10 && mods.every((m) => m.getAttribute("role") === "dialog" && m.getAttribute("aria-modal") === "true" && m.getAttribute("aria-label")),
+         "every .modal has role=dialog, aria-modal and a label", mods.length + " modals");
+      expModal.hidden = false;
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      ok(expModal.hidden, "Escape closes the open dialog");
+    }
+    // frame stepping
+    {
+      const n = rendered.canvases.length, key = (k) => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+      playing = true; frameIdx = 2;
+      key(".");
+      ok(!playing && frameIdx === 3, ". steps one frame forward and pauses", frameIdx);
+      key(","); key(",");
+      ok(frameIdx === 1, ", steps back", frameIdx);
+      key("End");
+      ok(frameIdx === n - 1, "End jumps to the last frame", frameIdx + "/" + n);
+      key("ArrowRight");
+      ok(frameIdx === 0, "Right steps forward and wraps", frameIdx);
+      key("ArrowLeft");
+      ok(frameIdx === n - 1, "Left steps back and wraps", frameIdx);
+      key("Home");
+      ok(frameIdx === 0, "Home jumps to the first frame", frameIdx);
+    }
+    ok(document.compatMode === "CSS1Compat", "the page renders in standards mode (a doctype)", document.compatMode);
+    ok(/^Crunchy tools make the art and sound for your game/.test(TOUR[0].body), "the tour opens with the suite's mission line");
+
     // ---------------------------------------------------------------- undo
     applyPreset(PRESETS["Explosion"], "Explosion");
     const c0 = state.count;

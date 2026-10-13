@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CrunchyVFX — sprite VFX generator</title>
@@ -25,7 +27,6 @@
 <meta name="twitter:title" content="CrunchyVFX — make &amp; share sprite VFX">
 <meta name="twitter:description" content="Design animated 2D game effects in your browser and export sheets your engine can read. Free, and what you make is yours.">
 <meta name="twitter:image" content="https://crunchyvfx.com/og.png">
-<meta name="description" content="Free, from-scratch 2D sprite-VFX generator in your browser — explosions, hit sparks, magic, smoke, pickups. Make an effect, export a PNG sprite sheet.">
 <!-- The suite's shared look (crunchyCore, VFX-DESIGN §17): GENERATED, never edited here. It loads BEFORE
      styles.css, which keeps only VFX's layout and its violet accent. -->
 <link rel="stylesheet" href="crunchy-base.css">
@@ -38,7 +39,7 @@
 
 <div class="controls">
   <div class="controls-left">
-    <button class="primary" id="playBtn" data-icon="pause">Pause</button>
+    <button class="primary" id="playBtn" data-icon="pause" title="Play / pause (Space). , and . step one frame; Home and End jump to the ends">Pause</button>
     <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
     <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
     <button id="rand" class="accent2" data-icon="dice">Randomize</button>
@@ -76,7 +77,7 @@
   <div class="stage-side">
     <div class="stage-info"><span id="statFrames">—</span></div>
     <label class="stage-ctl">Frame
-      <input type="range" id="scrub" min="0" max="0" step="1" value="0">
+      <input type="range" id="scrub" min="0" max="0" step="1" value="0" aria-label="Frame" title="Frame. , and . (or Left and Right) step one frame; Home and End jump to the first and last">
       <span id="scrubVal" class="hint">0</span>
     </label>
     <div class="stage-ctl">
@@ -2496,14 +2497,24 @@ function snapshotState() {
   for (const k in PATCH_EXTRAS) s[k] = state[k];
   return s;
 }
+// The EFFECT as a person sees it: the params plus Fit, which changes the pixels as much as any slider (it is part of
+// the effect: share links, My Effects, A/B and undo keep it). snapshotState stays params-only for the genome code.
+// `fit` absent (anything saved before) means "leave Fit as it is", the old behaviour.
+function snapshotEffect() { return Object.assign(snapshotState(), { fit: fitOn }); }
+function applyFitOf(obj) {
+  if (!obj || !("fit" in obj)) return;
+  const want = obj.fit !== false && obj.fit !== 0;
+  if (want !== fitOn) { fitOn = want; try { updateFitBtn(); } catch (e) { /* not built yet at boot */ } }
+}
 function sameSnapshot(a, b) {
+  if ((a.fit !== false) !== (b.fit !== false)) return false;
   for (const p of PARAMS) if (a[p[0]] !== b[p[0]]) return false;
   for (const k in PATCH_EXTRAS) if (a[k] !== b[k]) return false;
   return true;
 }
 function commitHistory() {
   if (restoringHistory) return;
-  const snap = snapshotState();
+  const snap = snapshotEffect();
   if (histPos >= 0 && sameSnapshot(editHistory[histPos], snap)) return;
   editHistory = editHistory.slice(0, histPos + 1);
   editHistory.push(snap);
@@ -2515,6 +2526,7 @@ function restoreEdit(snap) {
   restoringHistory = true;
   for (const p of PARAMS) state[p[0]] = snap[p[0]];
   for (const k in PATCH_EXTRAS) state[k] = snap[k];
+  applyFitOf(snap);
   applyImageSprite(state.imageSprite);
   syncUI();
   rerender();
@@ -3180,6 +3192,7 @@ function applyPreset(obj, label, exact) {
   for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];   // or they leak between effects
   for (const k in obj) if (k in state) state[k] = obj[k];
+  applyFitOf(obj);
   applyImageSprite(state.imageSprite);
   for (const k in keep) state[k] = keep[k];
   // …then the matched sound's own properties, last, so a preset changes the LOOK without
@@ -3338,7 +3351,7 @@ function saveCurrentEffect() {
   const base = effectLabel && effectLabel !== "random" ? effectLabel : "My effect";
   let name = base, n = 2;
   while (userEffects.some((x) => x.name === name)) name = base + " " + n++;
-  userEffects.unshift({ id: ++upSeq, name, state: snapshotState() });
+  userEffects.unshift({ id: ++upSeq, name, state: snapshotEffect() });
   saveUserEffects();
   renderMyEffects();
   msg.textContent = 'Saved "' + name + '"';
@@ -3400,6 +3413,10 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
                        76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
                        89, 90, 91, 92, 93, 94, 95, 96];
 function randomize() {
+  // Lock pixels and Hold sound carry across a roll exactly as they carry across a preset (applyPreset): the roll
+  // changes the effect, never the crunch you pinned or what a matched sound dictated.
+  const keep = pixelLock ? Object.assign({}, lockedValues) : {};
+  const held = heldSoundValues();
   for (const p of PARAMS) state[p[0]] = p[5];
   for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
   applyImageSprite("");
@@ -3437,6 +3454,8 @@ function randomize() {
   state.life = 0.2 + Math.random() * 0.8;
   state.size = 4 + Math.random() * 28;
   state.seed = 1 + Math.floor(Math.random() * 9999);
+  for (const k in keep) state[k] = keep[k];
+  for (const k in held) state[k] = held[k];
   effectLabel = "random";
   syncUI();
   frameIdx = 0;
@@ -3467,6 +3486,7 @@ fitBtn.addEventListener("click", () => {
   fitOn = !fitOn;
   updateFitBtn();
   rerender();
+  commitHistory();
 });
 updateFitBtn();   // the button has to show the default state, not just react to clicks
 const lockBtn = document.getElementById("lockBtn");
@@ -3552,15 +3572,15 @@ let abSnap = null;
 const abHoldBtn = document.getElementById("abHold");
 const abSwapBtn = document.getElementById("abSwap");
 abHoldBtn.addEventListener("click", () => {
-  abSnap = snapshotState();
+  abSnap = snapshotEffect();
   abSwapBtn.disabled = false;
   setIconLabel(abHoldBtn, "copy", "Re-hold");
   msg.textContent = "Held as A — tweak, then Swap to compare";
 });
 abSwapBtn.addEventListener("click", () => {
   if (!abSnap) return;
-  const now = snapshotState();
-  applyPreset(abSnap, effectLabel);
+  const now = snapshotEffect();
+  applyPreset(abSnap, effectLabel, true);      // exact: A is restored as held, never through the lock or a hold
   abSnap = now;
   msg.textContent = "Swapped";
 });
@@ -3578,9 +3598,31 @@ addEventListener("keydown", (e) => {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) { e.preventDefault(); redoEdit(); return; }
+  // Escape closes the topmost open dialog, through its own Close button so each dialog's cleanup runs. Before the
+  // input check: Escape in a dialog's text box closes it too. (The core's dialogs handle their own Escape.)
+  if (e.key === "Escape" && !e.defaultPrevented) {
+    const open = [...document.querySelectorAll(".modal")].filter((m) => !m.hidden);
+    const top = open[open.length - 1];
+    if (top) {
+      e.preventDefault();
+      const close = top.querySelector('.modal-head [id$="Close"]');
+      if (close) close.click(); else top.hidden = true;
+      return;
+    }
+  }
   if (e.target.matches("input,select,textarea")) return;
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.code === "Space") { e.preventDefault(); playBtn.click(); }
   if (e.key === "r" || e.key === "R") randomize();
+  // Frame stepping: , . (or Left / Right) step one frame and pause; Home / End jump to the first / last frame.
+  const step = e.key === "," || e.key === "ArrowLeft" ? -1 : e.key === "." || e.key === "ArrowRight" ? 1 : 0;
+  if ((step || e.key === "Home" || e.key === "End") && rendered && rendered.canvases.length) {
+    e.preventDefault();
+    const n = rendered.canvases.length;
+    playing = false; setIconLabel(playBtn, "play", "Play"); stopSound();
+    frameIdx = step ? (frameIdx + step + n) % n : e.key === "Home" ? 0 : n - 1;
+    drawStage();
+  }
 });
 
 // ---------- Reference controls ----------
@@ -3709,7 +3751,7 @@ function buildProject() {
     version: VFXFILE_VERSION,
     saved: new Date().toISOString(),
     label: effectLabel,
-    editor: snapshotState(),
+    editor: snapshotEffect(),
     userEffects: userEffects,
     userCats: userCats,
     userSprites: userSprites,
@@ -3828,7 +3870,7 @@ async function dragOutSheet() {
   if (!(T && T.core && T.fs && T.path)) { console.warn("crunchyvfx: drag-out is desktop-only"); return; }
   if (!rendered) return;
   try {
-    const base = sanitize(effectLabel);
+    const base = sanitize(exportNameNow());
     const sh = buildSheet({ trim: expTrim.checked, layout: expLayout.value, pot: expPot.checked });
     const blob = await canvasBlob(sh.cv);
     // Guard against handing over a blank sheet: if the preview canvases were ever released out
@@ -3847,7 +3889,7 @@ async function dragOutSheet() {
     if (expMetaSel.value !== "none") {
       const metaPath = await tempFilePath(base + sidecarExt());
       await T.fs.writeFile(metaPath, new TextEncoder().encode(
-        sidecarFor(expMetaSel.value, sh, base, rendered.fps)));
+        sidecarFor(expMetaSel.value, sh, base, rendered.fps, loopFor(expPlay.value))));
       items.push(metaPath);
     }
     releaseCanvas(sh.cv);
@@ -4138,7 +4180,11 @@ function emissiveFrames(frames, st) {
 // SpriteFrames text into a file Godot will not load. One place to be right is one place to fix.
 function sidecarExt(meta) { return (meta || expMetaSel.value) === "godot" ? ".tres" : ".json"; }
 
-function sidecarFor(kind, sh, name, fps) {
+// LOOP OR ONE-SHOT (VFX-DESIGN §21). `loop` is what the engine is told: a SpriteFrames animation that loops never
+// emits animation_finished, so a one-shot (an explosion) marked looping replays forever and the planted scene's
+// `finished` signal can never fire. Undefined means looping, the only thing this wrote before the choice existed.
+function sidecarFor(kind, sh, name, fps, loop) {
+  loop = loop !== false;
   const durMs = Math.round(1000 / fps);
   const cell = (i) => ({ x: (i % sh.cols) * sh.w, y: Math.floor(i / sh.cols) * sh.h, w: sh.w, h: sh.h });
   const sss = () => sh.trim
@@ -4204,7 +4250,7 @@ function sidecarFor(kind, sh, name, fps) {
       '[ext_resource type="Texture2D" path="' + name + '.png" id="1_tex"]\n\n' +
       subs.join("\n") + "\n[resource]\nanimations = [{\n" +
       '"frames": [' + refs.join(", ") + "],\n" +
-      '"loop": true,\n"name": &"default",\n"speed": ' + fps.toFixed(1) + "\n}]\n";
+      '"loop": ' + loop + ',\n"name": &"default",\n"speed": ' + fps.toFixed(1) + "\n}]\n";
   }
   // generic — everything an engine could want, in the plainest possible shape
   return JSON.stringify({
@@ -4213,7 +4259,7 @@ function sidecarFor(kind, sh, name, fps) {
     trimmed: !!sh.trim, sourceSize: { w: sh.srcW, h: sh.srcH },
     trimOffset: sh.trim ? { x: sh.trim.x, y: sh.trim.y } : { x: 0, y: 0 },
     pivot: { x: +sh.pivot.x.toFixed(4), y: +sh.pivot.y.toFixed(4) },
-    loop: true,
+    loop: loop,
   }, null, 2);
 }
 
@@ -4226,6 +4272,8 @@ expModal.innerHTML =
     '<div class="modal-head"><h2 data-icon="download">Export</h2><span class="hint" id="expStat"></span>' +
       '<button id="expClose" data-icon="close">Close</button></div>' +
     '<div class="exp-body">' +
+      '<div class="exp-row"><span>Name</span><input type="text" id="expName" maxlength="60" spellcheck="false" ' +
+        'aria-label="Export name" title="Names every file this export writes (letters, digits, dashes)"></div>' +
       '<div class="exp-row"><span>Format</span><select id="expFormat">' +
         '<option value="sheet">Sprite sheet (PNG)</option>' +
         '<option value="frames">PNG frames (.zip)</option>' +
@@ -4239,6 +4287,11 @@ expModal.innerHTML =
         '<option value="phaser">Phaser 3 atlas</option>' +
         '<option value="godot">Godot 4 SpriteFrames (.tres)</option>' +
         '<option value="none">None</option>' +
+      '</select></div>' +
+      '<div class="exp-row" data-only="sheet"><span>Playback</span><select id="expPlay" ' +
+        'title="What the metadata tells the engine: replay forever, or play once and stop (Godot then emits animation_finished)">' +
+        '<option value="auto">Auto: loop if Seamless loop is on</option>' +
+        '<option value="loop">Loop</option><option value="once">Play once</option>' +
       '</select></div>' +
       // A Unity user scanning this list needs to know the omission is a decision, not an
       // oversight — otherwise they go looking for the option that isn't there.
@@ -4274,6 +4327,8 @@ document.body.appendChild(expModal);
 const expFormat = expModal.querySelector("#expFormat");
 const expLayout = expModal.querySelector("#expLayout");
 const expMetaSel = expModal.querySelector("#expMeta");
+const expPlay = expModal.querySelector("#expPlay");
+const expName = expModal.querySelector("#expName");
 const expTrim = expModal.querySelector("#expTrim");
 const expEmis = expModal.querySelector("#expEmis");
 const expSound = expModal.querySelector("#expSound");
@@ -4294,6 +4349,28 @@ for (const s of EXPORT_SCALES) {
   expScaleBoxes[s].addEventListener("change", refreshExpInfo);
 }
 const chosenScales = () => EXPORT_SCALES.filter((s) => expScaleBoxes[s].checked);
+// Playback → the loop flag (VFX-DESIGN §21). AUTO follows the effect: Seamless loop on means it was made to repeat
+// (every looping preset has it: Rain, Aura Loop, Torch Flicker…), off means a one-shot (Explosion, Hit Spark).
+function loopFor(playback, st) {
+  if (playback === "loop") return true;
+  if (playback === "once") return false;
+  return (st || state).loopBlend > 0;
+}
+// The export's NAME (its file stem). Defaults to the effect's label; an unnamed or randomized effect gets
+// "<shape>-<seed>" rather than "random". A name typed in the dialog holds while the effect it was typed for is loaded.
+let expNameFor = null;
+function exportDefaultName() {
+  if (effectLabel && effectLabel !== "random" && effectLabel !== "effect") return effectLabel;
+  return (SHAPES[state.shape] || "effect") + "-" + state.seed;
+}
+function exportNameNow() {
+  const def = exportDefaultName();
+  return expNameFor === def && expName.value.trim() ? expName.value.trim() : def;
+}
+function syncExpName() {
+  const def = exportDefaultName();
+  if (expNameFor !== def || !expName.value.trim()) { expName.value = def; expNameFor = def; }
+}
 
 function refreshExpInfo() {
   if (!rendered) return;
@@ -4360,6 +4437,11 @@ function refreshExpInfo() {
     bits.push("One PNG per frame, zipped — full alpha, the friendliest thing to hand Aseprite.");
   }
   if (scales.length > 1) bits.push("Exporting " + scales.length + " sizes (" + scales.join("×, ") + "×) as one .zip.");
+  if (fmt === "sheet" && expMetaSel.value !== "none" && expMetaSel.value !== "aseprite" && expMetaSel.value !== "phaser") {
+    const lp = loopFor(expPlay.value);
+    bits.push(lp ? "Plays as a <b>loop</b>." : "Plays <b>once</b> and stops" +
+      (expMetaSel.value === "godot" ? ": Godot emits <b>animation_finished</b> at the end." : "."));
+  }
   if (expMetaSel.value === "godot") {
     bits.push("Drops straight into Godot 4 as a <b>SpriteFrames</b> — set it on an AnimatedSprite2D. " +
               (expTrim.checked
@@ -4373,10 +4455,32 @@ function refreshExpInfo() {
   }
   expNote.innerHTML = bits.map((b) => "<p>" + b + "</p>").join("");
 }
-for (const el of [expFormat, expLayout, expMetaSel, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", refreshExpInfo);
+for (const el of [expFormat, expLayout, expMetaSel, expPlay, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", refreshExpInfo);
+// The dialog's settings are REMEMBERED across sessions (this browser only; a new key, nothing else reads it). Saved on
+// every change a person makes, read once at boot. The name is per effect, so it is not kept.
+const EXP_PREF = "crunchyvfx.export.v1";
+function saveExpPref() {
+  try { localStorage.setItem(EXP_PREF, JSON.stringify(currentPipelineSettings())); } catch (e) { /* best-effort */ }
+}
+for (const el of [expFormat, expLayout, expMetaSel, expPlay, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", saveExpPref);
+for (const s of EXPORT_SCALES) expScaleBoxes[s].addEventListener("change", saveExpPref);
+try {
+  const d = JSON.parse(localStorage.getItem(EXP_PREF) || "null");
+  if (d && typeof d === "object" && !Array.isArray(d)) {
+    const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+    const cur = currentPipelineSettings();
+    if (!has(expFormat, d.format)) d.format = cur.format;
+    if (!has(expLayout, d.layout)) d.layout = cur.layout;
+    if (!has(expMetaSel, d.meta)) d.meta = cur.meta;
+    const sc = Array.isArray(d.scales) ? d.scales.filter((k) => EXPORT_SCALES.indexOf(k) >= 0) : [];
+    d.scales = sc.length ? sc : cur.scales;
+    applyPipelineSettings(Object.assign(cur, d));
+  }
+} catch (e) { /* private mode / corrupt: the defaults stand */ }
 document.getElementById("expOpen").addEventListener("click", () => {
   if (!rendered) return;
   expMsg.textContent = "";
+  syncExpName();
   refreshExpInfo();
   expModal.hidden = false;
 });
@@ -4398,12 +4502,14 @@ expModal.addEventListener("click", (e) => { if (e.target === expModal) expModal.
 // planted Library passes its saved settings and a context; the Export button passes nothing and reads the dialog.
 function exportSettingsNow() {
   return { format: expFormat.value, layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked,
-           pot: expPot.checked, emissive: expEmis.checked, sound: expSound.checked, scales: chosenScales() };
+           pot: expPot.checked, emissive: expEmis.checked, sound: expSound.checked, scales: chosenScales(),
+           playback: expPlay.value };
 }
 async function buildExportFiles(onProgress, o) {
   o = Object.assign(exportSettingsNow(), o || {});
   const C = o.ctx || liveExportCtx();
-  const fmt = o.format, base = o.base || sanitize(effectLabel), scales = o.scales;
+  const fmt = o.format, base = o.base || sanitize(exportNameNow()), scales = o.scales;
+  const loop = loopFor(o.playback, C.st);
   if (!scales.length) throw new Error("Pick at least one size");
   const files = [];
   for (const mult of scales) {
@@ -4421,7 +4527,7 @@ async function buildExportFiles(onProgress, o) {
       files.push({ name: base + suffix + ".png", data: new Uint8Array(await blob.arrayBuffer()) });
       if (o.meta !== "none") {
         files.push({ name: base + suffix + sidecarExt(o.meta),
-          data: new TextEncoder().encode(sidecarFor(o.meta, sh, base + suffix, C.r.fps)) });
+          data: new TextEncoder().encode(sidecarFor(o.meta, sh, base + suffix, C.r.fps, loop)) });
       }
       if (o.emissive) {
         // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
@@ -4476,7 +4582,7 @@ function synthDiff(full) {
 }
 function effectFields(name, exp, C) {
   C = C || liveExportCtx();
-  const f = { s: C.st === state ? encodePatch(name) : withState(C.st, () => encodePatch(name)),
+  const f = { s: C.st === state ? encodePatch(name, true) : withState(C.st, () => encodePatch(name, true)),
               exportName: String(name), base: sanitize(name), exp: exp, fit: !!C.fit };
   if (C.synth && exp.sound) f.sound = { patch: synthDiff(C.synth.patch), name: C.synth.name || "Sound" };
   if (C.ref.img && C.ref.combine) f.ref = C.ref.name || "a reference image";
@@ -4503,7 +4609,7 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
       download(new Blob([files[0].data], { type: "image/png" }), files[0].name);
     } else {
       // The zip's files sit at its root, so its sidecar does too, named for the zip (§18).
-      const label = effectLabel && effectLabel !== "random" ? effectLabel : base;
+      const label = exportNameNow();
       const side = effectSidecarFile(base, label, effectFields(label, exportSettingsNow()), files);
       download(new Blob([makeZip(files.concat([side]))], { type: "application/zip" }), base + ".zip");
     }
@@ -4554,6 +4660,7 @@ function currentPipelineSettings() {
     emissive: expEmis.checked,
     sound: expSound.checked,
     scales: chosenScales(),
+    playback: expPlay.value,
   };
 }
 function applyPipelineSettings(s) {
@@ -4561,6 +4668,7 @@ function applyPipelineSettings(s) {
   expFormat.value = s.format; expLayout.value = s.layout; expMetaSel.value = s.meta;
   expTrim.checked = !!s.trim; expPot.checked = !!s.pot;
   expEmis.checked = !!s.emissive; expSound.checked = s.sound !== false;
+  expPlay.value = s.playback === "loop" || s.playback === "once" ? s.playback : "auto";
   for (const k of EXPORT_SCALES) expScaleBoxes[k].checked = (s.scales || [1]).indexOf(k) >= 0;
   refreshExpInfo();
 }
@@ -4604,7 +4712,7 @@ async function batchExport(which, opts) {
   if (which !== "builtin") for (const e of userEffects) sets.push({ name: e.name, patch: e.state });
   if (!sets.length) { expMsg.textContent = "Nothing to export"; return; }
 
-  const before = snapshotState(), beforeLabel = effectLabel;
+  const before = snapshotEffect(), beforeLabel = effectLabel;
   const files = [];
   const used = new Set();
   try {
@@ -4623,11 +4731,11 @@ async function batchExport(which, opts) {
       const mine = [{ name: base + ".png", data: new Uint8Array(await blob.arrayBuffer()) }];
       if (expMetaSel.value !== "none") {
         mine.push({ name: base + sidecarExt(),
-          data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base, rendered.fps)) });
+          data: new TextEncoder().encode(sidecarFor(expMetaSel.value, sh, base, rendered.fps, loopFor(expPlay.value))) });
       }
       // each effect's folder carries its sidecar (§18): what the pack made, and how to reopen it
       const exp = { layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked, pot: expPot.checked,
-                    emissive: false, sound: false, scales: [1] };
+                    emissive: false, sound: false, scales: [1], playback: expPlay.value };
       mine.push(effectSidecarFile(base, name, Object.assign(effectFields(name, exp), { base: base }), mine));
       for (const f of mine) files.push({ name: base + "/" + f.name, data: f.data });
       expMsg.textContent = "Rendering " + (i + 1) + "/" + sets.length + " — " + name;
@@ -4650,7 +4758,7 @@ async function batchExport(which, opts) {
   } catch (e) {
     expMsg.textContent = "Batch failed: " + e.message;
   } finally {
-    applyPreset(before, beforeLabel);   // always put the editor back where it was
+    applyPreset(before, beforeLabel, true);   // always put the editor back where it was (exact: no lock/hold overlay)
   }
 }
 // ---------- Pipeline + re-export UI ----------
@@ -4922,10 +5030,13 @@ const b64decode = (b64) => {
   return new TextDecoder().decode(arr);   // TextDecoder, not escape/unescape — the glyph is emoji
 };
 
-function encodePatch(nameOverride) {
+// `fit` (default: the editor's Fit) rides along as `fit: 0` only when it is OFF, so a fit-on patch is the same string
+// it always was. A planted sidecar keeps Fit in its own field and passes `true` to leave it out of `s`.
+function encodePatch(nameOverride, fit) {
   const diff = {};
   for (const p of PARAMS) if (state[p[0]] !== p[5]) diff[p[0]] = state[p[0]];
   for (const k in PATCH_EXTRAS) if (state[k] !== PATCH_EXTRAS[k]) diff[k] = state[k];
+  if ((fit === undefined ? fitOn : fit) === false) diff.fit = 0;
   const name = (nameOverride || "").trim();
   if (name) diff.n = name.slice(0, 60);
   return b64encode(JSON.stringify(diff))
@@ -5667,13 +5778,13 @@ varModal.querySelector("#varExport").addEventListener("click", async () => {
       withState(varGenomes[i], () => {
         rendered = renderFrames(state, { fit: fitOn });
         const sh = buildSheet();
-        const s = encodePatch(base + "_" + nn), fit = fitOn;   // inside withState: this variation's
+        const s = encodePatch(base + "_" + nn, true), fit = fitOn;   // inside withState: this variation's
         sh.cv.toBlob(async (blob) => {
           const mine = [{ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) }, {
             name: base + "_" + nn + ".json",
             data: new TextEncoder().encode(JSON.stringify({
               name: base + "_" + nn, frames: sh.n, fps: rendered.fps,
-              frameW: sh.w, frameH: sh.h, cols: sh.cols, rows: sh.rows, loop: true,
+              frameW: sh.w, frameH: sh.h, cols: sh.cols, rows: sh.rows, loop: loopFor(expPlay.value),
             }, null, 2)),
           }];
           // each variation's sidecar beside its two files, at the zip's root (§18)
@@ -6346,7 +6457,10 @@ makeCollapsible(document.getElementById("styleSection"),
 const TOUR_KEY = "crunchyvfx.tourseen.v1";
 const TOUR = [
   { target: null, title: "Welcome to CrunchyVFX",
-    body: "Make sprite VFX for your game — explosions, magic, weather, impacts — and export them as sheets your engine can read. Here's the 30-second version." },
+    // the suite's mission line (~/.claude/crunchy-suite.md §1), then what this app does
+    body: "Crunchy tools make the art and sound for your game, so you can spend your time on the game. " +
+          "CrunchyVFX makes sprite VFX (explosions, magic, weather, impacts) and exports them as sheets your engine can read. " +
+          "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. Here's the 30-second version." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
   { target: ".ws-browser", title: "1 · Start from an effect",
@@ -6360,7 +6474,7 @@ const TOUR = [
 
   // Then the refining tools, coarse to fine.
   { target: "#macros", title: "4 · Shape it in plain language",
-    body: "Seven sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
+    body: MACROS.length + " sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
   { target: "#shapeSection", title: "5 · Pick a particle",
     body: SHAPES.length + " shapes, from soft glows to flames, gears and skulls. Click as many as you like — a mixed selection gives each particle its own shape. Filter by name, draw your own, or import a PNG." },
   { target: "#timeBtn", title: "6 · Stage it in time",
@@ -6770,7 +6884,9 @@ function plantExpNow() {
   e.meta = plantMetaFor(e.meta);
   return e;
 }
-const EXP_DEFAULT = { layout: "grid", meta: "godot", trim: true, pot: false, emissive: false, sound: true, scales: [1] };
+// `playback` absent (every sidecar planted before §21) reads as "auto": a one-shot's .tres stops looping on its next
+// re-export, which is the fix, and an effect with Seamless loop on still loops.
+const EXP_DEFAULT = { layout: "grid", meta: "godot", trim: true, pot: false, emissive: false, sound: true, scales: [1], playback: "auto" };
 function expOf(f) {
   const e = Object.assign({}, EXP_DEFAULT, f.exp || {});
   e.scales = Array.isArray(e.scales) && e.scales.length ? e.scales.filter((k) => EXPORT_SCALES.indexOf(k) >= 0) : [1];
@@ -6780,7 +6896,8 @@ function expOf(f) {
 function expSummary(e) {
   const names = { godot: "Godot SpriteFrames", generic: "Generic JSON", aseprite: "Aseprite JSON", phaser: "Phaser atlas", none: "no metadata" };
   return ["sheet", names[e.meta] || e.meta, e.trim ? "trimmed" : null, e.layout === "row" ? "strip" : e.layout === "col" ? "column" : null,
-          e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.scales.join("×, ") + "×"].filter(Boolean).join(" · ");
+          e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.playback === "loop" ? "loops" : e.playback === "once" ? "plays once" : null,
+          e.scales.join("×, ") + "×"].filter(Boolean).join(" · ");
 }
 // The full state a share string reopens (applyPreset's reset-then-overlay, without touching the editor).
 function stateOfShare(s) {
@@ -7023,7 +7140,8 @@ function projFromBrowser() {
 // the editor has it (My Effects never kept Fit: loading one keeps the editor's), and its categories' names.
 function savedFields(p, cats) {
   const st = Object.assign({}, p.state);
-  const f = { s: withState(st, () => encodePatch(String(p.name || "My effect"))), exp: plantExpNow(), fit: fitOn };
+  const f = { s: withState(st, () => encodePatch(String(p.name || "My effect"), true)), exp: plantExpNow(),
+              fit: typeof st.fit === "boolean" ? st.fit : fitOn };
   const names = (cats || []).filter((c) => c && Array.isArray(c.items) && c.items.some((i) => i && i.t === "u" && i.id === p.id)).map((c) => String(c.name || "Category"));
   if (names.length) f.categories = names;
   return f;
@@ -7402,6 +7520,15 @@ const settingsDialog = settingsMount({
   ],
 });
 
+// Every dialog says it is one to assistive tech, named by its heading. Run after boot so every runtime-built .modal is
+// here; Escape closes them (the editor's keydown handler).
+for (const m of document.querySelectorAll(".modal")) {
+  m.setAttribute("role", "dialog");
+  m.setAttribute("aria-modal", "true");
+  const h = m.querySelector(".modal-head h2");
+  if (h && !m.hasAttribute("aria-label")) m.setAttribute("aria-label", h.textContent.trim());
+}
+
 // ---------- The desktop gate and the web's one invitation (desktop.js, from crunchyCore; §18) ----------
 // Anything carrying data-desktop simply isn't there on the web, rather than being visible and refusing to work — a
 // dead control you can click is worse than one that doesn't exist. Runs after boot so runtime-built UI (the export
@@ -7414,7 +7541,7 @@ const desktopGate = desktopMount("vfx", {
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (u) => window.__TAURI__.opener.openUrl(u) : null,
   adds: [
     ["A Library planted in your game.", "Pick your Godot or Unity project (or any folder) once; every effect you save lands in crunchy/vfx/ inside it as the sprite sheet and SpriteFrames the Export dialog writes, with a small file beside it that reopens the effect exactly."],
-    ["Saves that update in place.", "Save the same effect again and its files are rewritten where they are, so your game picks up the change; a newer version of CrunchyVFX that would draw it differently says so, and re-exports on one click."],
+    ["Updates in place, never by accident.", "Save always plants a new effect and never overwrites one; Replace on an effect's card rewrites its files where they are, so your game picks up the change, and a newer version of CrunchyVFX that would draw it differently says so and re-exports on one click."],
     ["My Effects and your categories,", "kept with your game instead of in a browser store that clearing site data wipes."],
     ["Imports and export history.", "The particles you imported and every effect you have exported, ready to load back and change."],
     ["Batch export and folder pipelines.", "Your whole library as an asset pack, or straight into a folder, with native Save and Open dialogs and drag-out into your engine."],
