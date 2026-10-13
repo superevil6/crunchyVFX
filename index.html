@@ -32,54 +32,95 @@
 <link rel="stylesheet" href="crunchy-base.css">
 <link rel="stylesheet" href="styles.css">
 
+<!-- THE LAYOUT (VFX-DESIGN §22, 2026-10-13, the suite's shape from CrunchyTile §90 and CrunchyUI's kit strip): one header row
+     of GLOBALS only, the generators' row, the effects as a paged PICTURE STRIP, then two columns: the editor on the left
+     and the stage on the right (the preview, its view controls, and every way out: Export, GIF, Share link, the desktop's
+     project buttons), as in CrunchyTile and CrunchyUI (§22.1). The stage column sticks while the editor scrolls. -->
 <header>
   <h1>crunchy<b>VFX</b></h1>
   <span class="tag">a from-scratch sprite VFX generator</span>
+  <span class="spacer"></span>
+  <div class="hdr-globals" id="hdrGlobals">
+    <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
+    <button id="setBtn" title="Settings: your preferences (the preview dock, Lock pixels, the tour, tutorials)" data-icon="cog">Settings</button>
+    <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
+    <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen" data-icon="book">Tutorials</button>
+    <button id="feedbackBtn" data-icon="mail" title="Tell the person who makes CrunchyVFX what happened, or an idea: from your own mail app, and you see everything it includes">Feedback</button>
+  </div>
 </header>
 
-<div class="controls">
-  <div class="controls-left">
-    <button class="primary" id="playBtn" data-icon="pause" title="Play / pause (Space). , and . step one frame; Home and End jump to the ends">Pause</button>
-    <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
-    <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
-    <button id="rand" class="accent2" data-icon="dice">Randomize</button>
+<!-- THE GENERATORS, their own full-width row under the header (§22.1, AJ: for consistency with CrunchyUI's toolbar
+     row): what MAKES an effect, then what holds it (undo, Fit, the pixel lock, the sound hold, Timing). -->
+<div class="genbar" id="genbar">
+  <div class="genrow" role="toolbar" aria-label="Make an effect">
+    <button id="rand" class="accent2" data-icon="dice" title="A whole new effect from scratch: systems, shapes and colours">Randomize</button>
     <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again" data-icon="breed">Breed</button>
     <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack" data-icon="package">Variations</button>
     <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style" data-icon="hammer">Foundry</button>
     <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect" data-icon="speaker">Match a sound</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement" data-icon="refresh">Reroll seed</button>
+  </div>
+  <div class="genrow genrow-keep" role="toolbar" aria-label="Edit and keep">
+    <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
+    <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
+    <span class="gensep" aria-hidden="true"></span>
     <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog). It centres on the effect's bounding box, so Origin X/Y are ignored while this is on." data-icon="expand">Fit</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size" data-icon="lock">Lock pixels</button>
     <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you" data-icon="speaker">Hold sound</button>
-  </div>
-  <div class="controls-right">
-    <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution" data-icon="download">Export…</button>
-    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha" data-icon="download">GIF</button>
-    <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke">Timing</button>
-    <button id="share" title="Copy a link that recreates this exact effect" data-icon="link">Share link</button>
-    <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder" data-icon="download">Drag out</button>
-    <button id="ihBtn" data-desktop title="Imports &amp; history: imported particles and everything you have exported — load one back to change it" data-icon="grid">Imports &amp; history</button>
-    <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">Save project</button>
-    <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace" data-icon="folder">Open project</button>
-    <button id="tutBtn" title="Short guided walkthroughs of the features that are not on the first screen" data-icon="book">Tutorials</button>
-    <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
-    <button id="setBtn" title="Settings: your preferences (the preview dock, Lock pixels, the tour)" data-icon="cog">Settings</button>
-    <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
-    <button id="feedbackBtn" data-icon="mail" title="Tell the person who makes CrunchyVFX what happened, or an idea: from your own mail app, and you see everything it includes">Feedback</button>
-    <span id="msg" class="hint"></span>
+    <span class="gensep" aria-hidden="true"></span>
+    <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke" data-icon="clock">Timing</button>
   </div>
 </div>
+<!-- THE EFFECT STRIP (§22): every preset as a picture, PAGED by arrows (never a sideways scrollbar), the page counted.
+     Search matches a name or a category; the chips narrow to one category. Pictures paint from an idle queue, so the
+     first screen is not held up by 189 renders; hovering a picture plays it. -->
+<nav id="presetbar" aria-label="Effects">
+  <div class="pbar-top">
+    <span class="pbar-title" id="presetsHead">Effects</span>
+    <input type="search" id="presetSearch" class="pickfilter" placeholder="Search effects…" autocomplete="off" spellcheck="false" title="Find an effect by its name or its category (explosion, magic, weather…)">
+    <div class="pbar-chipwrap">
+      <button type="button" class="pgbtn chippg" id="chipPrev" title="Earlier categories" aria-label="Earlier categories" hidden>‹</button>
+      <div class="pbar-chips" id="presetChips" role="toolbar" aria-label="Effect categories"></div>
+      <button type="button" class="pgbtn chippg" id="chipNext" title="Later categories" aria-label="Later categories" hidden>›</button>
+    </div>
+    <span id="presetCount" class="hint"></span>
+  </div>
+  <div class="pbar-row" id="presetsRow">
+    <button type="button" class="pgbtn" id="presetPrev" title="Earlier effects" aria-label="Earlier effects">‹</button>
+    <div class="pstrip" id="presets"></div>
+    <button type="button" class="pgbtn" id="presetNext" title="Later effects" aria-label="Later effects">›</button>
+    <span class="tbarpage" id="presetPage"></span>
+  </div>
+</nav>
 
-<div class="stagerow">
+<div class="workspace">
+<section class="ws-stage" id="stageCol">
   <div class="stage-box">
     <div class="stage-wrap" id="stageWrap"><canvas id="stage"></canvas></div>
   </div>
-  <div class="stage-side">
-    <div class="stage-info"><span id="statFrames">—</span></div>
-    <label class="stage-ctl">Frame
+  <div class="stage-transport">
+    <button class="primary" id="playBtn" data-icon="pause" title="Play / pause (Space). , and . step one frame; Home and End jump to the ends">Pause</button>
+    <label class="stage-scrub">
       <input type="range" id="scrub" min="0" max="0" step="1" value="0" aria-label="Frame" title="Frame. , and . (or Left and Right) step one frame; Home and End jump to the first and last">
       <span id="scrubVal" class="hint">0</span>
     </label>
+  </div>
+  <div class="stage-info"><span id="statFrames">—</span></div>
+  <!-- EVERY WAY OUT, right under the preview (Tile's shape), so it is on the first screen: the export buttons, the
+       desktop's project ones, then the status line. The view controls come after. -->
+  <div class="stage-out" id="stageOut">
+    <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution" data-icon="download">Export…</button>
+    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha" data-icon="download">GIF</button>
+    <button id="share" title="Copy a link that recreates this exact effect" data-icon="link">Share link</button>
+    <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder" data-icon="download">Drag out</button>
+  </div>
+  <div class="stage-out stage-proj" id="stageProj" data-desktop>
+    <button id="ihBtn" data-desktop title="Imports &amp; history: imported particles and everything you have exported — load one back to change it" data-icon="grid">Imports &amp; history</button>
+    <button id="projSave" data-desktop title="Save your whole workspace — the current effect, your library and your categories — as one .crunchyvfx file">Save project</button>
+    <button id="projOpen" data-desktop title="Open a .crunchyvfx workspace" data-icon="folder">Open project</button>
+  </div>
+  <div class="stage-status" id="stageStatus" aria-live="polite"><span id="msg" class="hint"></span></div>
+  <div class="stage-side">
     <div class="stage-ctl">
       <span class="stage-lbl">Size</span>
       <span class="zoomgroup frame-wh">
@@ -91,108 +132,99 @@
       </span>
     </div>
     <div class="stage-ctl stage-param" id="stageFps"></div>
-    <div class="stage-ctl">
-      <span class="stage-lbl">Zoom</span>
-      <span class="zoomgroup" id="zoomGroup">
-        <button data-z="auto" class="active">Auto</button><button data-z="1">1×</button><button data-z="2">2×</button><button data-z="4">4×</button><button data-z="8">8×</button>
+    <div class="stage-segs">
+      <span class="stage-seg"><span class="stage-lbl">Zoom</span>
+        <span class="zoomgroup" id="zoomGroup">
+          <button data-z="auto" class="active">Auto</button><button data-z="1">1×</button><button data-z="2">2×</button><button data-z="4">4×</button><button data-z="8">8×</button>
+        </span>
       </span>
-    </div>
-    <div class="stage-ctl">
-      <span class="stage-lbl">Dock</span>
-      <span class="zoomgroup" id="dockGroup">
-        <button id="dockToggle" title="Keep a small preview pinned under the toolbar when you scroll away from the stage" data-icon="pin">Dock preview</button>
+      <span class="stage-seg"><span class="stage-lbl">Backdrop</span>
+        <span class="zoomgroup" id="bgGroup" title="The backdrop is preview-only: exports are transparent unless you combine a reference">
+          <button data-bg="checker" class="active">Checker</button><button data-bg="dark">Dark</button><button data-bg="light">Light</button>
+        </span>
       </span>
-    </div>
-    <div class="stage-ctl">
-      <span class="stage-lbl">Backdrop</span>
-      <span class="zoomgroup" id="bgGroup">
-        <button data-bg="checker" class="active">Checker</button><button data-bg="dark">Dark</button><button data-bg="light">Light</button>
+      <span class="stage-seg"><span class="stage-lbl">Guides</span>
+        <span class="zoomgroup" id="guideGroup">
+          <button data-guide="grid" title="Pixel grid at the current Pixelate block size" data-icon="grid">Grid</button>
+          <button data-guide="safe" title="Safe frame — keep the effect inside this and it won't clip when scaled">Safe</button>
+          <button data-guide="onion" title="Ghost the previous and next frames" data-icon="layers">Onion</button>
+        </span>
       </span>
-    </div>
-    <div class="stage-ctl">
-      <span class="stage-lbl">Guides</span>
-      <span class="zoomgroup" id="guideGroup">
-        <button data-guide="grid" title="Pixel grid at the current Pixelate block size" data-icon="grid">Grid</button>
-        <button data-guide="safe" title="Safe frame — keep the effect inside this and it won't clip when scaled">Safe</button>
-        <button data-guide="onion" title="Ghost the previous and next frames" data-icon="layers">Onion</button>
+      <span class="stage-seg"><span class="stage-lbl">Compare</span>
+        <span class="zoomgroup">
+          <button id="abHold" title="Remember this effect as A" data-icon="copy">Hold A</button>
+          <button id="abSwap" title="Swap between the held effect and the current one" disabled>Swap</button>
+        </span>
       </span>
-    </div>
-    <div class="stage-ctl">
-      <span class="stage-lbl">Compare</span>
-      <span class="zoomgroup">
-        <button id="abHold" title="Remember this effect as A" data-icon="copy">Hold A</button>
-        <button id="abSwap" title="Swap between the held effect and the current one" disabled>Swap</button>
+      <span class="stage-seg" id="dockSeg"><span class="stage-lbl">Dock</span>
+        <span class="zoomgroup" id="dockGroup">
+          <button id="dockToggle" title="Pin a small preview at the top right when the stage scrolls out of view (a narrow window; a wide one keeps the stage beside the editor)" data-icon="pin">Dock preview</button>
+        </span>
       </span>
     </div>
     <div class="hint stage-hint" id="fitHint"><b>Fit</b> is on — the effect is scaled and centred to fill the frame, so <b>Origin X/Y</b> won't move it. Turn Fit off to place it yourself.</div>
-    <div class="hint stage-hint">The backdrop is preview-only — exports are transparent unless you combine a reference below.</div>
+  </div>
 
-    <div class="refbox" id="sndBox">
-      <div class="ref-head">
-        <span>Sound</span>
-        <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together" data-icon="upload">Load sound</button>
-        <select id="sndGame" data-desktop hidden aria-label="Sounds in this game" title="A sound CrunchySFX planted in this game: linked, not copied, so the planted Godot scene plays it and a Replace in CrunchySFX reaches it (SUITE-LINKS.md)"><option value="">Sounds in this game…</option></select>
-      </div>
-      <div class="ref-body" id="sndBody" hidden>
-        <div class="ref-name" id="sndName"></div>
-        <div class="ref-ctl"><label for="sndVol">Volume</label><input type="range" id="sndVol" aria-label="Sound volume" min="0" max="1" step="0.01" value="0.8"></div>
-        <div class="ref-ctl"><label for="sndOff">Offset</label>
-          <input type="range" id="sndOff" aria-label="Sound offset" min="-500" max="500" step="5" value="0">
-          <span class="hint" id="sndOffV">0 ms</span>
-        </div>
-        <div class="ref-ctl" id="sndFrameRow" data-desktop><label for="sndFrame">Impact</label>
-          <input type="number" id="sndFrame" aria-label="Impact frame" min="0" max="999" step="1" value="0" title="The frame the sound starts on: in the planted Godot scene when the game calls play(), and in this preview">
-          <span class="hint">frame: the sound starts here</span>
-        </div>
-        <div class="ref-toggles">
-          <label><input type="checkbox" id="sndOn" checked> Play with preview</label>
-          <button id="sndClear">✕</button>
-        </div>
-        <div class="ref-toggles" id="sndHoldRow" hidden>
-          <label title="Duration, particle life, fades, burst count and spacing, reverse — the sound's shape in time"><input type="checkbox" id="holdTiming" checked> Hold length</label>
-          <label title="Count, size, speed, radial push, shake, turbulence, spread — how hard the sound hits"><input type="checkbox" id="holdIntensity" checked> Hold intensity</label>
-        </div>
-        <div class="hint stage-hint" id="sndHoldMsg"></div>
-        <div class="hint stage-hint" id="sndFit"></div>
-      </div>
+  <div class="refbox" id="sndBox">
+    <div class="ref-head">
+      <span>Sound</span>
+      <button id="sndLoad" title="Load a .wav/.mp3 and hear it against the animation — the whole point of matching a sound is judging whether they land together" data-icon="upload">Load sound</button>
+      <select id="sndGame" data-desktop hidden aria-label="Sounds in this game" title="A sound CrunchySFX planted in this game: linked, not copied, so the planted Godot scene plays it and a Replace in CrunchySFX reaches it (SUITE-LINKS.md)"><option value="">Sounds in this game…</option></select>
     </div>
-
-    <div class="refbox" id="refBox">
-      <div class="ref-head">
-        <span>Reference</span>
-        <button id="refLoad" title="Drop a character sprite or sprite sheet behind the effect to judge scale — and optionally bake it into the export" data-icon="upload">Load image</button>
+    <div class="ref-body" id="sndBody" hidden>
+      <div class="ref-name" id="sndName"></div>
+      <div class="ref-ctl"><label for="sndVol">Volume</label><input type="range" id="sndVol" aria-label="Sound volume" min="0" max="1" step="0.01" value="0.8"></div>
+      <div class="ref-ctl"><label for="sndOff">Offset</label>
+        <input type="range" id="sndOff" aria-label="Sound offset" min="-500" max="500" step="5" value="0">
+        <span class="hint" id="sndOffV">0 ms</span>
       </div>
-      <div class="ref-body" id="refBody" hidden>
-        <div class="ref-name" id="refNameEl"></div>
-        <div class="ref-ctl"><span>Sheet</span>
-          <input type="number" id="refCols" min="1" max="64" value="1" title="Columns in the sheet"> ×
-          <input type="number" id="refRows" min="1" max="64" value="1" title="Rows in the sheet">
-          <span class="hint" id="refFrames">1 frame</span>
-        </div>
-        <div class="ref-ctl"><label for="refScale">Scale</label>
-          <input type="range" id="refScale" aria-label="Reference image scale" min="0.1" max="6" step="0.05" value="1">
-          <span class="hint" id="refScaleV">1.00×</span>
-          <button id="refFit" title="Scale it to fill the frame" aria-label="Scale it to fill the frame" class="pxonly" data-icon="expand"></button>
-        </div>
-        <div class="ref-ctl"><label for="refOffX">Offset X</label><input type="range" id="refOffX" aria-label="Reference image offset X" min="-0.5" max="0.5" step="0.01" value="0"></div>
-        <div class="ref-ctl"><label for="refOffY">Offset Y</label><input type="range" id="refOffY" aria-label="Reference image offset Y" min="-0.5" max="0.5" step="0.01" value="0"></div>
-        <div class="ref-toggles">
-          <label><input type="checkbox" id="refFront"> In front</label>
-          <label><input type="checkbox" id="refCombine"> Combine on export</label>
-          <button id="refClear">✕</button>
-        </div>
+      <div class="ref-ctl" id="sndFrameRow" data-desktop><label for="sndFrame">Impact</label>
+        <input type="number" id="sndFrame" aria-label="Impact frame" min="0" max="999" step="1" value="0" title="The frame the sound starts on: in the planted Godot scene when the game calls play(), and in this preview">
+        <span class="hint">frame: the sound starts here</span>
+      </div>
+      <div class="ref-toggles">
+        <label><input type="checkbox" id="sndOn" checked> Play with preview</label>
+        <button id="sndClear">✕</button>
+      </div>
+      <div class="ref-toggles" id="sndHoldRow" hidden>
+        <label title="Duration, particle life, fades, burst count and spacing, reverse — the sound's shape in time"><input type="checkbox" id="holdTiming" checked> Hold length</label>
+        <label title="Count, size, speed, radial push, shake, turbulence, spread — how hard the sound hits"><input type="checkbox" id="holdIntensity" checked> Hold intensity</label>
+      </div>
+      <div class="hint stage-hint" id="sndHoldMsg"></div>
+      <div class="hint stage-hint" id="sndFit"></div>
+    </div>
+  </div>
+
+  <div class="refbox" id="refBox">
+    <div class="ref-head">
+      <span>Reference</span>
+      <button id="refLoad" title="Drop a character sprite or sprite sheet behind the effect to judge scale — and optionally bake it into the export" data-icon="upload">Load image</button>
+    </div>
+    <div class="ref-body" id="refBody" hidden>
+      <div class="ref-name" id="refNameEl"></div>
+      <div class="ref-ctl"><span>Sheet</span>
+        <input type="number" id="refCols" min="1" max="64" value="1" title="Columns in the sheet"> ×
+        <input type="number" id="refRows" min="1" max="64" value="1" title="Rows in the sheet">
+        <span class="hint" id="refFrames">1 frame</span>
+      </div>
+      <div class="ref-ctl"><label for="refScale">Scale</label>
+        <input type="range" id="refScale" aria-label="Reference image scale" min="0.1" max="6" step="0.05" value="1">
+        <span class="hint" id="refScaleV">1.00×</span>
+        <button id="refFit" title="Scale it to fill the frame" aria-label="Scale it to fill the frame" class="pxonly" data-icon="expand"></button>
+      </div>
+      <div class="ref-ctl"><label for="refOffX">Offset X</label><input type="range" id="refOffX" aria-label="Reference image offset X" min="-0.5" max="0.5" step="0.01" value="0"></div>
+      <div class="ref-ctl"><label for="refOffY">Offset Y</label><input type="range" id="refOffY" aria-label="Reference image offset Y" min="-0.5" max="0.5" step="0.01" value="0"></div>
+      <div class="ref-toggles">
+        <label><input type="checkbox" id="refFront"> In front</label>
+        <label><input type="checkbox" id="refCombine"> Combine on export</label>
+        <button id="refClear">✕</button>
       </div>
     </div>
   </div>
-</div>
-<input type="file" id="refFile" accept="image/*" aria-label="Choose a reference image" hidden>
 
-<div class="workspace">
-  <section class="ws-browser">
-    <div class="presetsearch">
-      <input type="text" id="presetSearch" placeholder="Search effects… (e.g. explosion)" autocomplete="off" spellcheck="false">
-      <span id="presetCount" class="hint"></span>
-    </div>
+  <!-- MY EFFECTS and your categories (desktop): kept beside the stage, so a picture from the strip can be dragged
+       into a category. -->
+  <div class="ws-mine" id="wsMine" data-desktop>
     <div class="mypresets" id="mypresets" data-desktop>
       <div class="mp-head">
         <span data-icon="star">My Effects</span>
@@ -206,8 +238,8 @@
     </div>
     <div class="usercats" id="userCats" data-desktop></div>
     <input type="file" id="mpFile" accept="application/json,.json" aria-label="Open a .crunchyvfx project" hidden>
-    <div class="presetbar" id="presets" style="margin-top:10px"></div>
-  </section>
+  </div>
+</section>
   <section class="ws-editor">
     <div class="macro" id="macros">
       <div class="macro-title">Quick shape — plain-language sliders that move the real controls for you</div>
@@ -236,6 +268,7 @@
     <main id="panels"></main>
   </section>
 </div>
+<input type="file" id="refFile" accept="image/*" aria-label="Choose a reference image" hidden>
 
 <footer class="license">
   <div class="hint" id="verLine"></div>
@@ -278,7 +311,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 2;   // must match --css-build in styles.css
+  const CSS_BUILD = 4;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 5, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 8, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1046,7 +1079,9 @@ const dockCtx = dockCv.getContext("2d");
 const dockWrap = dock.querySelector(".dock-wrap");
 const dockInfo = dock.querySelector("#dockInfo");
 const stageBox = document.querySelector(".stage-box");
-const controlsEl = document.querySelector(".controls");
+// §22: nothing is pinned to the top any more (the old sticky toolbar went), so "out of view" is simply off the top
+// of the window. On a wide screen the stage column sticks and the dock never needs to appear; it earns its keep on a
+// narrow one, where the editor stacks under the stage.
 
 function sizeDock() {
   if (!rendered) return;
@@ -1069,9 +1104,9 @@ function paintDock() {
 }
 function updateDock() {
   if (!rendered) return;
-  const bar = controlsEl ? controlsEl.offsetHeight : 0;
-  // "Out of view" means out from under the sticky controls bar, not merely off the viewport —
-  // otherwise the dock only appears once the stage is fully gone, which is too late to be useful.
+  const bar = 0;                             // §22: no sticky bar over the top of the window
+  // "Out of view" means nearly off the top (§22: no sticky bar covers it now) — not wholly gone, which would be too
+  // late to be useful.
   const r = stageBox.getBoundingClientRect();
   const gone = r.bottom < bar + 28;
   const show = dockOn && gone;
@@ -1279,14 +1314,16 @@ function drawRefFrame(g, i, w, h) {
 // specifically — a fractional zoom resamples pixel art into mush, which would quietly undo
 // everything the Crunch panel is for. On an ultrawide a 32px effect gets to be 8× instead of a
 // postage stamp.
+// §22: the stage has its own column now, with its view controls UNDER it, so the width is the column's and the height
+// leaves room for the header, the generators' row and the effect strip above it and the transport and export buttons
+// below it (about 490 px together, §22.1), so Export is on the first screen at 1366 x 900.
 let zoomMode = "auto";
 function autoZoom() {
   if (!rendered) return 1;
-  const row = document.querySelector(".stagerow");
-  const side = document.querySelector(".stage-side");
-  if (!row) return 1;
-  const avail = row.clientWidth - (side ? side.offsetWidth : 0) - 72;   // gap + box padding
-  const availH = Math.max(220, innerHeight * 0.62);
+  const col = document.getElementById("stageCol");
+  if (!col) return 1;
+  const avail = col.clientWidth - 36;                                     // the stage box's padding and border
+  const availH = Math.max(200, innerHeight - 490);
   return Math.max(1, Math.min(8, Math.floor(Math.min(avail / rendered.w, availH / rendered.h))));
 }
 function applyZoom() {
@@ -2542,6 +2579,56 @@ function updateUndoRedoUI() {
 }
 
 // ---------- Shape picker (hero section) ----------
+// ---------- Shape pictures (§22.1) ----------
+// AJ: "perhaps we can have the particles show a preview of what they are, similar to other applications". Every shape
+// button in the three pickers (the main one, Secondary's and Orbit's) shows the shape's own sprite, drawn by vfx.js's
+// makeSprite at its 64 px master size in a pale neutral tint, over its name. Like the effect strip's pictures, each is
+// an <img> of a data URL (WebKitGTK drops a hidden canvas's pixels, and a filtered-out button is hidden), cached by
+// shape, and painted from an idle queue a few at a time, so building ~290 buttons costs nothing up front. The drawing
+// is a picture only: it never touches the sprite cache the renderer uses, so no frame changes. The button's text is
+// still exactly the shape's name (the filters and the suite read it), and the name is its tooltip and label.
+const SHAPE_PIC_ICONS = { custom: "edit", image: "image" };
+const shapePicURL = {};                        // shape index -> data URL ("" if it drew nothing)
+const shapePicImgs = {};                       // shape index -> the <img>s waiting for it
+let shapePicQueue = [], shapePicTimer = 0;
+function shapePicDraw(i) {
+  if (i in shapePicURL) return shapePicURL[i];
+  let url = "";
+  try { url = makeSprite(i, 270, 0.2, 0.9, fullGenome({ shape: i }), 0).toDataURL("image/png"); }
+  catch (e) { /* a shape that needs user data (custom, image) may draw nothing: the name still says what it is */ }
+  shapePicURL[i] = url;
+  return url;
+}
+function pumpShapePics() {
+  shapePicTimer = 0;
+  for (let n = 0; n < 6 && shapePicQueue.length; n++) {
+    const i = shapePicQueue.shift(), url = shapePicDraw(i);
+    for (const img of shapePicImgs[i] || []) if (url) img.src = url;
+    delete shapePicImgs[i];
+  }
+  if (shapePicQueue.length) shapePicTimer = setTimeout(pumpShapePics, 16);
+}
+// Turn a shape button into a picture button: the sprite, then the name (textContent stays the name).
+function shapePicButton(b, i, name) {
+  b.classList.add("shape-pic");
+  b.textContent = "";
+  const img = document.createElement("img");
+  img.className = "shape-img"; img.alt = ""; img.width = img.height = 30;
+  const nm = document.createElement("span");
+  nm.className = "shape-name"; nm.textContent = name;
+  b.append(img, nm);
+  b.title = name;
+  b.setAttribute("aria-label", name);
+  // the two shapes drawn from YOUR artwork have nothing to show until you supply it: a pixel icon says what they are
+  const ico = SHAPE_PIC_ICONS[name];
+  const svg = ico && typeof crunchyIcon === "function" ? crunchyIcon(ico) : null;
+  if (svg) { img.replaceWith(svg); return; }
+  if (shapePicURL[i]) { img.src = shapePicURL[i]; return; }
+  (shapePicImgs[i] = shapePicImgs[i] || []).push(img);
+  if (shapePicQueue.indexOf(i) < 0) shapePicQueue.push(i);
+  if (!shapePicTimer) shapePicTimer = setTimeout(pumpShapePics, 0);
+}
+
 const SHAPE_CATS = [
   ["Soft",   ["glow", "smoke", "blob", "flame", "bubble", "cloud", "splash", "wave", "specks", "puddle"]],
   ["Sharp",  ["spark", "pixel", "shard", "star", "cross", "diamond", "arrow",
@@ -2644,7 +2731,7 @@ for (const [cat, names] of SHAPE_CATS) {
     const i = SHAPES.indexOf(name);
     const b = document.createElement("button");
     b.className = "engine-btn";
-    b.textContent = name;
+    shapePicButton(b, i, name);
     b.addEventListener("click", () => {
       const k = layerKeys();
       if (!toggleShape(k.shape, k.mix, i)) return;
@@ -2717,8 +2804,8 @@ filterShapes();
         const i = SHAPES.indexOf(name);
         if (i < 0) continue;
         const b = document.createElement("button");
-        b.className = "engine-btn";
-        b.textContent = name;
+        b.className = "engine-btn compact";
+        shapePicButton(b, i, name);
         b.addEventListener("click", () => {
           if (!toggleShape("emit2Shape", "emit2ShapeMix", i)) return;
           syncBShape(); commitHistory(); rerender();
@@ -2767,8 +2854,8 @@ filterShapes();
         const i = SHAPES.indexOf(name);
         if (i < 0) continue;
         const b = document.createElement("button");
-        b.className = "engine-btn";
-        b.textContent = name;
+        b.className = "engine-btn compact";
+        shapePicButton(b, i, name);
         b.addEventListener("click", () => {
           const cur = shapeList(state.orbitShapes);
           const at = cur.indexOf(i);
@@ -2837,8 +2924,18 @@ const PALETTES = [
 const paletteGrid = document.getElementById("paletteGrid");
 for (const [name, patch] of PALETTES) {
   const b = document.createElement("button");
-  b.className = "engine-btn";
-  b.textContent = name;
+  b.className = "engine-btn pal-btn";
+  // §22.1: a swatch of what the palette paints, in three hard steps along a particle's life (its hue, then drifted by
+  // hueLife), the core's whiteness lifting the first. Spans with no text, so the button's text is still the name.
+  const sw = document.createElement("span");
+  sw.className = "pal-swatch"; sw.setAttribute("aria-hidden", "true");
+  for (const t of [0, 0.5, 1]) {
+    const c = document.createElement("i");
+    c.style.background = hsl(patch.hue + (patch.hueLife || 0) * t, patch.sat, t === 0 ? 0.55 + 0.35 * (patch.coreWhite || 0) : 0.5 - 0.12 * t);
+    sw.appendChild(c);
+  }
+  b.appendChild(sw);
+  b.appendChild(document.createTextNode(name));
   b.addEventListener("click", () => {
     // SCOPED to whichever population the switcher above has selected. Until that switcher existed
     // every palette wrote Layer A keys only, so on the eight presets that run a second population
@@ -3201,57 +3298,263 @@ function applyPreset(obj, label, exact) {
   for (const k in held) state[k] = held[k];
   if (label) effectLabel = label;
   plantNameSync();                           // the planted Library's name box follows it (desktop, §18)
+  presetStripMark(effectLabel);              // the strip marks the loaded effect (§22)
   syncUI();
   frameIdx = 0;
   rerender();
   commitHistory();
 }
 
+// ---------- The effect strip (§22) ----------
+// The presets left the main column, where a long text list sat between the stage and the editor and pushed the
+// editor below the fold under 1500 px, for the suite's picture strip (CrunchyTile §90, itself CrunchyUI's kit strip):
+// one row of pictures under the header, PAGED by arrows rather than scrolled sideways (most people have no comfortable
+// way to scroll sideways), the page counted. Search matches a name or a category; a chip narrows to one category.
+//
+// Every match is a cell in #presets and off-page cells are hidden, so a page is only a view. A picture is an <img> of
+// one rendered frame (a data URL, cached by name): an <img> keeps its pixels while hidden, where WebKitGTK (the desktop
+// engine) drops a hidden CANVAS's, so paging back never shows blank cells. Pictures paint from an idle queue, the
+// visible page first and then the next one, so the first screen is not held up by 189 renders. Hovering a picture
+// plays the effect (the Breed grid's mini player).
 const presetBar = document.getElementById("presets");
-const presetSections = [];
-for (const [cat, names] of PRESET_CATEGORIES) {
-  const sec = document.createElement("details");
-  sec.className = "preset-section";
-  sec.open = true;
-  sec.innerHTML = "<summary>" + cat + "</summary>";
-  const box = document.createElement("div");
-  box.className = "sec-buttons";
-  const buttons = [];
-  for (const name of names) {
-    if (!PRESETS[name]) continue;
-    const b = document.createElement("button");
-    b.textContent = name;
-    b.addEventListener("click", () => applyPreset(PRESETS[name], name));
-    b.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "b", n: name }, name));
-    ucDraggable(b, { t: "b", n: name }, name);
-    box.appendChild(b);
-    buttons.push(b);
-  }
-  sec.appendChild(box);
-  presetBar.appendChild(sec);
-  presetSections.push({ sec, buttons });
+const PRESET_CAT_OF = {};                      // name -> its (first) category, for search and the cell's tooltip
+for (const [cat, names] of PRESET_CATEGORIES) for (const n of names) if (PRESETS[n] && !PRESET_CAT_OF[n]) PRESET_CAT_OF[n] = cat;
+const PTHUMB = 60;                             // the picture's size in px, rendered 1:1 (styles.css .pcell)
+const PCELL_W = 84, PDIV_W = 22, PGAP = 4;     // a cell, a category divider and the gap between (styles.css)
+let presetQuery = "", presetChip = "", presetPage = 0, presetPageFor = "", presetPages = [[]];
+const presetThumbs = new Map();                // name -> data URL ("" once a render failed: never retried)
+let thumbQueue = [], thumbTimer = 0;
+
+function presetMatches(name, q) {
+  const cat = PRESET_CAT_OF[name] || "";
+  if (presetChip && cat !== presetChip) return false;
+  return !q || name.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0;
 }
-// Counted, never hard-coded, so the figure can't drift out of date. "systems" rather than
-// "engines" because LAYER_GROUPS also covers post passes (glow, dissolve, glitch) and modifiers
-// (ground, attractor) — calling those engines would be a number that doesn't survive scrutiny.
-// Breadth is the pitch, so it's worth saying out loud next to the preset count.
-document.getElementById("presetCount").textContent =
-  Object.keys(PRESETS).length + " effects · " + LAYER_GROUPS.length + " systems";
+// One frame ~40% in (a burst has bloomed by then; effectThumb's rule), rendered alone: renderPrep simulates the whole
+// effect (Fit needs every frame's bounds) but only this one frame is rasterised. The picture is a PREVIEW only.
+function presetThumbURL(name) {
+  if (presetThumbs.has(name)) return presetThumbs.get(name);
+  let url = "";
+  try {
+    url = withState(PRESETS[name], () => {
+      const prep = renderPrep(state, { size: PTHUMB, fit: true });
+      const at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+      return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null).toDataURL("image/png");
+    });
+  } catch (e) { /* a broken preset shouldn't take the strip down */ }
+  presetThumbs.set(name, url);
+  return url;
+}
+function presetThumbWant(cell) {
+  const img = cell.querySelector("img");
+  if (!img || img.getAttribute("src")) return;
+  if (presetThumbs.has(cell.dataset.name)) { const u = presetThumbs.get(cell.dataset.name); if (u) img.src = u; return; }
+  if (thumbQueue.indexOf(cell) < 0) thumbQueue.push(cell);
+}
+function pumpPresetThumbs() {
+  thumbTimer = 0;
+  const cell = thumbQueue.shift();
+  if (!cell) return;
+  if (cell.isConnected) {
+    const url = presetThumbURL(cell.dataset.name), img = cell.querySelector("img");
+    if (url && img) img.src = url;
+  }
+  if (thumbQueue.length) thumbTimer = setTimeout(pumpPresetThumbs, 15);
+}
+
+// Hover to play: after a short pause on a cell, its frames are rendered at the picture's size and a canvas plays them
+// over the picture, driven by the shared mini-player loop; leaving the cell removes it. The last few are kept.
+const presetFrames = new Map();                // name -> { frames, fps }, at most PFRAMES_KEEP
+const PFRAMES_KEEP = 8;
+function presetHoverPlay(cell) {
+  const name = cell.dataset.name;
+  let fr = presetFrames.get(name);
+  if (!fr) {
+    try { fr = withState(PRESETS[name], () => { const r = renderFrames(state, { size: PTHUMB, fit: true }); return { frames: r.canvases, fps: r.fps }; }); }
+    catch (e) { return; }
+    presetFrames.set(name, fr);
+    if (presetFrames.size > PFRAMES_KEEP) presetFrames.delete(presetFrames.keys().next().value);
+  }
+  if (!fr.frames.length || !cell._hover || cell.querySelector("canvas")) return;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = PTHUMB;
+  cell.querySelector(".pthumb").appendChild(cv);
+  const g = cv.getContext("2d"), i = Math.floor(fr.frames.length * 0.35);
+  g.drawImage(fr.frames[i], 0, 0);
+  miniPlayers.push({ g, canvas: cv, frames: fr.frames, fps: fr.fps, i, last: 0 });
+}
+function presetCell(name) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "pcell";
+  b.dataset.name = name;
+  b.title = name + " (" + (PRESET_CAT_OF[name] || "Effects") + "): click to load it. Hover to watch it play.";
+  b.innerHTML = '<span class="pthumb"><img alt="" width="' + PTHUMB + '" height="' + PTHUMB + '"></span><span class="pname"></span>';
+  b.querySelector(".pname").textContent = name;
+  b.addEventListener("click", () => applyPreset(PRESETS[name], name));
+  b.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "b", n: name }, name));
+  ucDraggable(b, { t: "b", n: name }, name);
+  let hover = 0;
+  b.addEventListener("pointerenter", (e) => {
+    if (e.pointerType === "touch" || document.body.classList.contains("uc-dragging")) return;
+    b._hover = true;
+    clearTimeout(hover);
+    hover = setTimeout(() => presetHoverPlay(b), 220);
+  });
+  b.addEventListener("pointerleave", () => {
+    b._hover = false;
+    clearTimeout(hover);
+    const cv = b.querySelector(".pthumb canvas");
+    if (cv) cv.remove();                       // the mini-player loop drops a canvas that left the page
+  });
+  if (name === effectLabel) b.classList.add("on");
+  return b;
+}
+// The chips: All, then the categories in the browser's order, each with its count under the current search. A chip
+// the search leaves empty is dimmed rather than removed, so the row never jumps under the pointer.
+function buildPresetChips(q) {
+  const host = document.getElementById("presetChips"), keep = host.scrollLeft;
+  host.textContent = "";
+  const mk = (label, cat, n) => {
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "tagchip" + (presetChip === cat ? " on" : "");
+    c.textContent = label + (n !== null ? " " + n : "");
+    c.setAttribute("aria-pressed", presetChip === cat ? "true" : "false");
+    c.dataset.cat = cat;
+    if (n === 0) c.classList.add("none");
+    c.title = cat ? "Only " + cat + " (click again for every effect)" : "Every effect";
+    c.addEventListener("click", () => { presetChip = presetChip === cat || !cat ? "" : cat; buildPresetStrip(); });
+    host.appendChild(c);
+  };
+  mk("All", "", null);
+  for (const [cat, names] of PRESET_CATEGORIES) {
+    const n = names.filter((x) => PRESETS[x] && PRESET_CAT_OF[x] === cat &&
+      (!q || x.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0)).length;
+    mk(cat, cat, n);
+  }
+  host.scrollLeft = keep;
+  chipPagerSync();
+}
+// THE CHIP ROW PAGES BY ARROWS TOO (CrunchyTile's chipPager; AJ there: a scrollbar "pops up to block" the chips). The row
+// stays one line with its overflow hidden; ‹ › step it by most of its width and grey out at either end, and they hide
+// when every chip fits. The wheel steps it as well.
+function chipPagerSync() {
+  const row = document.getElementById("presetChips"), prev = document.getElementById("chipPrev"), next = document.getElementById("chipNext");
+  if (!row || !prev) return;
+  const over = row.scrollWidth > row.clientWidth + 1;
+  prev.hidden = next.hidden = !over;
+  prev.disabled = row.scrollLeft <= 0;
+  next.disabled = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1;
+}
+(function () {
+  const row = document.getElementById("presetChips");
+  const step = (d) => { row.scrollLeft += d * Math.max(80, row.clientWidth * 0.8); chipPagerSync(); };
+  document.getElementById("chipPrev").addEventListener("click", () => step(-1));
+  document.getElementById("chipNext").addEventListener("click", () => step(1));
+  row.addEventListener("scroll", chipPagerSync);
+  row.addEventListener("wheel", (e) => {
+    const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (!d || row.scrollWidth <= row.clientWidth) return;
+    e.preventDefault();
+    row.scrollLeft += d > 0 ? 60 : -60;
+  }, { passive: false });
+})();
+function buildPresetStrip() {
+  const q = presetQuery.trim().toLowerCase();
+  buildPresetChips(q);
+  presetBar.textContent = "";
+  thumbQueue = [];
+  let shown = 0;
+  for (const [cat, names] of PRESET_CATEGORIES) {
+    const hits = names.filter((n) => PRESETS[n] && PRESET_CAT_OF[n] === cat && presetMatches(n, q));
+    if (!hits.length) continue;
+    if (!presetChip) {
+      const d = document.createElement("span");
+      d.className = "pcat";
+      d.textContent = cat;
+      d.title = cat;
+      presetBar.appendChild(d);
+    }
+    for (const n of hits) { presetBar.appendChild(presetCell(n)); shown++; }
+  }
+  if (!shown) {
+    const none = document.createElement("span");
+    none.className = "pnone";
+    none.textContent = q ? "No effect matches “" + presetQuery.trim() + "”" + (presetChip ? " in " + presetChip : "") + "." : "Nothing here.";
+    presetBar.appendChild(none);
+  }
+  document.getElementById("presetCount").textContent = shown === Object.keys(PRESETS).length
+    ? shown + " effects · " + LAYER_GROUPS.length + " systems" : shown + " of " + Object.keys(PRESETS).length;
+  const key = q + "|" + presetChip;
+  if (key !== presetPageFor) { presetPage = 0; presetPageFor = key; }
+  presetPageShow();
+}
+// HOW MANY FIT IS MEASURED (CrunchyUI's rule: a fixed page is wrong at every width but one). Cells and dividers have
+// fixed widths, so a page is filled left to right until the next one would not fit; a divider never ends a page.
+function presetPaginate() {
+  const width = presetBar.clientWidth || 900, kids = Array.from(presetBar.children), pages = [[]];
+  let used = 0;
+  kids.forEach((c) => {
+    const w = c.classList.contains("pcat") ? PDIV_W : c.classList.contains("pnone") ? 0 : PCELL_W;
+    const cur = pages[pages.length - 1];
+    if (cur.length && used + w > width) { pages.push([]); used = 0; }
+    pages[pages.length - 1].push(c);
+    used += w + PGAP;
+  });
+  // a divider is never the last thing on a page: carry it to the next one with its first cell
+  for (let p = 0; p < pages.length - 1; p++) {
+    const pg = pages[p], last = pg[pg.length - 1];
+    if (pg.length > 1 && last.classList.contains("pcat")) { pg.pop(); pages[p + 1].unshift(last); }
+  }
+  return pages;
+}
+function presetPageShow() {
+  presetPages = presetPaginate();
+  const n = presetPages.length;
+  presetPage = Math.max(0, Math.min(n - 1, presetPage));
+  presetPages.forEach((pg, p) => { for (const c of pg) c.hidden = p !== presetPage; });
+  // the page shown first, then the next one, so paging forward lands on pictures already painted
+  for (const p of [presetPage, presetPage + 1]) if (presetPages[p]) for (const c of presetPages[p]) if (c.classList.contains("pcell")) presetThumbWant(c);
+  document.getElementById("presetPrev").disabled = presetPage === 0;
+  document.getElementById("presetNext").disabled = presetPage >= n - 1;
+  document.getElementById("presetPage").textContent = (presetPage + 1) + " / " + n;
+  if (thumbQueue.length && !thumbTimer) thumbTimer = setTimeout(pumpPresetThumbs, 0);
+}
+function presetPageStep(d) { presetPage += d; presetPageShow(); }
+// The loaded effect's cell is marked (applyPreset calls this; a hoisted declaration, as it can run before this block).
+function presetStripMark(label) {
+  const host = document.getElementById("presets");
+  if (!host) return;
+  for (const c of host.querySelectorAll(".pcell")) c.classList.toggle("on", c.dataset.name === label);
+}
+buildPresetStrip();
 
 const presetSearch = document.getElementById("presetSearch");
-presetSearch.addEventListener("input", () => {
-  const q = presetSearch.value.trim().toLowerCase();
-  for (const { sec, buttons } of presetSections) {
-    let shown = 0;
-    for (const b of buttons) {
-      const hit = !q || b.textContent.toLowerCase().includes(q);
-      b.hidden = !hit;
-      if (hit) shown++;
-    }
-    sec.hidden = shown === 0;
-    if (q) sec.open = true;
-  }
-});
+presetSearch.addEventListener("input", () => { presetQuery = presetSearch.value; buildPresetStrip(); });
+document.getElementById("presetPrev").addEventListener("click", () => presetPageStep(-1));
+document.getElementById("presetNext").addEventListener("click", () => presetPageStep(1));
+// a wheel over the pictures pages them (a VIEW move: nothing recorded)
+presetBar.addEventListener("wheel", (e) => {
+  const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+  if (!d) return;
+  e.preventDefault();
+  presetPageStep(d > 0 ? 1 : -1);
+}, { passive: false });
+// a width change changes how many fit (debounced; the cells exist, so this only re-pages). WATCHED ON THE STRIP ITSELF, not
+// the window: the desktop's docked Library narrows the page without any window resize, and a stale page cut its last
+// picture in half. The stage column is watched the same way, for Auto zoom.
+let presetResize = 0;
+const presetRelayout = () => { clearTimeout(presetResize); presetResize = setTimeout(() => { presetPageShow(); chipPagerSync(); }, 120); };
+addEventListener("resize", presetRelayout);
+if (typeof ResizeObserver === "function") {
+  let lastW = presetBar.clientWidth;
+  new ResizeObserver(() => { if (presetBar.clientWidth !== lastW) { lastW = presetBar.clientWidth; presetRelayout(); } }).observe(presetBar);
+  const col = document.getElementById("stageCol");
+  let colW = col.clientWidth;
+  new ResizeObserver(() => { if (col.clientWidth !== colW) { colW = col.clientWidth; if (zoomMode === "auto") applyZoom(); } }).observe(col);
+}
+addEventListener("load", () => { presetPageShow(); chipPagerSync(); });
 
 // ---------- My Effects (saved library) ----------
 // Everything you make is otherwise lost the moment you click another preset, which is a bad deal
@@ -3412,6 +3715,13 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
                        59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
                        76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
                        89, 90, 91, 92, 93, 94, 95, 96];
+// THE STARTING FRAME SIZE (§22.1, AJ 2026-10-13: "the preview pane is much larger now… the default effect size should
+// bump up too"). What a NEW effect starts at: Randomize, the Foundry and Match a sound. It is NOT the frameSize PARAMS
+// default, which stays 128 (index 4): that default is what every preset and share link without a frameSize key MEANS
+// (applyPreset resets to defaults, links are diffs against them), so moving it would silently re-size ~24 presets and
+// every old link. 192 is what 158 of the 189 presets are authored at, so a roll and a preset now look alike, and it is
+// a whole 2× of the stage at 1366 and 3× at 1920. Lock pixels still wins over it, as it does over a preset.
+const START_FRAME_SIZE = SIZES.indexOf("192");
 function randomize() {
   // Lock pixels and Hold sound carry across a roll exactly as they carry across a preset (applyPreset): the roll
   // changes the effect, never the crunch you pinned or what a matched sound dictated.
@@ -3454,6 +3764,7 @@ function randomize() {
   state.life = 0.2 + Math.random() * 0.8;
   state.size = 4 + Math.random() * 28;
   state.seed = 1 + Math.floor(Math.random() * 9999);
+  state.frameSize = START_FRAME_SIZE;        // a new effect starts at the starting size (§22.1); the lock still wins
   for (const k in keep) state[k] = keep[k];
   for (const k in held) state[k] = held[k];
   effectLabel = "random";
@@ -3514,7 +3825,7 @@ const sndHoldRow = document.getElementById("sndHoldRow");
 const sndHoldMsg = document.getElementById("sndHoldMsg");
 function updateHoldUI() {
   // The button only exists once there's a sound to hold — an inert toggle for a thing you
-  // haven't done yet is just clutter in the toolbar.
+  // haven't done yet is just clutter in the editor's generator bar.
   const any = Object.keys(soundHold.values).length > 0;
   holdBtn.hidden = !any;
   sndHoldRow.hidden = !any;
@@ -5451,7 +5762,7 @@ timeModal.querySelector("#timeReset").addEventListener("click", () => {
 // RENAMED (VFX-DESIGN §18, 2026-10-11): the suite's planted Library (crunchyCore library.js, the docked panel) is
 // "Library" in every Crunchy tool now, so this dialog is "Imports & history" and its classes are ih-* (the core's
 // lib-* rules would otherwise style it, and its own would restyle the core's panel). What it does is unchanged; it
-// opens from the toolbar as before and from a command in the planted Library.
+// opens from its button under the stage and from a command in the planted Library.
 //
 // CrunchyBGM's split, applied here: sort by VERB, not by feature. Export and Share turn this effect
 // into a file; the Library is the shelf you come back to — the sprites you imported and the effects
@@ -5833,7 +6144,8 @@ const styleByName = (n) => STYLES.find((s) => s.name === n) || STYLES[0];
 
 function foundryGenerate(typeName, styleName) {
   const a = archByName(typeName);
-  const g = fullGenome(a.base);
+  // a new effect: the starting frame size (§22.1), unless the chosen style sets its own (the era styles do)
+  const g = fullGenome(Object.assign({ frameSize: START_FRAME_SIZE }, a.base));
   // shape/emitter are in BREED_SKIP (mutating them changes WHAT the effect is), so pick them here
   g.shape = pick(a.shapes);
   g.emitter = pick(a.emitters);
@@ -6121,6 +6433,7 @@ function matchSound(obj) {
   const p = {};
   const note = (t) => notes.push(t);
 
+  p.frameSize = START_FRAME_SIZE;            // a new effect: the starting frame size (§22.1)
   // Length is the one true correspondence — a 2-second sound wants a 2-second effect.
   p.duration = Math.max(0.15, Math.min(3, d("duration") * 1.15));
   note("length " + d("duration").toFixed(2) + "s → " + p.duration.toFixed(2) + "s");
@@ -6452,7 +6765,7 @@ makeCollapsible(document.getElementById("styleSection"),
 // its panel appears with the effect on screen), but nothing teaches the things that aren't
 // layers — matching a sound, the export sidecars, share links. Those need saying once.
 //
-// Shown once per browser, replayable from the toolbar. Deliberately skipped when someone arrives
+// Shown once per browser, replayable from the header's Tour button. Deliberately skipped when someone arrives
 // on a share link: they came for THAT effect, not a tutorial.
 const TOUR_KEY = "crunchyvfx.tourseen.v1";
 const TOUR = [
@@ -6463,10 +6776,10 @@ const TOUR = [
           "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. Here's the 30-second version." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
-  { target: ".ws-browser", title: "1 · Start from an effect",
+  { target: "#presetbar", title: "1 · Start from an effect",
     // Counts are interpolated, not typed: every one of them was already stale (118 effects, 88
     // shapes, 42 systems) because nothing connected the copy to the thing it counts.
-    body: Object.keys(PRESETS).length + " ready-made effects grouped by type. Click one to load it, or search by name. Everything after this is tweaking what you loaded." },
+    body: Object.keys(PRESETS).length + " ready-made effects in the strip along the top. Click a picture to load it (hover to watch it play), page with the arrows, search by name, or pick a type from the chips. Everything after this is tweaking what you loaded." },
   { target: "#foundry", title: "2 · Foundry — invent originals",
     body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
   { target: "#breed,#variations", title: "3 · Breed — evolve by eye",
@@ -6775,7 +7088,7 @@ tutModal.addEventListener("click", (e) => { if (e.target === tutModal) tutModal.
   let seen = false;
   try { seen = localStorage.getItem(TOUR_KEY) === "1"; } catch (e) { seen = true; }
   // Arriving on a share link means someone sent you THAT effect — hijacking it with a tutorial is
-  // the wrong first impression. They can still take it from the toolbar. `?s=` counts too: someone
+  // the wrong first impression. They can still take it from the header (Tour). `?s=` counts too: someone
   // pressing "Send to CrunchyVFX" in CrunchySFX is mid-task and came to see their sound, which is
   // even less of a moment for a welcome tour than an effect link.
   const viaShare = /[?&][es]=/.test(location.search);
@@ -7462,12 +7775,12 @@ if (isDesktop) {
   const libBtn = document.createElement("button");
   libBtn.id = "libraryBtn"; libBtn.dataset.desktop = "";
   libBtn.title = "The Library: your effects planted in your game's folder (Ctrl+L)";
-  setIconLabel(libBtn, "book", "Library");
+  setIconLabel(libBtn, "folder", "Library");   // CrunchyTile's icon for it (the book is Tutorials)
   libBtn.addEventListener("click", libraryToggle);
-  document.getElementById("ihBtn").before(libBtn);
+  document.getElementById("setBtn").before(libBtn);   // the suite's order: Crunchy suite · Library · Settings · Tour
   const msg2 = document.createElement("span");
   msg2.id = "plantMsg"; msg2.className = "hint plant-msg"; msg2.setAttribute("aria-live", "polite");
-  document.querySelector(".controls-right").appendChild(msg2);
+  document.getElementById("stageStatus").appendChild(msg2);
   document.getElementById("plantSave").addEventListener("click", projSave);
   const sndGame = document.getElementById("sndGame");
   sndGame.addEventListener("focus", projSoundsRefresh);
@@ -7502,13 +7815,13 @@ function plantNameSync() {
 
 // ---------- Settings (settings.js, from crunchyCore; §18) ----------
 // PREFERENCES, which follow the person rather than the effect. Each row reads and writes the SAME storage the app
-// always used (crunchyvfx.dock.v1, crunchyvfx.lockpixels.v1) by driving the control that owns it, so the toolbar
+// always used (crunchyvfx.dock.v1, crunchyvfx.lockpixels.v1) by driving the control that owns it, so the editor's buttons
 // buttons and this dialog can never disagree.
 const settingsDialog = settingsMount({
   button: document.getElementById("setBtn"),
   rows: [
     { type: "check", id: "setDock", label: "Dock the preview",
-      sub: "Pin a small copy of the effect under the toolbar when you scroll away from the stage (the Dock preview button).",
+      sub: "Pin a small copy of the effect at the top right when the stage scrolls out of view (the Dock preview button). A wide window keeps the stage in view beside the editor, so it shows on a narrow one.",
       get: () => dockOn, set: (on) => { if (dockOn !== on) document.getElementById("dockToggle").click(); } },
     { type: "check", id: "setLock", label: "Lock pixels",
       sub: "Keep the frame size and Crunch settings you chose when you load another effect (the Lock pixels button).",
@@ -7537,7 +7850,7 @@ for (const m of document.querySelectorAll(".modal")) {
 // link (one edit in crunchyCore, then a pull): until then nothing is shown. This replaced VFX's own ITCH_LIVE flag and
 // dialog. The list is what the desktop adds, said plainly: workflow, never effects.
 const desktopGate = desktopMount("vfx", {
-  place: document.querySelector(".controls-right"),
+  place: document.getElementById("hdrGlobals"),
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (u) => window.__TAURI__.opener.openUrl(u) : null,
   adds: [
     ["A Library planted in your game.", "Pick your Godot or Unity project (or any folder) once; every effect you save lands in crunchy/vfx/ inside it as the sprite sheet and SpriteFrames the Export dialog writes, with a small file beside it that reopens the effect exactly."],

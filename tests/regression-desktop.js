@@ -659,7 +659,9 @@
   await t("words/no-pro-premium-or-unlock-in-the-library-or-settings", function () {
     library.open();
     settingsDialog.open();
-    const text = [lib(), document.getElementById("libDock"), document.getElementById("setModal"), document.querySelector(".controls")].map(function (e) {
+    const text = [lib(), document.getElementById("libDock"), document.getElementById("setModal"),
+      // §22: the old toolbar's buttons are the header's globals, the editor's generators and the stage column's ways out
+      document.querySelector("header"), document.getElementById("genbar"), document.getElementById("stageCol")].map(function (e) {
       return e.innerText + " " + Array.from(e.querySelectorAll("[title], [placeholder]")).map(function (x) { return (x.title || "") + " " + (x.placeholder || ""); }).join(" ");
     }).join(" ");
     settingsDialog.close();

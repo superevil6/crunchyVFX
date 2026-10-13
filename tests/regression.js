@@ -457,13 +457,13 @@
     stageBox.getBoundingClientRect = () => ({ bottom: 9999, top: 0 });
     updateDock();
     ok(dock.hidden, "no dock while the stage is in view");
-    // scrolled past -> dock appears, and appears BEFORE the stage is fully gone (it must clear the
-    // sticky toolbar, or it arrives too late to be useful)
-    const barH = controlsEl.offsetHeight;
+    // scrolled past -> dock appears, and appears BEFORE the stage is fully gone (or it arrives too late
+    // to be useful). §22: no sticky toolbar covers the top any more, so "gone" is off the window's top.
+    const barH = 0;
     stageBox.getBoundingClientRect = () => ({ bottom: barH + 5, top: -300 });
     updateDock();
-    ok(!dock.hidden, "dock appears once the stage slips under the toolbar", "bar " + barH + "px");
-    ok(parseInt(dock.style.top, 10) >= barH, "dock sits below the toolbar, not behind it", dock.style.top);
+    ok(!dock.hidden, "dock appears once the stage slips nearly off the top", "bottom " + (barH + 5) + "px");
+    ok(parseInt(dock.style.top, 10) >= barH, "dock sits inside the window", dock.style.top);
     sizeDock(); paintDock();
     ok(dockCv.width === rendered.w && dockCv.height === rendered.h, "dock canvas matches the render size");
     const dz = parseFloat(dockCv.style.width) / rendered.w;
@@ -982,6 +982,166 @@
       const lost = Object.keys(PATCH_EXTRAS).filter((k) => state[k] !== snap[k]);
       ok(lost.length === 0, "…and survive snapshot/restore", lost.join(", "));
       applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+
+    // ---------------------------------------------------------------- the layout (§22)
+    // The header holds ONLY the suite's globals, in the suite's order; the generators sit at the top of the editor; every
+    // way out sits under the stage; every preset is a picture in the strip, reachable through its pages, its search and
+    // its category chip. A control moved somewhere it can't be found is the failure this file exists to catch.
+    {
+      const hdr = document.querySelector("header");
+      const order = Array.from(document.getElementById("hdrGlobals").children).map((e) => e.id).filter(Boolean);
+      const want = ["suiteBtn", "libraryBtn", "setBtn", "tourBtn", "tutBtn", "feedbackBtn"].filter((id) => document.getElementById(id));
+      ok(JSON.stringify(order.filter((id) => want.indexOf(id) >= 0)) === JSON.stringify(want),
+         "the header's globals run in the suite's order", order.join(" · "));
+      const stray = Array.from(hdr.querySelectorAll("button")).filter((b) => !b.closest("#hdrGlobals")).map((b) => b.id || b.textContent);
+      ok(stray.length === 0, "…and the header holds nothing else", stray.join(", "));
+      ok(hdr.offsetHeight > 0 && hdr.offsetHeight < 64, "the header is one row", hdr.offsetHeight + " px");
+      const gens = ["rand", "breed", "variations", "foundry", "matchBtn", "reroll", "undoBtn", "redoBtn", "fitBtn", "lockBtn", "holdBtn", "timeBtn"];
+      const genBar = document.getElementById("genbar");
+      const lostGen = gens.filter((id) => !document.getElementById(id) || !genBar.contains(document.getElementById(id)));
+      // §22.1: their own full-width row between the header and the strip (CrunchyUI's toolbar row)
+      ok(lostGen.length === 0 && genBar.previousElementSibling === hdr && genBar.nextElementSibling === document.getElementById("presetbar"),
+         "the generators have their own row between the header and the strip", lostGen.join(", "));
+      const gr = genBar.getBoundingClientRect();
+      ok(gr.width >= innerWidth - 20 && gr.height < 50, "…full width, and one line at this width", Math.round(gr.width) + " x " + Math.round(gr.height));
+      // §22.1: controls on the LEFT, the preview on the RIGHT, as in CrunchyTile and CrunchyUI
+      const edR = document.querySelector(".ws-editor").getBoundingClientRect(), stR = document.getElementById("stageCol").getBoundingClientRect();
+      ok(edR.left < stR.left && edR.right <= stR.left + 1, "the editor sits left of the stage", Math.round(edR.left) + " / " + Math.round(stR.left));
+      const col = document.getElementById("stageCol");
+      const outs = ["stage", "playBtn", "scrub", "expOpen", "expGif", "share", "dragOut", "ihBtn", "projSave", "projOpen", "msg", "sndBox", "refBox", "mypresets"];
+      const lostOut = outs.filter((id) => !document.getElementById(id) || !col.contains(document.getElementById(id)));
+      ok(lostOut.length === 0, "the preview, its transport and every way out live in the stage column", lostOut.join(", "));
+      ok(!document.querySelector(".ws-browser, .browser-hidden, .controls, .presetbar"), "the old browser column, toolbar and focus mode are gone");
+
+      // every preset has exactly one cell, and the pages between them show every cell exactly once
+      presetQuery = ""; presetChip = ""; buildPresetStrip();
+      const names = Object.keys(PRESETS);
+      const cells = Array.from(presetBar.querySelectorAll(".pcell"));
+      const cellNames = cells.map((c) => c.dataset.name);
+      const missing = names.filter((n) => cellNames.indexOf(n) < 0);
+      ok(missing.length === 0 && cells.length === names.length, "every preset is a picture in the strip",
+         cells.length + "/" + names.length + (missing.length ? " missing " + missing.slice(0, 5).join(", ") : ""));
+      const seen = {};
+      let pagesOk = true;
+      for (let p = 0; p < presetPages.length; p++) {
+        presetPage = p; presetPageShow();
+        const vis = cells.filter((c) => !c.hidden);
+        if (!vis.length) pagesOk = false;
+        for (const c of vis) seen[c.dataset.name] = (seen[c.dataset.name] || 0) + 1;
+      }
+      ok(pagesOk && names.every((n) => seen[n] === 1), "the pages show every picture exactly once",
+         presetPages.length + " pages, " + Object.keys(seen).length + " seen");
+      presetPage = 0; presetPageShow();
+      ok(document.getElementById("presetPrev").disabled && (presetPages.length === 1 || !document.getElementById("presetNext").disabled),
+         "the arrows grey out at the ends", document.getElementById("presetPage").textContent);
+      // a page fits its strip: the visible cells and dividers never overflow the row
+      const used = Array.from(presetBar.children).filter((c) => !c.hidden).reduce((a, c) => a + c.offsetWidth + PGAP, 0) - PGAP;
+      ok(used <= presetBar.clientWidth + 1, "a page fits the strip's width", used + " of " + presetBar.clientWidth + " px");
+
+      // the chips: one per category, and each narrows to exactly that category's effects
+      const chips = Array.from(document.querySelectorAll("#presetChips .tagchip"));
+      ok(chips.length === PRESET_CATEGORIES.length + 1, "a chip for every category, and All", chips.length + " chips");
+      const wrongCat = [];
+      for (const [cat, list] of PRESET_CATEGORIES) {
+        const chip = Array.from(document.querySelectorAll("#presetChips .tagchip")).find((c) => c.dataset.cat === cat);
+        if (!chip) { wrongCat.push(cat + ": no chip"); continue; }
+        chip.click();
+        const got = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name).sort();
+        const exp = list.filter((n) => PRESETS[n]).sort();
+        if (JSON.stringify(got) !== JSON.stringify(exp)) wrongCat.push(cat);
+      }
+      ok(wrongCat.length === 0, "each category chip narrows the strip to that category", wrongCat.join(", "));
+      const onChip = document.querySelector("#presetChips .tagchip.on");
+      onChip.click();
+      ok(!presetChip && presetBar.querySelectorAll(".pcell").length === names.length, "clicking a chosen chip again shows everything");
+
+      // search: by name, by category, and nothing
+      presetQuery = "shatter"; buildPresetStrip();
+      const byName = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
+      ok(byName.length >= 2 && byName.every((n) => /shatter/i.test(n)), "search finds effects by name", byName.join(", "));
+      presetQuery = "weather"; buildPresetStrip();
+      const byCat = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
+      const weather = PRESET_CATEGORIES.find((c) => c[0] === "Weather")[1];
+      ok(byCat.length >= weather.length && weather.every((n) => byCat.indexOf(n) >= 0), "…and by category", byCat.length + " found");
+      presetQuery = "zzqx"; buildPresetStrip();
+      ok(!presetBar.querySelector(".pcell") && !!presetBar.querySelector(".pnone"), "…and says so when nothing matches");
+      presetQuery = ""; buildPresetStrip();
+
+      // a cell loads its effect and is marked; the picture is a real frame and leaves the editor's state alone
+      const exCell = presetBar.querySelector('.pcell[data-name="Ice Blast"]');
+      exCell.click();
+      ok(effectLabel === "Ice Blast" && exCell.classList.contains("on") && presetBar.querySelectorAll(".pcell.on").length === 1,
+         "clicking a picture loads it and marks it");
+      const before = JSON.stringify(snapshotState());
+      presetThumbs.delete("Big Boom");
+      const url = presetThumbURL("Big Boom");
+      ok(/^data:image\/png/.test(url) && url.length > 400, "a picture is a rendered frame", url.length + " chars");
+      ok(JSON.stringify(snapshotState()) === before, "…drawn without disturbing the effect in the editor");
+      ok(document.getElementById("presetSearch").placeholder === "Search effects…", "the strip's search says what it searches");
+      // §22.1: the shape pickers are pictures. Every button in all three is a picture tile whose text is still exactly the
+      // shape's name; the pictures draw (all of them, pumped here), never through the renderer's sprite cache; a filter
+      // still hides tiles for real.
+      const pickers = [["main", shapeGrid], ["secondary", panels.querySelector('[data-group="Layer B"] .b-shape-grid')],
+                       ["orbit", panels.querySelector('[data-group="Orbit"] .b-shape-grid')]];
+      const badPick = [];
+      for (const [nm, host] of pickers) {
+        if (!host) { badPick.push(nm + ": missing"); continue; }
+        const bs = Array.from(host.querySelectorAll("button"));
+        const notPic = bs.filter((b) => !b.classList.contains("shape-pic") || !b.querySelector(".shape-img, svg.pxi") ||
+          SHAPES.indexOf(b.textContent) < 0 || b.getAttribute("aria-label") !== b.textContent);
+        if (bs.length !== SHAPES.length || notPic.length) badPick.push(nm + ": " + bs.length + " buttons, " + notPic.length + " not pictures");
+      }
+      ok(badPick.length === 0, "every shape button in all three pickers is a picture named by its shape", badPick.join(" · "));
+      const cacheBefore = spriteCache.size;
+      while (shapePicQueue.length) pumpShapePics();
+      const noPic = SHAPES.filter((n, i) => !SHAPE_PIC_ICONS[n] && !/^data:image\/png/.test(shapePicURL[i] || ""));
+      const blankImg = Array.from(document.querySelectorAll("img.shape-img")).filter((im) => !im.getAttribute("src"));
+      ok(noPic.length === 0 && blankImg.length === 0, "every shape draws its picture", noPic.join(", ") + (blankImg.length ? " · " + blankImg.length + " blank" : ""));
+      ok(spriteCache.size === cacheBefore, "…without touching the renderer's sprite cache", cacheBefore + " → " + spriteCache.size);
+      shapeSearch.value = "skull"; filterShapes();
+      const visTiles = Object.values(shapeBtns).filter((b) => getComputedStyle(b).display !== "none");
+      ok(visTiles.length === 1 && visTiles[0].textContent === "skull", "the shape filter still hides picture tiles", visTiles.length + " shown");
+      shapeSearch.value = ""; filterShapes();
+      ok(document.querySelectorAll("#paletteGrid .pal-swatch").length === PALETTES.length &&
+         Array.from(document.querySelectorAll("#paletteGrid button")).every((b, i) => b.textContent === PALETTES[i][0]),
+         "every palette shows a swatch, and its text is still its name");
+
+      // §22.1: THE STARTING FRAME SIZE. A new effect (Randomize, the Foundry, Match a sound) starts at 192; the PARAMS
+      // default (what a preset or a link WITHOUT frameSize means) stays 128, so no preset and no old link moves.
+      {
+        const lockWas = pixelLock, lockValsWas = lockedValues, snapS = snapshotState(), labelS = effectLabel;
+        pixelLock = false;
+        ok(SIZES[START_FRAME_SIZE] === "192" && PARAM_BY_KEY.frameSize[5] === SIZES.indexOf("128"),
+           "a new effect starts at 192 px; the default a preset inherits is still 128 px");
+        randomize();
+        ok(state.frameSize === START_FRAME_SIZE, "Randomize starts at the starting size", SIZES[state.frameSize]);
+        ok(foundryGenerate(ARCHETYPES[0].name, "Anything").frameSize === START_FRAME_SIZE &&
+           foundryGenerate(ARCHETYPES[0].name, "8-bit").frameSize === SIZES.indexOf("64"),
+           "the Foundry starts there too, unless its style sets a size");
+        ok(matchSound({ v: 1, s: {}, t: "x" }).patch.frameSize === START_FRAME_SIZE, "…and so does Match a sound");
+        const inherit = Object.keys(PRESETS).filter((n) => !("frameSize" in PRESETS[n]));
+        applyPreset(PRESETS[inherit[0]], inherit[0]);
+        ok(inherit.length > 0 && state.frameSize === SIZES.indexOf("128"), "a preset without a size still opens at 128 px",
+           inherit.length + " presets inherit it");
+        ok(decodePatch(encodePatch()).frameSize === undefined, "…and its share link still carries no size");
+        pixelLock = true; lockedValues = {};
+        randomize();
+        ok(state.frameSize === START_FRAME_SIZE, "with nothing pinned, the lock leaves the starting size alone");
+        lockedValues = { frameSize: SIZES.indexOf("64") };
+        randomize();
+        ok(state.frameSize === SIZES.indexOf("64"), "a size you pinned with Lock pixels still wins over it");
+        pixelLock = lockWas; lockedValues = lockValsWas; saveLockPref();
+        restoreEdit(snapS); effectLabel = labelS;
+      }
+
+      // hover to play: the cell gets a playing canvas over its picture, driven by the shared mini-player loop, and loses it
+      const hv = presetBar.querySelector('.pcell[data-name="Fire Jet"]');
+      hv._hover = true; presetHoverPlay(hv);
+      const hcv = hv.querySelector(".pthumb canvas");
+      ok(!!hcv && miniPlayers.some((m) => m.canvas === hcv) && lit(hcv) > 0, "hovering a picture plays the effect", hcv ? lit(hcv) + " px" : "no canvas");
+      hv.dispatchEvent(new PointerEvent("pointerleave"));
+      ok(!hv.querySelector(".pthumb canvas") && !hv._hover, "…and leaving it stops");
     }
 
     // ---------------------------------------------------------------- randomize reach
@@ -2932,8 +3092,8 @@
     const catEl = userCatsBox.querySelector(".uc-cat");
     const realEFP = document.elementFromPoint.bind(document);
     const pe = (type, x, y) => new PointerEvent(type, { clientX: x, clientY: y, button: 0, bubbles: true });
-    const presetBtn = [...document.querySelectorAll(".presetbar button")]
-      .find((b2) => b2.textContent === "Explosion");
+    const presetBtn = [...document.querySelectorAll("#presets .pcell")]   // the effect strip's picture cells (§22)
+      .find((b2) => b2.dataset.name === "Explosion");
     ok(!!presetBtn && !!catEl, "a preset button and a category exist to drag between");
 
     // a short movement is a CLICK, not a drag — otherwise every preset click files the preset

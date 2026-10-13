@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 2;
+    --css-build: 4;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -24,12 +24,14 @@
     font: 14px/1.4 var(--font);
     min-height: 100vh;
   }
+  /* §22: ONE ROW of globals (CrunchyTile's header): the name and line on the left, the suite's buttons on the right. */
   header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
-    padding: 20px 24px 8px;
-    flex-wrap: wrap;
+    padding: 8px 24px;
+    background: var(--panel);
+    border-bottom: 2px solid var(--drop, var(--line));
   }
   h1 {
     font-size: 22px;
@@ -169,22 +171,6 @@
     user-select: none; text-transform: none; letter-spacing: normal;
   }
   .wavelock input { accent-color: var(--accent); cursor: pointer; margin: 0; }
-  .controls {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    flex-wrap: wrap;
-    justify-content: space-between;   /* left & right clusters to the edges; each wraps to its own row when cramped */
-    padding: 10px 24px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--line);
-  }
-  /* Each cluster is its own flex group so it wraps as a UNIT (the whole right cluster drops to a
-     second, left-aligned row when the bar is too narrow) — and still wraps internally on very small screens. */
-  .controls-left, .controls-right { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
   /* Buttons are the base's (colour, 1 px border, the hard step, hover, the pressed sink, .primary); this keeps
      VFX's size only. */
   button {
@@ -236,36 +222,6 @@
     padding: 1px 6px;
     font: 11px ui-monospace, monospace;
   }
-  .presetbar { display: flex; flex-direction: column; gap: 8px; }
-  .preset-section { border: 1px solid var(--line); background: var(--panel); overflow: hidden; }
-  .preset-section > summary {
-    list-style: none; cursor: pointer; user-select: none;
-    padding: 9px 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.4px;
-    color: var(--ink); display: flex; align-items: center; gap: 8px;
-  }
-  .preset-section > summary::-webkit-details-marker { display: none; }
-  .preset-section > summary::before {
-    content: "▶"; font-size: 9px; color: var(--muted); transition: transform 0.12s ease;
-  }
-  .preset-section[open] > summary::before { transform: rotate(90deg); }
-  .preset-section > summary:hover { color: var(--accent); }
-  .preset-section .sec-count { color: var(--muted); font-weight: 400; font-size: 11px; }
-  .sec-buttons { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 12px 12px; }
-  /* --fam is set per-button from FAMILY_COLORS: a left edge showing the synthesis family. */
-  .presetbar button { padding: 6px 10px; font-size: 12px; border-left: 3px solid var(--fam, var(--line)); }
-  .presetbar button:hover { border-left-color: var(--fam, var(--accent)); }
-  .fam-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 2px; font-size: 11px; color: var(--muted); }
-  .fam-key { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-  .fam-key i { width: 9px; height: 9px; flex: none; }
-  .presetsearch { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-  #presetSearch {
-    width: 280px; max-width: 100%;
-    background: var(--panel2); color: var(--ink);
-    border: 1px solid var(--line);
-    padding: 7px 10px; font: inherit;
-  }
-  #presetSearch::placeholder { color: var(--muted); }
-  #presetSearch:focus { outline: none; border-color: var(--accent); }
 
   /* Crunchiness macro slider */
   .macro {
@@ -340,8 +296,8 @@
   #crunch::-webkit-slider-thumb { width: 20px; height: 20px; }
   #crunch::-moz-range-thumb { width: 20px; height: 20px; }
 
-  /* History rail (right side) */
-  body { padding-right: 300px; }
+  /* History rail (right side). CrunchySFX's; VFX has no #history, and the body's 300 px right gutter it reserved was a
+     dead strip down every wide screen until §22 removed it. */
   #history {
     position: fixed; top: 0; right: 0;
     width: 284px; height: 100vh;
@@ -503,12 +459,6 @@
     border: 1px solid var(--line); padding: 9px 11px; font: inherit; }
   input.share-input[readonly] { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
   /* Settings cog (header) + settings modal */
-  /* Focus-mode toggle in the header: show/hide the whole preset browser. */
-  .viewtoggle { margin-left: auto; align-self: center; background: var(--panel2); border: 1px solid var(--line);
-    color: var(--muted); font-size: 12px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
-  .viewtoggle:hover { color: var(--ink); border-color: var(--info); }
-  .viewtoggle.active { color: var(--info); border-color: var(--info); }   /* browser visible */
-  .workspace.browser-hidden .ws-browser { display: none; }   /* focus mode */
   .cog { align-self: center; background: transparent; border: 1px solid var(--line);
     color: var(--muted); font-size: 16px; line-height: 1; padding: 6px 9px; cursor: pointer; }
   .cog:hover { color: var(--ink); border-color: var(--info); background: var(--panel2); }
@@ -642,22 +592,29 @@
   @media (min-width: 1500px) { .riff { max-width: 1900px; } }
   @media (max-width: 600px) { .riff { margin: 8px 12px 0; } .riff-cell { height: 40px; font-size: 12px; } }
 
-  .workspace { max-width: 1200px; margin: 0 24px; }
-  .workspace .macro { margin: 16px 0 0; max-width: none; }   /* workspace provides the side inset */
+  /* §22: THE TWO COLUMNS. The editor on the LEFT and the stage (the preview and every way out) on the RIGHT, as in
+     CrunchyTile and CrunchyUI (§22.1), side by side from 900 px up; the presets live in the strip above both. The DOM
+     keeps the stage first, so a phone (one column) still opens on the preview. The stage column STICKS while the editor scrolls (scrolling inside itself if
+     it is taller than the window), so the effect stays in view while you edit it: on a wide screen the Dock never has to
+     appear. Was: the editor under the whole preset list below 1500 px. */
+  .workspace { margin: 0 24px; padding-top: 14px; }
+  .workspace .macro { margin: 0; max-width: none; }   /* workspace provides the side inset */
   .workspace .engine { margin: 12px 0 0; max-width: none; }
   .workspace .console { margin: 10px 0 0; max-width: none; }
   .workspace main { padding: 14px 0 32px; max-width: none; }
-  @media (min-width: 1500px) {
-    .scoperow, .seqbar, .workspace, .keyboard, footer.license { max-width: 1900px; }
+  @media (min-width: 900px) {
     .workspace {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);   /* browser | editor */
+      grid-template-columns: minmax(0, 6fr) minmax(400px, 5fr);   /* editor | stage */
       gap: 24px;
       align-items: start;
     }
-    .workspace.browser-hidden { grid-template-columns: 1fr; }   /* focus mode: editor gets the full width */
-    .ws-browser .presetsearch, .ws-editor .macro { margin-top: 12px; }   /* align column tops */
+    .ws-editor { grid-column: 1; grid-row: 1; min-width: 0; }
+    .ws-stage { grid-column: 2; grid-row: 1; }
+    .ws-stage { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; overscroll-behavior: contain;
+                padding: 0 0 14px 4px; scrollbar-width: thin; }
   }
+  @media (min-width: 2200px) { .workspace { grid-template-columns: minmax(0, 7fr) minmax(400px, 4fr); } }
 
   /* ---- Phones (portrait) ---------------------------------------------------
      A shared link most often opens on a phone, so the priority is: it must PLAY
@@ -666,9 +623,8 @@
      and let the controls bar breathe when it wraps. The editor stays usable but
      is not the focus at this width. */
   @media (max-width: 600px) {
-    header { padding: 16px 14px 6px; }
+    header { padding: 8px 12px; }
     h1 { font-size: 20px; }
-    .controls { padding: 9px 12px; gap: 8px; }
     main { grid-template-columns: 1fr; padding: 12px 12px 28px; gap: 12px; }
     .scoperow { padding: 12px 12px 0; }
     .workspace { margin: 0 12px; }
@@ -698,14 +654,12 @@
      Everything above this line is shared with CrunchySFX and should stay
      hand-syncable; keep VFX-only rules in this block.
      ========================================================================== */
-  .stagerow {
-    display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;
-    padding: 14px 24px 0; max-width: 1200px;
-  }
+  /* §22: the preview is the column's centre: the box takes the column's width, the transport and the view controls
+     sit under it in compact rows. */
   .stage-box {
     background: var(--panel); border: 1px solid var(--line);
     padding: 16px; display: flex; align-items: center; justify-content: center;
-    min-width: 300px; min-height: 300px; flex: none;
+    min-height: 240px;
   }
   /* The backdrop is preview-only — it exists so you can SEE what the alpha is doing.
      Exports are always transparent. */
@@ -721,12 +675,32 @@
   /* transparent, so the backdrop swatch behind it is what you actually see through the alpha */
   #stage { display: block; image-rendering: pixelated; background: transparent; }
 
-  .stage-side { display: flex; flex-direction: column; gap: 12px; min-width: 220px; flex: 1; padding-top: 4px; }
-  .stage-info { font: 12px ui-monospace, monospace; color: var(--muted); }
+  .stage-transport { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .stage-transport #playBtn { flex: none; padding: 6px 12px; min-width: 88px; }
+  .stage-scrub { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .stage-scrub input[type=range] { flex: 1; min-width: 60px; }
+  .stage-scrub .hint { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  .stage-info { font: 11px ui-monospace, monospace; color: var(--muted); margin: 4px 0 2px; }
+  .stage-side { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
   .stage-ctl { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
   .stage-ctl input[type=range] { flex: 1; min-width: 90px; }
   .stage-lbl { min-width: 62px; }
-  .stage-hint { font-size: 11px; line-height: 1.4; max-width: 320px; }
+  /* the view toggles: small segmented groups that wrap as whole groups, each with a short label */
+  .stage-segs { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .stage-seg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .stage-seg .stage-lbl { min-width: 0; }
+  .stage-hint { font-size: 11px; line-height: 1.4; }
+  /* every way out of the app, under the preview (CrunchyTile's shape) */
+  .stage-out { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .stage-out button { padding: 7px 12px; }
+  .stage-out[hidden] { display: none; }
+  .stage-proj { margin-top: 8px; }
+  .stage-status { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+  .stage-status .hint:empty { display: none; }
+  .ws-stage .refbox { margin-top: 10px; }
+  .ws-mine { margin-top: 10px; }
+  .ws-mine[hidden] { display: none; }
+  .ws-mine .mypresets { margin: 0 0 10px; }
   .zoomgroup { display: inline-flex; gap: 4px; }
   .zoomgroup button { padding: 4px 9px; font-size: 11px; }
   .zoomgroup button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
@@ -735,7 +709,6 @@
   button.on { background: var(--info); color: var(--on-accent); border-color: var(--info); }
 
   @media (max-width: 780px) {
-    .stagerow { flex-direction: column; }
     .stage-box { width: 100%; min-width: 0; }
     /* Stacking the row was only half of it. The controls column kept min-width: 220px and its rows
        never wrapped, so the Size row (label + select + two number inputs + lock + "square") ran
@@ -1282,3 +1255,96 @@ body:has(#libDock > .lib-dock:not([hidden])) .prevdock { right: 418px; }
   body:has(#libDock > .lib-dock:not([hidden])) { padding-right: 300px; }
   body:has(#libDock > .lib-dock:not([hidden])) .prevdock { right: 18px; }
 }
+
+/* ==========================================================================================================
+   §22. THE LAYOUT PASS (2026-10-13): one header row of globals, the effect strip, the generators at the top of
+   the editor. The strip is CrunchyTile's §90 shape (itself CrunchyUI's kit strip).
+   ========================================================================================================== */
+header .tag { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+header .spacer { flex: 1; }
+.hdr-globals { display: flex; align-items: center; gap: 8px; flex: none; }
+.hdr-globals > button { padding: 6px 11px; white-space: nowrap; }
+@media (max-width: 1180px) { header .tag { display: none; } }
+@media (max-width: 760px) {
+  header { flex-wrap: wrap; row-gap: 6px; }
+  header .spacer { display: none; }
+  .hdr-globals { flex: 1 1 100%; flex-wrap: wrap; gap: 6px; }
+  .hdr-globals > button { padding: 5px 9px; }
+}
+
+#presetbar { display: flex; flex-direction: column; gap: 5px; padding: 6px 24px 7px;
+             background: var(--panel); border-bottom: 2px solid var(--drop, var(--line)); min-width: 0; }
+.pbar-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pbar-title { flex: none; font: 700 11px/1.5 var(--head); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#presetSearch { flex: none; width: 190px; background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+                padding: 4px 8px; font: inherit; font-size: 12px; }
+#presetSearch::placeholder { color: var(--muted); }
+#presetSearch:focus { outline: none; border-color: var(--accent); }
+/* the category chips: ONE line, stepped by the arrows beside it when it overflows (never a scrollbar) */
+.pbar-chipwrap { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; }
+.pbar-chips { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: hidden; scroll-behavior: smooth; }
+.pbar-chipwrap .chippg { flex: none; box-shadow: none; padding: 0 6px; font-size: 15px; line-height: 20px; }
+.pbar-chipwrap .chippg[hidden] { display: none; }
+.tagchip { font-size: 11px; padding: 1px 7px; background: var(--bg); border: 1px solid var(--line); box-shadow: none; color: var(--muted); white-space: nowrap; }
+.tagchip:hover { color: var(--ink); border-color: var(--line2); }
+.tagchip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tagchip.none { opacity: .45; }
+#presetCount { flex: none; font-size: 11px; white-space: nowrap; }
+.pbar-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pstrip { display: flex; gap: 4px; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.pstrip > [hidden] { display: none; }
+.pcell { flex: none; width: 80px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px 3px;
+         background: var(--panel2); border: 1px solid var(--line); box-shadow: none; cursor: pointer; }
+.pcell:hover { border-color: var(--accent); }
+.pcell.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.pcell.on .pname { color: var(--accent); }
+.pthumb { position: relative; width: 60px; height: 60px; background: #100e15; flex: none; }
+.pthumb img, .pthumb canvas { position: absolute; inset: 0; width: 60px; height: 60px; display: block; image-rendering: pixelated; background: transparent; }
+.pthumb img:not([src]) { visibility: hidden; }
+.pname { width: 100%; font-size: 10.5px; line-height: 14px; padding-bottom: 1px; color: var(--ink); text-align: center;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a category divider in the All view: a narrow upright label, so a page loses little to it */
+.pcat { flex: none; width: 22px; align-self: stretch; display: flex; align-items: center; justify-content: center;
+        writing-mode: vertical-rl; transform: rotate(180deg); font: 700 9.5px/1 var(--head); letter-spacing: .06em;
+        text-transform: uppercase; color: var(--muted); border-right: 2px solid var(--line); overflow: hidden; white-space: nowrap; }
+.pnone { color: var(--muted); font-size: 12px; padding: 30px 4px; }
+.pbar-row .pgbtn { flex: none; box-shadow: none; align-self: stretch; padding: 0 6px; font-size: 18px; line-height: 1; }
+.pbar-row .tbarpage { flex: none; min-width: 40px; text-align: center; font-size: 11px; color: var(--muted); }
+@media (max-width: 760px) {
+  #presetbar { padding: 6px 12px 7px; }
+  .pbar-top { flex-wrap: wrap; row-gap: 4px; }
+  #presetSearch { flex: 1 1 auto; width: auto; }
+  .pbar-chipwrap { flex-basis: 100%; }
+}
+
+/* the generators: their own full-width row under the header (§22.1, CrunchyUI's toolbar row): Make (the accent-outlined
+   family), a rule, then Edit and keep. One line when it fits; the two groups wrap as wholes when it doesn't. */
+.genbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 24px;
+          background: var(--bg); border-bottom: 1px solid var(--line); }
+.genrow-keep { padding-left: 10px; border-left: 1px solid var(--line); }
+.genrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.genbar button { padding: 5px 11px; }
+.genbar .icon-btn { padding: 5px 9px; }
+@media (max-width: 760px) { .genbar { padding: 6px 12px; } .genrow-keep { padding-left: 0; border-left: 0; } .gensep { display: none; } }
+.gensep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+
+/* §22.1: SHAPES AS PICTURES. A shape button is the shape's sprite over its name; Secondary's and Orbit's compact pickers
+   use smaller tiles. The button keeps the engine-btn look and its accent fill when selected. */
+.engine-btn.shape-pic { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 64px;
+                        padding: 4px 2px 3px; font-size: 10.5px; line-height: 13px; }
+.engine-btn.shape-pic[hidden] { display: none; }
+.shape-img { width: 30px; height: 30px; display: block; flex: none; }
+.shape-img:not([src]) { visibility: hidden; }
+.engine-btn.shape-pic > svg.pxi { width: 24px; height: 24px; margin: 3px 0 3px; flex: none; }
+.engine-btn.shape-pic.compact > svg.pxi { width: 20px; height: 20px; margin: 2px 0; }
+.shape-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.engine-btn.shape-pic.compact { width: 52px; font-size: 9.5px; }
+.engine-btn.shape-pic.compact .shape-img { width: 24px; height: 24px; }
+.engine-btn.shape-pic.active .shape-img { filter: drop-shadow(1px 1px 0 var(--drop)); }
+.b-shape-grid { gap: 4px; max-height: 204px; }
+#shapeGrid .engine-cat-btns { gap: 5px; }
+/* palettes: a three-step swatch before the name */
+.engine-btn.pal-btn { display: inline-flex; align-items: center; gap: 7px; }
+.pal-swatch { display: inline-flex; flex: none; border: 1px solid var(--drop); }
+.pal-swatch i { width: 8px; height: 14px; display: block; }
+

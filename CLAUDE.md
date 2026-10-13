@@ -147,8 +147,8 @@ that prints the page's `VFX …` lines and kills its own process):
 
 ```sh
 node tests/run-ff.mjs hash | grep -v '(console)' > /tmp/h.txt; diff tests/frame-hash.expected.txt /tmp/h.txt   # no frame moved
-node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (46)
-node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (11)
+node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (55)
+node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (12)
 node tests/plant.test.mjs                # project-app.js over plant.js, in Node
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
 python3 tests/build.py show && python3 tests/wkshot.py "file://$PWD/tests/run-show.html" "$PWD/tests/show.png" 1600 1000 40
@@ -200,7 +200,7 @@ more particles.
 
 | | |
 |---|---|
-| `index.html` | markup + all app JS (PARAMS, UI generation, presets browser, export, tour) |
+| `index.html` | markup + all app JS (PARAMS, UI generation, the effect strip, export, tour) |
 | `vfx.js` | pure sim + raster — `simulate`, `renderFrames`, `streamFrames`, layer systems, post chain |
 | `shapes.js` | particle drawings only, one `SHAPE_DEFS` record each |
 | `presets.js` | preset data + category layout |
@@ -219,6 +219,14 @@ more particles.
 
 ## Status
 
+- **The layout pass, round 1 (§22, 2026-10-13)**: one header row of globals (Crunchy suite · Library · Settings · Tour ·
+  Tutorials · Feedback); the presets as a paged PICTURE STRIP under it (search by name or category, a chip per category,
+  pictures from an idle queue, hover plays); the stage and the editor side by side from 900 px (the stage column
+  sticks); the generators head the editor; Export, GIF, Share link and the desktop's project buttons sit under the
+  preview. Presentation only: frame hash unchanged.
+- **Round 1b (§22.1)**: the generators in their own row under the header; editor LEFT, stage RIGHT (Tile/UI); a NEW
+  effect (Randomize, Foundry, Match) starts at 192 px (`START_FRAME_SIZE`) while the PARAMS default stays 128, so
+  presets and old links don't move; the three shape pickers are pictures (sprite over name), palettes show swatches.
 - **The planted Library (§18, 2026-10-11)**: the suite's desktop Library planted in the game (`crunchy/vfx/<slug>/`, each
   effect's Export-dialog sheet + metadata beside a `.crunchy` sidecar), the core's Settings and desktop gate, zips with
   sidecars, "Plant my effects" (copies; the browser store is never written), VFX's own dialog renamed "Imports &

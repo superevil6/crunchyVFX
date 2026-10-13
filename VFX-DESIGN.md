@@ -1132,3 +1132,112 @@ Playback, and the planted combined scene, played in a running Godot (`--fixed-fp
 - **Copy and markup:** `<!DOCTYPE html>` and `<html lang="en">` (the page was in quirks mode; the layout screenshot is
   unchanged). The duplicate meta description is removed. The tour opens with the suite's mission line and counts
   `MACROS.length` sliders. The desktop pitch now says Save never overwrites (plant.js 5).
+
+## 22. The layout pass, round 1: one header row, the effect strip, two columns (2026-10-13)
+
+**Why:** AJ: "VFX is now behind in terms of usability… we need to expand its usability and polish." Measured before the
+pass: a two-row header of 20 buttons (generators, exports, project buttons and the globals mixed together), the stage
+with a tall column of settings beside it, then the 189 presets as a long text list, with the editor UNDER that list below
+1500 px (at 1366 the first slider was two screens down). A dead 300 px right gutter (`body { padding-right: 300px }`,
+CrunchySFX's history rail, which VFX never had) ran down every wide screen. This round is presentation only: every
+control is still there, no element a test or the code uses was renamed, and **the frame hash is byte-identical** (276
+hashes; no render changed).
+
+**Where things went** (the suite's shape: CrunchyTile §90 and CONSOLIDATION-PLAN §3.4, §9):
+
+| what | was | now |
+|---|---|---|
+| Crunchy suite, Library (desktop), Settings, Tour, Tutorials, Feedback | the toolbar's right cluster | the header, ONE row, in the suite's order (`#hdrGlobals`); Tutorials sits beside Tour (it is also a Settings row). The web's "Get the desktop app" mounts there too |
+| Randomize, Breed, Variations, Foundry, Match a sound, Reroll seed | the toolbar | the top of the editor column (`#genbar`), a "Make" row |
+| Undo/Redo, Fit, Lock pixels, Hold sound, Timing | the toolbar | the genbar's second row ("Edit and keep"); Timing is an editing tool, so it went with the editor |
+| Play/Pause, the frame scrubber | toolbar / stage settings | a transport row under the stage |
+| Export…, GIF, Share link, Drag out (desktop) | the toolbar | right under the preview (`#stageOut`), so Export is on the first screen at 1366 x 900 |
+| Imports & history, Save project, Open project (desktop) | the toolbar | the row under them (`#stageProj`, `data-desktop`) |
+| the status line `#msg` (and the desktop's `#plantMsg`) | the toolbar's end | under those buttons (`#stageStatus`, `aria-live`) |
+| Size, FPS, Zoom, Backdrop, Guides, Compare, Dock | a labelled column beside the stage | under it: Size and FPS rows, then the toggles as small segmented groups that wrap as whole groups |
+| the backdrop note | a hint line | the Backdrop group's tooltip |
+| the presets: search, 14 collapsible text sections | between the stage and the editor | **the effect strip** under the header |
+| My Effects and your categories (desktop) | above the preset list | the stage column, under Sound and Reference (`#wsMine`), so a picture can be dragged from the strip into a category |
+
+**The two columns.** From 900 px up, `.workspace` is a grid: the stage column (5fr, at least 400 px) and the editor (7fr).
+The stage column is `position: sticky` with `max-height: 100vh` and its own scroll, so the effect stays in view while the
+editor scrolls; on a wide screen the Dock never needs to appear. Below 900 px the editor stacks under the stage and the
+Dock does its old job (it now triggers when the stage nears the top of the window: no sticky bar covers it any more).
+**Auto zoom** follows the stage column's width and leaves about 440 px of height for the header, the strip and the rows
+under the preview (`autoZoom`), and a ResizeObserver re-zooms when the column changes width (the docked Library).
+
+**The effect strip** (`buildPresetStrip`): one row of picture cells, PAGED by arrows (never a sideways scrollbar), the
+page counted, the wheel stepping it; how many fit is measured from the strip's width (cells are 80 px, a category divider
+22 px; a divider never ends a page). In "All", a narrow upright divider names each category. Search matches a name or a
+category; the chips (All plus the 14 `PRESET_CATEGORIES`, each with its count under the current search; one line, paged
+by arrows like Tile's `chipPager`) narrow to one category, and clicking the chosen chip again shows everything. A cell
+keeps the old buttons' gestures: click loads, right-click files it in a category, drag drops it in one. The loaded effect
+is marked (`presetStripMark`, called by `applyPreset`).
+- **Pictures** are one frame ~40% in (`effectThumb`'s rule), rendered alone (`renderPrep` + `renderOneFrame` at 60 px,
+  Fit on): an `<img>` of a data URL, cached by name. An `<img>` keeps its pixels while hidden, so WebKitGTK (which drops
+  a hidden canvas's) never shows blank cells after paging back. They paint from an idle queue (`pumpPresetThumbs`, one
+  per 15 ms), the visible page first and then the next, so the first screen is not held up by 189 renders.
+- **Hover plays** the effect: after 220 ms on a cell its frames are rendered at the picture's size and a canvas plays
+  them over the picture, driven by the Breed grid's mini-player loop; the last 8 are kept. Not on touch.
+- The strip and the stage column are watched with a ResizeObserver: the desktop's docked Library narrows the page
+  without a window resize, and a stale page cut its last picture in half.
+
+**Decisions AJ should know about:**
+- **The old focus mode is removed, not wired.** `.workspace.browser-hidden` and `.viewtoggle` had no button and no code;
+  with the presets in a strip there is no browser column to hide.
+- **No new storage key.** The chosen chip and page are not remembered (the planted-Library suite pins the set of keys).
+- **My Effects stays a section** (in the stage column), not a strip mode, in this round.
+- The tour's first step points at the strip (`#presetbar`) and says how it works.
+
+**Tests:** the structural audit gained the layout (header globals in order and nothing else, one row; the generators
+head the editor; every way out is in the stage column; the old browser, toolbar and focus mode are gone; every preset is
+exactly one picture and the pages show each exactly once; a page fits its strip; each chip narrows to exactly its
+category; search by name, by category and nothing; a click loads and marks; a picture is a real frame and leaves the
+editor's state alone; hover plays and leaving stops). The dock test and the drag test follow the move; the desktop words
+check reads the header, the genbar and the stage column instead of the toolbar. `--css-build` 3.
+
+**Round 2 (proposed):** foldable editor sections remembered per person, the rarely used rows behind a "more" fold
+(Guides, Compare and Dock on the stage; per-layer advanced rows), the layer chips grouped by kind with a line each,
+picture buttons for shapes and palettes (the strip's thumbnail queue can draw them), and My Effects plus your categories
+as strip modes on desktop.
+
+### 22.1 Round 1b: the generators' row, editor left, a bigger starting size, shapes as pictures (2026-10-13)
+
+AJ, on round 1: "I think it works well", with four changes.
+
+- **The generators get their own full-width row** (`#genbar`) between the header and the effect strip. AJ: "not because
+  it's better there, but for consistency with the other applications" (CrunchyUI's toolbar row). "Make" (Randomize,
+  Breed, Variations, Foundry, Match a sound, Reroll seed), a rule, then "Edit and keep" (undo/redo, Fit, Lock pixels,
+  Hold sound, Timing). It is one line from 1366 px and wraps as two groups when narrow.
+- **The panes swapped:** the editor is on the LEFT and the stage on the RIGHT, as in Tile and UI (`grid-template-columns:
+  6fr 5fr`, editor | stage; the stage keeps its sticky column). The DOM keeps the stage first, so a phone, in one
+  column, still opens on the preview. Auto zoom leaves 490 px for the chrome above and below the stage now (the new row).
+- **The starting frame size is 192 px** (`START_FRAME_SIZE`). WHERE THE SMALL SIZES CAME FROM: the `frameSize` PARAMS
+  default is 128 (index 4), not 64. Of the 189 presets, 158 are authored at 192, 1 at 128, 6 at 96 and 24 inherit the
+  128 default. 64 comes from the era styles (Woodgrain, Micro, 8-bit, Pocket: `frameSize: 2`), as buttons or as a
+  Foundry style, and from **Lock pixels**, which pins a size you chose (a Size pick, an era style or a macro that moved
+  it) and keeps it across every preset, roll and session. AJ's desktop store pins `frameSize: 4` (128) that way, so every
+  preset there opens at 128, the 192 ones included.
+  - **The rule:** a NEW effect starts at the starting size: Randomize, the Foundry (unless its style sets a size) and
+    Match a sound. The PARAMS default does not move, because it is what a preset or share link WITHOUT a `frameSize` key
+    means (`applyPreset` resets to defaults; links are diffs against them): moving it would re-size those 24 presets and
+    every old link. A roll at 192 differs from the default, so its link carries `frameSize` explicitly. Lock pixels
+    still wins over the starting size, as it does over a preset. Breed and Variations keep the parent's size (it is an
+    enum, so never mutated). No frame hash moved.
+  - **Why 192:** it is what 158 of 189 presets are authored at, so a roll and a preset look alike; it is a whole 2x of
+    the stage at 1366 x 900 and 3x at 1920 x 1080, where 64 px was 6-7x and read as low resolution.
+- **Shapes as pictures:** every button of the three shape pickers (main, Secondary's, Orbit's) shows the shape's own
+  sprite over its name, drawn by `makeSprite` at its 64 px master size in a pale neutral tint (`shapePicButton`). Like
+  the strip's pictures it is an `<img>` of a data URL (WebKitGTK drops a hidden canvas's pixels; a filtered tile is
+  hidden), cached by shape and painted from an idle queue six at a time. It never touches the renderer's sprite cache.
+  The button's text is still exactly the shape's name (the filters and the suite read it), which is also its tooltip and
+  aria-label. `custom` and `image` draw from your artwork, so they show a pixel icon (edit, image) instead. The Soft /
+  Sharp / Formed / Symbol / Yours rows, the filter and the selection fill are unchanged.
+- **Palettes show a swatch:** three hard steps along a particle's life (the hue, drifted by `hueLife`; the core's
+  whiteness lifts the first) before the name.
+
+**Tests:** the layout audit now pins the generators' row (between the header and the strip, full width, one line at
+1400) and the editor left of the stage; new: every button in all three pickers is a picture named by its shape, every
+shape draws (without touching the sprite cache), the filter still hides tiles, every palette has a swatch, and the
+starting size (Randomize, Foundry with and without a sized style, Match at 192; a preset without a size and its link
+still 128; the lock still wins). `--css-build` 4.
