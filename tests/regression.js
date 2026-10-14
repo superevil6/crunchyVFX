@@ -991,7 +991,8 @@
     {
       const hdr = document.querySelector("header");
       const order = Array.from(document.getElementById("hdrGlobals").children).map((e) => e.id).filter(Boolean);
-      const want = ["suiteBtn", "libraryBtn", "setBtn", "tourBtn", "tutBtn", "feedbackBtn"].filter((id) => document.getElementById(id));
+      // §23: the Wizard first (CONSOLIDATION-PLAN §3.4: Wizard · Crunchy suite · Library · Settings · Tour · Feedback)
+      const want = ["wizardBtn", "suiteBtn", "libraryBtn", "setBtn", "tourBtn", "tutBtn", "feedbackBtn"].filter((id) => document.getElementById(id));
       ok(JSON.stringify(order.filter((id) => want.indexOf(id) >= 0)) === JSON.stringify(want),
          "the header's globals run in the suite's order", order.join(" · "));
       const stray = Array.from(hdr.querySelectorAll("button")).filter((b) => !b.closest("#hdrGlobals")).map((b) => b.id || b.textContent);
@@ -1133,6 +1134,148 @@
         ok(state.frameSize === SIZES.indexOf("64"), "a size you pinned with Lock pixels still wins over it");
         pixelLock = lockWas; lockedValues = lockValsWas; saveLockPref();
         restoreEdit(snapS); effectLabel = labelS;
+      }
+
+      // §24: LAYOUT ROUND 2. Every panel folds (remembered), rows that do nothing hide (one table, values kept), the panels
+      // run in a sensible order, the layer chips are grouped with a line each, the strip has the Wizard's tags as chips,
+      // and Lock pixels says what it holds.
+      {
+        const snap24 = snapshotState(), label24 = effectLabel, fold24 = JSON.stringify(foldState);
+        const pOf = (g) => panels.querySelector('.panel[data-group="' + g + '"]');
+        const shown = (el) => !!el && getComputedStyle(el).display !== "none";
+        // FOLDING
+        const pans = [...panels.querySelectorAll(".panel[data-group]")];
+        const noFold = pans.filter((p) => p.dataset.fold !== "p:" + p.dataset.group || !p.querySelector(":scope > h2.collapse-head[role=button][tabindex]"));
+        ok(pans.length >= 80 && !noFold.length, "§24: every editor panel folds (a heading that is a button)", pans.length + " panels; " + (noFold.map((p) => p.dataset.group).join(", ") || "all"));
+        const defClosed = (g) => !(("p:" + g) in foldState);
+        ok(PANEL_FOLDED.every((g) => !defClosed(g) || pOf(g).classList.contains("collapsed")) &&
+           ["Output", "Emitter", "Motion", "Life", "Color"].every((g) => !defClosed(g) || !pOf(g).classList.contains("collapsed")) &&
+           ["macros", "shapeSection", "paletteSection"].every((id) => !document.getElementById(id).classList.contains("collapsed")),
+           "…the essentials open and the long, set-once ones (" + PANEL_FOLDED.join(", ") + ") folded the first time");
+        const mo = pOf("Motion"), moH = mo.querySelector("h2"), was = mo.classList.contains("collapsed");
+        if (was) moH.click();
+        moH.click();
+        let stored = {};
+        try { stored = JSON.parse(localStorage.getItem(FOLD_KEY) || "{}"); } catch (e) { /* none */ }
+        ok(mo.classList.contains("collapsed") && !shown(paramRows.speed) && shown(moH) && moH.getAttribute("aria-expanded") === "false" &&
+           stored["p:Motion"] === true, "…a click folds a panel to its heading, and it is remembered (" + FOLD_KEY + ", p:Motion)");
+        moH.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        try { stored = JSON.parse(localStorage.getItem(FOLD_KEY) || "{}"); } catch (e) { /* none */ }
+        ok(!mo.classList.contains("collapsed") && shown(paramRows.speed) && stored["p:Motion"] === false, "…Enter opens it again, remembered too");
+        state.flash = 0.8; syncUI();
+        const fl = pOf("Flash"), flWas = fl.classList.contains("collapsed");
+        fl.querySelector("h2").click();
+        ok(fl.classList.contains("collapsed") !== flWas && !!fl.querySelector("h2 .layer-remove"), "…a layer's heading folds it too, its ✕ still beside it");
+        fl.querySelector("h2").click();
+        // HIDDEN ROWS: each rule both ways, against the engine's own conditions
+        const RULES = [
+          [["emitAngle", "emitSpread"], { emitter: 1 }, { emitter: 0 }], [["emitAngle", "emitSpread"], { emitter: 4 }, { emitter: 3 }],
+          [["emitAngle", "emitSpread"], { emitter: 6 }, { emitter: 2 }], [["emitRadius"], { emitter: 0 }, { emitter: 1 }],
+          [["turbScale", "turbSpeed", "turbCurl"], { turb: 0.4 }, { turb: 0 }], [["spinVar"], { spin: 90 }, { spin: 0 }],
+          [["spinVar"], { spin: -30 }, { spin: 0 }], [["echoDecay"], { echo: 0.5 }, { echo: 0 }],
+          [["dither"], { posterize: 8, paletteLock: "" }, { posterize: 32, paletteLock: "" }], [["dither"], { posterize: 32, paletteLock: "ff0000,00ff00" }, { posterize: 32, paletteLock: "" }],
+          [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
+          [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
+        ];
+        const covered = new Set(["originX", "originY"]), badRule = [];
+        for (const [keys, on, off] of RULES) {
+          Object.assign(state, on); updateParamWhen();
+          const a = keys.every((k) => !paramRows[k].hidden);
+          Object.assign(state, off); updateParamWhen();
+          const b = keys.every((k) => paramRows[k].hidden && getComputedStyle(paramRows[k]).display === "none");
+          if (!a || !b) badRule.push(keys.join("/") + " " + JSON.stringify(on));
+          keys.forEach((k) => covered.add(k));
+        }
+        ok(!badRule.length, "§24: rows that do nothing hide, each rule both ways (" + RULES.length + " cases)", badRule.join("; ") || "clean");
+        ok(Object.keys(PARAM_WHEN).every((k) => covered.has(k) && paramRows[k] && PARAM_BY_KEY[k]),
+           "…every PARAM_WHEN rule is a real row and is tested", Object.keys(PARAM_WHEN).filter((k) => !covered.has(k)).join(", ") || "all " + Object.keys(PARAM_WHEN).length);
+        // Fit: Origin X/Y hide while it is on, with the one-line note in the Emitter panel
+        updateParamWhen();
+        ok(fitOn && paramRows.originX.hidden && paramRows.originY.hidden && pOf("Emitter").contains(document.getElementById("fitHint")) && shown(document.getElementById("fitHint")),
+           "…Origin X/Y hide while Fit is on, a one-line note in the Emitter panel says why");
+        fitBtn.click();
+        ok(!paramRows.originX.hidden && !paramRows.originY.hidden && document.getElementById("fitHint").hidden, "…and come back with Fit off");
+        fitBtn.click();
+        // a hidden row KEEPS its value: it still renders, saves and rides in a share link
+        state.turb = 0; state.turbScale = 3.3; updateParamWhen();
+        const dec = decodePatch(encodePatch());
+        ok(paramRows.turbScale.hidden && state.turbScale === 3.3 && dec.turbScale === 3.3, "…a hidden row keeps its value, and the share link still carries it");
+        // PANEL ORDER
+        const core = [...panelsCore.children].map((p) => p.dataset.group);
+        ok(JSON.stringify(core.slice(0, 7)) === JSON.stringify(["Output", "Master", "Crunch", "Emitter", "Motion", "Life", "Color"]),
+           "§24: Duration (Output), Master and Crunch head the panels, then the particles", core.slice(0, 7).join(", "));
+        const kidsP = [...panels.children];
+        ok(kidsP[0] === panelsCore && kidsP[1] === layerBar && kidsP[2] === panelsLayers &&
+           LAYER_GROUPS.every((L) => !pOf(L.g) || panelsLayers.contains(pOf(L.g))) && [...panelsCore.children].every((p) => !LAYER_GROUPS.some((L) => L.g === p.dataset.group)),
+           "…then \"Add a layer\", heading every layer panel (and no layer before it)");
+        ok(document.getElementById("styleSection").compareDocumentPosition(pOf("Output")) & Node.DOCUMENT_POSITION_FOLLOWING &&
+           pOf("Output").compareDocumentPosition(layerBar) & Node.DOCUMENT_POSITION_FOLLOWING,
+           "…right after the heroes (Quick shape, particle shape, Palette, Era style), not after every layer");
+        // GROUPED CHIPS
+        applyPreset(PRESETS["Explosion"], "Explosion");
+        const names = LAYER_GROUPS.map((L) => L.g);
+        ok(Object.keys(LAYER_ABOUT).length === names.length && names.every((g) => LAYER_ABOUT[g] && LAYER_KINDS.indexOf(LAYER_ABOUT[g][0]) >= 0 && LAYER_ABOUT[g][1].length > 10),
+           "§24: every layer has a kind and a one-line description (LAYER_ABOUT covers LAYER_GROUPS exactly)", names.length + " layers, " + LAYER_KINDS.length + " kinds");
+        const kinds = [...layerBar.querySelectorAll(".layer-kind")];
+        const offL = LAYER_GROUPS.filter((L) => !L.is()).map((L) => L.g);
+        const chipsG = kinds.map((k) => [...k.querySelectorAll(".layer-chip")].map((b) => b.dataset.layer));
+        ok(JSON.stringify(kinds.map((k) => k.dataset.kind)) === JSON.stringify(LAYER_KINDS.filter((k) => offL.some((g) => LAYER_ABOUT[g][0] === k))) &&
+           chipsG.every((list, i) => list.every((g) => LAYER_ABOUT[g][0] === kinds[i].dataset.kind) &&
+             JSON.stringify(list) === JSON.stringify(offL.filter((g) => LAYER_ABOUT[g][0] === kinds[i].dataset.kind))) &&
+           [].concat(...chipsG).length === offL.length,
+           "…the chips are grouped by kind, in a stable order (LAYER_GROUPS within a kind), each off layer exactly once", kinds.map((k, i) => k.dataset.kind + " " + chipsG[i].length).join(", "));
+        const wv = layerBar.querySelector('.layer-chip[data-layer="Weather"]');
+        ok(wv && wv.textContent === "＋ Weather" && wv.title.indexOf(LAYER_ABOUT.Weather[1]) === 0, "…each chip's tooltip is its line");
+        wv.dispatchEvent(new PointerEvent("pointerenter"));
+        ok(document.getElementById("layerAbout").textContent.indexOf(LAYER_ABOUT.Weather[1]) >= 0, "…and pointing at one shows its line under the chips");
+        wv.dispatchEvent(new PointerEvent("pointerleave"));
+        const lf = document.getElementById("layerFilter");
+        lf.value = "ring"; lf.dispatchEvent(new Event("input"));
+        const fl2 = [...layerBar.querySelectorAll(".layer-chip")].map((b) => b.dataset.layer);
+        const want2 = offL.filter((g) => (g + " " + LAYER_ABOUT[g][1] + " " + LAYER_ABOUT[g][0]).toLowerCase().indexOf("ring") >= 0);
+        ok(fl2.length > 0 && JSON.stringify(fl2.slice().sort()) === JSON.stringify(want2.slice().sort()) && document.activeElement !== null,
+           "…the filter matches names and lines (\"ring\": " + fl2.join(", ") + ")");
+        lf.value = ""; lf.dispatchEvent(new Event("input"));
+        // TAG CHIPS on the effect strip: the Wizard's own tags and derivation
+        ok(presetTagSrc && presetTagSrc.tags === WIZARD_TAGS && presetTagSrc.of === wizardTagsOf && shown(document.getElementById("presetMode")),
+           "§24: the strip's Tags are the Wizard's tags (one source of truth), behind a Categories | Tags switch");
+        document.querySelector('#presetMode [data-mode="tags"]').click();
+        const tchips = [...document.querySelectorAll("#presetChips .tagchip-tag")];
+        ok(tchips.length === WIZARD_TAGS.length, "…the Tags switch shows a chip per tag", tchips.length + " chips");
+        tchips.find((c) => c.dataset.tag === "fire").click();
+        const cellsNow = () => [...presetBar.querySelectorAll(".pcell")].map((c) => c.dataset.name);
+        const fire = Object.keys(PRESETS).filter((n) => wizardTagsOf(PRESETS[n], n).indexOf("fire") >= 0);
+        ok(fire.length > 3 && JSON.stringify(cellsNow().slice().sort()) === JSON.stringify(fire.slice().sort()) && /Tags · 1/.test(document.getElementById("presetMode").textContent),
+           "…a tag chip narrows the strip to exactly the effects carrying it", cellsNow().length + " fire effects");
+        presetChip = "Explosions"; buildPresetStrip();
+        const fireBoom = fire.filter((n) => PRESET_CAT_OF[n] === "Explosions");
+        ok(fireBoom.length > 1 && JSON.stringify(cellsNow().slice().sort()) === JSON.stringify(fireBoom.slice().sort()),
+           "…and holds with a category: Explosions + Fire is the fiery explosions", fireBoom.join(", "));
+        const smokeC = [...document.querySelectorAll("#presetChips .tagchip-tag")].find((c) => c.dataset.tag === "smoke");
+        const smokeN = fireBoom.filter((n) => wizardTagsOf(PRESETS[n], n).indexOf("smoke") >= 0).length;
+        ok(smokeC && smokeC.textContent === "Smoke and dust " + smokeN, "…each tag chip counts what it would leave (with the tags already on)", smokeC ? smokeC.textContent : "none");
+        document.querySelector('#presetMode [data-mode="cats"]').click();
+        ok(JSON.stringify(cellsNow().slice().sort()) === JSON.stringify(fireBoom.slice().sort()) && /Tags · 1/.test(document.getElementById("presetMode").textContent),
+           "…switching back to Categories keeps the tag (and the switch says one is on)");
+        presetTags = []; presetChip = ""; presetMode = "cats"; buildPresetStrip();
+        ok(presetBar.querySelectorAll(".pcell").length === Object.keys(PRESETS).length, "…and clearing it shows every effect again");
+        // LOCK PIXELS SAYS WHAT IT HOLDS
+        const lw = pixelLock, lv = lockedValues;
+        pixelLock = true; lockedValues = { frameSize: SIZES.indexOf("64") }; updateLockBtn();
+        const t1 = lockBtn.textContent.trim();
+        lockedValues = { frameSize: SIZES.indexOf("64"), pixelate: 3 }; updateLockBtn();
+        const t2 = lockBtn.textContent.trim();
+        lockedValues = { posterize: 6 }; updateLockBtn();
+        const t3 = lockBtn.textContent.trim();
+        lockedValues = {}; updateLockBtn();
+        const t4 = lockBtn.textContent.trim();
+        pixelLock = false; updateLockBtn();
+        const t5 = lockBtn.textContent.trim();
+        ok(t1 === "Lock pixels (64 px)" && t2 === "Lock pixels (64 px + crunch)" && t3 === "Lock pixels (crunch)" && t4 === "Lock pixels" && t5 === "Lock pixels",
+           "§24: Lock pixels says what it holds (a pinned size is no surprise)", [t1, t2, t3, t4, t5].join(" | "));
+        pixelLock = lw; lockedValues = lv; updateLockBtn(); saveLockPref();
+        foldState = JSON.parse(fold24); saveFolds();
+        restoreEdit(snap24); effectLabel = label24; syncUI();
       }
 
       // hover to play: the cell gets a playing canvas over its picture, driven by the shared mini-player loop, and loses it
@@ -3133,6 +3276,197 @@
     ok(userCats.length === before2, "dropping on nothing changes nothing");
     document.elementFromPoint = realEFP;
     userCats = []; renderUserCats();
+
+    // ---------------------------------------------------------------- the Wizard (§23)
+    // Three questions, then nine finished effects, all playing. It invents nothing (presets, Foundry and Randomize rolls
+    // under a seeded Math.random), tags are DERIVED from what an effect is, an era applies exactly as its button does, a
+    // click is one undo step, and what the Wizard shows is what a click loads (Lock pixels included).
+    {
+      const lockWas = pixelLock, lockValsWas = Object.assign({}, lockedValues), snapW = snapshotEffect(), labelW = effectLabel;
+      pixelLock = false;
+      ucSwallowClick = false;      // the drag test above ends a drag, whose click-swallow clears on a timer this sync suite never yields to
+      const hdrBtn = document.getElementById("wizardBtn");
+      ok(!!hdrBtn && document.getElementById("hdrGlobals").firstElementChild === hdrBtn && hdrBtn.getAttribute("data-icon") === "wand",
+         "the Wizard heads the header's globals, with the core's wand icon");
+      ok(wizModal.classList.contains("modal") && wizModal.getAttribute("role") === "dialog" &&
+         wizModal.getAttribute("aria-modal") === "true" && wizModal.getAttribute("aria-label") === "Wizard",
+         "the Wizard is a labelled modal dialog");
+      ok(TOUR[0].body.indexOf("Wizard") >= 0 && TOUR.some((t) => t.target === "#wizardBtn"), "the tour's welcome points at the Wizard");
+
+      // THE TABLES name only real things, so a renamed shape, system, palette, category or archetype fails here
+      const sysNames = LAYER_GROUPS.map((L) => L.g), palNames = PALETTES.map((x) => x[0]);
+      const badRef = [];
+      for (const t of WIZARD_TAGS) {
+        for (const x of t.shapes) if (SHAPES.indexOf(x) < 0) badRef.push(t.key + " shape " + x);
+        for (const x of t.systems) if (sysNames.indexOf(x) < 0) badRef.push(t.key + " system " + x);
+        for (const x of t.maybe) if (SHAPES.indexOf(x) < 0 && sysNames.indexOf(x) < 0) badRef.push(t.key + " maybe " + x);
+        for (const x of t.palettes) if (palNames.indexOf(x) < 0) badRef.push(t.key + " palette " + x);
+      }
+      for (const ty of WIZARD_TYPES) {
+        for (const c of ty.cats) if (!PRESET_CATEGORIES.some((pc) => pc[0] === c)) badRef.push(ty.key + " category " + c);
+        for (const x of ty.systems) if (sysNames.indexOf(x) < 0) badRef.push(ty.key + " system " + x);
+        if (!PRESETS[ty.sample]) badRef.push(ty.key + " sample " + ty.sample);
+      }
+      ok(!badRef.length, "the Wizard's tables name only shapes, systems, palettes and categories that exist", badRef.join(", ") || "clean");
+      // every tag's palettes paint that tag's colour (so a painted roll honestly carries it)
+      const offPal = [];
+      for (const t of WIZARD_TAGS) for (const n of t.palettes) {
+        const L = wizardColour(wizardPaint(fullGenome({}), n));
+        if (!t.colour(L.h, L.s, L.cw, L.blend)) offPal.push(t.key + ":" + n);
+      }
+      ok(!offPal.length, "every tag's palette is that tag's colour", offPal.join(", ") || "clean");
+
+      // TAGS ARE DERIVED: a preset is tagged by what it is, never by a list
+      const expectTag = { "Torch Flicker": "fire", "Explosion": "fire", "Frost Nova": "ice", "Lightning Zap": "lightning",
+        "Rune Circle": "arcane", "Leaf Fall": "nature", "Poison Cloud": "poison", "Rain": "water", "Glitch Out": "tech",
+        "Soul Drain": "dark", "Cathedral Light": "holy", "Smoke Puff": "smoke", "Coin Pickup": "cute" };
+      const wrongTag = Object.keys(expectTag).filter((n) => wizardTagsOf(PRESETS[n], n).indexOf(expectTag[n]) < 0);
+      ok(!wrongTag.length, "presets are tagged by what they are (fire, ice, lightning … each by one telling preset)",
+         wrongTag.map((n) => n + " → " + wizardTagsOf(PRESETS[n], n).join("/")).join("; ") || "clean");
+      ok(wizardTagsOf(PRESETS["Frost Nova"], "Frost Nova").indexOf("fire") < 0 && wizardTagsOf(PRESETS["Rain"], "Rain").indexOf("fire") < 0,
+         "…and not by what they are not (a frost nova is not fire)");
+      // an effect nobody listed: an orange flame shape with no fire word in its name
+      ok(wizardTagsOf({ shape: SHAPES.indexOf("flame"), hue: 24, hueLife: -20, sat: 0.95 }, "Zorp").indexOf("fire") >= 0 &&
+         wizardTagsOf({ shape: SHAPES.indexOf("snowflake"), hue: 195, sat: 0.4, coreWhite: 0.9 }, "Zorp").indexOf("ice") >= 0,
+         "an effect no list mentions is tagged the moment it exists (an orange flame is fire, a snowflake is ice)");
+      const tagCount = WIZARD_TAGS.map((t) => [t.key, Object.keys(PRESETS).filter((n) => wizardTagsOf(PRESETS[n], n).indexOf(t.key) >= 0).length]);
+      ok(tagCount.every((x) => x[1] >= 3), "every tag is carried by at least three presets", tagCount.map((x) => x.join(" ")).join(", "));
+      const typeCount = WIZARD_TYPES.map((ty) => [ty.key, Object.keys(PRESETS).filter((n) => wizardPresetIs(n, ty)).length]);
+      ok(typeCount.every((x) => x[1] >= 5), "every type has at least five presets", typeCount.map((x) => x.join(" ")).join(", "));
+
+      // THE INGREDIENTS name only real shapes, systems and palettes; every tag has some of each
+      const badIng = [];
+      for (const k in WIZARD_INGREDIENTS) {
+        const t = WIZARD_INGREDIENTS[k];
+        if (!wizardTag(k)) badIng.push(k + " is no tag");
+        for (const x of t.shapes) if (SHAPES.indexOf(x) < 0) badIng.push(k + " shape " + x);
+        for (const x of t.systems) if (sysNames.indexOf(x) < 0) badIng.push(k + " system " + x);
+        for (const x of t.palettes) if (palNames.indexOf(x) < 0) badIng.push(k + " palette " + x);
+        for (const x in t.knobs) if (!PARAM_BY_KEY[x]) badIng.push(k + " knob " + x);
+        if (t.shapes.length < 2 || !t.systems.length || !t.palettes.length) badIng.push(k + " is thin");
+      }
+      for (const ty in WIZARD_SKELETON_KEEP) for (const g of WIZARD_SKELETON_KEEP[ty]) if (sysNames.indexOf(g) < 0) badIng.push(ty + " keeps " + g);
+      ok(!badIng.length && WIZARD_TAGS.every((t) => WIZARD_INGREDIENTS[t.key]),
+         "every tag's ingredients are VFX's own shapes, systems, palettes and params", badIng.join(", ") || "clean");
+
+      // ONE ANSWER, CHECKED THROUGH (AJ's: "a sci-fi ice spell should have radar boops and snow flakes"). The whole
+      // type × tag sweep is in the async suite (regression-async.js), where it can yield to the GC.
+      const presetGenomes = new Set(Object.keys(PRESETS).map((n) => JSON.stringify(PARAMS.map((p) => fullGenome(PRESETS[n])[p[0]]))));
+      const carries = (g, key) => {
+        const t = WIZARD_INGREDIENTS[key];
+        if (t.shapes.indexOf(SHAPES[g.shape]) >= 0) return true;
+        if (g.emit2Count > 0 && t.shapes.indexOf(SHAPES[g.emit2Shape]) >= 0) return true;
+        return withState(g, () => LAYER_GROUPS.some((L) => t.systems.indexOf(L.g) >= 0 && L.is()));
+      };
+      {
+        const ans = { type: "spell", tags: ["tech", "ice"], era: "" };
+        const l = wizardCandidates(ans, 1);
+        ok(l.length === 9 && l.every((c) => c.kind === "compose"), "nine results, every one a composition", l.length);
+        ok(l.every((c) => !presetGenomes.has(JSON.stringify(PARAMS.map((p) => c.g[p[0]])))), "…none of them a preset");
+        ok(l.every((c) => carries(c.g, "tech") && carries(c.g, "ice")), "…every one carries BOTH tags (its particle, Layer B or a layer)",
+           l.map((c) => c.list).join(" / "));
+        ok(l.filter((c) => SHAPES[c.g.shape] === "snowflake" || SHAPES[c.g.emit2Shape] === "snowflake").length >= 2 &&
+           l.filter((c) => withState(c.g, () => LAYER_GROUPS.find((L) => L.g === "Particle rings").is())).length >= 2,
+           "…snowflakes and radar rings among them");
+        ok(new Set(l.map((c) => JSON.stringify(c.g))).size === 9 && new Set(l.map((c) => c.g.shape)).size >= 3 &&
+           new Set(l.map((c) => c.donor)).size >= 7, "…pairwise different: several particles, a different skeleton each");
+        ok(l.every((c) => wizardDraws(c.g, null)), "…and every one draws");
+        ok(l.every((c) => c.name && c.list && c.list.indexOf("palette") > 0), "…each named from its parts, its parts listed", l[0].name + ": " + l[0].list);
+        ok(JSON.stringify(wizardCandidates(ans, 1)) === JSON.stringify(l), "the same answers and seed give the same nine");
+        ok(JSON.stringify(wizardCandidates(ans, 2)) !== JSON.stringify(l), "\"More like these\" (the next seed) gives a different nine");
+        const lp = wizardCandidates({ type: "status", tags: ["tech"], era: "" }, 1);
+        ok(lp.every((c) => c.g.loopBlend > 0) && wizardCandidates({ type: "hit", tags: ["fire"], era: "" }, 1).every((c) => !(c.g.loopBlend > 0)),
+           "status and atmosphere compositions are made to loop; a hit is a one-shot");
+        const l8 = wizardCandidates({ type: "hit", tags: ["ice"], era: "8-bit" }, 1);
+        ok(l8.length === 9 && l8.every((c) => wizardDraws(c.g, styleByName("8-bit"))), "in an era, every result still draws IN that era (8-bit can crush a spark to nothing)");
+      }
+
+      // THE DIALOG: questions, then the nine as playing canvases at their real frame size
+      wizard.answers = { type: "", tags: [], era: "" }; wizard.step = 0; wizard.seed = 1;
+      wizardOpen();
+      ok(!wizModal.hidden && wizBody.querySelectorAll(".wiz-card").length === WIZARD_TYPES.length, "question 1 offers every type");
+      wizBody.querySelector('.wiz-card[data-key="explosion"]').click();
+      ok(wizard.step === 1 && wizBody.querySelectorAll(".wiz-card").length === WIZARD_TAGS.length + 1, "picking a type asks what it's made of",
+         "step " + wizard.step + ", " + wizBody.querySelectorAll(".wiz-card").length + " cards");
+      wizBody.querySelector('.wiz-card[data-key="fire"]').click();
+      wizBody.querySelector('.wiz-card[data-key="smoke"]').click();
+      ok(JSON.stringify(wizard.answers.tags) === '["fire","smoke"]' && wizBody.querySelectorAll(".wiz-card.on").length === 2, "tags mix (fire + smoke)");
+      wizFoot.querySelector(".wiz-next").click();
+      ok(wizard.step === 2 && wizBody.querySelectorAll(".wiz-card").length === STYLES.length, "then the era: As drawn plus every era style");
+      wizBody.querySelector('.wiz-card[data-key=""]').click();
+      const picks = wizBody.querySelectorAll(".wiz-pick");
+      ok(wizard.step === 3 && picks.length === 9, "then nine results", picks.length);
+      const dimsOk = wizard.list.every((c, i) => {
+        const d = frameDims(wizardState(c, wizard.answers)), cv = picks[i].querySelector("canvas");
+        return cv && cv.width === d.w && cv.height === d.h;
+      });
+      ok(dimsOk, "each result is drawn at its real frame size (what Export writes)");
+      // drain the render queue as the idle ticks would: all nine join the mini-player loop
+      while (wizard.jobs.length) wizard.jobs.shift()();
+      const playingN = miniPlayers.filter((p) => wizBody.contains(p.canvas) && p.frames.length > 1).length;
+      ok(playingN === 9, "all nine play (the Breed grid's mini-player loop)", playingN + " playing; " +
+         (wizard.perf ? "pick " + Math.round(wizard.perf.pickMs) + " ms, stills " + Math.round(wizard.perf.stillMs) + " ms, frames " + wizard.perf.fullMs.join("/") + " ms, " + Math.round(wizard.perf.bytes / 1e6) + " MB" : ""));
+      ok(Array.from(picks).every((b) => /plays once|loops/.test(b.querySelector(".wiz-sub").textContent) && b.querySelector(".wiz-ing").textContent.length > 0),
+         "each lists its ingredients and says whether Playback will loop it");
+      ok(miniPlayers.filter((p) => wizBody.contains(p.canvas)).every((p) => p.hold === (loopFor(expPlay.value, wizardState(wizard.list[+p.canvas.closest(".wiz-pick").dataset.i], wizard.answers)) ? 0 : 500) &&
+           (p.end == null || wizardLit(p.frames[p.end]))),
+         "a one-shot holds its last lit frame half a second before it plays again (its empty tail is skipped)");
+
+      // A CLICK LOADS IT, as one undo step, and closes the Wizard
+      applyPreset(PRESETS["Hit Spark"], "Hit Spark");
+      const before = snapshotEffect(), hBefore = histPos;
+      const c0 = wizard.list[0];
+      picks[0].click();
+      ok(wizModal.hidden, "clicking a result closes the Wizard");
+      // ONE step: the entry before the new one is the effect we had (the history is capped, so histPos may not grow)
+      ok(histPos >= 1 && sameSnapshot(editHistory[histPos - 1], before) && effectLabel === wizardLabel(c0),
+         "…loads it as ONE undo step, named", effectLabel + ", hist " + hBefore + "→" + histPos);
+      const want0 = presetOutcome(wizardPatch(c0), false);
+      ok(PARAMS.every((p) => state[p[0]] === want0[p[0]]), "…exactly as clicking that preset would");
+      undoEdit();
+      ok(sameSnapshot(snapshotEffect(), before), "…and Ctrl+Z puts the previous effect back");
+
+      // AN ERA APPLIES EXACTLY AS ITS BUTTON DOES (values, and what it pins for Lock pixels), still in one step
+      {
+        pixelLock = true; lockedValues = {};
+        wizard.answers = { type: "explosion", tags: ["fire"], era: "8-bit" }; wizard.step = 3; wizard.seed = 1;
+        wizardOpen();
+        const c = wizard.list[1], prevSnap = snapshotEffect();
+        wizBody.querySelectorAll(".wiz-pick")[1].click();
+        const viaWizard = snapshotEffect(), pinsWizard = JSON.stringify(lockedValues);
+        ok(sameSnapshot(editHistory[histPos - 1], prevSnap), "an era load is still one undo step");
+        lockedValues = {};
+        applyPreset(wizardPatch(c), "x");
+        Array.from(document.querySelectorAll("#styleGrid button")).find((b) => b.textContent === "8-bit").click();
+        ok(sameSnapshot(snapshotEffect(), viaWizard), "a Wizard era is exactly that Era style button pressed after loading");
+        ok(JSON.stringify(lockedValues) === pinsWizard && lockedValues.frameSize === SIZES.indexOf("64"),
+           "…and pins the same size and crunch for Lock pixels", pinsWizard);
+      }
+      // LOCK PIXELS: the results show what a click gives, and say so when the lock changes them
+      {
+        pixelLock = true; lockedValues = { frameSize: SIZES.indexOf("96") };
+        wizard.answers = { type: "explosion", tags: [], era: "" }; wizard.step = 3; wizard.seed = 1;
+        wizardOpen();
+        const cv = wizBody.querySelector(".wiz-pick canvas");
+        ok(cv.width === 96 && /Lock pixels is on/.test(wizBody.textContent) && !!wizBody.querySelector(".wiz-unlock"),
+           "with a size pinned, the results are drawn at it and the Wizard says why", cv.width + " px");
+        wizBody.querySelector(".wiz-unlock").click();
+        ok(!pixelLock && !/Lock pixels is on/.test(wizBody.textContent) && wizBody.querySelector(".wiz-pick canvas").width !== 96,
+           "…and its button turns the lock off and redraws them at their own sizes");
+        pixelLock = false; lockedValues = {};
+        wizardDraw();
+        ok(!/Lock pixels is on/.test(wizBody.textContent), "no note when nothing is pinned");
+      }
+      // ESCAPE closes it (the app's one Escape handler, through its Close button), and stops the players
+      ok(!wizModal.hidden, "the Wizard is open");
+      dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+      ok(wizModal.hidden && !miniPlayers.some((p) => wizBody.contains(p.canvas)), "Escape closes the Wizard and stops its players");
+      wizardOpen(); wizModal.querySelector("#wizClose").click();
+      ok(wizModal.hidden, "so does its Close button");
+
+      pixelLock = lockWas; lockedValues = lockValsWas; saveLockPref(); updateLockBtn();
+      restoreEdit(snapW); effectLabel = labelW;
+    }
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);

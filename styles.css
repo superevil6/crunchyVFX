@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 4;
+    --css-build: 6;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1348,3 +1348,77 @@ header .spacer { flex: 1; }
 .pal-swatch { display: inline-flex; flex: none; border: 1px solid var(--drop); }
 .pal-swatch i { width: 8px; height: 14px; display: block; }
 
+
+/* §23. THE WIZARD (CrunchyTile §86's dialog in VFX's look): three questions as picture cards, then nine effects, all
+   playing, in a 3 x 3 grid. Each result is drawn at its REAL frame size and scaled up crisp, so an era's pixels show. */
+#wizardBtn { white-space: nowrap; }
+.wiz-box { width: min(1060px, 100%); max-height: 94vh; }
+.wiz-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px; overflow-y: auto; min-height: 0; }
+.wiz-q { margin: 0; font: 600 15px/1.3 var(--font); color: var(--ink); }
+.wiz-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 8px; }
+.wiz-card { display: flex; align-items: center; gap: 10px; text-align: left; padding: 7px 10px 7px 7px; min-height: 64px; }
+.wiz-card.on { background: var(--panel2); color: var(--ink); border-color: var(--accent);
+               box-shadow: inset 0 0 0 1px var(--accent), var(--step) var(--step) 0 var(--drop); }
+.wiz-ctext { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wiz-card b { font-size: 13.5px; }
+.wiz-card.on b { color: var(--accent); }
+.wiz-card i { font-style: normal; font-size: 12px; color: var(--muted); line-height: 1.3; }
+.wiz-cpic { flex: none; width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; background: #100e15; }
+.wiz-note { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wiz-note button { padding: 3px 9px; font-size: 12px; }
+.wiz-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* a result: its picture SQUARE on the left (no dark side bars), its name, what it is made of and its playback on the right */
+.wiz-pick { display: flex; align-items: stretch; gap: 9px; padding: 6px; text-align: left; min-width: 0; }
+.wiz-pick:hover { border-color: var(--accent); }
+.wiz-pic { flex: none; width: clamp(96px, 17vh, 176px); aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
+  background: #100e15; }
+.wiz-pic canvas { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; display: block;
+  background-color: #17131f;
+  background-image: linear-gradient(45deg, #211d2b 25%, transparent 25%, transparent 75%, #211d2b 75%),
+                    linear-gradient(45deg, #211d2b 25%, #17131f 25%, #17131f 75%, #211d2b 75%);
+  background-size: 12px 12px; background-position: 0 0, 6px 6px; }
+.wiz-ptext { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 2px; }
+.wiz-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.wiz-ing { font-size: 11.5px; line-height: 1.35; color: var(--ink); opacity: .8; }
+.wiz-sub { font-size: 11px; color: var(--muted); margin-top: auto; }
+.wiz-foot .hint { margin-left: auto; }
+.wiz-foot:empty { display: none; }
+@media (max-width: 640px) { .wiz-grid { grid-template-columns: 1fr; } .wiz-cards { grid-template-columns: 1fr; } }
+
+/* §24 — layout round 2: every panel folds, rows that do nothing hide, the layer chips grouped by kind with a line each,
+   the strip's Categories | Tags switch. */
+/* The panels FLOW in columns (top to bottom, then the next column) instead of a grid of rows: a folded panel is just its
+   heading, and in a grid it left a row-high hole beside a tall neighbour. The layer bar spans every column and heads
+   the layers below it. */
+main#panels { display: block; }
+.panel-flow { columns: 260px; column-gap: 14px; }
+.panel-flow > .panel { break-inside: avoid; -webkit-column-break-inside: avoid; display: inline-block; vertical-align: top; width: 100%; margin: 0 0 14px; }
+.panel-flow > .panel[hidden] { display: none; }
+.panel-flow:empty { display: none; }
+#panels > .layerbar { margin: 0 0 14px; }
+.panel > h2.collapse-head::before { margin-right: 0; }
+.panel > h2.collapse-head { justify-content: flex-start; }
+.panel > h2.collapse-head .layer-remove { margin-left: auto; }
+.panel.collapsed > *:not(h2) { display: none !important; }
+.panel.collapsed { padding-bottom: 12px; }
+.panel.collapsed > h2 { margin-bottom: 0; }
+.collapse-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row[hidden], .waverow[hidden], .switch-row[hidden], .panel-note[hidden], .layerbar[hidden], .pbar-mode[hidden] { display: none; }
+.panel-note { margin: 10px 0 0; font-size: 11px; }
+/* the "Add a layer" bar sits in the panel grid, full width, heading the layers */
+#panels > .layerbar { display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); padding: 12px 16px; }
+.layerbar-head { display: flex; align-items: center; gap: 10px; }
+.layer-filter { flex: 0 1 240px; min-width: 0; }
+.layer-kinds { display: flex; flex-direction: column; gap: 5px; }
+.layer-kind { display: flex; align-items: flex-start; gap: 8px; }
+.layer-kind-name { flex: none; width: 96px; padding-top: 4px; font-size: 11px; color: var(--muted); }
+.layer-kind-chips { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.layer-chip { padding: 3px 9px; }
+.layer-chip:focus-visible { color: var(--accent); border-color: var(--accent); border-style: solid; }
+.layer-about { min-height: 1.4em; font-size: 12px; }
+.pbar-mode { flex: none; }
+.pbar-mode button { padding: 2px 8px; }
+@media (max-width: 700px) {
+  .layer-kind { flex-direction: column; gap: 3px; }
+}

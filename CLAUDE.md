@@ -219,6 +219,21 @@ more particles.
 
 ## Status
 
+- **Layout round 2 (§24, 2026-10-13)**: every editor panel folds (remembered in the existing `crunchyvfx.collapsed.v1`,
+  `p:<group>`; Master and Crunch start folded); rows that do nothing hide (`PARAM_WHEN`, one table; values kept, links
+  unchanged); Output/Master/Crunch head the panels, then the particles, then "Add a layer" and the layers that are on
+  (`orderPanels`, two column-flowing blocks); the 58 layer chips grouped by kind with a line each (`LAYER_ABOUT`) and a
+  filter; a Categories | Tags switch on the strip using the Wizard's own tags; Lock pixels says what it holds. `--css-build` 6.
+- **Wizard tuning (§23.2)**: results must READ at display size (`wizardMeasure`/`WIZARD_READ`: coverage, sustained,
+  spread; `wizardFatten` repairs with bigger particles and less travel), nine distinct names (`WIZARD_NOUNS`), the lead
+  tag's palette visible (hue share ≥ 30%), palettes take turns. Composing nine: 87–150 ms cold in WebKitGTK.
+- **The Wizard (§23, §23.1, 2026-10-13)**: first in the header's globals (wand icon). Three questions (what it's for: 8
+  types; what it's made of: 12 mixable tags; which era), then nine ORIGINAL effects, all playing, at their real frame
+  size. Each is composed (`wizardCompose`): a skeleton from one of the type's presets (motion, timing, structural
+  layers only), the tags' ingredients (`WIZARD_INGREDIENTS`: particles, tuned layer systems, palettes), mixed so every
+  result carries every tag (lead tag = main particle + palette, next = Layer B, further = systems); test-rendered in the
+  era; deterministic per seed. A result is what a click loads (`presetOutcome`, Lock pixels note), an era is the Era
+  button's write, one undo step. The 136-answer sweep is in the async suite. No new runtime file; `--css-build` 5.
 - **The layout pass, round 1 (§22, 2026-10-13)**: one header row of globals (Crunchy suite · Library · Settings · Tour ·
   Tutorials · Feedback); the presets as a paged PICTURE STRIP under it (search by name or category, a chip per category,
   pictures from an idle queue, hover plays); the stage and the editor side by side from 900 px (the stage column

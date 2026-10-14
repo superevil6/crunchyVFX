@@ -460,6 +460,70 @@
         }
       }
 
+      // -------------------------------------------------------------- the Wizard's sweep (§23.1)
+      // Every type with no tag and with each tag, and a sample of tag pairs and triples, some in an era: nine original
+      // compositions each, none a preset, each carrying an ingredient of EVERY chosen tag (read from its params: the
+      // particle, Layer B's particle or a layer system), pairwise different, varied, and drawing in the era. Here and not
+      // in the sync suite: it yields between answers, so the garbage it makes is collected as it goes.
+      {
+        const wasLock = pixelLock; pixelLock = false;
+        const presetGenomes = new Set(Object.keys(PRESETS).map((n) => JSON.stringify(PARAMS.map((p) => fullGenome(PRESETS[n])[p[0]]))));
+        const carries = (g, key) => {
+          const t = WIZARD_INGREDIENTS[key];
+          if (t.shapes.indexOf(SHAPES[g.shape]) >= 0) return true;
+          if (g.emit2Count > 0 && t.shapes.indexOf(SHAPES[g.emit2Shape]) >= 0) return true;
+          return withState(g, () => LAYER_GROUPS.some((L) => t.systems.indexOf(L.g) >= 0 && L.is()));
+        };
+        const keys = WIZARD_TAGS.map((t) => t.key), eras = STYLES.filter((x) => x.name !== "Anything").map((x) => x.name);
+        const answers = [];
+        WIZARD_TYPES.forEach((ty, ti) => {
+          answers.push({ type: ty.key, tags: [], era: "" });
+          keys.forEach((k, ki) => answers.push({ type: ty.key, tags: [k], era: (ti + ki) % 5 === 0 ? eras[(ti + ki) % eras.length] : "" }));
+          for (let j = 0; j < 3; j++) answers.push({ type: ty.key, tags: [keys[(ti * 3 + j) % keys.length], keys[(ti * 5 + j * 4 + 1) % keys.length]].filter((x, i, a) => a.indexOf(x) === i), era: j === 2 ? eras[ti % eras.length] : "" });
+          answers.push({ type: ty.key, tags: [keys[ti % keys.length], keys[(ti + 4) % keys.length], keys[(ti + 8) % keys.length]], era: "" });
+        });
+        const bad = { short: [], preset: [], carry: [], dup: [], samey: [], draws: [], names: [] };
+        const t0 = performance.now();
+        for (const ans of answers) {
+          const tag = ans.type + "+" + (ans.tags.join("+") || "any") + (ans.era ? "@" + ans.era : "");
+          const l = wizardCandidates(ans, 1), era = ans.era ? styleByName(ans.era) : null;
+          if (l.length !== 9) bad.short.push(tag + " " + l.length);
+          if (l.some((c) => presetGenomes.has(JSON.stringify(PARAMS.map((p) => c.g[p[0]]))))) bad.preset.push(tag);
+          if (ans.tags.length && l.some((c) => ans.tags.some((k) => !carries(c.g, k)))) bad.carry.push(tag);
+          if (new Set(l.map((c) => JSON.stringify(c.g))).size !== l.length) bad.dup.push(tag);
+          if (new Set(l.map((c) => c.g.shape)).size < 2 || new Set(l.map((c) => c.g.shape + "/" + c.g.emit2Shape)).size < 4) bad.samey.push(tag);
+          // §23.2: READS, by the stricter bar (coverage, sustained through its life, spread), at its display size
+          const weak = l.filter((c) => !wizardReadable(wizardMeasure(c.g, era)));
+          if (weak.length) bad.draws.push(tag + " (" + weak.map((c) => c.name).join("; ") + ")");
+          if (new Set(l.map((c) => c.name)).size !== l.length || l.some((c) => / \d+$/.test(c.name))) bad.names.push(tag + " (" + l.map((c) => c.name).join("; ") + ")");
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        const ms = Math.round(performance.now() - t0);
+        ok(!bad.short.length, "the Wizard: " + answers.length + " answers (every type × no tag and each tag, pairs, triples, eras) give nine each (" + ms + " ms)", bad.short.join(", ") || "clean");
+        ok(!bad.preset.length, "…none of them a preset", bad.preset.join(", ") || "clean");
+        ok(!bad.carry.length, "…every one carrying an ingredient of EVERY chosen tag", bad.carry.join(", ") || "clean");
+        ok(!bad.dup.length, "…pairwise different", bad.dup.join(", ") || "clean");
+        ok(!bad.samey.length, "…varied (two or more particles, four or more particle pairs)", bad.samey.join(", ") || "clean");
+        ok(!bad.draws.length, "…and every one READS in its era (§23.2: mean " + WIZARD_READ.mean + ", peak " + WIZARD_READ.peak + ", sustained " + WIZARD_READ.sustain + ", spread " + WIZARD_READ.span + " at " + WIZARD_READ.size + " px)", bad.draws.join(", ") || "clean");
+        ok(!bad.names.length, "…nine different names on every page, none with a number on the end", bad.names.join(", ") || "clean");
+        // COLOUR HONESTY (§23.2): a warm tag mixed with a cool one shows BOTH colours across the nine (Fire + Lightning
+        // read purple when Electric drowned the fire): at least two results each where that tag's palette colours are
+        // 30% or more of what is seen.
+        const pairs = [["fire", "lightning"], ["fire", "ice"], ["fire", "water"], ["fire", "tech"], ["cute", "tech"], ["holy", "dark"], ["fire", "arcane"]];
+        const pale = [];
+        let pn = 0;
+        for (const ty of WIZARD_TYPES) for (const pr of pairs) {
+          if ((WIZARD_TYPES.indexOf(ty) + pairs.indexOf(pr)) % 2) continue;   // half the grid: every type, every pair
+          pn++;
+          const l = wizardCandidates({ type: ty.key, tags: pr, era: "" }, 1), ms = l.map((c) => wizardMeasure(c.g, null));
+          const shows = pr.map((k) => ms.filter((m) => wizardTagShare(m, k) >= WIZARD_READ.lead).length);
+          if (shows.some((n) => n < 2)) pale.push(ty.key + "+" + pr.join("+") + " " + shows.join("/"));
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        ok(!pale.length, "…warm and cool tags together: both palettes show across the nine (" + pn + " answers)", pale.join(", ") || "clean");
+        pixelLock = wasLock;
+      }
+
       // -------------------------------------------------------------- A/B compare
       applyPreset(PRESETS["Explosion"], "Explosion");
       const hueA = state.hue;

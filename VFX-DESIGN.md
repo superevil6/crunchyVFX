@@ -1241,3 +1241,310 @@ AJ, on round 1: "I think it works well", with four changes.
 shape draws (without touching the sprite cache), the filter still hides tiles, every palette has a swatch, and the
 starting size (Randomize, Foundry with and without a sized style, Match at 192; a preset without a size and its link
 still 128; the lock still wins). `--css-build` 4.
+
+## 23. The Wizard: three questions, nine finished effects, all playing (2026-10-13)
+
+**Why:** CrunchyTile's Wizard (TILE-DESIGN §86) in VFX: a person with a game and no effect in mind answers in their own
+words and picks from nine finished effects. CONSOLIDATION-PLAN §3.4 puts it FIRST in the header's globals (Wizard ·
+Crunchy suite · Library · Settings · Tour · Tutorials · Feedback), with the core's `wand` icon. The tour's welcome now
+says to start there, and a "Start here · the Wizard" step points at it. No new runtime file: the tables, the choosing
+and the dialog are a section of index.html (after the Foundry), the look is a block at the end of styles.css
+(`--css-build` 5).
+
+**The questions** (AJ's design):
+1. **What's it for?** one of `WIZARD_TYPES`: a hit or an impact, an explosion, a pickup or a reward, a spell or an
+   ability, a status effect, a projectile or a trail, atmosphere or weather, a UI or HUD flourish.
+2. **What's it made of?** any number of `WIZARD_TAGS`, mixed: fire, ice and frost, lightning, arcane, nature, poison and
+   slime, water, tech and sci-fi, dark and shadow, holy and light, smoke and dust, cute and shiny.
+3. **Which era?** "As drawn" (the default) or one of the Era style buttons (STYLES, the same table).
+
+Each card carries a picture: a preset's strip picture for the first two, and for the eras the type's sample drawn IN
+that era at the era's own frame size, so a person sees what 8-bit or Pocket does before choosing it.
+
+**Type → where results come from:**
+
+| type | preset categories | name words (examples) | Foundry archetypes | Randomize rolls carrying | loops? |
+|---|---|---|---|---|---|
+| hit | Impacts | hit, slash, strike, clash, parry | Impact | Impact, Slice, Fracture | no |
+| explosion | Explosions | explosion, boom, blast, bomb, nova | Explosion | Burst, Shatter | no |
+| pickup | Pickups & Charm | coin, level, treasure, crown | Pickup | Twinkle | no |
+| spell | Magic, Ice & Frost, Sequences | summon, portal, teleport, rune, zap | Magic | Sigil, Vortex, Rift, Arc, Tunnel | no |
+| status | Status & HUD | aura, shield, poison, curse, stun | Magic | Aura, Orbit, Sigil | yes |
+| projectile | (none: Beam, Ribbon, Path trail or Smear makes a preset one) | bolt, laser, comet, trail, beam | (none) | Beam, Ribbon, Path trail, Smear | no |
+| atmosphere | Weather, Atmosphere, Ambient | rain, snow, fog, motes | Weather, Smoke | Weather, Haze, Light shafts, Droplets, Bokeh | yes |
+| ui | Emotes, Symmetry & Stylise, Camera & Light | level, target, alert, damage, pop | Pickup | Bubble, Lines, Zoom blur, Kaleidoscope | no |
+
+Membership, not ownership: a preset may be two types. 177 of the 189 presets are of at least one type; the 12 left are
+Structures oddities (Water Ripple, Sonar Ping, Glitch Out…), still reachable through the strip.
+
+**Tags are DERIVED, never listed per preset.** A tag describes what a material LOOKS like in VFX's own terms: words in a
+name, shapes and systems of its own (a snowflake is ice, the Merge system is slime), a COLOUR test, and shapes and
+systems it is likely to use (`maybe`). The colour is read where a particle spends most of its life: the hue 40% along
+Hue shift (or the colour ramp's nearest stop), with saturation, Hot core and Blend. An effect carries a tag STRONGLY by a
+word, an own shape or system, or the colour plus a likely piece; the colour or a likely piece alone is a WEAK carry.
+`wizardTagsOf(patch, name)` is the strong set, so a preset added next year, or a roll, is tagged the moment it exists.
+Tagged presets now: fire 16, ice 12, lightning 8, arcane 30, nature 10, poison 5, water 8, tech 22, dark 10, holy 10,
+smoke 15, cute 20.
+
+> **Superseded by §23.1** (AJ: the nine were mostly existing presets). Kept for the record.
+
+**The nine (`wizardCandidates(answers, seed)`). It invents nothing.**
+- First the type's PRESETS that carry a chosen tag strongly (all of them when none is chosen), best fitting first: six a
+  page at most; "More like these" (the next seed) goes on through the list, then gives rolls only.
+- Then ROLLS: the Foundry's (`foundryGenerate` for the type's archetypes, style "Anything", the era being question 3)
+  and Randomize's (`rollRandomEffect`, the dice of `randomize()`, split out unchanged) that carry one of the type's
+  systems, run under a seeded `Math.random` (`wizardSeeded`, mulberry32; the real one is put back however the roll ends).
+  Same answers and seed, same nine. A roll may also be offered with one of a chosen tag's own PALETTES pressed
+  (`wizardPaint`: exactly the Palette button's write), which is how "an icy hit" finds Impact rolls in ice colours; a
+  roll so painted carries that tag strongly (`wizardCarry`). A preset is never repainted.
+- Ranked by the tags carried (a strong carry counts twice), then by whether the effect loops as the type does, then
+  order. Variety: never two that look alike (a preset: same particle, colour band and systems; a roll: same particle,
+  emitter and 60° colour band), one seed once, at most three of one particle (two among the rolls).
+- Everything offered draws: the Breed grid's `genomePixels` bar, read IN the chosen era (8-bit at 64 px can crush a
+  spark to nothing; such a preset or roll is not offered in it).
+- Rolls, looks and visibility are kept in a bounded cache (`wizardCache`): they are pure functions of their seed.
+
+**Loop or one-shot is not a question, and the Wizard does not set Playback.** Playback (§21) is a dialog-wide export
+setting, not a per-effect one, so writing it would change every later export; and making an effect loop for real means
+Seamless loop, which changes its pixels. So the type's `loop` RANKS (a weather or status answer prefers effects made to
+loop) and each result says what Playback will do with it ("loops" / "plays once", `loopFor` with the dialog's current
+choice). Auto does its job: Campfire Smoke, an Ambient preset without Seamless loop, says "plays once" under Atmosphere.
+
+**What you see is what a click loads.** `presetOutcome(obj, exact)` is what `applyPreset` sets, as a plain object (a
+refactor: `applyPreset` writes it into `state`; the frame hash proves nothing moved). A result is
+`presetOutcome(patch)` (Lock pixels and Hold sound included) plus the era as `styleInto` writes it, which is the Era style
+button's own write (`applyEraStyle` = `styleInto` + `eraPinned` + the usual sync, render and commit). Each result is
+drawn at its REAL frame size (what Export writes) and scaled into its cell, pixelated, so an era's pixels show. Clicking
+does the same writes as clicking that preset and then the era's button, including the era's pins, as ONE undo step
+(Ctrl+Z puts the previous effect back), and closes the Wizard. A roll is named for what it is ("Ice hit", "Fire weather
+2"), which is also its export name.
+
+**Lock pixels** (AJ found it pinning sizes surprising): the Wizard never hides it. When the lock would change the nine
+(a pinned size or crunch), a line above them says so ("Lock pixels is on, so these keep your 128 px frame and crunch, as
+any effect you load would") with a "Turn Lock pixels off" button (the lock button's own click: it also forgets the
+pins) that redraws them at their own sizes. On the era question, with the lock on, a line says an era also pins its size
+and crunch for later effects, exactly as its Era style button does.
+
+**All nine play** (AJ: "If it's not too intensive we can just have them all playing"). Measured, WebKitGTK (the desktop
+engine) at 1440 x 900, cold, Atmosphere + Fire (nine of 192 px, 328 frames): choosing 201 ms (10 ms warm), the nine
+stills 21 ms, every frame rendered and playing 577 ms after opening; 48 MB of frames; with all nine playing the frame
+interval held at 17.0 ms median, 18.0 ms p95, 20 ms worst, and redrawing all nine cost under 0.1 ms a frame. Firefox,
+Explosion + Fire: 51 ms to choose, 50 ms of stills, 19 to 110 ms per effect's frames, 29 MB. So no play button: each
+cell shows its still at once, then its frames render on their own idle tick (the first first) and it joins the Breed
+grid's mini-player loop (`miniPlayers`, `tickMinis`); closing the Wizard drops them. Escape closes it (the app's one
+Escape handler, through `#wizClose`), as does a click outside; it is a `.modal` with `role="dialog"`, `aria-modal` and
+`aria-label="Wizard"`.
+
+**Also:** `genomePixels` frees its test frames' backing stores at once (no pixels change; the Breed grid and the Foundry
+use it too).
+
+> **Superseded by §23.1's tests.**
+
+**Tests** (the sync suite, 592): the header order with the Wizard first; the dialog's role and label; the tour; every
+table names only real shapes, systems, palettes, categories and archetypes; every tag's palette is that tag's colour;
+thirteen telling presets carry their tag (Torch Flicker fire, Frost Nova ice … Coin Pickup cute) and Frost Nova is not
+fire; an effect nobody listed is tagged by what it is; every tag on at least three presets, every type at least five;
+**all 104 type × tag answers** give nine, all different, all real, at least four particles, at least seven of nine
+carrying the tag, every preset of the type (about 4 s); in 8-bit every result draws in 8-bit; a roll regenerates from
+its seed and draws, a Foundry roll uses its archetype's shapes, the seeded random is restored after a throw;
+deterministic per seed and a re-roll differs; the questions' flow (types, mixed tags, eras, nine); each result drawn at
+its real frame size; all nine playing; loop or once on each; a click closes, loads exactly the preset's state as one
+undo step, and undoes; an era load equals the preset plus that Era button, values and pins; a pinned 96 px shows in the
+results with the note, the note's button unlocks and redraws; Escape and Close. The suite's peak memory is 11.8 GB under
+its 12 GB cap (it was 11.2 GB before this section; the 104-answer sweep is most of the rise).
+Frame hash byte-identical (278 lines); desktop 55, web 12, async 69, plant 14, worker 38, Godot 14, cargo build.
+
+**Open for AJ:** whether the strip's chips should gain these tags (§22 round 2: "an icy explosion" as two chips); whether
+Status should share the Magic archetype (the Foundry has no status archetype); and whether a Foundry roll in a tag's
+palette is the right answer when no preset fits (it is a roll plus a Palette press, nothing more).
+
+### 23.1 Nine ORIGINAL effects, composed from the tags' ingredients (2026-10-13)
+
+AJ, on §23: "This is great, however it's running into an issue we ran into with Tile, most of the suggestions are just
+already made presets. We should have 9 original VFX from the wizard, with mixed and matched elements from tags chosen.
+So a sci-fi ice spell should have radar boops and snow flakes." So no result is a preset or a plain roll any more: each
+is a NEW effect put together by the composer (`wizardCompose`), from VFX's own shapes, layer systems, palettes and
+params only. The questions, the cards, the era, Lock pixels, one undo step and Escape are as in §23.
+
+**Ingredients (`WIZARD_INGREDIENTS`, one entry per tag):** particle shapes (the first three are the most telling and
+take turns as the main particle), layer systems, palettes, a few knobs when the tag leads, and the word each part is
+called by in a name.
+
+| tag | particles | systems | palettes |
+|---|---|---|---|
+| fire | flame, smoke, spark, boom | Haze, Crackle, Shockwave | Fire, Ember |
+| ice | snowflake, shard, diamond, hexagon | Growth, Shatter, Twinkle | Ice, Frost |
+| lightning | bolt, spark, plus | Arc, Crackle, Chain | Electric |
+| arcane | rune, star, spiral, pentagram | Sigil, Orbit, Vortex | Magic, Plasma |
+| nature | leaf, flower, clover, sprout, butterfly | Growth, Swarm, Tumble | Nature |
+| poison | bubble, blob, skull, puddle | Drip, Haze, Merge | Toxic |
+| water | teardrop, bubble, splash, wave | Ripples, Droplets | Water |
+| tech | reticle, pixel, gear, atom, cube | Particle rings ("radar"), Scanlines, Grid, Sweep, Glitch | Electric, Steel |
+| dark | skull, ghost, smoke, eye | Rift, Attractor, Dissolve | Void, Blood |
+| holy | sun, star, cross, wing | Light shafts, Flare, Twinkle | Holy, Gold |
+| smoke | smoke, cloud, rock, specks | Haze, Decal | Smoke, Steel |
+| cute | heart, star, candy, coin, note | Twinkle, Tumble | Candy, Gold, Rainbow |
+
+A system arrives TUNED: its group's params are copied from one of the presets that use it (`wizardSystemDonors`), then
+switched on through its own `LAYER_GROUPS` entry if the copy left it off.
+
+**Skeletons (the type).** A result moves like one of its type's presets: the composer copies that preset's Emitter,
+Motion, Life and Glow rows, duration, fps, opacity and scale, and only the structural layers the type is made of
+(`WIZARD_SKELETON_KEEP`: an explosion keeps Flash, Shockwave, Burst, Sub-emitter, Trails, Ground; a hit Flash, Shockwave,
+Impact, Lines, Slice, Smear…; a spell Flash, Shockwave, Sigil, Orbit, Attractor; a projectile Beam, Ribbon, Path trail,
+Trails, Smear, Arc, Flash; atmosphere Weather, Haze, Light shafts, Droplets, Bokeh, Twinkle, Swarm; UI Lines, Twinkle,
+Flash, Zoom blur, Kaleidoscope, Particle rings, Orbit; status Orbit, Aura, Sigil, Ripples, Attractor), with their
+layerDelay. Its particle, colours, Layer B and every other layer are dropped. The page's donors are put in an order of
+the seed's and each slot takes the next, so the nine move nine different ways. Status and atmosphere results are made
+to loop (Seamless loop 0.7 / 0.8, emitting over the whole clip), so Playback's Auto loops them; the rest are one-shots.
+This was the Foundry's job in the brief; the type's own presets give better-tuned motion than the six archetypes, and
+two of the eight types (projectile, status) have no archetype at all.
+
+**Mixing.** The chosen tags are rotated so a different one LEADS in each slot:
+- the lead gives the MAIN particle (its three most telling, by turns), its palette (the Palette button's write) and its
+  knobs. A particle under 14 px grows to 14-20 px (a snowflake at 8 px is a dot), with fewer of them so the coverage
+  stays the skeleton's; at most 220 particles and glow 0.45 so bright shapes don't wash out to white;
+- the next tag gives LAYER B: its particle (a different partner each time the lead particle comes round), moving with
+  the main particles, in that tag's palette colour. Alone, a tag gives Layer B another of its own particles;
+- with two palettes, half the time the main particles also hand over from the lead's palette to the second's late in
+  life (a colour ramp with a hard step at 55%: a blended ramp between orange and blue passes through every hue);
+- layer systems: one from the lead or the second tag (alternating), one from every further tag, at most three. A tag's
+  most telling system (radar rings for tech, a sigil for arcane) comes every other time.
+So every result carries every chosen tag. With no tag, each slot picks its own one or two.
+
+> **Superseded by §23.2** for the readability bar (now coverage, sustain and spread at display size, with repairs), the
+> names (no " 2") and the palette pick (turns, not random). Kept for the record.
+
+**Every result must read:** test-rendered (`genomePixels`, the Breed grid's test, with a bar of 220 lit pixels where the
+Breed grid's is 40) in the chosen era, and a composition that does not draw, or repeats one already on the page, is
+composed again (up to eight attempts). Deterministic: a seeded generator (no Math.random), so the same answers and seed
+give the same nine; "More like these" is the next seed.
+
+**Names and parts:** a result is named from the parts it is made of ("Snowflake target spell", "Flame bolt explosion",
+"Gear crystal spell"), and its card lists them: "reticle · snowflake · particle rings · Steel palette · Frost palette".
+
+**Polish:** a result's picture is SQUARE beside its name and parts (no dark side bars; nine fit at 1440 x 900). A
+one-shot holds its last LIT frame for half a second and skips its empty tail before playing again (`hold` and `end` on
+the mini-player, ignored by the Breed grid's players), so no cell sits blank. Closing the Wizard frees the nine's frames.
+
+**Measured** (WebKitGTK, 1440 x 900, cold, a tech + ice spell): composing the nine 111 ms, their stills 42 ms, all nine
+playing 730 ms after opening, 316 frames (47 MB); with all nine playing the frame interval held at 17.0 ms median, 17.0 ms
+p95, 18 ms worst. Still all playing; no play button.
+
+**Removed with the presets-as-results:** the seeded Foundry and Randomize rolls, `rollRandomEffect` (randomize() is as it
+was before §23), the archetype column of `WIZARD_TYPES`, and the preset ranking. The derived tags (`WIZARD_TAGS`,
+`wizardTagsOf`) stay: the question cards use them for their pictures, and they are still tested.
+
+**Tests.** The sync suite (593) checks one answer through (a tech + ice spell: nine compositions, none a preset, every
+one carrying BOTH tags by its particle, Layer B or a layer, snowflakes and radar rings among them, nine different
+skeletons and several particles, every one draws, named from its parts, deterministic, a re-roll differs), that status
+results loop and hits don't, 8-bit results draw in 8-bit, the ingredient table names only real shapes, systems,
+palettes and params, the dialog (one-shots hold their last lit frame), and everything §23 checked (load as one undo
+step, era like the button, Lock pixels note, Escape). The SWEEP moved to the async suite (75), where it yields to the GC:
+136 answers (every type with no tag and with each tag, three pairs and a triple per type, some in an era) give nine
+each, none a preset, every one carrying an ingredient of every chosen tag (read from its params), pairwise different,
+varied (two or more main particles, four or more particle pairs), every one drawing in its era (about 17 s). The sync
+suite's peak memory is 11.4 GB (11.8 GB with the sweep; 11.2 GB before §23). Frame hash identical; desktop 55, web 12,
+cargo build.
+
+**For AJ:** the ingredient table is the place to tune taste (which particles say "ice", which system says "radar");
+palettes like Electric (blue drifting to violet) and Steel (near-grey) set much of a result's mood, and may want a
+Wizard-only colour tweak if they read wrong; a few sparse skeletons (thin sparks that travel far) still make small
+pictures under Fit.
+
+### 23.2 Wizard tuning: every result reads, nine names, each tag's colour shows (2026-10-13)
+
+AJ on §23.1: "exactly what's expected", with three weak spots seen in the screenshots. None of this touches a preset or
+the renderer: the frame hash is byte-identical (278 lines).
+
+**Sparse results.** The old bar was `genomePixels` ≥ 220: lit pixels (alpha > 8) summed over three 40 px frames. A few
+thin sparks that travel far pass it, and Fit then shrinks the whole picture into specks (worst in Fire + Lightning
+explosions). The new bar measures a result as it is SEEN (`wizardMeasure`): rendered at 48 px (about its cell's scale,
+Fit on, in the chosen era), five frames from 15% to 75% of its life, counting pixels that are opaque (alpha > 48) and
+light enough to see on the dark cell (luminance × alpha ≥ 45: deep blue does not count). `WIZARD_READ`: mean coverage
+≥ 5%, peak ≥ 7%, SUSTAINED (the 30/45/60% frames each ≥ 3.5%: not one early flash) and SPREAD (the peak frame's lit box
+≥ 40% of the frame). A composition that misses is REPAIRED before it is thrown away (`wizardFatten`, up to twice): bigger
+(size ×1.4, Layer B ×1.3) and more (count ×1.3) particles, full opacity, a shorter fade; for the compact types (hit,
+explosion, pickup, spell, UI) or a result that does not spread, LESS TRAVEL (speed, gravity and Layer B's speed ×0.6,
+more drag), so Fit stops shrinking it; a result that fades out early lives 30% longer. Then the next attempt (six, was
+eight); the best scoring one is kept if none passes (the sweep checks that never happens). A one-shot's cell also ends
+its loop on the last frame still showing a quarter of its fullest one (was: the last frame with a dozen pixels), so the
+frame a cell rests on is never a lone ember; the exported effect keeps its whole tail.
+
+**Names.** Two results with the same parts were "… spell" and "… spell 2". `wizardWords` now keeps the page's names in a
+set and tries, in order: another pair of the result's own part words (the particles AND the systems: "Flame heat burst"),
+then a synonym for the type (`WIZARD_NOUNS`: explosion, blast, burst, nova, detonation…; spell, cast, conjuring,
+invocation…; trail, bolt, shot, streak…), rotating the noun every three slots so a page mixes them. A part word that is
+the noun is skipped ("Ember blast blast"). The " 2" fallback in the grid is now a safety net that never fires.
+
+**Colour honesty.** Fire + Lightning read purple: Electric (blue to violet, additive, a white-hot core) drowned the warm
+results. The same measurement keeps a 12-bin hue histogram (plus grey/white). With tags chosen and an era that keeps
+colours, the LEAD tag's palette colours (`wizardPalBins`: the hues its palettes pass through; a pale palette is grey)
+must be at least 30% of what is seen (`wizardTagShare`); the repair for a drowned lead is a cooler core (Hot core ≤
+0.35), Layer B halved and quieter, no hand-over ramp. And palettes take TURNS instead of a random pick (a cute page was
+eight Gold results of nine; now Candy, Gold and Rainbow rotate; the second tag's palettes rotate too). Variety: a particle
+pair the page has not shown is preferred until there are four.
+
+**Measured.** Composing the nine, WebKitGTK cold at 1440 × 900: tech + ice spell 87 ms (stills 40 ms, all nine playing
+after 751 ms); fire + lightning explosion 150 ms (stills 51 ms, playing after 856 ms). Firefox 45–200 ms across ten
+answers. Under the ~300 ms budget.
+
+**Tests** (async suite, now 77): across the 136-answer sweep every result READS by the new bar in its era (it replaces
+"every one draws"); every page has nine distinct names, none ending in a number; 28 warm + cool answers (fire with
+lightning, ice, water, tech, arcane; cute + tech; holy + dark, over every type) show BOTH tags' palettes, each in at least
+two of the nine at 30% or more. The sync suite's Wizard checks call `wizardDraws`, which is now this bar.
+Screenshots: `tune-*.png` (fire + lightning explosion, sci-fi + ice spell, dark + smoke atmosphere, cute pickup).
+
+**For AJ:** `WIZARD_READ` is the dial (raise `mean` for chunkier results, at the cost of more retries); a single tag with
+few particles (lightning: bolt, spark, plus) gives names that sound alike ("Static spark trail", "Spark static bolt");
+more `say` words or particles in its ingredient row would fix it.
+
+## 24. The layout pass, round 2: folding panels, rows that hide, panels in order, grouped layer chips, tag chips (2026-10-13)
+
+The follow-up §22 proposed, AJ approved the direction. Presentation only: no control removed or renamed, the frame hash is
+byte-identical, `--css-build` 6. No new runtime file and no new storage key.
+
+1. **Every panel folds.** Each parameter panel's heading is a fold, as the four hero sections were (`makeCollapsible`, now
+   with `role="button"`, `tabindex`, `aria-expanded`, Enter/Space). It is remembered per person in the SAME key the heroes
+   used, `crunchyvfx.collapsed.v1` (a map section → folded; a panel is `p:<group>`), so the key keeps its shape and the
+   desktop suite's pinned set of keys is unchanged. First time: everything open except Master and Crunch (`PANEL_FOLDED`:
+   set-once, and Crunch carries the palette lock). The tutorial's Layer B steps open that panel if it is folded.
+2. **Rows that do nothing are hidden** (Tile's PARAM_WHEN): ONE table, `PARAM_WHEN`, key → when it applies, each a fact
+   about vfx.js: `turbScale`/`turbSpeed`/`turbCurl` when Turbulence > 0; `spinVar` when Spin ≠ 0; `emitAngle`/`emitSpread`
+   only for the aimed emitters (cone, line, box: `emitPlace`), `emitRadius` for every emitter but the cone, and the same
+   three for Layer B's emitter; `originX`/`originY` while Fit is off; `echoDecay` when Echo > 0; `dither` when Color steps
+   < 32 or a palette is locked; `outlineTone` when Outline > 0; `imgLoops`/`imgStagger` when the sprite has more than one
+   cell. A hidden row keeps its value (state is untouched: it renders, saves and rides in share links as before). Every
+   governed row sits BELOW the row that governs it, so nothing moves under the pointer during a drag. The stage's Fit hint
+   became a one-line note in the Emitter panel, where Origin X/Y disappear. Considered and left out: hiding Hue/Hue
+   shift/Saturation under a colour ramp (Silhouette, Rim light, Bubble and the glints still read them).
+3. **Panel order.** Output (Duration), Master and Crunch head the panels, right after the heroes; then Emitter, Motion,
+   Life, Color and the selected shapes' panels; then "Add a layer"; then the layers that are on. The panels flow in
+   columns (`.panel-flow`, two blocks around the layer bar; `columns: 260px`, inline-block panels) instead of a grid,
+   because a folded panel left a row-high hole beside a tall one. (One `column-span: all` version painted a ghost panel
+   in WebKitGTK; two blocks avoid it.)
+4. **"Add a layer", grouped.** `LAYER_ABOUT` gives each of the 58 layers a kind and one line: Light (10), Particles (10),
+   Motion (6), Shapes & lines (22), Post & stylise (10) (`LAYER_KINDS`). Within a kind the LAYER_GROUPS order holds. The
+   line is the chip's tooltip and shows under the chips while a chip is hovered or focused; a filter matches names, lines
+   and kinds. The chip text is unchanged ("＋ Growth").
+5. **Tags on the effect strip.** A Categories | Tags switch picks which chips show; the tag chips are the Wizard's own
+   `WIZARD_TAGS`, derived per preset by `wizardTagsOf` (one source of truth, cached per preset), counted under the search,
+   the category and the tags already on; several tags narrow to effects carrying all of them, and a tag holds with a
+   category (Explosions + Fire). The switch shows how many filters of each kind are on ("Tags · 1"), so a filter in the
+   other row is never a hidden surprise. Not remembered (no new key, as §22 decided for the chips).
+6. **Lock pixels says what it holds:** "Lock pixels (64 px)", "(64 px + crunch)", "(crunch)" (`lockSummary`); it said
+   "(1)" before.
+
+**Tests** (sync suite 619, was 593): every panel folds (81) with the right first-time state, a click folds and is
+remembered, Enter reopens, a layer heading folds; each PARAM_WHEN rule both ways (14 cases, all 17 keys), Origin X/Y with
+Fit and the note, a hidden row's value in a share link; the panel order and where the layer bar sits; LAYER_ABOUT covers
+LAYER_GROUPS exactly, chips grouped in a stable order, tooltip and hover line, the filter; tag chips are the Wizard's,
+narrow to exactly the tagged effects, hold with a category, count, survive the switch, clear; the lock label's four
+states. The suite's peak memory is 11.5 GB under its 12 GB cap (11.4 before). Frame hash identical (278); async 77,
+desktop 55, web 12, plant 14, worker 38, Godot 14, pull-core --check, the pre-commit hook, cargo build.
+Screenshots (WebKitGTK): `r2-1366-top.png` (tag chips), `r2-1366-panels.png`, `r2-1366-layers.png`, `r2-1920-*.png`,
+`r2-tall-1366.png`.
+
+**For AJ:** Motion starts open (it is long; fold it once and it stays folded); the tag chips' counts combine with tags
+already on, so after one tag most others read 0 (AND, not OR); and whether My Effects should become a strip mode
+(round 2's last proposal) is still open.

@@ -41,6 +41,7 @@
   <span class="tag">a from-scratch sprite VFX generator</span>
   <span class="spacer"></span>
   <div class="hdr-globals" id="hdrGlobals">
+    <button id="wizardBtn" data-icon="wand" title="Answer three questions about the effect you need and pick from nine finished ones">Wizard</button>
     <button id="suiteBtn" title="The other Crunchy tools: tiles, game UI, sound effects and music" data-icon="star">Crunchy suite</button>
     <button id="setBtn" title="Settings: your preferences (the preview dock, Lock pixels, the tour, tutorials)" data-icon="cog">Settings</button>
     <button id="tourBtn" title="Replay the guided tour" data-icon="help">Tour</button>
@@ -78,6 +79,9 @@
   <div class="pbar-top">
     <span class="pbar-title" id="presetsHead">Effects</span>
     <input type="search" id="presetSearch" class="pickfilter" placeholder="Search effects…" autocomplete="off" spellcheck="false" title="Find an effect by its name or its category (explosion, magic, weather…)">
+    <span class="zoomgroup pbar-mode" id="presetMode" role="group" aria-label="Filter the effects by" title="Narrow the effects by their category, or by what they are made of (the Wizard's tags: fire, ice, tech…)">
+      <button type="button" data-mode="cats" class="active" aria-pressed="true">Categories</button><button type="button" data-mode="tags" aria-pressed="false">Tags</button>
+    </span>
     <div class="pbar-chipwrap">
       <button type="button" class="pgbtn chippg" id="chipPrev" title="Earlier categories" aria-label="Earlier categories" hidden>‹</button>
       <div class="pbar-chips" id="presetChips" role="toolbar" aria-label="Effect categories"></div>
@@ -162,7 +166,7 @@
         </span>
       </span>
     </div>
-    <div class="hint stage-hint" id="fitHint"><b>Fit</b> is on — the effect is scaled and centred to fill the frame, so <b>Origin X/Y</b> won't move it. Turn Fit off to place it yourself.</div>
+    <div class="hint stage-hint panel-note" id="fitHint"><b>Origin X/Y</b> are hidden while <b>Fit</b> is on: it centres the effect. Turn Fit off to place it yourself.</div>
   </div>
 
   <div class="refbox" id="sndBox">
@@ -311,7 +315,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 4;   // must match --css-build in styles.css
+  const CSS_BUILD = 6;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 5, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 8, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -990,6 +994,7 @@ function rerender() {
   const t0 = performance.now();
   rendered = renderFrames(state, { fit: fitOn });
   const ms = Math.round(performance.now() - t0);
+  updateParamWhen();          // §24: a drag that turned Turbulence on (or Spin off) shows or hides the rows it governs
   lastRenderMs = ms;
   const n = rendered.canvases.length;
   stage.width = rendered.w; stage.height = rendered.h;
@@ -1368,6 +1373,40 @@ function scheduleRender() {
   renderTimer = setTimeout(rerender, Math.min(220, Math.max(50, lastRenderMs)));
 }
 
+// ---------- Rows that do nothing right now are hidden (§24, CrunchyTile's PARAM_WHEN) ----------
+// ONE table: a param key -> when its row applies. Each rule is a fact about the engine (vfx.js), not a guess: Turbulence
+// at 0 never reads its scale, speed or curl; Spin at 0 multiplies Spin var by zero; Direction and Spread are read only by
+// the aimed emitters (emitPlace: cone, line, box) and Emit radius by every emitter but the cone; Origin X/Y are replaced
+// by Fit's centring. A hidden row KEEPS its value (state is untouched), so it still renders, saves and rides in share
+// links exactly as before; only the row goes, and it comes back the moment it matters.
+const AIMED_EMITTERS = [1, 4, 6];               // EMITTERS: cone, line, box
+const aimed = (e) => AIMED_EMITTERS.indexOf(Math.round(e)) >= 0;
+const PARAM_WHEN = {
+  emitAngle:   (s) => aimed(s.emitter),
+  emitSpread:  (s) => aimed(s.emitter),
+  emitRadius:  (s) => Math.round(s.emitter) !== 1,
+  originX:     () => !fitOn,
+  originY:     () => !fitOn,
+  turbScale:   (s) => s.turb > 0,
+  turbSpeed:   (s) => s.turb > 0,
+  turbCurl:    (s) => s.turb > 0,
+  spinVar:     (s) => s.spin !== 0,
+  echoDecay:   (s) => s.echo > 0,
+  dither:      (s) => s.posterize < 32 || !!s.paletteLock,   // dither biases the quantize: no steps, no palette, nothing to dither
+  outlineTone: (s) => s.outline > 0,
+  imgLoops:    (s) => Math.round(s.imgCols) * Math.round(s.imgRows) > 1,   // a single-cell sprite has no strip to run
+  imgStagger:  (s) => Math.round(s.imgCols) * Math.round(s.imgRows) > 1,
+  emit2Angle:  (s) => aimed(s.emit2Emitter),
+  emit2Spread: (s) => aimed(s.emit2Emitter),
+  emit2Radius: (s) => Math.round(s.emit2Emitter) !== 1,
+};
+function updateParamWhen() {
+  for (const k in PARAM_WHEN) {
+    const row = paramRows[k];
+    if (row) row.hidden = !PARAM_WHEN[k](state);
+  }
+}
+
 // ---------- Panels generated from PARAMS ----------
 const groups = {};
 for (const p of PARAMS) (groups[p[7]] ||= []).push(p);
@@ -1382,6 +1421,8 @@ const inputs = {};
 // and a `const` declared after that point is a temporal-dead-zone error that kills the rest of the
 // script — the UI above it builds, everything after it silently never runs.
 const numInputs = {};
+// §24: each generated row by its param key, so PARAM_WHEN can hide the ones that do nothing right now.
+const paramRows = {};
 
 function fmt(p, val) {
   const [, , , , , , unit, , kind] = p;
@@ -1444,7 +1485,7 @@ for (const [group, ps] of Object.entries(groups)) {
         "<output></output>";
       host.appendChild(row);
       const el = row.querySelector("input"), out = row.querySelector("output");
-      inputs[key] = el; outputs[key] = out;
+      inputs[key] = el; outputs[key] = out; paramRows[key] = row;
       el.checked = state[key] > 0.5;
       out.textContent = el.checked ? "on" : "off";
       el.addEventListener("change", () => {
@@ -1466,7 +1507,7 @@ for (const [group, ps] of Object.entries(groups)) {
       host.appendChild(row);
       const el = row.querySelector("select");
       el.value = state[key];
-      inputs[key] = el;
+      inputs[key] = el; paramRows[key] = row;
       el.addEventListener("change", () => { state[key] = +el.value; noteLockEdit(key); commitHistory(); rerender(); });
     } else {
       const row = document.createElement("div");
@@ -1493,7 +1534,7 @@ for (const [group, ps] of Object.entries(groups)) {
       host.appendChild(row);
       const input = row.querySelector("input[type=range]");
       const num = row.querySelector(".row-num");
-      inputs[key] = input; numInputs[key] = num;
+      inputs[key] = input; numInputs[key] = num; paramRows[key] = row;
       const showNum = () => { num.value = trimNum(state[key], step); };
       showNum();
       // A slider announces a bare number. The readout beside it already carries the unit (and,
@@ -2424,8 +2465,88 @@ for (const L of LAYER_GROUPS) {
   head.appendChild(b);
 }
 
+// §24: the "Add a layer" chips GROUPED by what a layer does, each with one line saying so (its tooltip, and the line
+// under the chips while a chip is hovered or focused), and a filter over names and lines. One table, keyed by the
+// LAYER_GROUPS name; an assertion checks it covers LAYER_GROUPS exactly. Within a kind, LAYER_GROUPS order holds.
+const LAYER_KINDS = ["Light", "Particles", "Motion", "Shapes & lines", "Post & stylise"];
+const LAYER_ABOUT = {
+  "Flash":          ["Light", "A bright pop at the start: the moment it lands"],
+  "Glow":           ["Light", "Blooms the bright parts outward"],
+  "Flare":          ["Light", "A lens flare: a wide streak and ghost discs"],
+  "Light shafts":   ["Light", "Rays fanning out from the centre"],
+  "Bokeh":          ["Light", "Soft out-of-focus discs drifting in front"],
+  "Twinkle":        ["Light", "Little star glints popping on and off"],
+  "Rim light":      ["Light", "A coloured edge light hugging the shapes"],
+  "Aura":           ["Light", "A soft coloured halo around the silhouette"],
+  "Cone":           ["Light", "A wedge of light that spreads as it goes"],
+  "Streaks":        ["Light", "Star-filter streaks off the brightest pixels"],
+  "Layer B":        ["Particles", "A second set of particles with its own shape and colour"],
+  "Sub-emitter":    ["Particles", "Each particle bursts into smaller ones when it dies"],
+  "Burst":          ["Particles", "Fires the effect several times in a row"],
+  "Tumble":         ["Particles", "Flat pieces flipping as they fall: confetti, petals, coins"],
+  "Swarm":          ["Particles", "Wandering motes: fireflies, gnats, sparks"],
+  "Weather":        ["Particles", "Rain or snow streaking across the frame"],
+  "Droplets":       ["Particles", "Drops that swell, let go and stretch as they fall"],
+  "Drip":           ["Particles", "Drips gathering under a rim and falling"],
+  "Shatter":        ["Particles", "The picture breaks into pieces that fly apart"],
+  "Merge":          ["Particles", "Particles melt together into goo"],
+  "Attractor":      ["Motion", "Pulls the particles toward a point, or pushes them away"],
+  "Ground":         ["Motion", "A floor the particles bounce and slide on"],
+  "Trails":         ["Motion", "Streaks behind moving particles, and frame echo"],
+  "Path trail":     ["Motion", "A line tracing where each particle has been"],
+  "Smear":          ["Motion", "Motion smear, as an animator draws speed"],
+  "Orbit":          ["Motion", "Shapes circling the centre on a tilted ring"],
+  "Shockwave":      ["Shapes & lines", "An expanding ring from the centre"],
+  "Ripples":        ["Shapes & lines", "Rings spreading out, as on water"],
+  "Vortex":         ["Shapes & lines", "Spinning rings on a flat plane: a portal, a whirlpool"],
+  "Sigil":          ["Shapes & lines", "A magic circle: rings, ticks and spokes"],
+  "Beam":           ["Shapes & lines", "A straight beam firing one way"],
+  "Ribbon":         ["Shapes & lines", "A curved sweep of colour: a slash or a swirl"],
+  "Arc":            ["Shapes & lines", "One lightning bolt between two points"],
+  "Chain":          ["Shapes & lines", "An articulated whip, tentacle or tether"],
+  "Crackle":        ["Shapes & lines", "A field of tiny jumping sparks"],
+  "Growth":         ["Shapes & lines", "Branches growing outward: vines, frost"],
+  "Fracture":       ["Shapes & lines", "Angular cracks racing out and forking"],
+  "Lines":          ["Shapes & lines", "Speed lines radiating from the centre"],
+  "Grid":           ["Shapes & lines", "An expanding wireframe floor, in perspective"],
+  "Arms":           ["Shapes & lines", "Spiral arms sweeping out: a galaxy, a summoning"],
+  "Rift":           ["Shapes & lines", "A jagged tear in space opening and closing"],
+  "Tunnel":         ["Shapes & lines", "Rings rushing toward a vanishing point"],
+  "Slice":          ["Shapes & lines", "Cuts the picture along a line and slides it apart"],
+  "Particle rings": ["Shapes & lines", "A ring pulsing out of every particle: radar, sonar"],
+  "Sweep":          ["Shapes & lines", "A turning radar wedge with a fading wake"],
+  "Web":            ["Shapes & lines", "Lines joining particles that are close: nets, constellations"],
+  "Decal":          ["Shapes & lines", "A mark on the ground: a shadow, scorch or splat"],
+  "Bubble":         ["Shapes & lines", "A speech bubble with text (!, ?, Hey!)"],
+  "Impact":         ["Post & stylise", "A whole-frame hit flash for a frame or two"],
+  "Zoom blur":      ["Post & stylise", "Radial blur, as if rushing at the camera"],
+  "Chromatic":      ["Post & stylise", "Splits the colours apart at the edges"],
+  "Kaleidoscope":   ["Post & stylise", "Mirrors the effect into a symmetric pattern"],
+  "Silhouette":     ["Post & stylise", "Fills the shapes with one flat colour"],
+  "Scanlines":      ["Post & stylise", "Old-screen horizontal lines"],
+  "Glitch":         ["Post & stylise", "Digital glitch: sliced, shifted, colour-split"],
+  "Dissolve":       ["Post & stylise", "Eats the effect away in a noisy pattern"],
+  "Warp":           ["Post & stylise", "A ring of bent air travelling outward"],
+  "Haze":           ["Post & stylise", "Heat shimmer: the picture wobbles"],
+};
+let layerFilter = "";
+// Built once (the filter keeps its focus while the chips under it are rebuilt).
+const layerHead = document.createElement("div");
+layerHead.className = "layerbar-head";
+layerHead.innerHTML = '<span class="layerbar-label">Add a layer</span>' +
+  '<input type="search" id="layerFilter" class="pickfilter layer-filter" placeholder="Filter layers… (e.g. ring, rain)" autocomplete="off" spellcheck="false" aria-label="Filter the layers you can add">';
+const layerChips = document.createElement("div");
+layerChips.className = "layer-kinds";
+layerChips.id = "layerChips";
+const layerAbout = document.createElement("div");
+layerAbout.className = "hint layer-about";
+layerAbout.id = "layerAbout";
+layerAbout.setAttribute("aria-live", "polite");
+layerBar.appendChild(layerHead); layerBar.appendChild(layerChips); layerBar.appendChild(layerAbout);
+layerHead.querySelector("#layerFilter").addEventListener("input", (e) => { layerFilter = e.target.value; updateLayerPanels(); });
+const LAYER_ABOUT_IDLE = "Point at a layer to see what it does.";
 function updateLayerPanels() {
-  layerBar.innerHTML = "";
+  layerChips.textContent = "";
   const off = [];
   for (const L of LAYER_GROUPS) {
     const panel = panels.querySelector('[data-group="' + L.g + '"]');
@@ -2434,25 +2555,52 @@ function updateLayerPanels() {
     panel.hidden = !active;
     if (!active) off.push(L);
   }
+  layerBar.hidden = !off.length;
   if (!off.length) return;
-  const label = document.createElement("span");
-  label.className = "layerbar-label";
-  label.textContent = "Add a layer";
-  layerBar.appendChild(label);
-  for (const L of off) {
-    const b = document.createElement("button");
-    b.className = "layer-chip";
-    b.textContent = "＋ " + L.g;
-    b.title = "Turn on " + L.g + " and show its controls";
-    b.addEventListener("click", () => {
-      L.on();
-      syncUI();
-      rerender();
-      commitHistory();
-      msg.textContent = L.g + " on";
-    });
-    layerBar.appendChild(b);
+  const q = layerFilter.trim().toLowerCase();
+  const about = (L) => (LAYER_ABOUT[L.g] || ["Shapes & lines", ""]);
+  let shown = 0;
+  for (const kind of LAYER_KINDS) {
+    const list = off.filter((L) => about(L)[0] === kind &&
+      (!q || L.g.toLowerCase().indexOf(q) >= 0 || about(L)[1].toLowerCase().indexOf(q) >= 0 || kind.toLowerCase().indexOf(q) >= 0));
+    if (!list.length) continue;
+    const grp = document.createElement("div");
+    grp.className = "layer-kind";
+    grp.dataset.kind = kind;
+    grp.setAttribute("role", "group");
+    grp.setAttribute("aria-label", kind);
+    const h = document.createElement("span");
+    h.className = "layer-kind-name";
+    h.textContent = kind;
+    grp.appendChild(h);
+    const row = document.createElement("div");
+    row.className = "layer-kind-chips";
+    grp.appendChild(row);
+    for (const L of list) {
+      const b = document.createElement("button");
+      b.className = "layer-chip";
+      b.textContent = "＋ " + L.g;
+      b.dataset.layer = L.g;
+      const line = about(L)[1];
+      b.title = line + ". Click to turn on " + L.g + " and show its controls.";
+      const say = () => { layerAbout.textContent = L.g + ": " + line + "."; };
+      const idle = () => { layerAbout.textContent = LAYER_ABOUT_IDLE; };
+      b.addEventListener("pointerenter", say); b.addEventListener("focus", say);
+      b.addEventListener("pointerleave", idle); b.addEventListener("blur", idle);
+      b.addEventListener("click", () => {
+        L.on();
+        syncUI();
+        rerender();
+        commitHistory();
+        msg.textContent = L.g + " on";
+      });
+      row.appendChild(b);
+      shown++;
+    }
+    layerChips.appendChild(grp);
   }
+  if (!shown) layerChips.appendChild(Object.assign(document.createElement("span"), { className: "hint", textContent: "No layer matches “" + layerFilter.trim() + "”." }));
+  if (!layerAbout.textContent) layerAbout.textContent = LAYER_ABOUT_IDLE;
 }
 
 function updateShapePanels() {
@@ -2520,6 +2668,7 @@ function syncUI() {
   syncShapeButtons();
   updateShapePanels();
   updateLayerPanels();
+  updateParamWhen();
   updateMacros();
 }
 
@@ -3179,17 +3328,24 @@ const STYLES = [
     b.className = "engine-btn";
     b.textContent = s.name;
     b.title = s.hint;
-    b.addEventListener("click", () => {
-      for (const k in s.patch) if (k in state) state[k] = s.patch[k];
-      // an era style is a deliberate choice about output format — pin it like a hand edit
-      for (const k in s.patch) noteLockEdit(k);
-      syncUI();
-      rerender();
-      commitHistory();
-      msg.textContent = s.name + " — " + s.hint;
-    });
+    b.addEventListener("click", () => applyEraStyle(s));
     grid.appendChild(b);
   }
+}
+// One era style, as its button applies it. styleInto is the patch alone (the Wizard, §23, previews with it);
+// applyEraStyle is the whole press, and the Wizard's load does the same writes and pins in one undo step.
+function styleInto(st, s) { for (const k in s.patch) if (k in st) st[k] = s.patch[k]; return st; }
+function eraPinned(s) {
+  // an era style is a deliberate choice about output format — pin it like a hand edit
+  for (const k in s.patch) noteLockEdit(k);
+}
+function applyEraStyle(s) {
+  styleInto(state, s);
+  eraPinned(s);
+  syncUI();
+  rerender();
+  commitHistory();
+  msg.textContent = s.name + " — " + s.hint;
 }
 
 // ---------- Presets ----------
@@ -3284,18 +3440,28 @@ function noteLockEdit(key) {
 // `size` are in the hold's intensity group, so loading a past export with a hold active would hand
 // back different numbers than the file on disk and the re-export would not match. Choosing a preset
 // and reopening an artifact are different verbs; only the first wants the overlays.
-function applyPreset(obj, label, exact) {
-  const keep = (pixelLock && !exact) ? Object.assign({}, lockedValues) : {};
-  for (const p of PARAMS) state[p[0]] = p[5];   // reset to defaults, THEN overlay
-  for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];   // or they leak between effects
-  for (const k in obj) if (k in state) state[k] = obj[k];
-  applyFitOf(obj);
-  applyImageSprite(state.imageSprite);
-  for (const k in keep) state[k] = keep[k];
+//
+// presetOutcome is what applyPreset WILL set, as a plain object, without touching the editor: the Wizard (§23) shows
+// exactly what a click loads, Lock pixels and Hold sound included. applyPreset writes that object into `state`, so the
+// two cannot drift.
+function presetOutcome(obj, exact) {
+  const s = {};
+  for (const p of PARAMS) s[p[0]] = p[5];       // reset to defaults, THEN overlay
+  for (const k in PATCH_EXTRAS) s[k] = PATCH_EXTRAS[k];   // or they leak between effects
+  for (const k in obj) if (k in state) s[k] = obj[k];
+  const keep = (pixelLock && !exact) ? lockedValues : {};
+  for (const k in keep) s[k] = keep[k];
   // …then the matched sound's own properties, last, so a preset changes the LOOK without
   // discarding what the sound dictated. See soundHold.
   const held = exact ? {} : heldSoundValues();
-  for (const k in held) state[k] = held[k];
+  for (const k in held) s[k] = held[k];
+  return s;
+}
+function applyPreset(obj, label, exact) {
+  const s = presetOutcome(obj, exact);
+  for (const k in s) state[k] = s[k];
+  applyFitOf(obj);
+  applyImageSprite(state.imageSprite);
   if (label) effectLabel = label;
   plantNameSync();                           // the planted Library's name box follows it (desktop, §18)
   presetStripMark(effectLabel);              // the strip marks the loaded effect (§22)
@@ -3322,12 +3488,25 @@ for (const [cat, names] of PRESET_CATEGORIES) for (const n of names) if (PRESETS
 const PTHUMB = 60;                             // the picture's size in px, rendered 1:1 (styles.css .pcell)
 const PCELL_W = 84, PDIV_W = 22, PGAP = 4;     // a cell, a category divider and the gap between (styles.css)
 let presetQuery = "", presetChip = "", presetPage = 0, presetPageFor = "", presetPages = [[]];
+// §24: the Wizard's TAGS as a second kind of chip (the Categories | Tags switch picks which row of chips shows; both
+// filters hold together, so "Explosions" + "Ice" is an icy explosion). ONE source of truth: the tags are the Wizard's
+// own WIZARD_TAGS, derived per preset by wizardTagsOf (no list per preset). That section is declared further down, so it
+// hands itself over (presetTagSrc) once it exists; until then there are no tag chips. Not remembered (no new key, §22).
+let presetMode = "cats", presetTags = [], presetTagSrc = null;
+const presetTagCache = new Map();
+function presetTagsOf(name) {
+  if (!presetTagSrc) return [];
+  if (!presetTagCache.has(name)) presetTagCache.set(name, presetTagSrc.of(PRESETS[name], name));
+  return presetTagCache.get(name);
+}
+const presetHasTags = (name, tags) => tags.every((k) => presetTagsOf(name).indexOf(k) >= 0);
 const presetThumbs = new Map();                // name -> data URL ("" once a render failed: never retried)
 let thumbQueue = [], thumbTimer = 0;
 
 function presetMatches(name, q) {
   const cat = PRESET_CAT_OF[name] || "";
   if (presetChip && cat !== presetChip) return false;
+  if (presetTags.length && !presetHasTags(name, presetTags)) return false;
   return !q || name.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0;
 }
 // One frame ~40% in (a burst has bloomed by then; effectThumb's rule), rendered alone: renderPrep simulates the whole
@@ -3427,15 +3606,72 @@ function buildPresetChips(q) {
     c.addEventListener("click", () => { presetChip = presetChip === cat || !cat ? "" : cat; buildPresetStrip(); });
     host.appendChild(c);
   };
+  syncPresetMode();
+  if (presetMode === "tags" && presetTagSrc) {
+    // the tag chips: All (clears them), then each tag with how many effects it would leave, given the search, the
+    // category and the tags already on. More than one tag narrows to effects carrying all of them.
+    const all = document.createElement("button");
+    all.type = "button";
+    all.className = "tagchip" + (presetTags.length ? "" : " on");
+    all.textContent = "All";
+    all.setAttribute("aria-pressed", presetTags.length ? "false" : "true");
+    all.title = "Any material";
+    all.addEventListener("click", () => { presetTags = []; buildPresetStrip(); });
+    host.appendChild(all);
+    for (const t of presetTagSrc.tags) {
+      const on = presetTags.indexOf(t.key) >= 0, want = on ? presetTags : presetTags.concat([t.key]);
+      const n = Object.keys(PRESETS).filter((x) => {
+        const cat = PRESET_CAT_OF[x] || "";
+        return (!presetChip || cat === presetChip) && presetHasTags(x, want) &&
+          (!q || x.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0);
+      }).length;
+      const c = document.createElement("button");
+      c.type = "button";
+      c.className = "tagchip tagchip-tag" + (on ? " on" : "") + (n ? "" : " none");
+      c.dataset.tag = t.key;
+      c.textContent = t.name + " " + n;
+      c.setAttribute("aria-pressed", on ? "true" : "false");
+      c.title = t.name + ": " + t.note + (on ? " (click again to drop it)" : "");
+      c.addEventListener("click", () => {
+        presetTags = on ? presetTags.filter((k) => k !== t.key) : presetTags.concat([t.key]);
+        buildPresetStrip();
+      });
+      host.appendChild(c);
+    }
+    host.scrollLeft = keep;
+    chipPagerSync();
+    return;
+  }
   mk("All", "", null);
   for (const [cat, names] of PRESET_CATEGORIES) {
-    const n = names.filter((x) => PRESETS[x] && PRESET_CAT_OF[x] === cat &&
+    const n = names.filter((x) => PRESETS[x] && PRESET_CAT_OF[x] === cat && (!presetTags.length || presetHasTags(x, presetTags)) &&
       (!q || x.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0)).length;
     mk(cat, cat, n);
   }
   host.scrollLeft = keep;
   chipPagerSync();
 }
+// The Categories | Tags switch: which chips show, and (a count on each) which filters are on, so a tag chosen in the other
+// row is never a hidden surprise.
+function syncPresetMode() {
+  const box = document.getElementById("presetMode");
+  if (!box) return;
+  box.hidden = !presetTagSrc;
+  for (const b of box.querySelectorAll("button")) {
+    const on = b.dataset.mode === presetMode, n = b.dataset.mode === "tags" ? presetTags.length : (presetChip ? 1 : 0);
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.textContent = (b.dataset.mode === "tags" ? "Tags" : "Categories") + (n ? " · " + n : "");
+  }
+  document.getElementById("presetChips").setAttribute("aria-label", presetMode === "tags" ? "Effect tags" : "Effect categories");
+}
+document.getElementById("presetMode").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-mode]");
+  if (!b || b.dataset.mode === presetMode) return;
+  presetMode = b.dataset.mode;
+  document.getElementById("presetChips").scrollLeft = 0;
+  buildPresetStrip();
+});
 // THE CHIP ROW PAGES BY ARROWS TOO (CrunchyTile's chipPager; AJ there: a scrollbar "pops up to block" the chips). The row
 // stays one line with its overflow hidden; ‹ › step it by most of its width and grey out at either end, and they hide
 // when every chip fits. The wheel steps it as well.
@@ -3481,12 +3717,14 @@ function buildPresetStrip() {
   if (!shown) {
     const none = document.createElement("span");
     none.className = "pnone";
-    none.textContent = q ? "No effect matches “" + presetQuery.trim() + "”" + (presetChip ? " in " + presetChip : "") + "." : "Nothing here.";
+    const tagWords = presetTags.map((k) => (presetTagSrc.tags.find((t) => t.key === k) || { name: k }).name).join(" + ");
+    none.textContent = q ? "No effect matches “" + presetQuery.trim() + "”" + (presetChip ? " in " + presetChip : "") + (tagWords ? " tagged " + tagWords : "") + "."
+      : tagWords ? "No effect " + (presetChip ? "in " + presetChip + " " : "") + "is tagged " + tagWords + "." : "Nothing here.";
     presetBar.appendChild(none);
   }
   document.getElementById("presetCount").textContent = shown === Object.keys(PRESETS).length
     ? shown + " effects · " + LAYER_GROUPS.length + " systems" : shown + " of " + Object.keys(PRESETS).length;
-  const key = q + "|" + presetChip;
+  const key = q + "|" + presetChip + "|" + presetTags.join("+");
   if (key !== presetPageFor) { presetPage = 0; presetPageFor = key; }
   presetPageShow();
 }
@@ -3801,10 +4039,18 @@ fitBtn.addEventListener("click", () => {
 });
 updateFitBtn();   // the button has to show the default state, not just react to clicks
 const lockBtn = document.getElementById("lockBtn");
+// §24 (AJ hit it: a pinned size was a surprise): the button SAYS what it holds. "64 px" for a pinned frame size, "crunch"
+// for any of the Crunch rows, both when both: "Lock pixels (64 px + crunch)". Empty when nothing is pinned.
+function lockSummary() {
+  const bits = [];
+  if ("frameSize" in lockedValues) bits.push((SIZES[Math.round(lockedValues.frameSize)] || "?") + " px");
+  if (Object.keys(lockedValues).some((k) => k !== "frameSize")) bits.push("crunch");
+  return bits.join(" + ");
+}
 function updateLockBtn() {
   const n = Object.keys(lockedValues).length;
   lockBtn.classList.toggle("on", pixelLock);
-  setIconLabel(lockBtn, pixelLock ? "lock" : "unlock", "Lock pixels" + (pixelLock && n ? " (" + n + ")" : ""));
+  setIconLabel(lockBtn, pixelLock ? "lock" : "unlock", "Lock pixels" + (pixelLock && n ? " (" + lockSummary() + ")" : ""));
   lockBtn.title = !pixelLock
     ? "Off — presets bring their own frame size and Crunch settings."
     : n
@@ -5492,6 +5738,7 @@ function genomePixels(gnome) {
       const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
       for (let i = 3; i < d.length; i += 4) if (d[i] > 8) px++;
     }
+    for (const cv of r.canvases) releaseCanvas(cv);   // a test render: free its backing stores now, not at the next GC
     return px;
   } catch (e) { return 0; }
 }
@@ -5539,9 +5786,11 @@ function tickMinis(ts) {
     const p = miniPlayers[i];
     if (!p.canvas.isConnected) { miniPlayers.splice(i, 1); continue; }   // GC cells that went away
     if (!p.frames.length) continue;
-    if (ts - p.last < 1000 / p.fps) continue;
+    // `hold` (ms, the Wizard's one-shots): linger on the last frame before starting again
+    const n = p.end != null ? p.end + 1 : p.frames.length;   // `end`: the last frame worth holding on
+    if (ts - p.last < 1000 / p.fps + (p.hold && p.i === n - 1 ? p.hold : 0)) continue;
     p.last = ts;
-    p.i = (p.i + 1) % p.frames.length;
+    p.i = (p.i + 1) % n;
     p.g.clearRect(0, 0, p.canvas.width, p.canvas.height);
     p.g.drawImage(p.frames[p.i], 0, 0);
   }
@@ -6203,6 +6452,817 @@ foundryModal.querySelector("#fndClose").addEventListener("click", () => { foundr
 foundryModal.addEventListener("click", (e) => { if (e.target === foundryModal) { foundryModal.hidden = true; clearMinis(fndGrid); } });
 foundryModal.querySelector("#fndGen").addEventListener("click", foundryRun);
 
+// ---------- The Wizard (§23) ----------
+// CrunchyTile's Wizard (TILE-DESIGN §86), in VFX's words: three questions a game developer can answer without knowing
+// the editor (what the effect is FOR, what it is MADE OF, which era), then nine finished effects, all playing, to pick
+// from. A click loads one as one undo step.
+//
+// EVERY RESULT IS AN ORIGINAL COMPOSITION (§23.1, the composer below): a type's skeleton plus the chosen tags' own
+// ingredients, mixed so each of the nine carries every tag. It invents nothing outside the app: only VFX's shapes,
+// layer systems, palettes and params, and the same answers and seed give the same nine.
+//
+// TAGS ARE DERIVED, never kept per preset. WIZARD_TAGS says what a material LOOKS like (its colour along a particle's
+// life, its shapes, its systems, the words in a name), and any effect is read against it (wizardTagHit): a preset, a
+// composition, or a preset added next year, with no list to update. The cards' pictures use it. WIZARD_TYPES maps each answer to "what's it for?" onto the
+// preset categories and words in a name (`sample` is only the card's picture).
+
+// 1. WHAT'S IT FOR? `loop`: whether this kind of effect repeats in a game. It is NOT a setting the Wizard writes: the
+// export's Playback (§21) is a dialog-wide choice, and Auto already follows the effect (Seamless loop on = it loops).
+// A status or atmosphere composition is made to loop (Seamless loop, part of the effect, so Auto loops it); every
+// result says what Playback will do. `cats`, `words` (and for a projectile, `systems`) say which presets are of the
+// type: those are the skeletons' donors.
+const WIZARD_TYPES = [
+  { key: "hit", sample: "Hit Flash", name: "A hit or an impact", note: "a sword strike, a punch, a bullet landing", noun: "hit", loop: false,
+    cats: ["Impacts"], words: ["hit", "slash", "strike", "punch", "clash", "parry", "cut", "chop", "slam", "crit", "smash", "impact", "gash", "cracks", "shatter"],
+    systems: ["Impact", "Slice", "Fracture"] },
+  { key: "explosion", sample: "Big Boom", name: "An explosion", note: "a blast, a bomb, a burst of debris", noun: "explosion", loop: false,
+    cats: ["Explosions"], words: ["explosion", "boom", "blast", "bomb", "nova", "firework", "meteor", "disintegrate"],
+    systems: ["Burst", "Shatter"] },
+  { key: "pickup", sample: "Coin Fountain", name: "A pickup or a reward", note: "a coin, a heart, a level up", noun: "pickup", loop: false,
+    cats: ["Pickups & Charm"], words: ["coin", "coins", "pickup", "level", "treasure", "unlock", "victory", "crown"],
+    systems: ["Twinkle"] },
+  { key: "spell", sample: "Rune Circle", name: "A spell or an ability", note: "a fireball, a teleport, a summoning", noun: "spell", loop: false,
+    cats: ["Magic", "Ice & Frost", "Sequences"], words: ["spell", "summon", "portal", "teleport", "rune", "zap", "lightning", "freeze", "rift", "seal", "ritual"],
+    systems: ["Sigil", "Vortex", "Rift", "Arc", "Tunnel"] },
+  { key: "status", sample: "Poisoned", name: "A status effect", note: "poisoned, shielded, stunned, a buff", noun: "aura", loop: true,
+    cats: ["Status & HUD"], words: ["aura", "shield", "poison", "poisoned", "curse", "cursed", "stun", "charge", "sleepy", "boost", "magnetized", "overcharge", "static", "orbit"],
+    systems: ["Aura", "Orbit", "Sigil"] },
+  { key: "projectile", sample: "Comet Arc", name: "A projectile or a trail", note: "a laser, a magic bolt, a comet's tail", noun: "trail", loop: false,
+    cats: [], words: ["bolt", "laser", "comet", "trail", "beam", "shot", "jet", "dash", "streaks", "exhaust", "path", "missile", "arrow", "whip"],
+    systems: ["Beam", "Ribbon", "Path trail", "Smear"], presetSystems: true },
+  { key: "atmosphere", sample: "Firefly Swarm", name: "Atmosphere or weather", note: "rain, snow, drifting embers, light", noun: "weather", loop: true,
+    cats: ["Weather", "Atmosphere", "Ambient"], words: ["rain", "snow", "fog", "mist", "motes", "fireflies", "drift", "steam"],
+    systems: ["Weather", "Haze", "Light shafts", "Droplets", "Bokeh"] },
+  { key: "ui", sample: "Emoji Burst", name: "A UI or HUD flourish", note: "an emote, a pop, a damage number, a sparkle", noun: "flourish", loop: false,
+    cats: ["Emotes", "Symmetry & Stylise", "Camera & Light"], words: ["level", "victory", "target", "alert", "rally", "focus", "damage", "pop", "banner", "twinkle", "emote"],
+    systems: ["Bubble", "Lines", "Zoom blur", "Kaleidoscope"] },
+];
+
+// 2. WHAT'S IT MADE OF? A material, as VFX can draw it. An effect carries a tag STRONGLY when its name says so (`words`),
+// it uses one of the tag's own shapes or systems (`shapes`, `systems`), or its COLOUR fits and it uses one of the tag's
+// likely shapes or systems (`maybe`); a colour or a likely piece alone is a WEAK carry. The colour is read where a
+// particle spends most of its life (40% in: its hue drifted by Hue shift, or the colour ramp's nearest stop), with its
+// saturation, Hot core (cw) and Blend (0 additive, 1 alpha, 2 screen). Membership, not ownership: an effect may be two.
+// `palettes`: the Palette buttons that paint this material (the composer's ingredients live in WIZARD_INGREDIENTS).
+const WIZARD_TAGS = [
+  { key: "fire", name: "Fire", note: "flames, embers, heat",
+    colour: (h, s, cw, b) => (h <= 55 || h >= 345) && s >= 0.6 && b !== 1, palettes: ["Fire", "Ember"],
+    words: ["fire", "flame", "flames", "ember", "embers", "lava", "molten", "torch", "campfire", "scorch", "solar", "burn", "heat", "inferno", "magma", "explosion", "boom", "bomb", "cannon", "meteor", "blaze"],
+    shapes: ["flame"], systems: [], maybe: ["smoke", "boom", "bomb", "sun", "blob", "Shockwave", "Crackle", "Haze", "Burst", "Drip"] },
+  { key: "ice", name: "Ice and frost", note: "shards, snowflakes, cold light",
+    colour: (h, s, cw) => h >= 165 && h <= 225 && cw >= 0.5, palettes: ["Ice", "Frost"],
+    words: ["ice", "icy", "frost", "freeze", "frozen", "snow", "icicle", "glacier", "cold", "blizzard", "chill"],
+    shapes: ["snowflake"], systems: [], maybe: ["shard", "diamond", "gem", "hexagon", "Growth", "Shatter", "Fracture", "Kaleidoscope"] },
+  { key: "lightning", name: "Lightning", note: "bolts, arcs, crackling charge",
+    colour: (h, s, cw, b) => cw >= 0.75 && h >= 180 && h <= 300 && b !== 1, palettes: ["Electric"],
+    words: ["lightning", "zap", "static", "tesla", "thunder", "shock", "electric", "volt", "overcharge"],
+    shapes: ["bolt"], systems: ["Arc"], maybe: ["spark", "Crackle", "Chain", "Beam"] },
+  { key: "arcane", name: "Arcane", note: "runes, portals, purple glow",
+    colour: (h, s) => h >= 250 && h <= 330 && s >= 0.5, palettes: ["Magic"],
+    words: ["magic", "arcane", "rune", "summon", "portal", "teleport", "spell", "mana", "rift", "dimension", "potion", "seal", "ritual", "mystic", "sparkle", "wizard"],
+    shapes: ["rune", "pentagram"], systems: ["Sigil", "Vortex", "Rift", "Tunnel"],
+    maybe: ["star", "spiral", "crescent", "gem", "flask", "eye", "Orbit", "Aura", "Dissolve", "Attractor", "Swarm", "Kaleidoscope", "Arms", "Bokeh"] },
+  { key: "nature", name: "Nature", note: "leaves, petals, spores, fireflies",
+    colour: (h, s, cw) => h >= 65 && h <= 160 && s >= 0.4 && cw <= 0.6, palettes: ["Nature"],
+    words: ["leaf", "leaves", "petal", "petals", "flower", "bloom", "garden", "spore", "vine", "vines", "nature", "fireflies", "firefly", "grass", "seed", "heal", "forest"],
+    shapes: ["leaf", "flower", "clover", "sprout", "butterfly", "mushroom"], systems: [], maybe: ["feather", "bird", "Growth", "Swarm", "Tumble"] },
+  { key: "poison", name: "Poison and slime", note: "toxic clouds, goo, acid",
+    colour: (h, s, cw) => h >= 70 && h <= 135 && s >= 0.65 && cw <= 0.45, palettes: ["Toxic"],
+    words: ["poison", "poisoned", "toxic", "slime", "goo", "acid", "venom", "ooze", "sludge", "plague"],
+    shapes: [], systems: ["Merge"], maybe: ["blob", "bubble", "skull", "puddle", "teardrop", "Drip", "Haze"] },
+  { key: "water", name: "Water", note: "splashes, rain, ripples",
+    colour: (h, s, cw) => h >= 180 && h <= 230 && s >= 0.45 && cw <= 0.55, palettes: ["Water"],
+    words: ["water", "rain", "splash", "ripple", "downpour", "sweat", "wave", "tide", "aqua", "ocean", "sea", "wet"],
+    shapes: ["splash", "puddle", "wave"], systems: ["Droplets"], maybe: ["teardrop", "bubble", "Ripples", "Weather", "Drip"] },
+  { key: "tech", name: "Tech and sci-fi", note: "glitches, scanners, lasers, gears",
+    colour: (h, s) => h >= 90 && h <= 240 && s >= 0.6, palettes: ["Electric"],
+    words: ["laser", "glitch", "sonar", "radar", "nano", "signal", "broadcast", "tesla", "atom", "cog", "target", "scan", "cyber", "corrupt", "data", "robot", "tech", "digital", "hologram"],
+    shapes: ["gear", "atom", "reticle", "cube", "hazard", "magnet", "casing", "boost"], systems: ["Glitch", "Scanlines", "Sweep"],
+    maybe: ["pixel", "frame", "plus", "arrow", "hexagon", "Grid", "Chromatic", "Beam", "Lines", "Particle rings", "Web"] },
+  { key: "dark", name: "Dark and shadow", note: "curses, ghosts, the void",
+    colour: (h, s, cw) => h >= 250 && h <= 315 && s >= 0.5 && cw <= 0.3, palettes: ["Void"],
+    words: ["dark", "shadow", "void", "curse", "cursed", "soul", "drain", "ghost", "boo", "haunt", "death", "doom", "tentacle", "skull", "evil", "demon", "blood", "abyss"],
+    shapes: ["skull", "ghost", "eye", "claw", "jaws", "bone", "web"], systems: ["Silhouette"],
+    maybe: ["smoke", "spiral", "crescent", "blob", "Attractor", "Aura", "Rift", "Dissolve", "Chain", "Tunnel"] },
+  { key: "holy", name: "Holy and light", note: "halos, rays, radiance, healing",
+    colour: (h, s, cw, b) => h >= 35 && h <= 65 && s <= 0.7 && cw >= 0.7 && b !== 1, palettes: ["Holy"],
+    words: ["holy", "heal", "angel", "divine", "bless", "blessing", "glint", "radiant", "cathedral", "sun", "revive", "sacred"],
+    shapes: ["crown", "wing"], systems: [], maybe: ["cross", "plus", "starburst", "star", "sun", "feather", "ring", "Light shafts", "Flare", "Streaks", "Twinkle", "Rim light", "Shockwave", "Bokeh"] },
+  { key: "smoke", name: "Smoke and dust", note: "puffs, debris, ash, steam",
+    colour: (h, s, cw) => s <= 0.4 && cw <= 0.35, palettes: ["Smoke"],
+    words: ["smoke", "dust", "steam", "ash", "puff", "rubble", "debris", "rock", "slam", "landing", "kick", "sand", "tornado", "cloud", "dirt", "mud", "stone"],
+    shapes: ["cloud", "rock", "tornado"], systems: [], maybe: ["smoke", "specks", "pixel", "shard", "blob", "Ground", "Decal", "Haze", "Tumble", "Shockwave", "Weather"] },
+  { key: "cute", name: "Cute and shiny", note: "hearts, coins, confetti, candy",
+    colour: (h, s) => (h >= 315 || h <= 10 || (h >= 40 && h <= 58)) && s >= 0.6, palettes: ["Candy", "Gold"],
+    words: ["coin", "coins", "heart", "hearts", "confetti", "candy", "charm", "treasure", "gem", "crown", "love", "cute", "music", "party", "gift", "jackpot", "gold"],
+    shapes: ["heart", "coin", "candy", "crown", "gem", "heartbreak", "note", "egg"], systems: [], maybe: ["star", "diamond", "flower", "starburst", "glyph", "butterfly", "Twinkle", "Tumble", "Bubble"] },
+];
+const wizardTag = (key) => WIZARD_TAGS.find((t) => t.key === key) || null;
+const wizardType = (key) => WIZARD_TYPES.find((t) => t.key === key) || null;
+
+// How an effect looks to the tables above: its colour 40% through a particle's life, its shapes (both layers), its
+// systems (LAYER_GROUPS, the same test the layer chips use) and the words of its name.
+function wizardColour(st) {
+  let h = st.hue + st.hueLife * 0.4, s = st.sat;
+  if (st.ramp) {                                 // a colour ramp replaces Hue and Saturation: its stop nearest 40%
+    let best = null;
+    for (const stop of String(st.ramp).split("|")) {
+      const v = stop.split(",").map(Number);
+      if (v.length >= 3 && (!best || Math.abs(v[0] - 0.4) < Math.abs(best[0] - 0.4))) best = v;
+    }
+    if (best) { h = best[1]; s = best[2]; }
+  }
+  return { h: ((h % 360) + 360) % 360, s, cw: st.coreWhite, blend: st.blend };
+}
+function wizardLook(st, name) {
+  const shapes = new Set(shapeSet(st.shape, st.shapeMix).map((i) => SHAPES[i]));
+  if (st.emit2Count > 0) for (const i of shapeSet(st.emit2Shape || 0, st.emit2ShapeMix)) shapes.add(SHAPES[i]);
+  const systems = new Set(withState(st, () => LAYER_GROUPS.filter((L) => L.is()).map((L) => L.g)));
+  const words = String(name || "").toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  return Object.assign(wizardColour(st), { shapes, systems, words, shape: Math.round(st.shape), loops: st.loopBlend > 0 });
+}
+// 2 = carries the tag strongly, 1 = weakly, 0 = not at all.
+function wizardTagHit(L, t) {
+  const has = (list) => list.some((x) => L.shapes.has(x) || L.systems.has(x));
+  if (t.words.some((w) => L.words.indexOf(w) >= 0) || has(t.shapes) || has(t.systems)) return 2;
+  const c = t.colour(L.h, L.s, L.cw, L.blend), m = has(t.maybe);
+  return c && m ? 2 : (c || m) ? 1 : 0;
+}
+// The tags an effect carries strongly: what the Wizard means by "a fire effect". No list per preset, so a new preset
+// (or a roll) is tagged the moment it exists.
+function wizardTagsOf(patch, name) {
+  const L = wizardLook(fullGenome(patch), name);
+  return WIZARD_TAGS.filter((t) => wizardTagHit(L, t) === 2).map((t) => t.key);
+}
+// Is a preset this kind of effect? By its category, a word in its name, or (a projectile, which has no category of its
+// own) one of the type's systems.
+function wizardPresetIs(name, type) {
+  if (type.cats.indexOf(PRESET_CAT_OF[name]) >= 0) return true;
+  const words = name.toLowerCase().split(/[^a-z]+/);
+  if (type.words.some((w) => words.indexOf(w) >= 0)) return true;
+  if (!type.presetSystems) return false;
+  return wizardCached("t|" + type.key + "|" + name, () => withState(fullGenome(PRESETS[name]), () => LAYER_GROUPS.some((L) => type.systems.indexOf(L.g) >= 0 && L.is())));
+}
+
+// THE COMPOSER (§23.1). AJ, on the first Wizard: "most of the suggestions are just already made presets. We should
+// have 9 original VFX from the wizard, with mixed and matched elements from tags chosen. So a sci-fi ice spell should
+// have radar boops and snow flakes." So every result is a NEW effect, put together from VFX's own parts:
+//   * a SKELETON from the type: the motion and timing of one of that type's presets (its Emitter, Motion, Life, Glow,
+//     duration and fps, and only the structural layers the type is made of: a shockwave for an explosion, a beam for a
+//     projectile, a sigil for a spell). Its particle, colours, second layer and every other layer are NOT taken;
+//   * INGREDIENTS from the tags (WIZARD_INGREDIENTS): particle shapes, layer systems (each tuned as a preset that uses
+//     it tunes it, so a system arrives looking right) and palettes;
+//   * MIXED so every result carries every chosen tag: the LEAD tag gives the main particle and its palette, the next
+//     gives Layer B's particle and colour (or the far end of a colour ramp between the two palettes), and any further
+//     tag a layer system. The nine rotate which tag leads, which skeleton and which ingredients, and the seed.
+// Nothing outside the app: only SHAPES, LAYER_GROUPS, PALETTES and PARAMS. Deterministic: a seeded generator (no
+// Math.random), so the same answers and seed give the same nine; "More like these" is the next seed.
+
+// Per tag: `shapes` its particles (the first few are the most telling), `systems` the layers it brings, `palettes`
+// (PALETTES names), `knobs` params it sets when it LEADS, and `say` the word a part is called by in a result's name.
+const WIZARD_INGREDIENTS = {
+  fire:      { shapes: ["flame", "smoke", "spark", "boom"], systems: ["Haze", "Crackle", "Shockwave"], palettes: ["Fire", "Ember"],
+               knobs: {}, say: { flame: "flame", smoke: "smoke", spark: "ember", boom: "blast", Haze: "heat", Crackle: "crackling", Shockwave: "blast" } },
+  ice:       { shapes: ["snowflake", "shard", "diamond", "hexagon"], systems: ["Growth", "Shatter", "Twinkle"], palettes: ["Ice", "Frost"],
+               knobs: {}, say: { snowflake: "snowflake", shard: "ice shard", diamond: "crystal", hexagon: "frost", Growth: "frost", Shatter: "shatter", Twinkle: "glint" } },
+  lightning: { shapes: ["bolt", "spark", "plus"], systems: ["Arc", "Crackle", "Chain"], palettes: ["Electric"],
+               knobs: { coreWhite: 0.9 }, say: { bolt: "bolt", spark: "spark", plus: "static", Arc: "arc", Crackle: "crackle", Chain: "chain" } },
+  arcane:    { shapes: ["rune", "star", "spiral", "pentagram"], systems: ["Sigil", "Orbit", "Vortex"], palettes: ["Magic", "Plasma"],
+               knobs: {}, say: { rune: "rune", star: "star", spiral: "spiral", pentagram: "hex", Sigil: "sigil", Orbit: "orbit", Vortex: "vortex" } },
+  nature:    { shapes: ["leaf", "flower", "clover", "sprout", "butterfly"], systems: ["Growth", "Swarm", "Tumble"], palettes: ["Nature"],
+               knobs: {}, say: { leaf: "leaf", flower: "petal", clover: "clover", sprout: "sprout", butterfly: "butterfly", Growth: "vine", Swarm: "firefly", Tumble: "tumbling" } },
+  poison:    { shapes: ["bubble", "blob", "skull", "puddle"], systems: ["Drip", "Haze", "Merge"], palettes: ["Toxic"],
+               knobs: {}, say: { bubble: "bubble", blob: "slime", skull: "toxic", puddle: "ooze", Drip: "dripping", Haze: "fume", Merge: "goo" } },
+  water:     { shapes: ["teardrop", "bubble", "splash", "wave"], systems: ["Ripples", "Droplets"], palettes: ["Water"],
+               knobs: {}, say: { teardrop: "droplet", bubble: "bubble", splash: "splash", wave: "wave", Ripples: "ripple", Droplets: "rain" } },
+  tech:      { shapes: ["reticle", "pixel", "gear", "atom", "cube"], systems: ["Particle rings", "Scanlines", "Grid", "Sweep", "Glitch"], palettes: ["Electric", "Steel"],
+               knobs: {}, say: { reticle: "target", pixel: "pixel", gear: "gear", atom: "atom", cube: "data", "Particle rings": "radar", Scanlines: "scan", Grid: "grid", Sweep: "sonar", Glitch: "glitch" } },
+  dark:      { shapes: ["skull", "ghost", "smoke", "eye"], systems: ["Rift", "Attractor", "Dissolve"], palettes: ["Void", "Blood"],
+               knobs: {}, say: { skull: "skull", ghost: "ghost", smoke: "shadow", eye: "eye", Rift: "rift", Attractor: "drain", Dissolve: "fading" } },
+  holy:      { shapes: ["sun", "star", "cross", "wing"], systems: ["Light shafts", "Flare", "Twinkle"], palettes: ["Holy", "Gold"],
+               knobs: { coreWhite: 0.85 }, say: { sun: "sun", star: "star", cross: "holy", wing: "wing", "Light shafts": "radiant", Flare: "flare", Twinkle: "glimmer" } },
+  smoke:     { shapes: ["smoke", "cloud", "rock", "specks"], systems: ["Haze", "Decal"], palettes: ["Smoke", "Steel"],
+               knobs: { grow: 0.6 }, say: { smoke: "smoke", cloud: "cloud", rock: "rubble", specks: "dust", Haze: "haze", Decal: "scorch" } },
+  cute:      { shapes: ["heart", "star", "candy", "coin", "note"], systems: ["Twinkle", "Tumble"], palettes: ["Candy", "Gold", "Rainbow"],
+               knobs: {}, say: { heart: "heart", star: "star", candy: "candy", coin: "coin", note: "music", Twinkle: "twinkle", Tumble: "confetti" } },
+};
+// Per type: the structural layers its skeleton may keep (everything else on the donor preset is dropped), and the
+// layers it may add when no tag brings one.
+const WIZARD_SKELETON_KEEP = {
+  hit:        ["Flash", "Shockwave", "Impact", "Lines", "Slice", "Smear", "Trails", "Burst", "Ground"],
+  explosion:  ["Flash", "Shockwave", "Burst", "Sub-emitter", "Trails", "Ground"],
+  pickup:     ["Flash", "Twinkle", "Ground", "Attractor"],
+  spell:      ["Flash", "Shockwave", "Sigil", "Orbit", "Attractor"],
+  status:     ["Orbit", "Aura", "Sigil", "Ripples", "Attractor"],
+  projectile: ["Beam", "Ribbon", "Path trail", "Trails", "Smear", "Arc", "Flash"],
+  atmosphere: ["Weather", "Haze", "Light shafts", "Droplets", "Bokeh", "Twinkle", "Swarm"],
+  ui:         ["Lines", "Twinkle", "Flash", "Zoom blur", "Kaleidoscope", "Particle rings", "Orbit"],
+};
+const WIZARD_SKELETON_GROUPS = ["Emitter", "Motion", "Life", "Glow"];
+const WIZARD_LOOP_TYPES = { status: 0.7, atmosphere: 0.8 };
+
+function wizardRng(seed) {
+  let a = seed >>> 0;
+  const next = () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  next.pick = (arr) => arr[Math.floor(next() * arr.length)];
+  return next;
+}
+function wizardHash(a, b, c) {
+  let h = 2166136261;
+  for (const v of [a, b, c]) { h ^= v | 0; h = Math.imul(h, 16777619); h ^= h >>> 13; }
+  return h >>> 0;
+}
+// Bounded cache for the pure, repeated work (donor lists, a system's donors, visibility per genome).
+const wizardCache = new Map();
+function wizardCached(key, make) {
+  if (wizardCache.has(key)) return wizardCache.get(key);
+  if (wizardCache.size > 4000) wizardCache.clear();
+  const v = make();
+  wizardCache.set(key, v);
+  return v;
+}
+const wizardGroupOf = (g) => LAYER_GROUPS.find((L) => L.g === g);
+// The presets that use a layer system: its tuning comes from one of them (the param rows of that group only).
+function wizardSystemDonors(g) {
+  return wizardCached("sd|" + g, () => {
+    const L = wizardGroupOf(g);
+    return L ? Object.keys(PRESETS).filter((n) => withState(fullGenome(PRESETS[n]), () => L.is())) : [];
+  });
+}
+function wizardAddSystem(st, g, rnd) {
+  const L = wizardGroupOf(g);
+  if (!L) return;
+  const donors = wizardSystemDonors(g);
+  if (donors.length) {
+    const d = fullGenome(PRESETS[rnd.pick(donors)]);
+    for (const p of PARAMS) if (p[7] === g) st[p[0]] = d[p[0]];
+  }
+  const after = withState(st, () => { if (!L.is()) L.on(); return snapshotState(); });
+  for (const p of PARAMS) st[p[0]] = after[p[0]];
+}
+// A Palette button's press on a genome (its Main-layer write, as paletteGrid's click does it).
+function wizardPaint(g, palName) {
+  const pal = PALETTES.find((x) => x[0] === palName), out = Object.assign({}, g);
+  if (!pal) return out;
+  for (const k in pal[1]) out[k] = pal[1][k];
+  if (!("hueVar" in pal[1])) out.hueVar = PARAM_BY_KEY.hueVar[5];
+  return out;
+}
+const wizardPal = (name) => (PALETTES.find((x) => x[0] === name) || [name, {}])[1];
+// The type's skeletons: its own presets (all but Falling's none exist here), whose particles are replaced anyway.
+function wizardDonors(type) {
+  return wizardCached("dn|" + type.key, () => Object.keys(PRESETS).filter((n) => wizardPresetIs(n, type)));
+}
+// ONE composition. slot 0..8 of a page; `attempt` moves on when a composition does not draw.
+function wizardCompose(type, tagKeys, seed, slot, attempt) {
+  const rnd = wizardRng(wizardHash(seed, WIZARD_TYPES.indexOf(type) * 977 + slot, attempt * 7919 + tagKeys.join("").length * 131 + tagKeys.reduce((h, k) => h + k.charCodeAt(0) * 17 + k.length, 0)));
+  // the tags, rotated so a different one leads in each slot; with none chosen, each slot picks its own one or two
+  let tags = tagKeys.slice();
+  if (!tags.length) {
+    const all = Object.keys(WIZARD_INGREDIENTS);
+    tags = [rnd.pick(all)];
+    if (rnd() < 0.6) { const t2 = rnd.pick(all); if (t2 !== tags[0]) tags.push(t2); }
+  } else {
+    const r = slot % tags.length;
+    tags = tags.slice(r).concat(tags.slice(0, r));
+  }
+  const ing = tags.map((k) => WIZARD_INGREDIENTS[k]);
+  const lead = ing[0], second = ing[1] || null;
+  // 1. the skeleton: a donor preset's motion and timing, at the starting size
+  // the page's donors in an order of its own (the seed's), one per slot, so the nine move nine different ways
+  const donors = wizardDonors(type).slice().sort((x, y) => wizardHash(seed, x.length, x.charCodeAt(0) + x.charCodeAt(x.length - 1) * 3 + x.charCodeAt(1) * 7) - wizardHash(seed, y.length, y.charCodeAt(0) + y.charCodeAt(y.length - 1) * 3 + y.charCodeAt(1) * 7) || (x < y ? -1 : 1));
+  const donorName = donors[(slot + attempt * 9) % donors.length];
+  const d = fullGenome(PRESETS[donorName]);
+  const st = fullGenome({});
+  for (const p of PARAMS) if (WIZARD_SKELETON_GROUPS.indexOf(p[7]) >= 0 && p[0] !== "shape") st[p[0]] = d[p[0]];
+  st.opacity = d.opacity; st.duration = d.duration; st.fps = d.fps; st.scale = d.scale;
+  const keep = WIZARD_SKELETON_KEEP[type.key];
+  const kept = [];
+  for (const L of LAYER_GROUPS) {
+    if (keep.indexOf(L.g) < 0 || !withState(d, () => L.is())) continue;
+    for (const p of PARAMS) if (p[7] === L.g) st[p[0]] = d[p[0]];
+    kept.push(L.g);
+  }
+  if (d.layerDelay) st.layerDelay = String(d.layerDelay).split(",").filter((x) => kept.indexOf(x.split(":")[0]) >= 0).join(",");
+  st.frameSize = START_FRAME_SIZE;
+  st.seed = 1 + Math.floor(rnd() * 9999);
+  if (WIZARD_LOOP_TYPES[type.key]) { st.loopBlend = WIZARD_LOOP_TYPES[type.key]; st.emitTime = Math.max(st.emitTime, 0.9); }
+  const parts = [];
+  // 2. the lead tag: the main particle (one of its first three, so it reads), its palette and knobs
+  const shapePool = (t, avoid) => t.shapes.filter((x) => x !== avoid && SHAPES.indexOf(x) >= 0);
+  // turn by turn through the lead's three most telling particles (each tag leads every n-th slot), so the nine vary
+  const pool3 = shapePool(lead).slice(0, 3);
+  const mainShape = pool3[(Math.floor(slot / Math.max(1, tagKeys.length)) + seed - 1 + attempt) % pool3.length];
+  st.shape = SHAPES.indexOf(mainShape);
+  st.shapeMix = "";
+  parts.push({ tag: lead, part: mainShape });
+  // §23.2: the palettes take TURNS (a random pick gave a cute page eight Gold results of nine)
+  const turnP = Math.floor(slot / Math.max(1, tagKeys.length)) + seed - 1 + attempt;
+  rnd();
+  const palA = lead.palettes[turnP % lead.palettes.length];
+  Object.assign(st, wizardPaint(st, palA));
+  for (const k in lead.knobs) st[k] = lead.knobs[k];
+  // a SHAPE has to be big enough to be read as one (a snowflake at 8 px is a dot): main particles from 14 px
+  // …and fewer of them when they grow, so the coverage (and an additive blend's brightness) stays the skeleton's
+  if (st.size < 14) {
+    const s1 = 14 + Math.round(rnd() * 6);
+    st.count = Math.max(12, Math.round(st.count * Math.max(0.45, Math.min(1, Math.pow(Math.max(st.size, 4) / s1, 1.2) * 1.6))));
+    st.size = s1;
+  }
+  st.count = Math.min(st.count, 220);
+  st.glow = Math.min(st.glow, 0.45);                   // many bright shapes under a strong glow wash out to white
+  // 3. the second tag (or, alone, another of the lead's particles): Layer B, moving with the main particles
+  const bTag = second || lead;
+  const bPool = shapePool(bTag, mainShape);
+  // a different partner each time this lead particle comes round again: (main, partner) pairs stay distinct
+  const q = Math.floor(slot / Math.max(1, tagKeys.length));
+  const bShape = bPool[(Math.floor(q / 3) + (q % 3) + seed - 1 + attempt) % bPool.length];
+  rnd();
+  const palB = second ? second.palettes[(turnP + 1) % second.palettes.length] : lead.palettes[(turnP + 1) % lead.palettes.length];
+  const pb = wizardPal(palB);
+  Object.assign(st, {
+    emit2Count: Math.max(14, Math.min(140, Math.round(st.count * (0.25 + rnd() * 0.25)))),
+    emit2Shape: SHAPES.indexOf(bShape), emit2ShapeMix: "", emit2Emitter: st.emitter, emit2Angle: st.emitAngle,
+    emit2Spread: st.emitSpread, emit2Radius: Math.min(0.5, st.emitRadius), emit2Over: Math.max(0, Math.min(1, st.emitTime)),
+    emit2Speed: Math.round(Math.min(900, st.speed * (0.5 + rnd() * 0.4))), emit2SpeedVar: 0.5,
+    emit2Gravity: Math.max(-1500, Math.min(1500, st.gravity)), emit2Drag: st.drag,
+    emit2Size: Math.max(14, Math.min(40, Math.round(st.size * (0.9 + rnd() * 0.5)))), emit2SizeVar: 0.4, emit2Grow: -0.3,
+    emit2Life: Math.max(0.1, Math.min(3, st.life * 1.1)), emit2LifeVar: 0.3, emit2FadeIn: 0.1, emit2FadeOut: 0.5, emit2Delay: 0,
+    emit2Hue: pb.hue != null ? Math.round(((pb.hue + (pb.hueLife || 0) * 0.3) % 360 + 360) % 360) : st.hue, emit2Sat: pb.sat != null ? pb.sat : st.sat, emit2Bright: 1, emit2Opacity: 0.9,
+    emit2Blend: (pb.blend != null ? pb.blend : 0) + 1,
+  });
+  parts.push({ tag: bTag, part: bShape });
+  // two palettes: sometimes a colour ramp from the lead's to the second's (the systems keep the lead's hue)
+  if (second && palB !== palA && rnd() < 0.5) {
+    const pa = wizardPal(palA), h0 = pa.hue, h1 = h0 + (pa.hueLife || 0) * 0.5;
+    // a hard hand-over late in life, not a blend: a ramp's hue between orange and blue would pass through every hue
+    st.ramp = [[0, h0, pa.sat, 0.62], [0.55, h1, pa.sat, 0.55], [0.551, pb.hue, pb.sat, 0.55], [1, pb.hue, pb.sat, 0.5]].map((s) => s.concat([1, 1]).join(",")).join("|");
+  }
+  // 4. layer systems: one from the lead or the second (alternating), one from every further tag, at most three added
+  const sysFrom = [second && slot % 2 ? second : lead].concat(ing.slice(2));
+  if (!second && rnd() < 0.5) sysFrom.push(lead);
+  const added = [];
+  for (const t of sysFrom) {
+    const pool = t.systems.filter((g) => added.indexOf(g) < 0 && kept.indexOf(g) < 0 && wizardGroupOf(g));
+    if (!pool.length || added.length >= 3) continue;
+    // a tag's most telling layer (radar rings for tech, a sigil for arcane) every other time it gives one
+    const turn = q + seed - 1 + attempt;
+    const g = pool.length < 2 ? pool[0] : turn % 2 === 0 ? pool[0] : pool[1 + ((turn >> 1) % (pool.length - 1))];
+    wizardAddSystem(st, g, rnd);
+    added.push(g);
+    parts.push({ tag: t, part: g });
+  }
+  if (WIZARD_LOOP_TYPES[type.key]) st.loopBlend = WIZARD_LOOP_TYPES[type.key];   // a donor system must not take it away
+  const pals = palB !== palA && second ? [palA, palB] : [palA];
+  return { g: st, donor: donorName, tags, parts, pals };
+}
+// EVERY RESULT MUST READ (§23.2). A lit-pixel count is not enough: a few thin sparks that travel far are "lit", and
+// Fit then shrinks the whole picture until it is specks (AJ's Fire + Lightning explosions). So a result is measured
+// the way it is SEEN: rendered at about its display size (48 px, Fit on, in the chosen era), five frames through its
+// life, counting the pixels that are both opaque and bright enough to see on the dark cell. It must COVER the frame
+// (mean and peak share of visible pixels), STAY through the middle of its life (not one early flash), and SPREAD
+// across it (the peak frame's lit box), not be a dot in the middle.
+// The same pass reads the colours (a hue histogram), so the lead tag's palette can be checked too.
+const WIZARD_READ = { size: 48, mean: 0.05, peak: 0.07, sustain: 0.035, span: 0.4, lead: 0.3 };
+function wizardMeasure(g, era) {
+  const S = WIZARD_READ.size, A = S * S;
+  const st = era ? styleInto(Object.assign({}, g), era) : g;
+  const m = { mean: 0, peak: 0, span: 0, sustain: 0, covs: [], hist: new Array(13).fill(0) };
+  try {
+    withState(st, () => {
+      const prep = renderPrep(state, { size: S, fit: true });
+      let sum = 0;
+      for (const f of [0.15, 0.3, 0.45, 0.6, 0.75]) {
+        const cv = renderOneFrame(prep, Math.min(prep.n - 1, Math.floor(prep.n * f)), null);
+        const d = cv.getContext("2d").getImageData(0, 0, S, S).data;
+        let n = 0, x0 = S, x1 = -1, y0 = S, y1 = -1;
+        for (let p = 0; p < A; p++) {
+          const a = d[p * 4 + 3];
+          if (a <= 48) continue;
+          const r = d[p * 4], gg = d[p * 4 + 1], b = d[p * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+          if ((r * 0.3 + gg * 0.59 + b * 0.11) * a < 45 * 255) continue;   // too dark to see on a dark cell (deep blue is)
+          n++;
+          const x = p % S, y = (p / S) | 0;
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+          if (mx - mn < mx * 0.25) { m.hist[12]++; continue; }   // near-grey or white
+          let h = mx === r ? ((gg - b) / (mx - mn)) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4;
+          h = (h * 60 + 360) % 360;
+          m.hist[Math.floor(h / 30) % 12]++;
+        }
+        releaseCanvas(cv);
+        sum += n;
+        m.covs.push(n / A);
+        if (n / A > m.peak) { m.peak = n / A; m.span = x1 < 0 ? 0 : Math.max(x1 - x0 + 1, y1 - y0 + 1) / S; }
+      }
+      m.mean = sum / 5 / A;
+      m.sustain = Math.min(m.covs[1], m.covs[2], m.covs[3]);   // still there through the middle of its life, not a flash
+    });
+  } catch (e) { /* a broken composition measures as empty */ }
+  return m;
+}
+const wizardReadable = (m) => m.mean >= WIZARD_READ.mean && m.peak >= WIZARD_READ.peak && m.sustain >= WIZARD_READ.sustain && m.span >= WIZARD_READ.span;
+// A palette's colour family: the histogram bins (30° each, 12 = grey/white) its particles pass through.
+function wizardPalBins(palName) {
+  const p = wizardPal(palName), bins = new Set();
+  if (p.sat != null && p.sat < 0.35) { bins.add(12); return bins; }
+  const h0 = p.hue != null ? p.hue : 30, hl = p.hueLife || 0;
+  for (const u of [0, 0.25, 0.5, 0.75]) bins.add(Math.floor((((h0 + hl * u) % 360) + 360) % 360 / 30));
+  return bins;
+}
+// How much of what is SEEN is in a tag's palette colours (0..1).
+function wizardTagShare(m, key) {
+  const bins = new Set();
+  for (const pn of WIZARD_INGREDIENTS[key].palettes) for (const b of wizardPalBins(pn)) bins.add(b);
+  const all = m.hist.reduce((s, v) => s + v, 0);
+  if (!all) return 0;
+  let n = 0;
+  for (const b of bins) n += m.hist[b];
+  return n / all;
+}
+// Does it read (and, with tags, show its lead's colour)? Kept for the tests' and the Breed grid's vocabulary.
+function wizardDraws(g, era) { return wizardReadable(wizardMeasure(g, era)); }
+// The types whose emitters must stay COMPACT: a burst that throws thin sparks across the frame is specks under Fit.
+const WIZARD_COMPACT = { hit: 1, explosion: 1, pickup: 1, spell: 1, ui: 1 };
+// A sparse composition, made readable (the measurement says which way): bigger and more particles; for a compact type,
+// less travel (speed, gravity, Layer B's speed) so Fit stops shrinking it; and, when the lead's colour is drowned,
+// less white core and a quieter Layer B. Same particles, same skeleton, same tags.
+function wizardFatten(g, type, m, leadKey) {
+  const o = Object.assign({}, g);
+  if (!wizardReadable(m)) {
+    o.size = Math.min(40, Math.round(o.size * 1.4));
+    o.count = Math.min(260, Math.max(24, Math.round(o.count * 1.3)));
+    o.emit2Size = Math.min(44, Math.round(o.emit2Size * 1.3));
+    o.opacity = Math.max(o.opacity, 0.9);
+    o.fadeOut = Math.min(o.fadeOut, 0.5);
+    if (m.sustain < WIZARD_READ.sustain) { o.life = Math.min(3, +(o.life * 1.3).toFixed(2)); o.emitTime = Math.max(o.emitTime, 0.25); }
+    if (WIZARD_COMPACT[type.key] || m.span < WIZARD_READ.span) {
+      o.speed = Math.round(o.speed * 0.6); o.emit2Speed = Math.round(o.emit2Speed * 0.6);
+      o.gravity = Math.round(o.gravity * 0.6); o.emit2Gravity = Math.round(o.emit2Gravity * 0.6);
+      o.drag = Math.min(1, o.drag + 0.15);
+    }
+  }
+  if (leadKey && wizardTagShare(m, leadKey) < WIZARD_READ.lead) {
+    o.coreWhite = Math.min(o.coreWhite, 0.35);
+    o.emit2Count = Math.max(10, Math.round(o.emit2Count * 0.5)); o.emit2Opacity = Math.min(o.emit2Opacity, 0.7);
+    o.ramp = "";
+  }
+  return o;
+}
+// Type words for the names: the type's own noun first, then its synonyms (§23.2: never "… spell 2").
+const WIZARD_NOUNS = {
+  hit: ["hit", "strike", "impact", "smash", "clash", "slam", "blow"],
+  explosion: ["explosion", "blast", "burst", "nova", "detonation", "eruption", "boom"],
+  pickup: ["pickup", "reward", "bonus", "prize", "treasure", "gift", "collectible"],
+  spell: ["spell", "cast", "conjuring", "invocation", "charm", "ritual", "incantation"],
+  status: ["aura", "buff", "shroud", "field", "charge", "mark", "veil"],
+  projectile: ["trail", "bolt", "shot", "streak", "missile", "comet", "dart"],
+  atmosphere: ["weather", "drift", "mist", "storm", "air", "flurry", "squall"],
+  ui: ["flourish", "pop", "sparkle", "badge", "ping", "burst", "cue"],
+};
+// What a result is called and what it is made of: from the parts actually used. `used` (the page's names so far)
+// keeps the nine distinct: another pair of part words first, then another word for the type.
+function wizardWords(c, type, used, slot) {
+  const say = (p) => (p.tag.say && p.tag.say[p.part]) || String(p.part).toLowerCase();
+  const words = c.parts.map(say).filter((w, i, a) => a.indexOf(w) === i);
+  const base = WIZARD_NOUNS[type.key] || [type.noun], r = Math.floor((slot || 0) / 3) % base.length;
+  const nouns = base.slice(r).concat(base.slice(0, r));
+  const cap = (s) => s.replace(/^./, (x) => x.toUpperCase());
+  const pairs = [];
+  for (let i = 0; i < words.length; i++) for (let j = 0; j < words.length; j++) if (i !== j) pairs.push([words[i], words[j]]);
+  if (!pairs.length) pairs.push([words[0] || "", ""]);
+  let name = "";
+  outer: for (const n of nouns) {
+    for (const [a, b] of pairs) {
+      if (a.split(" ").indexOf(n) >= 0 || b.split(" ").indexOf(n) >= 0) continue;
+      const s = cap((a + " " + (b ? b + " " : "") + n).trim());
+      if (!used || !used.has(s)) { name = s; break outer; }
+    }
+  }
+  if (!name) name = cap((words[0] || "") + " " + nouns[0]);
+  if (used) used.add(name);
+  const list = c.parts.map((p) => String(p.part).toLowerCase()).concat(c.pals.map((p) => p + " palette"));
+  return { name, list: list.filter((x, i) => list.indexOf(x) === i).join(" · ") };
+}
+
+// THE NINE. answers: { type, tags: [keys], era: "" | a STYLES name }; seed: 1, 2, 3 … Every one an original composition
+// that READS in the era (wizardMeasure: repaired by wizardFatten up to twice, else composed again); pairwise different
+// (another skeleton, lead or particle when two would coincide); nine different names.
+function wizardCandidates(answers, seed) {
+  const type = wizardType(answers.type);
+  if (!type) return [];
+  const tags = (answers.tags || []).filter((k) => WIZARD_INGREDIENTS[k]);
+  const era = answers.era ? STYLES.find((x) => x.name === answers.era) : null;
+  seed = Math.max(1, seed | 0);
+  const out = [], seen = new Set(), names = new Set(), pairs = new Set();
+  for (let slot = 0; slot < 9; slot++) {
+    let best = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const c = wizardCompose(type, tags, seed, slot, attempt);
+      const key = [c.donor, c.g.shape, c.g.emit2Shape, c.parts.map((p) => p.part).join("+")].join("|");
+      if (seen.has(key) && attempt < 5) continue;
+      // with tags chosen (and an era that keeps colours), the LEAD tag's palette must be what is seen
+      const lk = tags.length && !era ? c.tags[0] : null;
+      const good = (m) => wizardReadable(m) && (!lk || wizardTagShare(m, lk) >= WIZARD_READ.lead);
+      let m = wizardMeasure(c.g, era);
+      for (let fix = 0; fix < 2 && !good(m); fix++) { c.g = wizardFatten(c.g, type, m, lk); m = wizardMeasure(c.g, era); }
+      // variety: a particle pair the page has not shown yet is preferred until there are four of them
+      const pair = c.g.shape + "/" + c.g.emit2Shape, fresh = !pairs.has(pair) || pairs.size >= 4;
+      const score = (good(m) ? 10 : wizardReadable(m) ? 5 : 0) + (fresh ? 2 : 0) + m.mean;
+      if (!best || score > best.score) best = { c, key, score, attempt, pair };
+      if (good(m) && fresh) break;
+    }
+    if (!best) continue;
+    const c = best.c;
+    seen.add(best.key); pairs.add(best.pair);
+    const words = wizardWords(c, type, names, slot);
+    out.push({ kind: "compose", seed, slot, attempt: best.attempt, g: c.g, donor: c.donor, tags: c.tags, parts: c.parts.map((p) => p.part),
+               name: words.name, list: words.list });
+  }
+  return out;
+}
+const wizardPatch = (c) => c.g;
+function wizardLabel(c) { return c.name; }
+// A result as it WILL load: what applyPreset gives (Lock pixels and Hold sound included), then the era exactly as its
+// Era style button writes it. The picture and the click are the same state.
+function wizardState(c, answers) {
+  const st = presetOutcome(wizardPatch(c), false);
+  if (answers.era) styleInto(st, styleByName(answers.era));
+  return st;
+}
+// Does Lock pixels change what these results would otherwise be? (Then the Wizard says so.)
+function wizardLockMatters(list, answers) {
+  if (!pixelLock || !Object.keys(lockedValues).length) return false;
+  return list.some((c) => {
+    const a = presetOutcome(wizardPatch(c), false), b = presetOutcome(wizardPatch(c), true);
+    if (answers.era) { styleInto(a, styleByName(answers.era)); styleInto(b, styleByName(answers.era)); }
+    return LOCK_KEYS.some((k) => a[k] !== b[k]);
+  });
+}
+
+// ---- The dialog ----
+const wizard = { answers: { type: "", tags: [], era: "" }, step: 0, seed: 1, list: [], jobs: [], timer: 0, perf: null };
+const WIZARD_STEPS = 3;
+const wizModal = document.createElement("div");
+wizModal.className = "modal wiz-modal";
+wizModal.id = "wizModal";
+wizModal.hidden = true;
+wizModal.setAttribute("role", "dialog");
+wizModal.setAttribute("aria-modal", "true");
+wizModal.setAttribute("aria-label", "Wizard");
+wizModal.innerHTML =
+  '<div class="modal-box wiz-box">' +
+    '<div class="modal-head"><h2 data-icon="wand">Wizard</h2><span class="hint" id="wizStep"></span>' +
+      '<button id="wizClose" data-icon="close" title="Close (Esc)">Close</button></div>' +
+    '<div class="wiz-body" id="wizBody"></div>' +
+    '<div class="modal-foot wiz-foot" id="wizFoot"></div>' +
+  '</div>';
+document.body.appendChild(wizModal);
+const wizBody = wizModal.querySelector("#wizBody"), wizFoot = wizModal.querySelector("#wizFoot");
+const wizEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+function wizardStop() {
+  clearTimeout(wizard.timer); wizard.timer = 0; wizard.jobs = [];
+  // free the nine's frames now (nine effects' worth of canvases), not at the next GC
+  for (const p of miniPlayers) if (wizBody.contains(p.canvas)) { for (const cv of p.frames) releaseCanvas(cv); p.frames = []; }
+  clearMinis(wizBody);
+}
+function wizardOpen() { wizModal.hidden = false; wizardDraw(); }
+function wizardClose() { wizardStop(); wizModal.hidden = true; }
+// The picture on a question's card: a preset's strip picture (cached), so a card shows the kind of thing it means.
+function wizardCardPic(name) {
+  const img = wizEl("img", "wiz-cpic");
+  img.alt = ""; img.width = img.height = PTHUMB;
+  const url = name ? presetThumbURL(name) : "";
+  if (url) img.src = url;
+  return img;
+}
+// The picture on a card: the type's `sample` (only a picture: a missing one falls back), or the first of its presets
+// carrying the tag strongly.
+function wizardSample(type, tag) {
+  if (!tag && type && PRESETS[type.sample]) return type.sample;
+  const names = Object.keys(PRESETS).filter((n) => !type || wizardPresetIs(n, type));
+  return (tag ? names.find((n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0)
+    || Object.keys(PRESETS).find((n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0) : names[0]) || "";
+}
+// How much a frame shows: its visible pixels, sampled every fourth one.
+function wizardLitCount(cv) {
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  let n = 0;
+  for (let i = 3; i < d.length; i += 16) if (d[i] > 24) n++;
+  return n;
+}
+// Does a frame show anything (a few dozen visible pixels)?
+function wizardLit(cv) {
+  const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+  let n = 0;
+  for (let i = 3; i < d.length; i += 16) if (d[i] > 24 && ++n > 12) return true;
+  return false;
+}
+// One frame ~40% in, at the effect's REAL frame size (the era's pixels are the point), shown scaled up, crisp.
+function wizardStill(st) {
+  return withState(st, () => {
+    const prep = renderPrep(state, { fit: fitOn }), at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+    return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null);
+  });
+}
+function wizardDraw() {
+  wizardStop();
+  wizBody.textContent = ""; wizFoot.textContent = "";
+  const a = wizard.answers, step = wizard.step;
+  wizModal.querySelector("#wizStep").textContent = step < WIZARD_STEPS ? "Question " + (step + 1) + " of " + WIZARD_STEPS
+    : "Nine effects: click one to load it";
+  if (step >= WIZARD_STEPS) { wizardResults(); return; }
+  const type = wizardType(a.type);
+  const q = wizEl("h3", "wiz-q", ["What's it for?", "What's it made of? Pick any that fit, then Next", "Which era should it look like?"][step]);
+  wizBody.appendChild(q);
+  const cards = wizEl("div", "wiz-cards");
+  const card = (key, name, note, on, pic, click) => {
+    const b = wizEl("button", "wiz-card" + (on ? " on" : ""));
+    b.type = "button";
+    b.dataset.key = key;
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    if (pic) b.appendChild(pic);
+    const txt = wizEl("span", "wiz-ctext");
+    txt.appendChild(wizEl("b", "", name));
+    if (note) txt.appendChild(wizEl("i", "", note));
+    b.appendChild(txt);
+    b.addEventListener("click", click);
+    cards.appendChild(b);
+  };
+  if (step === 0) {
+    for (const t of WIZARD_TYPES) {
+      card(t.key, t.name, t.note + (t.loop ? " (loops)" : ""), a.type === t.key, wizardCardPic(wizardSample(t)), () => {
+        if (a.type !== t.key) { a.type = t.key; wizard.seed = 1; }
+        wizard.step = 1; wizardDraw();
+      });
+    }
+  } else if (step === 1) {
+    card("", "Anything", "no particular material", !a.tags.length, null, () => { a.tags = []; wizard.seed = 1; wizard.step = 2; wizardDraw(); });
+    for (const t of WIZARD_TAGS) {
+      card(t.key, t.name, t.note, a.tags.indexOf(t.key) >= 0, wizardCardPic(wizardSample(type, t)), () => {
+        const i = a.tags.indexOf(t.key);
+        if (i >= 0) a.tags.splice(i, 1); else a.tags.push(t.key);
+        wizard.seed = 1;
+        wizardDraw();
+      });
+    }
+  } else {
+    // the type's sample (with the first tag) in each era, at that era's own frame size: what the era DOES, shown
+    const sample = PRESETS[wizardSample(type, wizardTag(a.tags[0]))] || {};
+    const eraPic = (s) => {
+      const cv = wizardStill(s ? styleInto(presetOutcome(sample, false), s) : presetOutcome(sample, false));
+      cv.className = "wiz-cpic";
+      return cv;
+    };
+    card("", "As drawn", "each effect's own size, colours and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 3; wizardDraw(); });
+    for (const s of STYLES) {
+      if (s.name === "Anything") continue;
+      card(s.name, s.name, s.hint, a.era === s.name, eraPic(s), () => { a.era = s.name; wizard.step = 3; wizardDraw(); });
+    }
+  }
+  wizBody.appendChild(cards);
+  if (step === 2 && pixelLock) {
+    wizBody.appendChild(wizEl("p", "hint wiz-note",
+      "Lock pixels is on: choosing an era also pins its frame size and crunch for the effects you load afterwards, exactly as its Era style button does."));
+  }
+  if (step > 0) {
+    const back = wizEl("button", "", "Back");
+    back.addEventListener("click", () => { wizard.step--; wizardDraw(); });
+    wizFoot.appendChild(back);
+  }
+  if (step === 1) {
+    const n = a.tags.length, next = wizEl("button", "primary wiz-next", n ? "Next (" + n + (n === 1 ? " tag)" : " tags)") : "Next (anything)");
+    next.addEventListener("click", () => { wizard.step = 2; wizardDraw(); });
+    wizFoot.appendChild(next);
+  }
+  const first = cards.querySelector(".on") || cards.querySelector("button");
+  if (first) first.focus();
+}
+function wizardResults() {
+  const a = wizard.answers, type = wizardType(a.type);
+  const tagNames = a.tags.map((k) => wizardTag(k).name).join(" + ");
+  wizBody.appendChild(wizEl("h3", "wiz-q", type.name + (tagNames ? " · " + tagNames : "") + " · " + (a.era || "as drawn")));
+  const t0 = performance.now();
+  wizard.list = wizardCandidates(a, wizard.seed);
+  const pickMs = performance.now() - t0;
+  if (wizardLockMatters(wizard.list, a)) {
+    const note = wizEl("p", "hint wiz-note");
+    const px = SIZES[Math.round(lockedValues.frameSize != null ? lockedValues.frameSize : state.frameSize)];
+    note.appendChild(document.createTextNode("Lock pixels is on, so these keep your " +
+      ("frameSize" in lockedValues && !a.era ? px + " px frame and " : "") + "crunch, as any effect you load would. "));
+    const off = wizEl("button", "wiz-unlock", "Turn Lock pixels off");
+    off.title = "The Lock pixels button: turning it off also forgets what it pinned";
+    off.addEventListener("click", () => { if (pixelLock) lockBtn.click(); wizardDraw(); });
+    note.appendChild(off);
+    wizBody.appendChild(note);
+  }
+  const grid = wizEl("div", "wiz-grid");
+  const perf = wizard.perf = { pickMs, stillMs: 0, fullMs: [], frames: 0, bytes: 0, ready: 0 };
+  const named = {};
+  wizard.list.forEach((c, i) => {
+    const st = wizardState(c, a), base = wizardLabel(c);
+    named[base] = (named[base] || 0) + 1;
+    const label = named[base] > 1 ? base + " " + named[base] : base;   // never happens since §23.2 (wizardWords keeps the nine distinct); a safety net
+    c.label = label;
+    const b = wizEl("button", "wiz-pick");
+    b.type = "button";
+    b.dataset.i = i;
+    const loops = loopFor(expPlay.value, st);
+    b.title = "Load " + label + " (Ctrl+Z undoes it)";
+    const box = wizEl("span", "wiz-pic");
+    const cv = wizEl("canvas");
+    const s0 = performance.now();
+    try {
+      const still = wizardStill(st);
+      cv.width = still.width; cv.height = still.height;
+      cv.getContext("2d").drawImage(still, 0, 0);
+    } catch (e) { /* a broken roll shows an empty box rather than taking the grid down */ }
+    perf.stillMs += performance.now() - s0;
+    box.appendChild(cv);
+    b.appendChild(box);
+    const txt = wizEl("span", "wiz-ptext");
+    txt.appendChild(wizEl("span", "wiz-name", label));
+    txt.appendChild(wizEl("span", "wiz-ing", c.list));                 // what it is made of: the parts, then the palettes
+    txt.appendChild(wizEl("span", "wiz-sub", cv.width + " px · " + (loops ? "loops" : "plays once")));
+    b.appendChild(txt);
+    b.addEventListener("click", () => wizardLoad(c));
+    grid.appendChild(b);
+    // ALL NINE PLAY (§23: measured, a few hundred ms in all, so no play button): each one's frames render on its own
+    // tick, the first shown first, and join the Breed grid's mini-player loop as they arrive.
+    wizard.jobs.push(() => {
+      if (!cv.isConnected) return;
+      const f0 = performance.now();
+      let r = null;
+      try { r = withState(st, () => renderFrames(state, { fit: fitOn })); } catch (e) { return; }
+      perf.fullMs.push(Math.round(performance.now() - f0));
+      perf.frames += r.canvases.length; perf.bytes += r.w * r.h * 4 * r.canvases.length; perf.ready++;
+      // a one-shot holds its last frame half a second before it starts again, so no cell reads as blank (§23.1)
+      // A one-shot's last frames are usually empty (it has faded), so it holds its last LIT frame and skips the rest.
+      // §23.2: …and not a last ember either: it ends on the last frame still showing a quarter of its fullest one, so the
+      // frame a cell rests on reads (the exported effect keeps its whole tail; this is only the cell's loop).
+      let end = r.canvases.length - 1;
+      if (!loops) {
+        const lit = r.canvases.map(wizardLitCount), top = Math.max(1, ...lit);
+        while (end > 0 && (lit[end] < top * 0.25 || !wizardLit(r.canvases[end]))) end--;
+      }
+      const g = cv.getContext("2d"), p = { g, canvas: cv, frames: r.canvases, fps: r.fps, i: Math.floor(end * 0.35), last: 0,
+        hold: loops ? 0 : 500, end: loops ? null : end };
+      g.clearRect(0, 0, cv.width, cv.height);
+      if (r.canvases.length) g.drawImage(r.canvases[p.i], 0, 0);
+      miniPlayers.push(p);
+    });
+  });
+  wizBody.appendChild(grid);
+  const pump = () => {
+    wizard.timer = 0;
+    const job = wizard.jobs.shift();
+    if (job) job();
+    if (wizard.jobs.length) wizard.timer = setTimeout(pump, 0);
+  };
+  wizard.timer = setTimeout(pump, 0);
+  const back = wizEl("button", "", "Back");
+  back.addEventListener("click", () => { wizard.step = 2; wizardDraw(); });
+  const more = wizEl("button", "primary", "More like these");
+  more.setAttribute("data-icon", "refresh");
+  more.title = "Nine more for the same answers";
+  more.addEventListener("click", () => { wizard.seed++; wizardDraw(); });
+  const again = wizEl("button", "", "Start over");
+  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], era: "" }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
+  wizFoot.appendChild(back); wizFoot.appendChild(more); wizFoot.appendChild(again);
+  wizFoot.appendChild(wizEl("span", "hint", "Click one to load it. Ctrl+Z undoes it."));
+  iconsIn(wizFoot);
+  const first = grid.querySelector("button");
+  if (first) first.focus();
+}
+// Load a result: the same writes as clicking a preset (here, the composition) and then its era's button, in ONE undo step.
+function wizardLoad(c) {
+  const a = wizard.answers, st = wizardState(c, a), s = a.era ? styleByName(a.era) : null;
+  for (const k in st) state[k] = st[k];
+  applyFitOf(wizardPatch(c));
+  applyImageSprite(state.imageSprite);
+  effectLabel = c.label || wizardLabel(c);
+  if (s) eraPinned(s);
+  plantNameSync();
+  presetStripMark(effectLabel);
+  syncUI();
+  frameIdx = 0;
+  rerender();
+  commitHistory();
+  msg.textContent = "Wizard: " + effectLabel + (s ? " in " + s.name : "") + ". Ctrl+Z undoes it.";
+  wizardClose();
+}
+document.getElementById("wizardBtn").addEventListener("click", wizardOpen);
+// §24: the effect strip's Tags chips are these tags (one source of truth); the strip is built before this section, so
+// it is handed them now and shows its Categories | Tags switch.
+presetTagSrc = { tags: WIZARD_TAGS, of: wizardTagsOf };
+syncPresetMode();
+wizModal.querySelector("#wizClose").addEventListener("click", wizardClose);
+wizModal.addEventListener("click", (e) => { if (e.target === wizModal) wizardClose(); });
+
 // ---------- Custom categories ----------
 // Your own shelves, holding built-in presets and saved effects side by side. Items are stored as
 // REFERENCES ({t:"b",n} built-in / {t:"u",id} saved) rather than copies, so renaming a saved
@@ -6738,14 +7798,25 @@ function saveFolds() {
 function makeCollapsible(section, header, key, defaultCollapsed) {
   if (!section || !header) return;
   header.classList.add("collapse-head");
+  section.dataset.fold = key;
   const stored = foldState[key];
   if (stored === undefined ? !!defaultCollapsed : !!stored) section.classList.add("collapsed");
+  // §24: a heading that folds is a button to a keyboard and a screen reader too
+  header.setAttribute("role", "button");
+  header.tabIndex = 0;
+  const aria = () => header.setAttribute("aria-expanded", section.classList.contains("collapsed") ? "false" : "true");
+  aria();
+  const toggle = () => { foldState[key] = section.classList.toggle("collapsed"); saveFolds(); aria(); };
   header.addEventListener("click", (e) => {
-    // Headers can carry their own controls (the Era row has a hint, and more may land there).
+    // Headers can carry their own controls (the Era row has a hint, a layer its ✕ remove button).
     // Without this guard, using a control would also fold the section under your cursor.
     if (e.target.closest("input, button, select, label, a")) return;
-    foldState[key] = section.classList.toggle("collapsed");
-    saveFolds();
+    toggle();
+  });
+  header.addEventListener("keydown", (e) => {
+    if (e.target !== header || (e.key !== "Enter" && e.key !== " ")) return;
+    e.preventDefault();
+    toggle();
   });
 }
 makeCollapsible(document.getElementById("macros"),
@@ -6756,6 +7827,44 @@ makeCollapsible(document.getElementById("paletteSection"),
                 document.querySelector("#paletteSection .engine-title"), "palette");
 makeCollapsible(document.getElementById("styleSection"),
                 document.querySelector("#styleSection .engine-title"), "eras");
+
+// ---------- Every editor panel folds, in a sensible order (§24, layout round 2) ----------
+// AJ approved round 2 of §22: every parameter panel folds like the four heroes, remembered per person in the SAME
+// storage key the heroes always used (crunchyvfx.collapsed.v1: a map of section -> folded; a panel's entry is
+// "p:<group>", so the key keeps its shape and the desktop suite's pinned set of keys is unchanged). The essentials are
+// open the first time (Quick shape, Particle shape, Palette, Era style, Duration, the particle panels and every layer you
+// turn on); the long, set-once ones start folded.
+const PANEL_FOLDED = ["Master", "Crunch"];
+// THE ORDER: what every effect has comes first — Output (Duration), Master and Crunch, which used to sit after every
+// layer panel at the bottom of the page — then the particles (Emitter, Motion, Life, Color, the selected shapes' own
+// panels), then "Add a layer" and the layers that are on. Within a band the PARAMS order holds.
+const PANEL_TOP = ["Output", "Master", "Crunch"];
+const PANEL_PARTICLES = ["Emitter", "Motion", "Life", "Color"];
+// Two column-flowing blocks (styles.css: a folded panel leaves no hole) with the layer bar between them: the panels
+// every effect has, then "Add a layer", then the layers that are on. Every panel stays inside #panels.
+const panelsCore = document.createElement("div"), panelsLayers = document.createElement("div");
+panelsCore.className = "panel-flow"; panelsCore.id = "panelsCore";
+panelsLayers.className = "panel-flow"; panelsLayers.id = "panelsLayers";
+function orderPanels() {
+  const all = [...panels.querySelectorAll(".panel[data-group]")];
+  const layer = (el) => LAYER_GROUPS.some((L) => L.g === el.dataset.group);
+  const band = (el) => PANEL_TOP.indexOf(el.dataset.group) >= 0 ? PANEL_TOP.indexOf(el.dataset.group)
+    : PANEL_PARTICLES.indexOf(el.dataset.group) >= 0 ? 10 + PANEL_PARTICLES.indexOf(el.dataset.group)
+    : layer(el) ? 40 : 20;
+  const sorted = all.map((el, i) => ({ el, i, b: band(el) })).sort((a, b) => a.b - b.b || a.i - b.i);
+  panels.appendChild(panelsCore); panels.appendChild(layerBar); panels.appendChild(panelsLayers);
+  for (const x of sorted) (x.b === 40 ? panelsLayers : panelsCore).appendChild(x.el);
+}
+orderPanels();
+for (const panel of panels.querySelectorAll(".panel[data-group]")) {
+  const g = panel.dataset.group;
+  makeCollapsible(panel, panel.querySelector("h2"), "p:" + g, PANEL_FOLDED.indexOf(g) >= 0);
+}
+// The Fit note lives with the rows it explains (Origin X/Y, hidden while Fit is on): one line in the Emitter panel.
+{
+  const fh = document.getElementById("fitHint"), em = panels.querySelector('[data-group="Emitter"]');
+  if (fh && em) em.appendChild(fh);
+}
 
 // ---------- Welcome tour (first-visit guided spotlight) ----------
 // Dependency-free: each step dims the screen except a highlighted target and shows a card. Walks
@@ -6773,7 +7882,10 @@ const TOUR = [
     // the suite's mission line (~/.claude/crunchy-suite.md §1), then what this app does
     body: "Crunchy tools make the art and sound for your game, so you can spend your time on the game. " +
           "CrunchyVFX makes sprite VFX (explosions, magic, weather, impacts) and exports them as sheets your engine can read. " +
-          "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. Here's the 30-second version." },
+          "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. New here? Start with the Wizard. Here's the 30-second version." },
+  // §23: the Wizard is where someone with no effect in mind starts (CrunchyTile's tour says the same of its own)
+  { target: "#wizardBtn", title: "Start here · the Wizard",
+    body: "Three questions: what the effect is for, what it's made of, and which era it should look like. Then nine finished effects, all playing, picked from the ready-made ones and the Foundry's and Randomize's own rolls. Click one to load it; Ctrl+Z undoes it." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
   { target: "#presetbar", title: "1 · Start from an effect",
@@ -6933,6 +8045,9 @@ const closeAll = () => { timeModal.hidden = true; ihModal.hidden = true; expModa
 const layerBOn = () => {
   closeAll();
   if (!(state.emit2Count > 0)) { state.emit2Count = 120; syncUI(); rerender(); }
+  // §24: the steps point INTO its panel, so a folded Layer B is shown open (a view change: the fold you chose is kept)
+  const pb = panels.querySelector('[data-group="Layer B"]');
+  if (pb) { pb.classList.remove("collapsed"); pb.querySelector("h2").setAttribute("aria-expanded", "true"); }
 };
 
 const TUTORIALS = [
