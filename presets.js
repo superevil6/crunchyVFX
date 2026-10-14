@@ -42,12 +42,14 @@ window.PRESETS = {
   },
 
   // ---------- Impacts ----------
+  // §25: redrawn to READ at game size (usability test: "too faint for melee"). Under Fit, travel costs apparent size, so
+  // less speed and more drag, fatter sparks and a bigger, longer flash; the same yellow-white spark burst.
   "Hit Spark": {
-    shape: 1, emitter: 0, count: 26, speed: 520, speedVar: 0.5, drag: 0.75,
-    life: 0.18, lifeVar: 0.4, size: 13, sizeVar: 0.5, grow: -0.85, fadeOut: 0.7,
-    sparkLen: 0.85, sparkTaper: 0.75, hue: 48, hueLife: -20, coreWhite: 0.9,
-    flash: 0.7, flashSize: 0.32, flashLife: 0.07,
-    glow: 0.4, duration: 0.2, fps: 30, frameSize: 3,
+    shape: 1, emitter: 0, count: 22, speed: 300, speedVar: 0.45, drag: 0.82,
+    life: 0.2, lifeVar: 0.35, size: 24, sizeVar: 0.4, grow: -0.7, fadeOut: 0.6,
+    sparkLen: 0.85, sparkTaper: 0.6, hue: 48, hueLife: -20, coreWhite: 0.9,
+    flash: 0.95, flashSize: 0.46, flashLife: 0.09,
+    glow: 0.55, duration: 0.22, fps: 30, frameSize: 3,
   },
   "Muzzle Flash": {
     shape: 1, emitter: 1, count: 18, emitAngle: 90, emitSpread: 44,

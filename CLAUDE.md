@@ -219,6 +219,11 @@ more particles.
 
 ## Status
 
+- **First-time-user round (§25, 2026-10-15)**: search by what people type (`SEARCH_ALIASES` + the Wizard's tags/types,
+  "Best matches" first); the Variations pack is `buildExportFiles` per variation (Godot `.tres` proved in real Godot by
+  `tests/godot-check.mjs`); a size change with Fit off turns Fit on, Fit says its state; hidden filters shown as pills;
+  "Game palette"; Prep for GIF states its plan; dialogs scroll their middle; Hit Spark redrawn (meant hash change); zip
+  DOS dates. `--css-build` 7.
 - **Layout round 2 (§24, 2026-10-13)**: every editor panel folds (remembered in the existing `crunchyvfx.collapsed.v1`,
   `p:<group>`; Master and Crunch start folded); rows that do nothing hide (`PARAM_WHEN`, one table; values kept, links
   unchanged); Output/Master/Crunch head the panels, then the particles, then "Add a layer" and the layers that are on

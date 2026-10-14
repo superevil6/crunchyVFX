@@ -41,13 +41,25 @@ for (const line of (ff.stdout || "").split("\n")) {
   const l = /^VFX LOOP (\S+) (true|false)$/.exec(line);
   if (l) loops[l[1]] = l[2] === "true";
 }
+// §25: the Variations pack (a STORE-only zip, as makeZip writes): its entries go to res://varpack/
+const varzip = /^VFX VARZIP (\S+) (\S+)$/m.exec(ff.stdout || "");
+const varFiles = [];
+if (varzip) {
+  const z = Buffer.from(varzip[2], "base64");
+  for (let o = 0; z.readUInt32LE(o) === 0x04034b50;) {
+    const sz = z.readUInt32LE(o + 18), nl = z.readUInt16LE(o + 26), xl = z.readUInt16LE(o + 28);
+    const name = z.toString("utf8", o + 30, o + 30 + nl), at = o + 30 + nl + xl;
+    varFiles.push({ rel: "varpack/" + name, data: z.subarray(at, at + sz), date: z.readUInt16LE(o + 12), time: z.readUInt16LE(o + 10) });
+    o = at + sz;
+  }
+}
 const done = /VFX END PASS (\d+)/.exec(ff.stdout || "");
 t("the app planted effects through the planted Library", done && planted.length > 0, (ff.stdout || "").split("\n").filter((l) => /END FAIL/.test(l)).join(" ") || "no output");
 
 // 2. a scratch Godot project with the planted folder in it
 const proj = mkdtempSync(join(tmpdir(), "vfx-godot-"));
 writeFileSync(join(proj, "project.godot"), 'config_version=5\n\n[application]\nconfig/name="crunchyvfx-plant-check"\n');
-for (const f of planted) { mkdirSync(dirname(join(proj, f.rel)), { recursive: true }); writeFileSync(join(proj, f.rel), f.data); }
+for (const f of planted.concat(varFiles)) { mkdirSync(dirname(join(proj, f.rel)), { recursive: true }); writeFileSync(join(proj, f.rel), f.data); }
 const sides = planted.filter((f) => /\.crunchy$/.test(f.rel)), tres = planted.filter((f) => /\.tres$/.test(f.rel));
 const pngs = planted.filter((f) => /\.png$/.test(f.rel));
 t("every planted effect is its folder in crunchy/vfx/<slug>/ with its sidecar", sides.length >= 9 &&
@@ -64,11 +76,21 @@ for (const s of sides) {
                                 loop: loops[s.rel.split("/")[2]] };
   }
 }
-t("every planted .tres is one CrunchyVFX meant to write, and the other way round", tres.length === Object.keys(expect).length &&
+t("every planted .tres is one CrunchyVFX meant to write, and the other way round", tres.length === Object.keys(expect).filter((p) => !expect[p].varpack).length &&
   tres.every((f) => expect["res://" + f.rel]), tres.length + " vs " + Object.keys(expect).length);
 t("several shapes of export are covered: two sizes, an emissive mask, a sound", planted.some((f) => /@2x\.tres$/.test(f.rel)) &&
   planted.some((f) => /_emissive\.png$/.test(f.rel)) && planted.some((f) => /\.wav$/.test(f.rel)));
 
+const varTres = varFiles.filter((f) => /\.tres$/.test(f.rel));
+t("the Variations pack, with Godot chosen, holds a SpriteFrames .tres beside each variation's sheet and sidecar",
+  varTres.length === 3 && varTres.every((f) => varFiles.some((g) => g.rel === f.rel.replace(/\.tres$/, ".png")) &&
+    varFiles.some((g) => g.rel === f.rel.replace(/\.tres$/, ".crunchy"))), varFiles.map((f) => f.rel).join(" "));
+// a real DOS date (the export's own time), never 1980-00-00, which unzips as 2114
+t("the pack's zip entries carry a valid DOS date", varFiles.length > 0 && varFiles.every((f) => {
+  const y = 1980 + (f.date >> 9), m = (f.date >> 5) & 15, d = f.date & 31;
+  return y >= 2024 && y <= 2100 && m >= 1 && m <= 12 && d >= 1;
+}), varFiles.length ? JSON.stringify(varFiles[0].date) : "no pack");
+for (const f of varTres) expect["res://" + f.rel] = { varpack: true };
 writeFileSync(join(proj, "check.gd"), `extends SceneTree
 func _init():
 	var out = {}
@@ -96,7 +118,13 @@ const check = () => {
 };
 const first = check();
 if (process.env.VERBOSE) console.log(JSON.stringify(first, null, 1), JSON.stringify(expect, null, 1));
-const bad = Object.keys(expect).filter((p) => {
+const varBad = varTres.map((f) => "res://" + f.rel).filter((p) => {
+  const g = first[p];
+  return !g || g.cls !== "SpriteFrames" || !(g.n > 1) || g.loop !== false || !(g.w > 0);
+});
+t("Godot loads every Variations-pack .tres as a SpriteFrames (frames, a frame size, Play once as chosen)", varTres.length > 0 && !first.error && varBad.length === 0,
+  first.error || varBad.map((p) => p + " " + JSON.stringify(first[p])).join(" | "));
+const bad = Object.keys(expect).filter((p) => !expect[p].varpack).filter((p) => {
   const g = first[p], e = expect[p];
   return !g || g.cls !== "SpriteFrames" || g.n !== e.frames || Math.abs(g.fps - e.fps) > 1e-6 || g.w !== e.w || g.h !== e.h ||
     typeof e.loop !== "boolean" || g.loop !== e.loop;
@@ -107,7 +135,7 @@ t("every planted sheet PNG (and mask) loads as a texture", pngs.every((f) => fir
 t("Godot leaves the .crunchy sidecars alone: no resource, no .import",
   sides.every((s) => first["res://" + s.rel] && first["res://" + s.rel].resource === false && !existsSync(join(proj, s.rel + ".import"))));
 t("Godot made its own .import beside each PNG", pngs.every((f) => existsSync(join(proj, f.rel + ".import"))));
-const lv = Object.keys(expect).map((p) => expect[p].loop);
+const lv = Object.keys(expect).filter((p) => !expect[p].varpack).map((p) => expect[p].loop);
 t("the planted set has both a one-shot and a looping effect (Playback: Auto, Loop and Once)", lv.indexOf(true) >= 0 && lv.indexOf(false) >= 0, JSON.stringify(loops));
 
 // 4b. the combined scene in a RUNNING Godot: play() it and watch for `finished` over three times its length

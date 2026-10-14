@@ -65,11 +65,12 @@
     <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
     <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
     <span class="gensep" aria-hidden="true"></span>
-    <button id="fitBtn" title="Auto-scale the effect so it fills the frame (the loudness-normalize analog). It centres on the effect's bounding box, so Origin X/Y are ignored while this is on." data-icon="expand">Fit</button>
+    <button id="fitBtn" title="Fit: scale the whole effect so it fills the frame, at any frame size. It centres on the effect, so Origin X/Y are ignored while it is on. Off: the effect keeps its own pixel size and position, so a smaller frame crops it." data-icon="expand">Fit: on</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size" data-icon="lock">Lock pixels</button>
     <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you" data-icon="speaker">Hold sound</button>
     <span class="gensep" aria-hidden="true"></span>
     <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke" data-icon="clock">Timing</button>
+    <button id="palLockBtn" title="Match my game's colours: lock the effect to your game's palette (paste hex codes, load a .hex/.gpl file, or pick one)" data-icon="shade">Game palette</button>
   </div>
 </div>
 <!-- THE EFFECT STRIP (§22): every preset as a picture, PAGED by arrows (never a sideways scrollbar), the page counted.
@@ -78,7 +79,7 @@
 <nav id="presetbar" aria-label="Effects">
   <div class="pbar-top">
     <span class="pbar-title" id="presetsHead">Effects</span>
-    <input type="search" id="presetSearch" class="pickfilter" placeholder="Search effects…" autocomplete="off" spellcheck="false" title="Find an effect by its name or its category (explosion, magic, weather…)">
+    <input type="search" id="presetSearch" class="pickfilter" placeholder="Search: fireball, heal, slash…" autocomplete="off" spellcheck="false" title="Find an effect by name, category or what it is for: fireball, heal, slash, explosion, spell, ice…">
     <span class="zoomgroup pbar-mode" id="presetMode" role="group" aria-label="Filter the effects by" title="Narrow the effects by their category, or by what they are made of (the Wizard's tags: fire, ice, tech…)">
       <button type="button" data-mode="cats" class="active" aria-pressed="true">Categories</button><button type="button" data-mode="tags" aria-pressed="false">Tags</button>
     </span>
@@ -261,6 +262,7 @@
     <div class="engine" id="paletteSection">
       <div class="engine-title"><span>Palette</span></div>
       <div class="engine-cat-btns" id="paletteGrid"></div>
+      <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colours (Crunch panel, Palette lock)">Match my game's colours…</button>
     </div>
     <div class="engine" id="styleSection">
       <div class="engine-title"><span>Era style</span>
@@ -315,14 +317,14 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 6;   // must match --css-build in styles.css
+  const CSS_BUILD = 7;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 7, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 10, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
     { file: "plant.js", want: 12, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
     { file: "library.js", want: 4, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
-    { file: "settings.js", want: 2, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
-    { file: "desktop.js", want: 1, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
+    { file: "settings.js", want: 3, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
+    { file: "desktop.js", want: 2, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
@@ -330,7 +332,7 @@
   const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
   const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
   // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
-  if (base !== "7") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 7");
+  if (base !== "8") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 8");
   if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
   if (!bad.length) return;
   console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
@@ -1059,7 +1061,8 @@ function drawStage() {
   drawGuides(sctx, stage.width, stage.height);
   paintDock();
   scrub.value = String(frameIdx);
-  scrubVal.textContent = frameIdx + " / " + (rendered.canvases.length - 1);
+  // §25: one-based, of the real count, and it says "paused" (a preset loaded while paused looked static, not stopped)
+  scrubVal.textContent = (playing ? "" : "paused · ") + (frameIdx + 1) + " / " + rendered.canvases.length;
 }
 
 // ---------- Docked preview ----------
@@ -1670,9 +1673,42 @@ function syncPaletteUI() {
   }
   // Exactness depends on alpha: see the KNOWN LIMIT note in vfx.js. Rather than let someone
   // export a "16-colour" sheet with 200 colours in its soft edges, say so and name the fix.
-  palInfo.textContent = cols.length + " colours — every pixel snaps to these (Colour steps is bypassed)."
-    + (state.alphaCut > 0 ? "" :
-       " Soft edges will still land between palette colours — raise Alpha cut for an exactly-N-colour sprite.");
+  palInfo.textContent = cols.length + " colours — every pixel snaps to these (Colour steps is bypassed).";
+  // §25 (usability test: a locked palette still left ~85% of the visible pixels semi-transparent): soft edges are the
+  // effect's own colours at partial alpha, so the sprite is only exactly-N-colour once Alpha cut hardens them. Said in
+  // one line, with the fix one click away (never applied unasked: it changes the look).
+  if (state.alphaCut < 0.35) {
+    const line = document.createElement("div");
+    line.className = "pal-soft";
+    line.textContent = "Soft edges stay partly see-through, so they blend between these colours in your game. ";
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = "palHard";
+    b.textContent = "Hard edges (Alpha cut 0.5)";
+    b.title = "Every pixel fully there or gone: exactly these colours, nothing in between";
+    b.addEventListener("click", () => {
+      state.alphaCut = 0.5;
+      syncUI(); syncPaletteUI(); rerender(); commitHistory();
+      msg.textContent = "Alpha cut 0.5: every pixel is now one of the palette's colours, fully there or gone. Ctrl+Z undoes it.";
+    });
+    line.appendChild(b);
+    palInfo.appendChild(line);
+  }
+}
+// §25: THE PALETTE LOCK HAS A VISIBLE HOME (it lived only inside the folded Crunch panel): the toolbar's "Game palette"
+// and a line under the Palette swatches open Crunch, bring the lock into view and put the cursor in its paste box.
+function showPaletteLock() {
+  const panel = panels.querySelector('[data-group="Crunch"]'), box = panel && panel.querySelector(".pal-box");
+  if (!box) return;
+  if (panel.classList.contains("collapsed")) {
+    panel.classList.remove("collapsed");
+    foldState["p:Crunch"] = false; saveFolds();
+    const h = panel.querySelector("h2");
+    if (h) h.setAttribute("aria-expanded", "true");
+  }
+  box.scrollIntoView({ block: "center" });
+  box.classList.remove("pal-flash"); void box.offsetWidth; box.classList.add("pal-flash");
+  if (palPasteEl) palPasteEl.focus({ preventScroll: true });
 }
 // ---------- Frame size (W x H with an aspect lock) ----------
 // Lives in the stage controls, next to Zoom and Backdrop, rather than down in the Output panel:
@@ -1711,7 +1747,7 @@ let frameLocked = true;
   };
   frW.addEventListener("input", () => edit("w"));
   frH.addEventListener("input", () => edit("h"));
-  for (const el of [frW, frH]) el.addEventListener("change", () => commitHistory());
+  for (const el of [frW, frH]) el.addEventListener("change", () => { fitForSizeChange(); rerender(); commitHistory(); });
   frLock.addEventListener("click", () => { frameLocked = !frameLocked; window.syncFrameRow(); });
 
   // Picking a Frame size returns the frame to square at that size. Without this the dropdown
@@ -1720,9 +1756,20 @@ let frameLocked = true;
     inputs.frameSize.addEventListener("change", () => {
       state.frameW = 0; state.frameH = 0;
       window.syncFrameRow();
+      fitForSizeChange();
       rerender();
     });
   }
+}
+// A SIZE CHANGE SCALES THE EFFECT (§25; usability test: with Fit off, 192 → 64 px cropped the effect to its middle). With
+// Fit off an effect keeps its own pixel size, so a person choosing a size gets Fit turned on, and is told, in one undo
+// step of its own (Ctrl+Z or the Fit button puts it back for someone placing the effect by hand).
+function fitForSizeChange() {
+  if (fitOn) return;
+  fitOn = true;
+  try { updateFitBtn(); } catch (e) { /* not built yet */ }
+  msg.textContent = "Fit is on now, so the effect scales to the new size (with Fit off a size change crops it). Ctrl+Z or the Fit button turns it off again.";
+  setTimeout(() => commitHistory(), 0);
 }
 // Reduce w:h for the readout. 512x288 reading "16:9" tells you something; "512x288" is already
 // on screen in the boxes.
@@ -3182,7 +3229,10 @@ const MACROS = [
       state.grow = lerpN(0.3, -0.7, v);
     },
     from() { return inv(state.gravity, -120, 900); } },
-  { name: "Heat", id: "mHeat", left: "cold", right: "white-hot",
+  // §25: "Heat: white-hot" on an ice spell read as a contradiction (usability test). Heat is INTENSITY, not temperature:
+  // how white and glowing a particle's core is, in whatever colour Hue gives it. The ends and the row's note say so.
+  { name: "Heat", id: "mHeat", left: "dim", right: "white-hot",
+    note: "Heat is intensity, not temperature: how white and glowing each particle's core is, in any colour (an ice spell can have a white-hot core). Hue sets the colour.",
     to(v) {
       state.coreWhite = lerpN(0, 0.95, v);
       state.glow = lerpN(0, 0.65, v);
@@ -3242,6 +3292,7 @@ const macroInputs = {};
 for (const m of MACROS) {
   const row = document.createElement("div");
   row.className = "macro-row";
+  if (m.note) row.title = m.note;
   // The name is in its own span and the ends are two more, so the input itself had nothing to be
   // named by. The scale belongs in the name: "Violence" alone does not say which way is which.
   row.innerHTML = '<span class="macro-name" id="' + m.id + '-l">' + m.name + "</span>" +
@@ -3503,11 +3554,102 @@ const presetHasTags = (name, tags) => tags.every((k) => presetTagsOf(name).index
 const presetThumbs = new Map();                // name -> data URL ("" once a render failed: never retried)
 let thumbQueue = [], thumbTimer = 0;
 
+// SEARCH FINDS WHAT PEOPLE TYPE (§25; usability test, 2026-10-15: "fireball", "spell", "flame" and "burn" found nothing,
+// and the fireball-like effect is called "Meteor Hit"). Every word of the query must hit, by any of:
+//   * the name or the category (a STRONG hit: these lead the strip, under "Best matches");
+//   * SEARCH_ALIASES: a game developer's word, naming presets outright (strong) and/or tags, Wizard types and
+//     categories (a related hit);
+//   * failing an alias, the Wizard's own vocabularies: a word of a WIZARD_TAGS tag (its key, name or `words`) or of a
+//     WIZARD_TYPES type (`words`, `noun`), so a new preset is found by what it looks like with no list to update.
+// A word matches an alias by prefix from three letters ("firebal" finds the fireballs) and a plural "s" is dropped.
+// Entries: a preset name, "tag:<key>", "type:<key>" or "cat:<category>".
+const SEARCH_ALIASES = {
+  fireball: ["Meteor Hit", "Fire Jet", "Comet Arc", "Magic Bolt", "Solar Flare", "Big Boom", "Explosion", "Charge Release", "tag:fire"],
+  flame: ["Fire Jet", "Torch Flicker", "Ember Rise", "Campfire Smoke", "Solar Flare", "tag:fire"],
+  fire: ["Fire Jet", "Torch Flicker", "Ember Rise", "Campfire Smoke", "Meteor Hit", "tag:fire"],
+  burn: ["Scorch Mark", "Fire Jet", "Torch Flicker", "Molten Drip", "Lava Bubble", "tag:fire"],
+  blaze: ["tag:fire"], inferno: ["tag:fire"], heat: ["Heat Shimmer", "tag:fire"], ember: ["Ember Rise", "tag:fire"],
+  lava: ["Lava Bubble", "Molten Drip", "tag:fire"], torch: ["Torch Flicker", "tag:fire"],
+  spell: ["Rune Circle", "Magic Bolt", "Meteor Hit", "Frost Nova", "Lightning Zap", "Summon Circle", "Heal Rise", "Teleport", "Portal", "type:spell", "tag:arcane"],
+  cast: ["Rune Circle", "Charge Release", "Summon Circle", "type:spell", "tag:arcane"], ability: ["type:spell"], skill: ["type:spell"],
+  magic: ["type:spell", "tag:arcane"], mana: ["tag:arcane"], wizard: ["type:spell", "tag:arcane"], mage: ["type:spell", "tag:arcane"],
+  hit: ["Critical Hit", "Hit Flash", "Crit Pop", "type:hit"], impact: ["Critical Hit", "Ground Slam", "type:hit"],
+  strike: ["Critical Hit", "Ninja Strike", "type:hit"], punch: ["Hit Flash", "Critical Hit", "Punch In", "type:hit"],
+  melee: ["Critical Hit", "Slash", "Sword Slash", "type:hit"], attack: ["Critical Hit", "Slash", "type:hit"],
+  damage: ["Damage Number", "Critical Hit", "Hit Flash", "type:hit"], hurt: ["Hit Flash", "Blood Splat", "type:hit"],
+  spark: ["Critical Hit", "Hit Spark", "Spark Shower", "Crit Pop"],
+  crit: ["Critical Hit", "Crit Pop"], critical: ["Critical Hit", "Crit Pop"],
+  slash: ["Slash", "Slash Gash", "Sword Slash", "Katana Cut", "Axe Chop", "Ninja Strike", "Whip Crack"],
+  sword: ["Sword Slash", "Sword Clash", "Slash", "Katana Cut", "Perfect Parry"], swing: ["Slash", "Sword Slash", "Axe Chop", "Whip Crack"],
+  blade: ["Slash", "Katana Cut", "Sword Slash", "Slash Gash"], cut: ["Katana Cut", "Slash Gash", "Slash"], slice: ["Slash", "Katana Cut", "Slash Gash"],
+  heal: ["Heal Rise", "Level Up", "Spirit Aura", "Aura Loop", "Cathedral Light", "tag:holy"],
+  cure: ["Heal Rise", "tag:holy"], restore: ["Heal Rise", "tag:holy"], regen: ["Heal Rise", "Aura Loop"], revive: ["Heal Rise", "Level Up", "tag:holy"],
+  buff: ["Speed Boost", "Shield Up", "Power Rings", "Aura Loop", "type:status"], debuff: ["Poisoned", "Curse Mark", "Time Slow", "type:status"],
+  status: ["type:status"], aura: ["type:status"],
+  explosion: ["type:explosion", "cat:Explosions"], explode: ["type:explosion", "cat:Explosions"], blast: ["type:explosion"],
+  boom: ["type:explosion"], bomb: ["Bomb Blast", "type:explosion"], grenade: ["Bomb Blast", "type:explosion"], detonate: ["type:explosion"],
+  shield: ["Shield Up", "Shield Orbit", "Shield Hex"], block: ["Perfect Parry", "Sword Clash", "Shield Up"], parry: ["Perfect Parry", "Sword Clash"],
+  guard: ["Shield Up", "Perfect Parry"], defend: ["Shield Up", "Shield Hex"],
+  death: ["Disintegrate", "Soul Drain", "Teleport Out", "tag:dark"], die: ["Disintegrate", "Teleport Out"], kill: ["Disintegrate", "Blood Splat"],
+  destroy: ["Disintegrate", "Glass Shatter", "Explosion"], break: ["Glass Shatter", "Ice Shatter", "Ground Crack"],
+  dash: ["Speed Dash", "Whip Pan", "Warp Speed"], speed: ["Speed Dash", "Speed Boost", "Warp Speed"], sprint: ["Speed Dash", "Speed Boost"],
+  jump: ["Landing Puff", "Dust Kick"], land: ["Landing Puff", "Ground Slam"], footstep: ["Dust Kick", "Landing Puff"],
+  blood: ["Blood Splat", "Slash Gash"], gore: ["Blood Splat", "Slash Gash"],
+  gun: ["Muzzle Flash", "Muzzle Cone", "Split Shot", "Triple Tap"], shoot: ["Muzzle Flash", "Laser", "Split Shot"], muzzle: ["Muzzle Flash", "Muzzle Cone"],
+  bullet: ["Muzzle Flash", "Hit Spark", "type:projectile"], projectile: ["type:projectile"], missile: ["Comet Arc", "Jet Exhaust", "type:projectile"],
+  arrow: ["type:projectile"], laser: ["Laser", "type:projectile"], beam: ["Laser", "Searchbeam", "type:projectile"], trail: ["type:projectile"],
+  pickup: ["type:pickup"], collect: ["type:pickup"], loot: ["Treasure Unlock", "Coin Fountain", "type:pickup"], reward: ["type:pickup"],
+  powerup: ["Level Up", "Speed Boost", "Power Rings", "type:pickup"], item: ["type:pickup"], chest: ["Treasure Unlock"],
+  levelup: ["Level Up"], win: ["Crown Victory", "Confetti", "Level Up"], victory: ["Crown Victory", "Confetti"],
+  ice: ["tag:ice"], frost: ["tag:ice"], freeze: ["tag:ice"], cold: ["tag:ice"], snow: ["Snow", "Snow Mandala", "tag:ice"],
+  lightning: ["tag:lightning"], thunder: ["tag:lightning"], electric: ["tag:lightning"], shock: ["tag:lightning"], zap: ["Lightning Zap", "tag:lightning"],
+  poison: ["tag:poison"], toxic: ["tag:poison"], acid: ["tag:poison"], venom: ["tag:poison"], slime: ["tag:poison"],
+  water: ["tag:water"], splash: ["Water Splash", "Splash Down", "tag:water"], wet: ["tag:water"],
+  smoke: ["tag:smoke"], dust: ["tag:smoke"], dirt: ["tag:smoke"],
+  dark: ["tag:dark"], shadow: ["tag:dark"], curse: ["Curse Mark", "Cursed Halo", "tag:dark"], ghost: ["Boo!", "Spirit Wisps", "tag:dark"],
+  holy: ["tag:holy"], divine: ["tag:holy"], light: ["tag:holy"], nature: ["tag:nature"], plant: ["tag:nature"],
+  tech: ["tag:tech"], scifi: ["tag:tech"], robot: ["tag:tech"], cute: ["tag:cute"], love: ["Charm Hearts", "tag:cute"],
+  ambient: ["type:atmosphere"], weather: ["type:atmosphere"], background: ["type:atmosphere"],
+  ui: ["type:ui"], hud: ["type:ui", "cat:Status & HUD"], emote: ["type:ui"],
+};
+const SEARCH_ALIAS_KEYS = Object.keys(SEARCH_ALIASES);
+// What one query word reaches: { names, tags, types, cats } (sets), or null when it reaches nothing beyond names.
+const searchWordCache = new Map();
+function searchWordReach(w) {
+  if (searchWordCache.has(w)) return searchWordCache.get(w);
+  const r = { names: new Set(), tags: new Set(), types: new Set(), cats: new Set() };
+  const add = (e) => { const m = /^(tag|type|cat):(.+)$/.exec(e); if (!m) r.names.add(e); else r[m[1] + "s"].add(m[2]); };
+  const ws = w.length > 3 && w.endsWith("s") ? [w, w.slice(0, -1)] : [w];
+  const keys = SEARCH_ALIAS_KEYS.filter((k) => ws.some((x) => k === x || (x.length >= 3 && k.startsWith(x))));
+  for (const k of keys) SEARCH_ALIASES[k].forEach(add);
+  if (!keys.length && presetTagSrc) {
+    for (const t of WIZARD_TAGS) if (ws.some((x) => x === t.key || t.name.toLowerCase().split(/[^a-z]+/).indexOf(x) >= 0 || t.words.indexOf(x) >= 0)) r.tags.add(t.key);
+    for (const t of WIZARD_TYPES) if (ws.some((x) => x === t.key || x === t.noun || t.words.indexOf(x) >= 0)) r.types.add(t.key);
+  }
+  const out = r.names.size || r.tags.size || r.types.size || r.cats.size ? r : null;
+  searchWordCache.set(w, out);
+  return out;
+}
+// 2 = a strong hit (every word in the name, the category or an alias's named presets), 1 = related, 0 = no.
+function presetQueryHit(name, q) {
+  if (!q) return 2;
+  const cat = PRESET_CAT_OF[name] || "", hay = (name + " " + cat).toLowerCase();
+  let score = 2;
+  for (const w of q.split(/\s+/).filter(Boolean)) {
+    if (hay.indexOf(w) >= 0) continue;
+    const r = searchWordReach(w);
+    if (r && r.names.has(name)) continue;
+    if (r && (r.cats.has(cat) || (presetTagSrc && ((r.tags.size && presetTagsOf(name).some((k) => r.tags.has(k))) ||
+        (r.types.size && Array.from(r.types).some((k) => wizardPresetIs(name, wizardType(k)))))))) { score = 1; continue; }
+    return 0;
+  }
+  return score;
+}
 function presetMatches(name, q) {
   const cat = PRESET_CAT_OF[name] || "";
   if (presetChip && cat !== presetChip) return false;
   if (presetTags.length && !presetHasTags(name, presetTags)) return false;
-  return !q || name.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0;
+  return presetQueryHit(name, q) > 0;
 }
 // One frame ~40% in (a burst has bloomed by then; effectThumb's rule), rendered alone: renderPrep simulates the whole
 // effect (Fit needs every frame's bounds) but only this one frame is rasterised. The picture is a PREVIEW only.
@@ -3607,6 +3749,23 @@ function buildPresetChips(q) {
     host.appendChild(c);
   };
   syncPresetMode();
+  // THE OTHER ROW'S FILTER STAYS IN SIGHT (§25; usability test: a tag chosen under Tags kept filtering, invisibly, after
+  // the switch back to Categories, and the counts looked wrong). Each filter the shown row cannot show leads the row as
+  // a pill with a ×: one click drops it.
+  const pill = (label, title, drop) => {
+    const c = document.createElement("button");
+    c.type = "button";
+    c.className = "tagchip on filter-pill";
+    c.textContent = label + " ×";
+    c.title = title + " (click to drop this filter)";
+    c.addEventListener("click", () => { drop(); buildPresetStrip(); });
+    host.appendChild(c);
+  };
+  if (presetMode === "tags" && presetChip) pill(presetChip, "Only effects in the category " + presetChip, () => { presetChip = ""; });
+  if (presetMode !== "tags" && presetTagSrc) for (const k of presetTags) {
+    const t = presetTagSrc.tags.find((x) => x.key === k) || { name: k };
+    pill(t.name, "Only effects tagged " + t.name, () => { presetTags = presetTags.filter((x) => x !== k); });
+  }
   if (presetMode === "tags" && presetTagSrc) {
     // the tag chips: All (clears them), then each tag with how many effects it would leave, given the search, the
     // category and the tags already on. More than one tag narrows to effects carrying all of them.
@@ -3622,8 +3781,7 @@ function buildPresetChips(q) {
       const on = presetTags.indexOf(t.key) >= 0, want = on ? presetTags : presetTags.concat([t.key]);
       const n = Object.keys(PRESETS).filter((x) => {
         const cat = PRESET_CAT_OF[x] || "";
-        return (!presetChip || cat === presetChip) && presetHasTags(x, want) &&
-          (!q || x.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0);
+        return (!presetChip || cat === presetChip) && presetHasTags(x, want) && presetQueryHit(x, q) > 0;
       }).length;
       const c = document.createElement("button");
       c.type = "button";
@@ -3645,7 +3803,7 @@ function buildPresetChips(q) {
   mk("All", "", null);
   for (const [cat, names] of PRESET_CATEGORIES) {
     const n = names.filter((x) => PRESETS[x] && PRESET_CAT_OF[x] === cat && (!presetTags.length || presetHasTags(x, presetTags)) &&
-      (!q || x.toLowerCase().indexOf(q) >= 0 || cat.toLowerCase().indexOf(q) >= 0)).length;
+      presetQueryHit(x, q) > 0).length;
     mk(cat, cat, n);
   }
   host.scrollLeft = keep;
@@ -3702,10 +3860,37 @@ function buildPresetStrip() {
   presetBar.textContent = "";
   thumbQueue = [];
   let shown = 0;
+  // under a search, the strong hits lead under "Best matches"; the related ones follow by category (§25)
+  const best = new Set();
+  if (q) {
+    for (const [cat, names] of PRESET_CATEGORIES) for (const n of names) if (PRESETS[n] && PRESET_CAT_OF[n] === cat && presetMatches(n, q) && presetQueryHit(n, q) === 2) best.add(n);
+    // names that carry the words come first, then the aliases' presets in the order the alias lists them (so
+    // "fireball" opens on Meteor Hit)
+    const rank = (n) => {
+      if (q.split(/\s+/).every((w) => (n + " " + (PRESET_CAT_OF[n] || "")).toLowerCase().indexOf(w) >= 0)) return -1;
+      let at = 999;
+      for (const w of q.split(/\s+/).filter(Boolean)) {
+        const r = searchWordReach(w);
+        if (r) { const i = Array.from(r.names).indexOf(n); if (i >= 0) at = Math.min(at, i); }
+      }
+      return at;
+    };
+    const sorted = Array.from(best).map((n, i) => [n, rank(n), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2]).map((x) => x[0]);
+    best.clear();
+    for (const n of sorted) best.add(n);
+    if (best.size) {
+      const d = document.createElement("span");
+      d.className = "pcat pcat-best";
+      d.textContent = "Best matches";
+      d.title = "Named for what you typed";
+      presetBar.appendChild(d);
+      for (const n of best) { presetBar.appendChild(presetCell(n)); shown++; }
+    }
+  }
   for (const [cat, names] of PRESET_CATEGORIES) {
-    const hits = names.filter((n) => PRESETS[n] && PRESET_CAT_OF[n] === cat && presetMatches(n, q));
+    const hits = names.filter((n) => PRESETS[n] && PRESET_CAT_OF[n] === cat && !best.has(n) && presetMatches(n, q));
     if (!hits.length) continue;
-    if (!presetChip) {
+    if (!presetChip || best.size) {
       const d = document.createElement("span");
       d.className = "pcat";
       d.textContent = cat;
@@ -4018,7 +4203,7 @@ playBtn.addEventListener("click", () => {
   playing = !playing;
   setIconLabel(playBtn, playing ? "pause" : "play", playing ? "Pause" : "Play");
   // Resume from where you paused rather than snapping to frame 0, and bring the sound with it.
-  if (playing) { ensureAudio(); restartLoop(frameIdx); } else stopSound();
+  if (playing) { ensureAudio(); restartLoop(frameIdx); } else { stopSound(); drawStage(); }
 });
 document.getElementById("rand").addEventListener("click", randomize);
 document.getElementById("reroll").addEventListener("click", () => {
@@ -4026,8 +4211,11 @@ document.getElementById("reroll").addEventListener("click", () => {
   syncUI(); commitHistory(); rerender();
 });
 const fitBtn = document.getElementById("fitBtn");
+// §25: the button SAYS its state ("Fit: on" / "Fit: off"; a pale fill alone was missed in the usability test)
 function updateFitBtn() {
   fitBtn.classList.toggle("on", fitOn);
+  fitBtn.setAttribute("aria-pressed", fitOn ? "true" : "false");
+  setIconLabel(fitBtn, "expand", fitOn ? "Fit: on" : "Fit: off");
   const hint = document.getElementById("fitHint");
   if (hint) hint.hidden = !fitOn;
 }
@@ -4610,18 +4798,27 @@ async function saveNative(T, blob, name) {
 // STORE-only (no compression), which is exactly right here: PNG is already deflated, so
 // compressing it again buys nothing and costs time. crc32 lives in apng.js — PNG chunks and ZIP
 // entries want the same polynomial.
-function makeZip(files) {
-  const enc = new TextEncoder(), parts = [], central = [];
+// EVERY ENTRY CARRIES A REAL DOS DATE: the export's own local time. Zero (what this wrote before) is "1980-00-00", which
+// unzip tools show as 1980 or, worse, 2114 (usability test, 2026-10-15). `when` (a Date) pins it for a test.
+function zipDosTime(when) {
+  const d = when || new Date(), y = Math.max(1980, Math.min(2107, d.getFullYear()));
+  return { time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+           date: ((y - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate() };
+}
+function makeZip(files, when) {
+  const enc = new TextEncoder(), parts = [], central = [], dos = zipDosTime(when);
   let offset = 0;
   const push = (a) => { parts.push(a); offset += a.length; };
   for (const f of files) {
     const name = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length, at = offset;
     const hd = new DataView(new ArrayBuffer(30));
     hd.setUint32(0, 0x04034b50, true); hd.setUint16(4, 20, true); hd.setUint16(8, 0, true);
+    hd.setUint16(10, dos.time, true); hd.setUint16(12, dos.date, true);
     hd.setUint32(14, crc, true); hd.setUint32(18, sz, true); hd.setUint32(22, sz, true); hd.setUint16(26, name.length, true);
     push(new Uint8Array(hd.buffer)); push(name); push(f.data);
     const c = new DataView(new ArrayBuffer(46));
     c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true);
+    c.setUint16(12, dos.time, true); c.setUint16(14, dos.date, true);
     c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true);
     c.setUint16(28, name.length, true); c.setUint32(42, at, true);
     central.push(new Uint8Array(c.buffer), name);
@@ -4933,6 +5130,9 @@ function refreshExpInfo() {
   if (!rendered) return;
   const fmt = expFormat.value;
   for (const el of expModal.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== fmt;
+  // the Unity note is for someone choosing generic metadata (or none), not for a Godot, Aseprite or Phaser choice (§25)
+  const unityNote = expModal.querySelector(".exp-note-row");
+  if (unityNote) unityNote.hidden = fmt !== "sheet" || ["godot", "aseprite", "phaser"].indexOf(expMetaSel.value) >= 0;
   // Only offered when there's actually a synthesised sound to write — an unticked box for a file
   // that can't exist reads as a broken feature.
   expSoundRow.hidden = !synthSound;
@@ -5157,6 +5357,7 @@ function effectSidecarFile(stem, name, fields, files) {
 
 expModal.querySelector("#expGo").addEventListener("click", async () => {
   if (!rendered) return;
+  expMsg.classList.remove("saved");
   expMsg.textContent = "Rendering…";
   try {
     const { files, base } = await buildExportFiles((mult) => {
@@ -5171,7 +5372,11 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
       download(new Blob([makeZip(files.concat([side]))], { type: "application/zip" }), base + ".zip");
     }
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
-    expMsg.textContent = files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB";
+    // §25: a clear "saved", naming the file, and the zip's whole count: its .crunchy sidecar is the third file people
+    // found in a "2 files" zip, so it is counted and said what it is for
+    const zipped = files.length > 1;
+    expMsg.textContent = "Saved " + (zipped ? base + ".zip: " + files.length + " files + a .crunchy sidecar (lets CrunchyVFX reopen it)" : files[0].name) + " · " + kb + " KB";
+    expMsg.classList.add("saved");
     msg.textContent = "Exported " + base;
     recordExport("sheet", files.length + " file" + (files.length > 1 ? "s" : "") + " · " + kb + " KB");
   } catch (e) {
@@ -5487,6 +5692,7 @@ gifModal.innerHTML =
     '<div class="gif-body">' +
       '<div class="gif-stats" id="gifStats"></div>' +
       '<div id="gifWarn"></div>' +
+      '<p class="hint" id="gifPlan"></p>' +
     '</div>' +
     '<div class="modal-foot">' +
       '<button id="gifPrep" title="Hard-edge the sprite and snap to a frame rate GIF can actually hit" data-icon="sparkle">Prep for GIF</button>' +
@@ -5523,6 +5729,29 @@ function refreshGifInfo() {
   gifWarn.innerHTML = warns.length
     ? warns.map((t) => '<p class="gif-warn">' + t + "</p>").join("")
     : '<p class="gif-ok">Nothing to warn about — this patch exports cleanly.</p>';
+  // §25: Prep for GIF SAYS what it will change before it changes it (it silently took 15 fps to 10 and 27 frames to 18)
+  const plan = gifPrepPlan(), prep = gifModal.querySelector("#gifPrep");
+  prep.disabled = !plan.length;
+  document.getElementById("gifPlan").textContent = plan.length
+    ? "Prep for GIF will edit the effect itself: " + plan.join("; ") + ". Ctrl+Z undoes it."
+    : "";
+  prep.title = plan.length ? "Edits the effect: " + plan.join("; ") : "Already GIF-ready: nothing to change";
+}
+// What Prep for GIF would do, in words: [] when the effect is already GIF-shaped.
+function gifPrepTarget() {
+  const t = { alphaCut: state.alphaCut, fps: state.fps };
+  if (state.alphaCut < 0.35) t.alphaCut = 0.5;
+  if (!gifDelayCs(state.fps).exact) t.fps = GIF_EXACT_FPS.reduce((a, b) => Math.abs(b - state.fps) < Math.abs(a - state.fps) ? b : a);
+  return t;
+}
+function gifPrepPlan() {
+  const t = gifPrepTarget(), out = [];
+  if (t.alphaCut !== state.alphaCut) out.push("Alpha cut " + state.alphaCut + " → " + t.alphaCut + " (hard edges)");
+  if (t.fps !== state.fps) {
+    const n0 = Math.max(1, Math.round(state.duration * state.fps)), n1 = Math.max(1, Math.round(state.duration * t.fps));
+    out.push("FPS " + state.fps + " → " + t.fps + " (" + n0 + " → " + n1 + " frames, same length in time)");
+  }
+  return out;
 }
 
 document.getElementById("expGif").addEventListener("click", () => {
@@ -5537,19 +5766,14 @@ gifModal.addEventListener("click", (e) => { if (e.target === gifModal) gifModal.
 // can actually represent. Deliberately does NOT touch colour — 255 colours is plenty for these
 // effects, and posterizing is a look, not a fix.
 gifModal.querySelector("#gifPrep").addEventListener("click", () => {
-  const before = { alphaCut: state.alphaCut, fps: state.fps };
-  if (state.alphaCut < 0.35) state.alphaCut = 0.5;
-  if (!gifDelayCs(state.fps).exact) {
-    state.fps = GIF_EXACT_FPS.reduce((a, b) => Math.abs(b - state.fps) < Math.abs(a - state.fps) ? b : a);
-  }
-  const changed = [];
-  if (state.alphaCut !== before.alphaCut) changed.push("Alpha cut → " + state.alphaCut);
-  if (state.fps !== before.fps) changed.push("FPS → " + state.fps);
+  const changed = gifPrepPlan(), t = gifPrepTarget();
+  state.alphaCut = t.alphaCut; state.fps = t.fps;
   syncUI();
   commitHistory();
   rerender();
   refreshGifInfo();
-  gifMsg.textContent = changed.length ? changed.join(", ") : "Already GIF-ready";
+  gifMsg.textContent = changed.length ? "Changed the effect: " + changed.join("; ") + ". Ctrl+Z undoes it." : "Already GIF-ready";
+  if (changed.length) msg.textContent = "Prep for GIF changed the effect: " + changed.join("; ") + ". Ctrl+Z undoes it.";
 });
 
 gifModal.querySelector("#gifGo").addEventListener("click", () => {
@@ -5799,6 +6023,7 @@ requestAnimationFrame(tickMinis);
 
 // Build a standard grid cell: a playing thumbnail plus a button bar.
 const GRID_CELL_ICONS = { "✎": "edit", "★": "star" };
+const GRID_CELL_WORDS = { "✎": "Load", "★": "Keep" };
 function makeGridCell(genome, label, buttons, size) {
   const cell = document.createElement("div");
   cell.className = "breed-cell";
@@ -5812,10 +6037,15 @@ function makeGridCell(genome, label, buttons, size) {
     const b = document.createElement("button");
     b.title = title;
     // The cell's ✎ / ★ are drawn icons (§17); anything else stays its text.
+    // §25: the icons carry a word ("Load", "Keep"): bare marks were unreadable in the usability test
     const icon = GRID_CELL_ICONS[text];
-    if (icon) { b.className = "pxonly"; b.setAttribute("aria-label", title); b.setAttribute("data-icon", icon); iconsIn(b); }
+    if (icon) { b.className = "cell-act"; setIconLabel(b, icon, GRID_CELL_WORDS[text]); }
     else b.textContent = text;
-    b.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
+    b.addEventListener("click", (e) => {
+      e.stopPropagation(); fn();
+      // …and loading says it happened (the dialog closes onto the editor, which looked like nothing changed)
+      if (text === "✎") msg.textContent = "Loaded " + effectLabel + " into the editor. Ctrl+Z goes back.";
+    });
     bar.appendChild(b);
   }
   cell.appendChild(bar);
@@ -5992,6 +6222,8 @@ function renderTiming() {
   }
 }
 
+document.getElementById("palLockBtn").addEventListener("click", showPaletteLock);
+document.getElementById("palMatchLink").addEventListener("click", showPaletteLock);
 document.getElementById("timeBtn").addEventListener("click", () => {
   timeModal.querySelector("#timeMsg").textContent = "";
   renderTiming();
@@ -6318,7 +6550,15 @@ function seedVariations() {
   });
   varModal.querySelector("#varAmtV").textContent = amt.toFixed(2);
 }
-document.getElementById("variations").addEventListener("click", () => { seedVariations(); varMsg.textContent = ""; varModal.hidden = false; });
+// The pack is named for the loaded effect (it said "effect" whatever was loaded), and says which files it will write.
+function varFormatNote() {
+  const meta = expFormat.value !== "sheet" ? expFormat.options[expFormat.selectedIndex].textContent : expMetaSel.options[expMetaSel.selectedIndex].textContent;
+  return "Each variation is written as the Export dialog is set: " + meta + ".";
+}
+document.getElementById("variations").addEventListener("click", () => {
+  varNameEl.value = sanitize(exportNameNow());
+  seedVariations(); varMsg.textContent = varFormatNote(); varModal.hidden = false;
+});
 varModal.querySelector("#varClose").addEventListener("click", () => { varModal.hidden = true; clearMinis(varGrid); });
 varModal.addEventListener("click", (e) => { if (e.target === varModal) { varModal.hidden = true; clearMinis(varGrid); } });
 varModal.querySelector("#varRoll").addEventListener("click", seedVariations);
@@ -6326,39 +6566,38 @@ varCountEl.addEventListener("change", seedVariations);
 varAmtEl.addEventListener("input", () => { varModal.querySelector("#varAmtV").textContent = (+varAmtEl.value).toFixed(2); });
 varAmtEl.addEventListener("change", seedVariations);
 
+// THE PACK IS THE EXPORT DIALOG'S OUTPUT, ONCE PER VARIATION (§25): buildExportFiles with each variation's own context,
+// so the chosen format, layout, metadata (a Godot SpriteFrames .tres, Aseprite, Phaser, generic), trim, sizes and
+// Playback all hold. It used to write its own sheet + a generic .json whatever the dialog said, so a Godot user got no
+// .tres (usability test, 2026-10-15). The sound is the editor's, not a variation's, so it stays out of the pack.
+async function variationFiles(genomes, base, onEach) {
+  const files = [], exp = Object.assign(exportSettingsNow(), { sound: false });
+  for (let i = 0; i < genomes.length; i++) {
+    const nn = base + "_" + String(i + 1).padStart(2, "0");
+    const st = fullGenome(genomes[i]);
+    const r = renderFrames(st, { fit: fitOn });
+    const C = { st: st, r: r, fit: fitOn, ref: NO_REF, synth: null, link: null, soundFrame: 0 };
+    const out = await buildExportFiles(null, Object.assign({}, exp, { base: nn, ctx: C }));
+    // each variation's sidecar beside its files, at the zip's root (§18)
+    out.files.push(effectSidecarFile(nn, nn, effectFields(nn, exp, C), out.files));
+    for (const f of out.files) files.push(f);
+    for (const cv of r.canvases) releaseCanvas(cv);
+    if (onEach) onEach(i);
+    await new Promise((res) => setTimeout(res, 0));
+  }
+  return files;
+}
 varModal.querySelector("#varExport").addEventListener("click", async () => {
   varMsg.textContent = "Rendering…";
-  const base = sanitize(varNameEl.value || "effect");
-  const files = [];
-  for (let i = 0; i < varGenomes.length; i++) {
-    const nn = String(i + 1).padStart(2, "0");
-    // Render each variation at full export size through the normal path, so the pack gets the
-    // same sheet + sidecar the single-effect export would produce (reference included and all).
-    await new Promise((res) => {
-      withState(varGenomes[i], () => {
-        rendered = renderFrames(state, { fit: fitOn });
-        const sh = buildSheet();
-        const s = encodePatch(base + "_" + nn, true), fit = fitOn;   // inside withState: this variation's
-        sh.cv.toBlob(async (blob) => {
-          const mine = [{ name: base + "_" + nn + ".png", data: new Uint8Array(await blob.arrayBuffer()) }, {
-            name: base + "_" + nn + ".json",
-            data: new TextEncoder().encode(JSON.stringify({
-              name: base + "_" + nn, frames: sh.n, fps: rendered.fps,
-              frameW: sh.w, frameH: sh.h, cols: sh.cols, rows: sh.rows, loop: loopFor(expPlay.value),
-            }, null, 2)),
-          }];
-          // each variation's sidecar beside its two files, at the zip's root (§18)
-          mine.push(effectSidecarFile(base + "_" + nn, base + "_" + nn, { s: s, exportName: base + "_" + nn, base: base + "_" + nn, fit: fit }, mine));
-          for (const f of mine) files.push(f);
-          res();
-        }, "image/png");
-      });
-    });
-    varMsg.textContent = "Rendering… " + (i + 1) + "/" + varGenomes.length;
+  const base = sanitize(varNameEl.value || exportNameNow() || "effect");
+  try {
+    const files = await variationFiles(varGenomes, base, (i) => { varMsg.textContent = "Rendering… " + (i + 1) + "/" + varGenomes.length; });
+    download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-pack.zip");
+    const kind = { godot: "Godot SpriteFrames (.tres)", aseprite: "Aseprite JSON", phaser: "Phaser JSON", generic: "JSON", none: "no metadata" }[expMetaSel.value] || expMetaSel.value;
+    varMsg.textContent = "Saved " + base + "-pack.zip: " + varGenomes.length + " variations, " + files.length + " files, each with " + kind + ". Format and metadata follow the Export dialog.";
+  } catch (e) {
+    varMsg.textContent = "Export failed: " + e.message;
   }
-  download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-pack.zip");
-  varMsg.textContent = "Exported " + varGenomes.length + " variations";
-  rerender();   // the editor's own render was clobbered above; put it back
 });
 
 // ---------- Foundry ----------
@@ -6935,16 +7174,23 @@ function wizardWords(c, type, used, slot) {
   const pairs = [];
   for (let i = 0; i < words.length; i++) for (let j = 0; j < words.length; j++) if (i !== j) pairs.push([words[i], words[j]]);
   if (!pairs.length) pairs.push([words[0] || "", ""]);
-  let name = "";
-  outer: for (const n of nouns) {
-    for (const [a, b] of pairs) {
-      if (a.split(" ").indexOf(n) >= 0 || b.split(" ").indexOf(n) >= 0) continue;
-      const s = cap((a + " " + (b ? b + " " : "") + n).trim());
-      if (!used || !used.has(s)) { name = s; break outer; }
+  // §25: a page never shows the same two words twice in another order ("Snowflake target spell" beside "Target
+  // snowflake spell" read as a glitch): a pair of part words the page has used is a last resort, whatever the noun.
+  const pairKeys = used ? (used.pairKeys || (used.pairKeys = new Set())) : null;
+  const keyOf = (a, b) => [a, b].sort().join("+");
+  let name = "", nameKey = "";
+  outer: for (let pass = 0; pass < 2; pass++) {
+    for (const n of nouns) {
+      for (const [a, b] of pairs) {
+        if (a.split(" ").indexOf(n) >= 0 || b.split(" ").indexOf(n) >= 0) continue;
+        if (pass === 0 && pairKeys && pairKeys.has(keyOf(a, b))) continue;
+        const s = cap((a + " " + (b ? b + " " : "") + n).trim());
+        if (!used || !used.has(s)) { name = s; nameKey = keyOf(a, b); break outer; }
+      }
     }
   }
   if (!name) name = cap((words[0] || "") + " " + nouns[0]);
-  if (used) used.add(name);
+  if (used) { used.add(name); if (nameKey) pairKeys.add(nameKey); }
   const list = c.parts.map((p) => String(p.part).toLowerCase()).concat(c.pals.map((p) => p + " palette"));
   return { name, list: list.filter((x, i) => list.indexOf(x) === i).join(" · ") };
 }
@@ -7045,8 +7291,12 @@ function wizardCardPic(name) {
 function wizardSample(type, tag) {
   if (!tag && type && PRESETS[type.sample]) return type.sample;
   const names = Object.keys(PRESETS).filter((n) => !type || wizardPresetIs(n, type));
-  return (tag ? names.find((n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0)
-    || Object.keys(PRESETS).find((n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0) : names[0]) || "";
+  if (!tag) return names[0] || "";
+  const has = (n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0;
+  // §25: a tag's picture is also IN the tag's colours ("Smoke and dust" showed a green poison cloud)
+  const looks = (n) => { const L = wizardLook(fullGenome(PRESETS[n]), n); return has(n) && tag.colour(L.h, L.s, L.cw, L.blend); };
+  const all = Object.keys(PRESETS);
+  return names.find(looks) || all.find(looks) || names.find(has) || all.find(has) || "";
 }
 // How much a frame shows: its visible pixels, sampled every fourth one.
 function wizardLitCount(cv) {
@@ -7065,7 +7315,7 @@ function wizardLit(cv) {
 // One frame ~40% in, at the effect's REAL frame size (the era's pixels are the point), shown scaled up, crisp.
 function wizardStill(st) {
   return withState(st, () => {
-    const prep = renderPrep(state, { fit: fitOn }), at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+    const prep = renderPrep(state, { fit: true }), at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
     return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null);
   });
 }
@@ -7197,7 +7447,7 @@ function wizardResults() {
       if (!cv.isConnected) return;
       const f0 = performance.now();
       let r = null;
-      try { r = withState(st, () => renderFrames(state, { fit: fitOn })); } catch (e) { return; }
+      try { r = withState(st, () => renderFrames(state, { fit: true })); } catch (e) { return; }
       perf.fullMs.push(Math.round(performance.now() - f0));
       perf.frames += r.canvases.length; perf.bytes += r.w * r.h * 4 * r.canvases.length; perf.ready++;
       // a one-shot holds its last frame half a second before it starts again, so no cell reads as blank (§23.1)
@@ -7242,7 +7492,10 @@ function wizardResults() {
 function wizardLoad(c) {
   const a = wizard.answers, st = wizardState(c, a), s = a.era ? styleByName(a.era) : null;
   for (const k in st) state[k] = st[k];
-  applyFitOf(wizardPatch(c));
+  // §25: A RESULT IS FITTED. The nine are drawn with Fit on (with Fit off they clipped their frames: the compositions are
+  // made to fill one), so a click gives what was shown, and says so when it turned Fit back on.
+  const fitWas = fitOn;
+  if (!fitOn) { fitOn = true; updateFitBtn(); }
   applyImageSprite(state.imageSprite);
   effectLabel = c.label || wizardLabel(c);
   if (s) eraPinned(s);
@@ -7252,7 +7505,7 @@ function wizardLoad(c) {
   frameIdx = 0;
   rerender();
   commitHistory();
-  msg.textContent = "Wizard: " + effectLabel + (s ? " in " + s.name : "") + ". Ctrl+Z undoes it.";
+  msg.textContent = "Wizard: " + effectLabel + (s ? " in " + s.name : "") + (fitWas ? "" : " (Fit is on again: Wizard effects are made to fill the frame)") + ". Ctrl+Z undoes it.";
   wizardClose();
 }
 document.getElementById("wizardBtn").addEventListener("click", wizardOpen);
@@ -7666,6 +7919,10 @@ matchModal.innerHTML =
       '<span class="hint">Paste a CrunchySFX share link.</span>' +
       '<button id="matchClose" data-icon="close">Close</button></div>' +
     '<div class="share-body">' +
+      // §25: what it needs, and where to get one (it was a dead end for someone without CrunchySFX)
+      '<p class="share-note" id="matchNeed">This needs a sound made in <b>CrunchySFX</b>, the suite\'s free sound maker: ' +
+        'make a sound there, press its <b>Share link</b>, and paste the link here. ' +
+        '<a id="matchSfxLink" href="https://crunchysfx.com/" target="_blank" rel="noopener">Open CrunchySFX</a></p>' +
       '<label class="share-lbl" for="matchIn">CrunchySFX link</label>' +
       '<input id="matchIn" class="share-input" type="text" placeholder="https://crunchysfx.com/?s=…" autocomplete="off" spellcheck="false">' +
       '<p class="share-note">A sound has no single correct visual, so this is a <b>starting point</b>: ' +
@@ -7677,6 +7934,14 @@ matchModal.innerHTML =
       '<span id="matchMsg" class="hint"></span></div>' +
   '</div>';
 document.body.appendChild(matchModal);
+{
+  // the link is the suite's own (CRUNCHY_SUITE, crunchyCore suite.js); the desktop opens it outside the app
+  const sfx = typeof CRUNCHY_SUITE !== "undefined" && CRUNCHY_SUITE.find((t) => t.id === "sfx"), a = matchModal.querySelector("#matchSfxLink");
+  if (sfx && sfx.web) a.href = sfx.web;
+  a.addEventListener("click", (e) => {
+    if (window.__TAURI__ && window.__TAURI__.opener) { e.preventDefault(); window.__TAURI__.opener.openUrl(a.href); }
+  });
+}
 const matchIn = matchModal.querySelector("#matchIn");
 const matchOut = matchModal.querySelector("#matchOut");
 const matchMsg = matchModal.querySelector("#matchMsg");
@@ -7877,6 +8142,7 @@ for (const panel of panels.querySelectorAll(".panel[data-group]")) {
 // Shown once per browser, replayable from the header's Tour button. Deliberately skipped when someone arrives
 // on a share link: they came for THAT effect, not a tutorial.
 const TOUR_KEY = "crunchyvfx.tourseen.v1";
+// §25: no numbers in the titles (they ran one behind the "n of 13" counter, which already counts; Tile and UI did the same)
 const TOUR = [
   { target: null, title: "Welcome to CrunchyVFX",
     // the suite's mission line (~/.claude/crunchy-suite.md §1), then what this app does
@@ -7884,37 +8150,37 @@ const TOUR = [
           "CrunchyVFX makes sprite VFX (explosions, magic, weather, impacts) and exports them as sheets your engine can read. " +
           "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. New here? Start with the Wizard. Here's the 30-second version." },
   // §23: the Wizard is where someone with no effect in mind starts (CrunchyTile's tour says the same of its own)
-  { target: "#wizardBtn", title: "Start here · the Wizard",
+  { target: "#wizardBtn", title: "Start here: the Wizard",
     body: "Three questions: what the effect is for, what it's made of, and which era it should look like. Then nine finished effects, all playing, picked from the ready-made ones and the Foundry's and Randomize's own rolls. Click one to load it; Ctrl+Z undoes it." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
-  { target: "#presetbar", title: "1 · Start from an effect",
+  { target: "#presetbar", title: "Start from an effect",
     // Counts are interpolated, not typed: every one of them was already stale (118 effects, 88
     // shapes, 42 systems) because nothing connected the copy to the thing it counts.
     body: Object.keys(PRESETS).length + " ready-made effects in the strip along the top. Click a picture to load it (hover to watch it play), page with the arrows, search by name, or pick a type from the chips. Everything after this is tweaking what you loaded." },
-  { target: "#foundry", title: "2 · Foundry — invent originals",
+  { target: "#foundry", title: "Foundry: invent originals",
     body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
-  { target: "#breed,#variations", title: "3 · Breed — evolve by eye",
+  { target: "#breed,#variations", title: "Breed: evolve by eye",
     body: "Breed makes nine children of the current effect; keep your favourites and breed again. It roams — a child can pick up a system the parent never had, which is how it finds things you'd never reach by dragging sliders. Variations stays put instead: it nudges what the effect already uses and exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
 
   // Then the refining tools, coarse to fine.
-  { target: "#macros", title: "4 · Shape it in plain language",
+  { target: "#macros", title: "Shape it in plain language",
     body: MACROS.length + " sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
-  { target: "#shapeSection", title: "5 · Pick a particle",
+  { target: "#shapeSection", title: "Pick a particle",
     body: SHAPES.length + " shapes, from soft glows to flames, gears and skulls. Click as many as you like — a mixed selection gives each particle its own shape. Filter by name, draw your own, or import a PNG." },
-  { target: "#timeBtn", title: "6 · Stage it in time",
+  { target: "#timeBtn", title: "Stage it in time",
     body: "Layers all start together unless you say otherwise. Timing gives each one a start delay, "
       + "so a flash can land, then the shockwave, then the smoke — the difference between one event "
       + "and a sequence. It lists only the layers you have switched on." },
-  { target: "#layerBar", title: "7 · Stack more systems",
+  { target: "#layerBar", title: "Stack more systems",
     body: LAYER_GROUPS.length + " of them — shockwaves, lightning, ribbons, weather, lens flares. Click a chip to add one; each brings its own controls." },
-  { target: "#matchBtn", title: "8 · Match a sound",
-    body: "Paste a CrunchySFX link and the effect is built from the sound — same length, same punch — and the audio is synthesised right here, then exported beside the sheet." },
+  { target: "#matchBtn", title: "Match a sound",
+    body: "Paste a sound link from CrunchySFX (the suite's free sound maker; Crunchy suite in the header opens it) and the effect is built from the sound — same length, same punch — and the audio is synthesised right here, then exported beside the sheet." },
 
   // And shipping it.
-  { target: "#expOpen", title: "9 · Export for your engine",
+  { target: "#expOpen", title: "Export for your engine",
     body: "Sprite sheet, PNG frames or animated PNG, with trim, pivot and metadata for Godot, Aseprite or Phaser — and multiple sizes in one go. Unity takes the sheet directly; the dialog explains why no .meta is written." },
-  { target: "#share", title: "Bonus · every effect is a link",
+  { target: "#share", title: "Every effect is a link",
     body: "Share link copies a URL that rebuilds this exact effect for whoever opens it. No file, no account." },
   { target: null, title: "That's it",
     body: "Everything you make is yours, unwatermarked, at full resolution. Replay this any time with Tour — and Tutorials goes deeper on the parts that don't explain themselves, like staging layers in time or running two emitters at once." },
@@ -8980,8 +9246,12 @@ const desktopGate = desktopMount("vfx", {
 // landing on Explosion makes the tool look like it does one thing — and the first screen is the
 // only one some visitors ever see. A share link still wins: that person came for a specific
 // effect, not a sampler.
+// §25: …but random among STRONG ones: the usability test opened on a faint effect (Time Slow) and read it as empty. The
+// first screen shows something bold and varied; the rest of the library is one click away.
+const LAUNCH_EFFECTS = ["Big Boom", "Critical Hit", "Meteor Hit", "Frost Nova", "Lightning Zap", "Rune Circle", "Portal Open",
+                        "Coin Fountain", "Explosion", "Charge Release", "Solar Flare", "Summon Ritual", "Firework", "Shockwave"];
 function pickLaunchEffect() {
-  const names = Object.keys(PRESETS);
+  const strong = LAUNCH_EFFECTS.filter((n) => PRESETS[n]), names = strong.length ? strong : Object.keys(PRESETS);
   return names.length ? names[Math.floor(Math.random() * names.length)] : null;
 }
 // Precedence: our own effect link, then a sound sent over from CrunchySFX, then the random sampler.

@@ -40,6 +40,23 @@
     });
     // what each planted effect's metadata should tell the engine: its saved Playback, resolved against its own effect
     project.assets.forEach(function (a) { say("LOOP " + a.slug + " " + loopFor(expOf(a.data).playback, stateOfShare(a.data.s))); });
+    // §25: the Variations "Export pack" with Godot chosen: the zip the button downloads, each variation's .tres in it
+    expFormat.value = "sheet"; expMetaSel.value = "godot"; setExp({ trim: true, play: "once" });
+    applyPreset(PRESETS["Critical Hit"], "Critical Hit", true);
+    document.getElementById("variations").click();
+    varCountEl.value = 3; seedVariations();
+    let zip = null;
+    const keepDl = window.download;
+    window.download = function (blob, name) { zip = { blob: blob, name: name }; };
+    varModal.querySelector("#varExport").click();
+    for (let i = 0; i < 400 && !zip; i++) await new Promise(function (r) { setTimeout(r, 50); });
+    window.download = keepDl;
+    varModal.hidden = true;
+    if (!zip) throw new Error("the Variations pack never downloaded");
+    const zb = new Uint8Array(await zip.blob.arrayBuffer());
+    let zbin = "";
+    for (let i = 0; i < zb.length; i += 8192) zbin += String.fromCharCode.apply(null, zb.subarray(i, i + 8192));
+    say("VARZIP " + zip.name + " " + btoa(zbin));
     say("END PASS " + project.assets.length);
   } catch (e) { say("END FAIL " + e + " " + e.stack); }
 })();

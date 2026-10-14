@@ -1548,3 +1548,56 @@ Screenshots (WebKitGTK): `r2-1366-top.png` (tag chips), `r2-1366-panels.png`, `r
 **For AJ:** Motion starts open (it is long; fold it once and it stays folded); the tag chips' counts combine with tags
 already on, so after one tag most others read 0 (AND, not OR); and whether My Effects should become a strip mode
 (round 2's last proposal) is still open.
+
+## 25. The first-time-user round: search words, the Variations pack's metadata, Fit on a size change (2026-10-15)
+
+A usability test (a first-time Godot 4 action-RPG hobbyist; verdict "yes", the Wizard the high point) found twelve
+things. What changed, in the report's order of priority:
+
+1. **Search finds what people type.** "fireball", "spell", "flame", "burn" found nothing: search matched names and
+   categories only, and the fireball-like effect is called Meteor Hit. Every word of a query must now hit by the name or
+   category (a STRONG hit), by `SEARCH_ALIASES` (a game developer's word naming presets outright, strong, and/or tags,
+   Wizard types and categories, related), or, failing an alias, by the Wizard's own vocabularies (a `WIZARD_TAGS` tag's
+   key, name or `words`; a `WIZARD_TYPES` type's `words` or `noun`), so a new preset is found by what it looks like with
+   no list to update. Prefix from three letters, a plural "s" dropped. Strong hits lead the strip under a "Best matches"
+   divider, ordered names first and then as the alias lists them ("fireball" opens on Meteor Hit); related hits follow
+   by category. The chip counts use the same test (`presetQueryHit`).
+2. **The Variations "Export pack" is the Export dialog's output, once per variation** (`variationFiles`): it calls
+   `buildExportFiles` with each variation's own context, so format, layout, metadata (a Godot SpriteFrames `.tres`),
+   trim, sizes and Playback all hold. It used to write its own sheet + generic JSON whatever was chosen. The pack leaves
+   the editor's sound out (it belongs to the editor, not a variation). **Proved in real Godot**: `tests/godot-check.mjs`
+   now presses Export pack with Godot chosen (3 variations of Critical Hit, Play once), unzips what the button
+   downloaded, and Godot 4.7.2 loads every `.tres` as a SpriteFrames with its frames, a frame size and loop off.
+3. **A size change scales.** With Fit off an effect keeps its own pixel size, so 192 → 64 px cropped it. Choosing a size
+   (or W/H) with Fit off now turns Fit on and says so, as its own undo step (`fitForSizeChange`). The Fit button says
+   its state ("Fit: on" / "Fit: off", `aria-pressed`); the pale fill alone was missed, and the tester's "the Wizard turned
+   Fit off" was, as far as we can reproduce, a click on a Fit that already looked off (the Wizard never wrote Fit). The
+   tooltip lost its audio metaphor. Wizard results are now drawn fitted and load fitted (they clipped their frames with
+   Fit off), saying so when that turned Fit back on.
+4. **A filter the shown chip row cannot show stays in sight**: a tag chosen under Tags is a pill ("Fire ×") at the head
+   of the Categories row, a category under Categories one at the head of the Tags row; one click drops it, and the counts
+   are the whole set again.
+5. **The palette lock has a visible home**: "Game palette" in the toolbar and "Match my game's colours…" under the
+   Palette swatches open Crunch, bring the lock into view and put the cursor in its paste box (`showPaletteLock`).
+6. **Prep for GIF says what it will change before it changes it** (`gifPrepPlan`: "FPS 15 → 10 (27 → 18 frames, same
+   length in time)"), says what it changed, and is disabled when there is nothing to do. It still edits the effect (one
+   undo step): a copy would have left the GIF and the effect disagreeing.
+7. **A tall dialog scrolls its middle, never its buttons**: head and foot keep their height (the Export button is in view
+   at 1366×682), and a successful export says "Saved <file>" in green, naming the zip's `.crunchy` sidecar.
+8. **Hit Spark redrawn to read** (less speed, more drag, fatter sparks, a bigger flash; a MEANT frame-hash change, Hit
+   Spark and the batch only), and "spark"/"hit" searches offer Critical Hit beside it.
+9. **Heat is intensity, not temperature**: its ends are "dim" … "white-hot" and its row says so on hover (an ice spell
+   can have a white-hot core; Hue is the colour). Wizard clipping: item 3.
+10. **The Variations name is the loaded effect's** export name, and the dialog says which files the pack will write.
+11. **A locked palette with soft edges says so in one line and offers "Hard edges (Alpha cut 0.5)"**, never applied
+   unasked (it changes the look).
+12. Low: tour titles lost their numbers (the counter counts; Tile and UI did the same); zip entries carry a real DOS date
+   (the export's own time; zero read as 1980-00-00, unzipped as 2114); the Unity note shows only for generic or no
+   metadata; the frame counter is one-based of the real count and says "paused"; Wizard names never repeat two words in
+   another order on a page; a tag card's picture is in the tag's colours (Smoke and dust showed a green poison cloud);
+   Breed/Variations/Foundry cells say "Load" and "Keep", and loading one says so; Match a sound says what it needs and
+   links CrunchySFX (the suite's own link, opened outside the desktop app); the first screen opens on one of
+   `LAUNCH_EFFECTS` (strong ones), not any of 189; the loaded effect's strip card is a dark cell with a white label.
+
+Not done: the Foundry's near-identical "Explosion" candidates (listed low in the report, not in this round's brief).
+`--css-build` 7.

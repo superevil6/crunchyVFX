@@ -4,7 +4,7 @@ VFX FRAME "Big Boom" 3b1135ca2b8e5f6f
 VFX FRAME "Shockwave" 6e7f89e090ed1b93
 VFX FRAME "Fire Jet" 747b497c17411897
 VFX FRAME "nofit:Fire Jet" 2fe21ce86ce921b1
-VFX FRAME "Hit Spark" 185ae66e823b4e63
+VFX FRAME "Hit Spark" b7aad8eb6541bf16
 VFX FRAME "Muzzle Flash" 4b4d142c514db6eb
 VFX FRAME "Dust Kick" 229360aa1bff2f5b
 VFX FRAME "nofit:Dust Kick" 2a68e9eaf738283b
@@ -271,8 +271,8 @@ VFX EXPORT "Poisoned|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\
 VFX EXPORT "Warp Speed|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 6845314a369ca1fd
 VFX EXPORT "Backlit Burst|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" 6e3cbcb80441b435
 VFX EXPORT "Old Broadcast|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 0934d97b9b5b77de
-VFX EXPORT "sound:Hit Spark" ff67ebc2ba6d3213
+VFX EXPORT "sound:Hit Spark" 4701277764edd592
 VFX BATCH "crunchyvfx-pack.zip" 9b719ebe98ed7ec1
-VFX BATCH "crunchyvfx-pack.zip" e7ba3ae6406f4f81
-VFX FRAMEHASH 6bd39ee9f66d2ec6 over 276
+VFX BATCH "crunchyvfx-pack.zip" 727e30a1fc183402
+VFX FRAMEHASH 0680f57f4111664a over 276
 VFX END PASS 276 hashes

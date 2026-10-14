@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 6;
+    --css-build: 7;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1296,8 +1296,12 @@ header .spacer { flex: 1; }
 .pcell { flex: none; width: 80px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 2px 3px;
          background: var(--panel2); border: 1px solid var(--line); box-shadow: none; cursor: pointer; }
 .pcell:hover { border-color: var(--accent); }
-.pcell.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.pcell.on .pname { color: var(--accent); }
+/* the loaded effect: its own dark cell, an accent frame and a readable label (button.on's light fill put a purple label
+   on a pale ground, §25) */
+.pcell.on { background: var(--panel2); color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.pcell.on .pname { color: var(--ink); font-weight: 700; }
+.pcat.pcat-best { color: var(--accent); border-right-color: var(--accent); }
+.tagchip.filter-pill { margin-right: 4px; }
 .pthumb { position: relative; width: 60px; height: 60px; background: #100e15; flex: none; }
 .pthumb img, .pthumb canvas { position: absolute; inset: 0; width: 60px; height: 60px; display: block; image-rendering: pixelated; background: transparent; }
 .pthumb img:not([src]) { visibility: hidden; }
@@ -1422,3 +1426,17 @@ main#panels { display: block; }
 @media (max-width: 700px) {
   .layer-kind { flex-direction: column; gap: 3px; }
 }
+
+/* §25: A TALL DIALOG SCROLLS ITS MIDDLE, never its buttons. At 1366x682 the Export dialog's Export button sat below the
+   window (usability test): the head and foot keep their height and the body between them scrolls. */
+.modal-box > .modal-head, .modal-box > .modal-foot { flex: none; }
+.modal-box > .exp-body, .modal-box > .gif-body, .modal-box > .share-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+#expMsg.saved, #varMsg.saved { color: var(--ok, #7fd88f); font-weight: 700; }
+#gifPlan:empty { display: none; }
+.pal-soft { margin-top: 6px; color: var(--muted); }
+.pal-soft button { margin-top: 4px; font-size: 12px; padding: 3px 8px; }
+.pal-match { margin-top: 8px; font-size: 12px; padding: 3px 9px; box-shadow: none; }
+@keyframes palFlash { from { outline-color: var(--accent); } to { outline-color: transparent; } }
+.pal-box.pal-flash { outline: 2px solid transparent; outline-offset: 4px; animation: palFlash 1.4s steps(4) 1; }
+.modal-foot > button { flex: none; white-space: nowrap; }
+.modal-foot > .hint { flex: 1 1 auto; min-width: 0; }

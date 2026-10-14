@@ -3206,7 +3206,7 @@ function renderPrep(st, opt) {
   const ref = frameRefPx(outW, outH);          // radii scale against the smaller side
   const base = ref / sim.fs;
 
-  // Fit — the loudness-normalize analog: scale the whole effect so its bounding box fills the
+  // Fit: scale the whole effect so its bounding box fills the
   // frame. Needs the bbox across EVERY frame, which is exactly why simulate() runs first.
   let k = base * st.scale, dx, dy;
   if (opt.fit) {

@@ -1060,7 +1060,41 @@
       // search: by name, by category, and nothing
       presetQuery = "shatter"; buildPresetStrip();
       const byName = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
-      ok(byName.length >= 2 && byName.every((n) => /shatter/i.test(n)), "search finds effects by name", byName.join(", "));
+      const bestN = byName.filter((n) => /shatter/i.test(n)).length;
+      ok(bestN >= 2 && byName.slice(0, bestN).every((n) => /shatter/i.test(n)) && /Best matches/.test(presetBar.querySelector(".pcat").textContent),
+         "search finds effects by name, and they lead the strip under Best matches", byName.slice(0, 6).join(", "));
+      // §25: WHAT PEOPLE TYPE (usability test, 2026-10-15): words, not only names, through aliases, tags and Wizard types
+      {
+        const find = (q) => { presetQuery = q; presetPage = 0; buildPresetStrip(); return Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name); };
+        const firstPage = (q) => { find(q); return Array.from(presetBar.querySelectorAll(".pcell:not([hidden])")).map((c) => c.dataset.name); };
+        const fb = find("fireball");
+        ok(fb[0] === "Meteor Hit" && fb.indexOf("Fire Jet") >= 0, "\"fireball\" opens on Meteor Hit, then the fiery shots", fb.slice(0, 5).join(", "));
+        const want = { spell: "Rune Circle", flame: "Fire Jet", burn: "Scorch Mark", magic: "Magic Sparkle", hit: "Critical Hit", slash: "Slash",
+                       heal: "Heal Rise", explosion: "Big Boom", fireballs: "Meteor Hit", "fire spell": "Meteor Hit", ice: "Frost Nova", sword: "Sword Slash" };
+        const miss = Object.keys(want).filter((q) => firstPage(q).indexOf(want[q]) < 0);
+        ok(miss.length === 0, "each everyday word finds its effect on the first page (spell, flame, burn, magic, hit, slash, heal, explosion…)",
+           miss.map((q) => q + " → " + firstPage(q).slice(0, 4).join("/")).join(" | "));
+        ok(firstPage("hit spark").indexOf("Critical Hit") >= 0 && firstPage("hit spark").indexOf("Hit Spark") >= 0, "\"hit spark\" offers Critical Hit beside Hit Spark");
+        ok(find("burn").length > 3 && find("burn").every((n) => presetQueryHit(n, "burn") > 0), "a word reaches a tag's effects, not just names", find("burn").length + " found");
+        presetQuery = ""; buildPresetStrip();
+      }
+      // §25: A FILTER THE SHOWN ROW CANNOT SHOW STAYS IN SIGHT, with a one-click clear
+      {
+        presetChip = ""; presetTags = ["fire"]; presetMode = "cats"; buildPresetStrip();
+        const pillT = document.querySelector("#presetChips .filter-pill");
+        ok(pillT && /Fire/.test(pillT.textContent), "a tag chosen under Tags shows as a pill under Categories", pillT && pillT.textContent);
+        const impactsN = +(Array.from(document.querySelectorAll("#presetChips .tagchip")).find((c) => c.dataset.cat === "Impacts").textContent.match(/\d+$/) || [0])[0];
+        pillT.click();
+        ok(!presetTags.length && !document.querySelector("#presetChips .filter-pill"), "…and one click on it drops the tag");
+        const impactsAll = +(Array.from(document.querySelectorAll("#presetChips .tagchip")).find((c) => c.dataset.cat === "Impacts").textContent.match(/\d+$/) || [0])[0];
+        ok(impactsAll > impactsN, "…after which the category counts are the whole set again", impactsN + " → " + impactsAll);
+        presetChip = "Impacts"; presetMode = "tags"; buildPresetStrip();
+        const pillC = document.querySelector("#presetChips .filter-pill");
+        ok(pillC && /Impacts/.test(pillC.textContent), "a category chosen under Categories shows as a pill under Tags");
+        pillC.click();
+        ok(!presetChip, "…and one click drops it");
+        presetMode = "cats"; buildPresetStrip();
+      }
       presetQuery = "weather"; buildPresetStrip();
       const byCat = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
       const weather = PRESET_CATEGORIES.find((c) => c[0] === "Weather")[1];
@@ -1079,7 +1113,7 @@
       const url = presetThumbURL("Big Boom");
       ok(/^data:image\/png/.test(url) && url.length > 400, "a picture is a rendered frame", url.length + " chars");
       ok(JSON.stringify(snapshotState()) === before, "…drawn without disturbing the effect in the editor");
-      ok(document.getElementById("presetSearch").placeholder === "Search effects…", "the strip's search says what it searches");
+      ok(/fireball/.test(document.getElementById("presetSearch").placeholder), "the strip's search says what it searches, in a game developer's words");
       // §22.1: the shape pickers are pictures. Every button in all three is a picture tile whose text is still exactly the
       // shape's name; the pictures draw (all of them, pumped here), never through the renderer's sprite cache; a filter
       // still hides tiles for real.
@@ -3466,6 +3500,69 @@
 
       pixelLock = lockWas; lockedValues = lockValsWas; saveLockPref(); updateLockBtn();
       restoreEdit(snapW); effectLabel = labelW;
+    }
+
+    // ============================================================ §25: the usability round (2026-10-15)
+    {
+      const snap25 = snapshotEffect(), label25 = effectLabel, lockWas = pixelLock;
+      pixelLock = false;
+      // 3. a SIZE CHANGE SCALES: with Fit off, choosing a size turns Fit on (and says so); Fit says its state
+      applyPreset(PRESETS["Big Boom"], "Big Boom", true);
+      ok(/Fit: on/.test(fitBtn.textContent) && fitBtn.getAttribute("aria-pressed") === "true", "the Fit button says it is on", fitBtn.textContent);
+      fitBtn.click();
+      ok(!fitOn && /Fit: off/.test(fitBtn.textContent), "…and off", fitBtn.textContent);
+      ok(!/loudness/i.test(fitBtn.title) && /crop/.test(fitBtn.title), "Fit's tooltip explains it without an audio metaphor");
+      const sel = inputs.frameSize;
+      sel.value = String(SIZES.indexOf("64")); sel.dispatchEvent(new Event("input", { bubbles: true })); sel.dispatchEvent(new Event("change", { bubbles: true }));
+      ok(fitOn && /Fit is on now/.test(msg.textContent), "choosing a size with Fit off turns Fit on, so the effect scales instead of cropping", msg.textContent.slice(0, 60));
+      // the Wizard's results are fitted, and loading one never leaves Fit off
+      fitOn = false; updateFitBtn();
+      wizard.answers = { type: "spell", tags: ["ice", "tech"], era: "" }; wizard.step = 3; wizard.seed = 1;
+      wizardOpen();
+      const names = wizard.list.map((c) => c.name.toLowerCase().split(" ").slice(0, 2).sort().join("+"));
+      ok(new Set(names).size === names.length, "no two Wizard names are the same words in another order", wizard.list.map((c) => c.name).join(" / "));
+      wizBody.querySelectorAll(".wiz-pick")[0].click();
+      ok(fitOn && /Fit is on again/.test(msg.textContent), "a Wizard result loads fitted, as drawn, and says Fit is back on");
+      // 2 / 10. Variations: named for the loaded effect, saying which files it writes
+      applyPreset(PRESETS["Critical Hit"], "Critical Hit", true);
+      expMetaSel.value = "godot"; expFormat.value = "sheet";
+      document.getElementById("variations").click();
+      ok(varNameEl.value === "critical-hit", "the Variations name defaults to the loaded effect", varNameEl.value);
+      ok(/Godot 4 SpriteFrames/.test(varMsg.textContent), "…and the pack says it follows the Export dialog's metadata", varMsg.textContent);
+      varModal.hidden = true; clearMinis(varGrid); expMetaSel.value = "generic";
+      // 6. Prep for GIF says what it will change before changing it
+      state.fps = 15; state.alphaCut = 0; state.duration = 1.8; rerender();
+      document.getElementById("expGif").click();
+      const plan = document.getElementById("gifPlan").textContent;
+      ok(/FPS 15 → 1[0-9]/.test(plan) && /27 → \d+ frames/.test(plan) && /Alpha cut 0 → 0.5/.test(plan) && /Ctrl\+Z/.test(plan),
+         "Prep for GIF lists every change (fps, frames, alpha cut) before it is pressed", plan);
+      gifModal.querySelector("#gifPrep").click();
+      ok(/Changed the effect/.test(gifMsg.textContent) && gifModal.querySelector("#gifPrep").disabled, "…says what it changed, and has nothing left to do");
+      gifModal.hidden = true;
+      // 5 / 11. the palette lock has a visible home; a locked palette with soft edges offers hard edges, in one line
+      ok(!!document.getElementById("palLockBtn") && !!document.getElementById("palMatchLink"), "the palette lock has a toolbar button and a line under Palette");
+      const crunch = panels.querySelector('[data-group="Crunch"]');
+      crunch.classList.add("collapsed");
+      document.getElementById("palLockBtn").click();
+      ok(!crunch.classList.contains("collapsed") && document.activeElement === palPasteEl, "Game palette opens Crunch and puts the cursor in the paste box");
+      setPalette(["1a1c2c", "5d275d", "b13e53", "ef7d57"], "test");
+      state.alphaCut = 0; syncPaletteUI();
+      const hard = document.getElementById("palHard");
+      ok(hard && /see-through/.test(palInfo.textContent), "a locked palette with soft edges says so and offers hard edges");
+      hard.click();
+      ok(state.alphaCut === 0.5 && !document.getElementById("palHard"), "…one click sets Alpha cut 0.5");
+      setPalette([], "");
+      // 12. the zip writer dates its entries; the frame counter is one-based; tour titles carry no numbers
+      const zd = new DataView(makeZip([{ name: "a.txt", data: new Uint8Array([1]) }], new Date(2026, 9, 15, 12, 30, 0)).buffer);
+      ok(zd.getUint16(12, true) === (((2026 - 1980) << 9) | (10 << 5) | 15) && zd.getUint16(10, true) === ((12 << 11) | (30 << 5)), "zip entries carry a real DOS date and time");
+      drawStage();
+      ok(new RegExp("^(paused · )?" + (frameIdx + 1) + " / " + rendered.canvases.length + "$").test(scrubVal.textContent), "the frame counter is one-based of the real count", scrubVal.textContent);
+      ok(TOUR.every((t) => !/^\d+ ·/.test(t.title)), "tour titles carry no step numbers (the counter counts)");
+      ok(/crunchysfx\.com/.test(document.getElementById("matchSfxLink").href), "Match a sound links CrunchySFX");
+      ok(LAUNCH_EFFECTS.every((n) => PRESETS[n]), "every launch effect exists");
+      pixelLock = lockWas; updateLockBtn();
+      restoreEdit(snap25); effectLabel = label25;
+      palPasteEl.blur(); window.scrollTo(0, 0);   // Game palette scrolled the page: the result box is fixed to the top
     }
   } catch (e) {
     fails++;
