@@ -151,6 +151,7 @@ node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tau
 node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (12)
 node tests/plant.test.mjs                # project-app.js over plant.js, in Node
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
+node tests/godot-scene.mjs               # §26: the WEB Export's ready Godot scene plays, signals impact, frees itself (real Godot)
 python3 tests/build.py show && python3 tests/wkshot.py "file://$PWD/tests/run-show.html" "$PWD/tests/show.png" 1600 1000 40
 node tools/pull-core.mjs --check && sh .githooks/pre-commit && cargo build --manifest-path src-tauri/Cargo.toml
 ```
@@ -219,6 +220,13 @@ more particles.
 
 ## Status
 
+- **Moments (§27, 2026-10-15)**: the preset strip opens on GAME MOMENTS (Hit, Crit, Death, Spawn, Pickup, Heal, Power-up, Dash,
+  Jump / Land, Projectile, Muzzle / Cast, Explosion, Shield, Status, Ambient, UI) from `PRESET_MOMENTS` + each preset's
+  `moments`; Techniques and Tags one switch away. Every moment's effects read at 64 px (tested); 19 presets improved, 11
+  added (projectile loops among them); the Wizard's types map onto moments.
+- **The ready Godot scene (§26, 2026-10-15)**: every Godot export (web Export, packs, pipelines, Drag out, planted) ships
+  `<base>.tscn` + `<base>.gd` + README.txt from one implementation (`buildExportBundle`): plays on ready, `impact` on the
+  Impact frame (else the brightest frame), `finished`, frees itself; loops loop. `tests/godot-scene.mjs` proves it in Godot.
 - **First-time-user round (§25, 2026-10-15)**: search by what people type (`SEARCH_ALIASES` + the Wizard's tags/types,
   "Best matches" first); the Variations pack is `buildExportFiles` per variation (Godot `.tres` proved in real Godot by
   `tests/godot-check.mjs`); a size change with Fit off turns Fit on, Fit says its state; hidden filters shown as pills;

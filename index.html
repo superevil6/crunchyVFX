@@ -74,19 +74,20 @@
   </div>
 </div>
 <!-- THE EFFECT STRIP (§22): every preset as a picture, PAGED by arrows (never a sideways scrollbar), the page counted.
-     Search matches a name or a category; the chips narrow to one category. Pictures paint from an idle queue, so the
-     first screen is not held up by 189 renders; hovering a picture plays it. -->
+     Search matches a name, a category or a moment; the chips narrow to one game MOMENT (§27: hit, death, pickup…, the
+     default), one technique category, or the Wizard's tags. Pictures paint from an idle queue, so the first screen is
+     not held up by 200 renders; hovering a picture plays it. -->
 <nav id="presetbar" aria-label="Effects">
   <div class="pbar-top">
     <span class="pbar-title" id="presetsHead">Effects</span>
-    <input type="search" id="presetSearch" class="pickfilter" placeholder="Search: fireball, heal, slash…" autocomplete="off" spellcheck="false" title="Find an effect by name, category or what it is for: fireball, heal, slash, explosion, spell, ice…">
-    <span class="zoomgroup pbar-mode" id="presetMode" role="group" aria-label="Filter the effects by" title="Narrow the effects by their category, or by what they are made of (the Wizard's tags: fire, ice, tech…)">
-      <button type="button" data-mode="cats" class="active" aria-pressed="true">Categories</button><button type="button" data-mode="tags" aria-pressed="false">Tags</button>
+    <input type="search" id="presetSearch" class="pickfilter" placeholder="Search: fireball, heal, slash…" autocomplete="off" spellcheck="false" title="Find an effect by name, category or the moment it is for: hit, death, pickup, heal, projectile, fireball, slash, ice…">
+    <span class="zoomgroup pbar-mode" id="presetMode" role="group" aria-label="Filter the effects by" title="Narrow the effects by the moment in a game they are for (a hit, a death, a pickup…), by technique, or by what they are made of (the Wizard's tags: fire, ice, tech…)">
+      <button type="button" data-mode="moments" class="active" aria-pressed="true" title="By the moment in a game: a hit, a death, a pickup, a projectile…">Moments</button><button type="button" data-mode="cats" aria-pressed="false" title="By technique: the effects grouped by how they are made (explosions, structures, symmetry…)">Techniques</button><button type="button" data-mode="tags" aria-pressed="false" title="By material: fire, ice, tech… (the Wizard's tags)">Tags</button>
     </span>
     <div class="pbar-chipwrap">
-      <button type="button" class="pgbtn chippg" id="chipPrev" title="Earlier categories" aria-label="Earlier categories" hidden>‹</button>
-      <div class="pbar-chips" id="presetChips" role="toolbar" aria-label="Effect categories"></div>
-      <button type="button" class="pgbtn chippg" id="chipNext" title="Later categories" aria-label="Later categories" hidden>›</button>
+      <button type="button" class="pgbtn chippg" id="chipPrev" title="Earlier chips" aria-label="Earlier chips" hidden>‹</button>
+      <div class="pbar-chips" id="presetChips" role="toolbar" aria-label="Game moments"></div>
+      <button type="button" class="pgbtn chippg" id="chipNext" title="Later chips" aria-label="Later chips" hidden>›</button>
     </div>
     <span id="presetCount" class="hint"></span>
   </div>
@@ -184,7 +185,7 @@
         <span class="hint" id="sndOffV">0 ms</span>
       </div>
       <div class="ref-ctl" id="sndFrameRow" data-desktop><label for="sndFrame">Impact</label>
-        <input type="number" id="sndFrame" aria-label="Impact frame" min="0" max="999" step="1" value="0" title="The frame the sound starts on: in the planted Godot scene when the game calls play(), and in this preview">
+        <input type="number" id="sndFrame" aria-label="Impact frame" min="0" max="999" step="1" value="0" title="The impact frame: the Godot scene emits its impact signal and starts the sound here, and this preview starts the sound here too. 0: the sound with the first frame, and impact on the effect's brightest frame">
         <span class="hint">frame: the sound starts here</span>
       </div>
       <div class="ref-toggles">
@@ -317,7 +318,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 7;   // must match --css-build in styles.css
+  const CSS_BUILD = 8;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 9, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 10, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1197,8 +1198,9 @@ let synthSound = null;   // { patch, name, L, R, rate }
 // WHERE IT IS (the planted Godot scene points at it, so a Replace in CrunchySFX reaches the game). null when the sound
 // is synthesised, loaded from a file, or none: any of those drops it.
 var soundLink = null;
-// THE IMPACT FRAME (AJ, 2026-10-12: "Wait for play ... Lets do impact frame"): the planted Godot scene starts its sound
-// on this frame when the game calls play(); the preview does too. 0: with the first frame.
+// THE IMPACT FRAME (AJ, 2026-10-12: "Wait for play ... Lets do impact frame"): the Godot scene (§26) starts its sound
+// and emits `impact` on this frame; the preview starts the sound here too. 0: the sound with the first frame, and
+// `impact` on the frame where the effect is biggest and brightest (impactFrameOf).
 var soundFrame = 0;
 
 // A patch is a flat key/value object — the same shape as a decoded link's `s`, overlaid on the
@@ -3543,7 +3545,26 @@ let presetQuery = "", presetChip = "", presetPage = 0, presetPageFor = "", prese
 // filters hold together, so "Explosions" + "Ice" is an icy explosion). ONE source of truth: the tags are the Wizard's
 // own WIZARD_TAGS, derived per preset by wizardTagsOf (no list per preset). That section is declared further down, so it
 // hands itself over (presetTagSrc) once it exists; until then there are no tag chips. Not remembered (no new key, §22).
-let presetMode = "cats", presetTags = [], presetTagSrc = null;
+let presetMode = "moments", presetTags = [], presetTagSrc = null;
+// §27: GAME MOMENTS, the strip's default way in (AJ, 2026-10-15: a game developer thinks "I need a hit spark, a death
+// puff, a pickup sparkle", not in techniques). PRESET_MOMENTS (presets.js) is the moments in order; each preset's own
+// `moments` field says which it serves (a preset may serve several, and sits under its FIRST on the All page). A
+// moment chosen here holds in the other two rows, as a pill, exactly as a category or a tag does.
+const PRESET_MOMENT_LIST = window.PRESET_MOMENTS || [];
+const MOMENT_BY_KEY = {};
+for (const m of PRESET_MOMENT_LIST) MOMENT_BY_KEY[m.key] = m;
+let presetMoment = "";
+const presetMomentsOf = (name) => (PRESETS[name] && Array.isArray(PRESETS[name].moments) ? PRESETS[name].moments : []);
+// A moment's effects: its `lead` first, then the rest in preset order.
+const momentNameCache = new Map();
+function momentNames(key) {
+  if (!momentNameCache.has(key)) {
+    const m = MOMENT_BY_KEY[key], all = Object.keys(PRESETS).filter((n) => presetMomentsOf(n).indexOf(key) >= 0);
+    const lead = ((m && m.lead) || []).filter((n) => all.indexOf(n) >= 0);
+    momentNameCache.set(key, lead.concat(all.filter((n) => lead.indexOf(n) < 0)));
+  }
+  return momentNameCache.get(key);
+}
 const presetTagCache = new Map();
 function presetTagsOf(name) {
   if (!presetTagSrc) return [];
@@ -3562,7 +3583,8 @@ let thumbQueue = [], thumbTimer = 0;
 //   * failing an alias, the Wizard's own vocabularies: a word of a WIZARD_TAGS tag (its key, name or `words`) or of a
 //     WIZARD_TYPES type (`words`, `noun`), so a new preset is found by what it looks like with no list to update.
 // A word matches an alias by prefix from three letters ("firebal" finds the fireballs) and a plural "s" is dropped.
-// Entries: a preset name, "tag:<key>", "type:<key>" or "cat:<category>".
+// Entries: a preset name, "tag:<key>", "type:<key>", "cat:<category>" or "moment:<key>". A game MOMENT's own words
+// (PRESET_MOMENTS' key, name and `words`, §27) reach every effect of that moment as a strong hit, alias or not.
 const SEARCH_ALIASES = {
   fireball: ["Meteor Hit", "Fire Jet", "Comet Arc", "Magic Bolt", "Solar Flare", "Big Boom", "Explosion", "Charge Release", "tag:fire"],
   flame: ["Fire Jet", "Torch Flicker", "Ember Rise", "Campfire Smoke", "Solar Flare", "tag:fire"],
@@ -3578,11 +3600,11 @@ const SEARCH_ALIASES = {
   melee: ["Critical Hit", "Slash", "Sword Slash", "type:hit"], attack: ["Critical Hit", "Slash", "type:hit"],
   damage: ["Damage Number", "Critical Hit", "Hit Flash", "type:hit"], hurt: ["Hit Flash", "Blood Splat", "type:hit"],
   spark: ["Critical Hit", "Hit Spark", "Spark Shower", "Crit Pop"],
-  crit: ["Critical Hit", "Crit Pop"], critical: ["Critical Hit", "Crit Pop"],
+  crit: ["Critical Hit", "Crit Burst", "Crit Pop"], critical: ["Critical Hit", "Crit Burst", "Crit Pop"],
   slash: ["Slash", "Slash Gash", "Sword Slash", "Katana Cut", "Axe Chop", "Ninja Strike", "Whip Crack"],
   sword: ["Sword Slash", "Sword Clash", "Slash", "Katana Cut", "Perfect Parry"], swing: ["Slash", "Sword Slash", "Axe Chop", "Whip Crack"],
   blade: ["Slash", "Katana Cut", "Sword Slash", "Slash Gash"], cut: ["Katana Cut", "Slash Gash", "Slash"], slice: ["Slash", "Katana Cut", "Slash Gash"],
-  heal: ["Heal Rise", "Level Up", "Spirit Aura", "Aura Loop", "Cathedral Light", "tag:holy"],
+  heal: ["Heal Rise", "Heal Pulse", "Level Up", "Spirit Aura", "Aura Loop", "Cathedral Light", "tag:holy"],
   cure: ["Heal Rise", "tag:holy"], restore: ["Heal Rise", "tag:holy"], regen: ["Heal Rise", "Aura Loop"], revive: ["Heal Rise", "Level Up", "tag:holy"],
   buff: ["Speed Boost", "Shield Up", "Power Rings", "Aura Loop", "type:status"], debuff: ["Poisoned", "Curse Mark", "Time Slow", "type:status"],
   status: ["type:status"], aura: ["type:status"],
@@ -3590,14 +3612,15 @@ const SEARCH_ALIASES = {
   boom: ["type:explosion"], bomb: ["Bomb Blast", "type:explosion"], grenade: ["Bomb Blast", "type:explosion"], detonate: ["type:explosion"],
   shield: ["Shield Up", "Shield Orbit", "Shield Hex"], block: ["Perfect Parry", "Sword Clash", "Shield Up"], parry: ["Perfect Parry", "Sword Clash"],
   guard: ["Shield Up", "Perfect Parry"], defend: ["Shield Up", "Shield Hex"],
-  death: ["Disintegrate", "Soul Drain", "Teleport Out", "tag:dark"], die: ["Disintegrate", "Teleport Out"], kill: ["Disintegrate", "Blood Splat"],
+  death: ["Death Poof", "Soul Rise", "Disintegrate", "Soul Drain", "Teleport Out", "tag:dark"], die: ["Death Poof", "Soul Rise", "Disintegrate", "Teleport Out"],
+  kill: ["Death Poof", "Disintegrate", "Blood Splat"],
   destroy: ["Disintegrate", "Glass Shatter", "Explosion"], break: ["Glass Shatter", "Ice Shatter", "Ground Crack"],
-  dash: ["Speed Dash", "Whip Pan", "Warp Speed"], speed: ["Speed Dash", "Speed Boost", "Warp Speed"], sprint: ["Speed Dash", "Speed Boost"],
-  jump: ["Landing Puff", "Dust Kick"], land: ["Landing Puff", "Ground Slam"], footstep: ["Dust Kick", "Landing Puff"],
+  dash: ["Speed Dash", "Dash Trail", "Whip Pan", "Warp Speed"], speed: ["Speed Dash", "Speed Boost", "Warp Speed"], sprint: ["Speed Dash", "Dash Trail", "Speed Boost"],
+  jump: ["Jump Dust", "Landing Puff", "Dust Kick"], land: ["Landing Puff", "Jump Dust", "Ground Slam"], footstep: ["Dust Kick", "Jump Dust", "Landing Puff"],
   blood: ["Blood Splat", "Slash Gash"], gore: ["Blood Splat", "Slash Gash"],
   gun: ["Muzzle Flash", "Muzzle Cone", "Split Shot", "Triple Tap"], shoot: ["Muzzle Flash", "Laser", "Split Shot"], muzzle: ["Muzzle Flash", "Muzzle Cone"],
-  bullet: ["Muzzle Flash", "Hit Spark", "type:projectile"], projectile: ["type:projectile"], missile: ["Comet Arc", "Jet Exhaust", "type:projectile"],
-  arrow: ["type:projectile"], laser: ["Laser", "type:projectile"], beam: ["Laser", "Searchbeam", "type:projectile"], trail: ["type:projectile"],
+  bullet: ["Muzzle Flash", "Hit Spark", "type:projectile"], projectile: ["Fireball", "Energy Bolt", "Arrow Trail", "Frost Shot", "type:projectile"],
+  missile: ["Comet Arc", "Jet Exhaust", "type:projectile"], arrow: ["Arrow Trail", "type:projectile"], laser: ["Laser", "type:projectile"], beam: ["Laser", "Searchbeam", "type:projectile"], trail: ["type:projectile"],
   pickup: ["type:pickup"], collect: ["type:pickup"], loot: ["Treasure Unlock", "Coin Fountain", "type:pickup"], reward: ["type:pickup"],
   powerup: ["Level Up", "Speed Boost", "Power Rings", "type:pickup"], item: ["type:pickup"], chest: ["Treasure Unlock"],
   levelup: ["Level Up"], win: ["Crown Victory", "Confetti", "Level Up"], victory: ["Crown Victory", "Confetti"],
@@ -3617,16 +3640,21 @@ const SEARCH_ALIAS_KEYS = Object.keys(SEARCH_ALIASES);
 const searchWordCache = new Map();
 function searchWordReach(w) {
   if (searchWordCache.has(w)) return searchWordCache.get(w);
-  const r = { names: new Set(), tags: new Set(), types: new Set(), cats: new Set() };
-  const add = (e) => { const m = /^(tag|type|cat):(.+)$/.exec(e); if (!m) r.names.add(e); else r[m[1] + "s"].add(m[2]); };
+  const r = { names: new Set(), tags: new Set(), types: new Set(), cats: new Set(), moments: new Set() };
+  const add = (e) => { const m = /^(tag|type|cat|moment):(.+)$/.exec(e); if (!m) r.names.add(e); else r[m[1] + "s"].add(m[2]); };
   const ws = w.length > 3 && w.endsWith("s") ? [w, w.slice(0, -1)] : [w];
+  // §27: a moment's own words ("death", "pickup", "heal", "projectile") reach every effect of that moment, alias or not
+  for (const m of PRESET_MOMENT_LIST) {
+    const own = [m.key].concat(m.words || [], m.name.toLowerCase().split(/[^a-z]+/).filter((x) => x.length > 2));
+    if (ws.some((x) => own.indexOf(x) >= 0)) r.moments.add(m.key);
+  }
   const keys = SEARCH_ALIAS_KEYS.filter((k) => ws.some((x) => k === x || (x.length >= 3 && k.startsWith(x))));
   for (const k of keys) SEARCH_ALIASES[k].forEach(add);
   if (!keys.length && presetTagSrc) {
     for (const t of WIZARD_TAGS) if (ws.some((x) => x === t.key || t.name.toLowerCase().split(/[^a-z]+/).indexOf(x) >= 0 || t.words.indexOf(x) >= 0)) r.tags.add(t.key);
     for (const t of WIZARD_TYPES) if (ws.some((x) => x === t.key || x === t.noun || t.words.indexOf(x) >= 0)) r.types.add(t.key);
   }
-  const out = r.names.size || r.tags.size || r.types.size || r.cats.size ? r : null;
+  const out = r.names.size || r.tags.size || r.types.size || r.cats.size || r.moments.size ? r : null;
   searchWordCache.set(w, out);
   return out;
 }
@@ -3639,6 +3667,7 @@ function presetQueryHit(name, q) {
     if (hay.indexOf(w) >= 0) continue;
     const r = searchWordReach(w);
     if (r && r.names.has(name)) continue;
+    if (r && r.moments.size && presetMomentsOf(name).some((k) => r.moments.has(k))) continue;   // a moment is a strong hit
     if (r && (r.cats.has(cat) || (presetTagSrc && ((r.tags.size && presetTagsOf(name).some((k) => r.tags.has(k))) ||
         (r.types.size && Array.from(r.types).some((k) => wizardPresetIs(name, wizardType(k)))))))) { score = 1; continue; }
     return 0;
@@ -3648,6 +3677,7 @@ function presetQueryHit(name, q) {
 function presetMatches(name, q) {
   const cat = PRESET_CAT_OF[name] || "";
   if (presetChip && cat !== presetChip) return false;
+  if (presetMoment && presetMomentsOf(name).indexOf(presetMoment) < 0) return false;
   if (presetTags.length && !presetHasTags(name, presetTags)) return false;
   return presetQueryHit(name, q) > 0;
 }
@@ -3761,7 +3791,10 @@ function buildPresetChips(q) {
     c.addEventListener("click", () => { drop(); buildPresetStrip(); });
     host.appendChild(c);
   };
-  if (presetMode === "tags" && presetChip) pill(presetChip, "Only effects in the category " + presetChip, () => { presetChip = ""; });
+  if (presetMode !== "cats" && presetChip) pill(presetChip, "Only effects in the category " + presetChip, () => { presetChip = ""; });
+  if (presetMode !== "moments" && presetMoment && MOMENT_BY_KEY[presetMoment]) {
+    pill(MOMENT_BY_KEY[presetMoment].name, "Only effects for the moment " + MOMENT_BY_KEY[presetMoment].name, () => { presetMoment = ""; });
+  }
   if (presetMode !== "tags" && presetTagSrc) for (const k of presetTags) {
     const t = presetTagSrc.tags.find((x) => x.key === k) || { name: k };
     pill(t.name, "Only effects tagged " + t.name, () => { presetTags = presetTags.filter((x) => x !== k); });
@@ -3800,6 +3833,29 @@ function buildPresetChips(q) {
     chipPagerSync();
     return;
   }
+  if (presetMode === "moments") {
+    // the moment chips: All, then each moment with how many effects it holds under the search, the category and the tags
+    const mm = (label, key, n, title) => {
+      const c = document.createElement("button");
+      c.type = "button";
+      c.className = "tagchip tagchip-moment" + (presetMoment === key ? " on" : "") + (n === 0 ? " none" : "");
+      c.textContent = label + (n !== null ? " " + n : "");
+      c.setAttribute("aria-pressed", presetMoment === key ? "true" : "false");
+      c.dataset.moment = key;
+      c.title = title;
+      c.addEventListener("click", () => { presetMoment = presetMoment === key || !key ? "" : key; buildPresetStrip(); });
+      host.appendChild(c);
+    };
+    mm("All", "", null, "Every effect, each under the moment it is most for");
+    for (const m of PRESET_MOMENT_LIST) {
+      const n = momentNames(m.key).filter((x) => (!presetChip || PRESET_CAT_OF[x] === presetChip) &&
+        (!presetTags.length || presetHasTags(x, presetTags)) && presetQueryHit(x, q) > 0).length;
+      mm(m.name, m.key, n, m.name + ": " + m.note + (presetMoment === m.key ? " (click again for every effect)" : ""));
+    }
+    host.scrollLeft = keep;
+    chipPagerSync();
+    return;
+  }
   mk("All", "", null);
   for (const [cat, names] of PRESET_CATEGORIES) {
     const n = names.filter((x) => PRESETS[x] && PRESET_CAT_OF[x] === cat && (!presetTags.length || presetHasTags(x, presetTags)) &&
@@ -3811,17 +3867,20 @@ function buildPresetChips(q) {
 }
 // The Categories | Tags switch: which chips show, and (a count on each) which filters are on, so a tag chosen in the other
 // row is never a hidden surprise.
+const PRESET_MODE_LABEL = { moments: "Moments", cats: "Techniques", tags: "Tags" };
 function syncPresetMode() {
   const box = document.getElementById("presetMode");
   if (!box) return;
-  box.hidden = !presetTagSrc;
   for (const b of box.querySelectorAll("button")) {
-    const on = b.dataset.mode === presetMode, n = b.dataset.mode === "tags" ? presetTags.length : (presetChip ? 1 : 0);
+    const md = b.dataset.mode, on = md === presetMode;
+    const n = md === "tags" ? presetTags.length : md === "moments" ? (presetMoment ? 1 : 0) : (presetChip ? 1 : 0);
+    if (md === "tags") b.hidden = !presetTagSrc;      // the Wizard's tags arrive with its section, further down
     b.classList.toggle("active", on);
     b.setAttribute("aria-pressed", on ? "true" : "false");
-    b.textContent = (b.dataset.mode === "tags" ? "Tags" : "Categories") + (n ? " · " + n : "");
+    b.textContent = PRESET_MODE_LABEL[md] + (n ? " · " + n : "");
   }
-  document.getElementById("presetChips").setAttribute("aria-label", presetMode === "tags" ? "Effect tags" : "Effect categories");
+  document.getElementById("presetChips").setAttribute("aria-label",
+    presetMode === "tags" ? "Effect tags" : presetMode === "moments" ? "Game moments" : "Effect categories");
 }
 document.getElementById("presetMode").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-mode]");
@@ -3872,6 +3931,8 @@ function buildPresetStrip() {
       for (const w of q.split(/\s+/).filter(Boolean)) {
         const r = searchWordReach(w);
         if (r) { const i = Array.from(r.names).indexOf(n); if (i >= 0) at = Math.min(at, i); }
+        // §27: a moment's effects in the moment's own order (its lead first: "death" opens on Death Poof)
+        if (r) for (const k of r.moments) { const i = momentNames(k).indexOf(n); if (i >= 0) at = Math.min(at, i); }
       }
       return at;
     };
@@ -3887,14 +3948,27 @@ function buildPresetStrip() {
       for (const n of best) { presetBar.appendChild(presetCell(n)); shown++; }
     }
   }
-  for (const [cat, names] of PRESET_CATEGORIES) {
-    const hits = names.filter((n) => PRESETS[n] && PRESET_CAT_OF[n] === cat && !best.has(n) && presetMatches(n, q));
+  // the sections: by MOMENT on the Moments view (each effect once, under its first moment, or every effect of the chosen
+  // one; effects for no moment last, under "Other effects", so nothing is out of reach), else by category
+  const groups = [];
+  if (presetMode === "moments") {
+    for (const m of PRESET_MOMENT_LIST) {
+      if (presetMoment && presetMoment !== m.key) continue;
+      groups.push([m.name.split(" / ")[0], momentNames(m.key).filter((n) => presetMoment || presetMomentsOf(n)[0] === m.key), m.name + ": " + m.note]);
+    }
+    if (!presetMoment) groups.push(["Other effects", Object.keys(PRESETS).filter((n) => !presetMomentsOf(n).length), "Effects for no particular moment: techniques, scenes and showpieces"]);
+  } else {
+    for (const [cat, names] of PRESET_CATEGORIES) groups.push([cat, names.filter((n) => PRESET_CAT_OF[n] === cat), cat]);
+  }
+  const oneGroup = presetMode === "moments" ? !!presetMoment : !!presetChip;
+  for (const [label, names, title] of groups) {
+    const hits = names.filter((n) => PRESETS[n] && !best.has(n) && presetMatches(n, q));
     if (!hits.length) continue;
-    if (!presetChip || best.size) {
+    if (!oneGroup || best.size) {
       const d = document.createElement("span");
       d.className = "pcat";
-      d.textContent = cat;
-      d.title = cat;
+      d.textContent = label;
+      d.title = title;
       presetBar.appendChild(d);
     }
     for (const n of hits) { presetBar.appendChild(presetCell(n)); shown++; }
@@ -3903,13 +3977,14 @@ function buildPresetStrip() {
     const none = document.createElement("span");
     none.className = "pnone";
     const tagWords = presetTags.map((k) => (presetTagSrc.tags.find((t) => t.key === k) || { name: k }).name).join(" + ");
-    none.textContent = q ? "No effect matches “" + presetQuery.trim() + "”" + (presetChip ? " in " + presetChip : "") + (tagWords ? " tagged " + tagWords : "") + "."
-      : tagWords ? "No effect " + (presetChip ? "in " + presetChip + " " : "") + "is tagged " + tagWords + "." : "Nothing here.";
+    const where = (presetChip ? " in " + presetChip : "") + (presetMoment && MOMENT_BY_KEY[presetMoment] ? " for " + MOMENT_BY_KEY[presetMoment].name : "");
+    none.textContent = q ? "No effect matches “" + presetQuery.trim() + "”" + where + (tagWords ? " tagged " + tagWords : "") + "."
+      : tagWords ? "No effect" + where + " is tagged " + tagWords + "." : "Nothing here.";
     presetBar.appendChild(none);
   }
   document.getElementById("presetCount").textContent = shown === Object.keys(PRESETS).length
     ? shown + " effects · " + LAYER_GROUPS.length + " systems" : shown + " of " + Object.keys(PRESETS).length;
-  const key = q + "|" + presetChip + "|" + presetTags.join("+");
+  const key = q + "|" + presetMode + "|" + presetMoment + "|" + presetChip + "|" + presetTags.join("+");
   if (key !== presetPageFor) { presetPage = 0; presetPageFor = key; }
   presetPageShow();
 }
@@ -4637,6 +4712,12 @@ async function dragOutSheet() {
         sidecarFor(expMetaSel.value, sh, base, rendered.fps, loopFor(expPlay.value))));
       items.push(metaPath);
     }
+    // a Godot drag brings the ready scene too (§26): drop the four files and instance the .tscn
+    if (expMetaSel.value === "godot") {
+      const named = [{ name: base + ".tres" }];
+      const sc = godotSceneFiles(godotSceneInfo(base, named, Object.assign(exportSettingsNow(), { scales: [1] }), liveExportCtx()), named);
+      for (const f of sc) { const fp = await tempFilePath(f.name); await T.fs.writeFile(fp, f.data); items.push(fp); }
+    }
     releaseCanvas(sh.cv);
     const onEvent = new T.core.Channel();
     onEvent.onmessage = (m) => console.debug("crunchyvfx: drag", m);
@@ -5017,6 +5098,219 @@ function sidecarFor(kind, sh, name, fps, loop) {
   }, null, 2);
 }
 
+// ---------- The Godot scene: a drop-in effect (VFX-DESIGN §26) ----------
+// AJ (2026-10-15): every Godot export ships a READY SCENE beside the sheet and its SpriteFrames .tres, and it is the
+// drop-in way to use an effect. ONE implementation for the Export dialog, the batch and Variations packs, a pipeline's
+// folder and the planted Library (which adds only the linked CrunchySFX sound and the Impact frame it knows about):
+//   <base>.tscn  a Node2D (texture filter Nearest) holding an AnimatedSprite2D with the effect's SpriteFrames, offset
+//                so the NODE'S POSITION IS THE EMITTER (where the effect happens; the frame centre for most effects),
+//                and, when the effect has a sound, an AudioStreamPlayer2D;
+//   <base>.gd    the same script for every effect: it PLAYS ON _ready (`autoplay`, deferred one step so a signal
+//                connected right after add_child is heard), emits `impact` on `impact_frame` (every time round for a
+//                loop), emits `finished` when a one-shot ends and then frees itself (`free_when_done`); play() and
+//                stop() are the desktop scene's §19 API, and the sound starts on `sound_frame` as it did there.
+// The impact frame: the Impact frame the person set (desktop), else the frame where the effect is biggest and brightest
+// (`impactFrameOf`). The sound keeps its own frame (0 unless Impact was set), so it starts where the preview starts it.
+// Every path is relative to the scene (as the .tres's is) except a linked CrunchySFX WAV, which is named by res://.
+// Formats as Godot 4.7.2 writes them: `[gd_scene format=3]` (no load_steps), no uid, default values left out.
+const EFFECT_SCENE_SCRIPT = [
+  "extends Node2D",
+  "## A CrunchyVFX effect: its sprite and its sound as one scene. Instance it and it plays:",
+  "##",
+  "##     var fx = preload(\"res://hit_spark.tscn\").instantiate(); fx.position = pos; add_child(fx)",
+  "##",
+  "## The node's position is where the effect happens. A one-shot emits [signal impact] on its impact frame,",
+  "## [signal finished] at its end, and then frees itself. A loop plays until you stop() or free it.",
+  "",
+  "## Emitted on [member impact_frame]: apply damage or shake the camera here. A loop emits it every time round.",
+  "signal impact",
+  "## Emitted when a one-shot ends (a loop never ends).",
+  "signal finished",
+  "",
+  "## Play as soon as the scene enters the tree. Untick it to start the effect yourself with play().",
+  "@export var autoplay := true",
+  "## Free this node when a one-shot ends, right after [signal finished].",
+  "@export var free_when_done := true",
+  "## The frame [signal impact] is emitted on (0 = the first frame).",
+  "@export var impact_frame := 0",
+  "## The frame the sound starts on (0 = with the first frame).",
+  "@export var sound_frame := 0",
+  "",
+  "@onready var _sprite: AnimatedSprite2D = $Sprite",
+  "@onready var _sound: AudioStreamPlayer2D = get_node_or_null(\"Sound\")",
+  "var _last := -1",
+  "var _started := false",
+  "",
+  "func _ready() -> void:",
+  "\t_sprite.stop()",
+  "\t_sprite.frame_changed.connect(_on_frame_changed)",
+  "\t_sprite.animation_finished.connect(_on_animation_finished)",
+  "\tif autoplay:",
+  "\t\t_autoplay.call_deferred()",
+  "",
+  "func _autoplay() -> void:",
+  "\tif not _started:",
+  "\t\tplay()",
+  "",
+  "## Play the effect from its first frame (again, if it is playing). The sound joins on [member sound_frame].",
+  "func play() -> void:",
+  "\t_started = true",
+  "\t_sprite.stop()",
+  "\t_sprite.frame = 0",
+  "\t_sprite.play()",
+  "\t_last = 0",
+  "\t_on_frame(0)",
+  "",
+  "## Stop the effect and its sound. A stopped effect emits no [signal finished] and is not freed.",
+  "func stop() -> void:",
+  "\t_sprite.stop()",
+  "\tif _sound:",
+  "\t\t_sound.stop()",
+  "",
+  "## True while the effect is playing.",
+  "func is_playing() -> bool:",
+  "\treturn _sprite.is_playing()",
+  "",
+  "# Every frame the sprite passed since the last call, so a slow game frame never skips the impact.",
+  "func _on_frame_changed() -> void:",
+  "\tif not _sprite.is_playing():",
+  "\t\treturn",
+  "\tvar f := _sprite.frame",
+  "\tif f < _last:",
+  "\t\tfor i in range(_last + 1, _sprite.sprite_frames.get_frame_count(_sprite.animation)):",
+  "\t\t\t_on_frame(i)",
+  "\t\t_last = -1",
+  "\tfor i in range(_last + 1, f + 1):",
+  "\t\t_on_frame(i)",
+  "\t_last = f",
+  "",
+  "func _on_frame(f: int) -> void:",
+  "\tif f == sound_frame and _sound and _sound.stream:",
+  "\t\t_sound.play()",
+  "\tif f == impact_frame:",
+  "\t\timpact.emit()",
+  "",
+  "func _on_animation_finished() -> void:",
+  "\tfinished.emit()",
+  "\tif free_when_done:",
+  "\t\tqueue_free()",
+  ""].join("\n");
+// THE IMPACT FRAME when none is set: the frame with the most light in it (alpha × brightness summed over every other
+// pixel), the flash or the fireball at its fullest. The first such frame wins a tie; an empty effect says frame 0.
+function impactFrameOf(r) {
+  let best = 0, most = -1;
+  for (let i = 0; i < r.canvases.length; i++) {
+    const cv = r.canvases[i], d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let e = 0;
+    for (let p = 0; p < d.length; p += 8) e += d[p + 3] * (d[p] + d[p + 1] + d[p + 2]);
+    if (e > most) { most = e; best = i; }
+  }
+  return best;
+}
+// Where the emitter sits in the frame, in the frame's pixels: renderPrep's own transform (Fit's centring, or the
+// origin kept at its fraction of the frame), exactly as the frames were drawn. The frame centre if anything is missing.
+function effectOriginPx(C) {
+  try {
+    const p = renderPrep(C.st, { fit: C.fit, sim: C.r.sim, w: C.r.w, h: C.r.h });
+    const x = C.st.originX * p.sim.fs * p.k + p.dx, y = C.st.originY * p.sim.fs * p.k + p.dy;
+    if (isFinite(x) && isFinite(y)) return { x: x, y: y };
+  } catch (e) { /* no sim kept: centre */ }
+  return { x: C.r.w / 2, y: C.r.h / 2 };
+}
+// What the scene needs to know, from the export's settings and context. `o.sceneSound`: the planted Library's say on
+// the sound (a res:// path for a linked CrunchySFX WAV, or null when the link's sound is gone); undefined means the
+// export's own <base>.wav when it wrote one.
+function godotSceneInfo(base, files, o, C) {
+  const n = C.r.canvases.length, last = Math.max(0, n - 1);
+  const mult = o.scales.indexOf(1) >= 0 ? 1 : o.scales[0];
+  const tres = base + (o.scales.length > 1 ? "@" + mult + "x" : "") + ".tres";
+  const stream = o.sceneSound !== undefined ? o.sceneSound : files.some((x) => x.name === base + ".wav") ? base + ".wav" : null;
+  const set = C.soundFrame | 0;
+  const org = effectOriginPx(C);
+  return {
+    base: base, name: base, tres: tres, stream: stream, frames: n, fps: C.r.fps, loop: loopFor(o.playback, C.st),
+    impact: Math.min(last, set > 0 ? set : impactFrameOf(C.r)), sound: Math.min(last, set),
+    offset: { x: Math.round((C.r.w / 2 - org.x) * mult), y: Math.round((C.r.h / 2 - org.y) * mult) },
+  };
+}
+// The two scene files ({ name, data }, as buildExportFiles's), or none if no .tres was written to point at.
+function godotSceneFiles(info, files) {
+  if (!files.some((x) => x.name === info.tres)) return [];
+  const res = ['[ext_resource type="Script" path="' + info.base + '.gd" id="1"]', '[ext_resource type="SpriteFrames" path="' + info.tres + '" id="2"]'];
+  if (info.stream) res.push('[ext_resource type="AudioStream" path="' + info.stream + '" id="3"]');
+  const node = String(info.name).replace(/[^A-Za-z0-9_]/g, "_") || "Effect";
+  const off = info.offset.x || info.offset.y ? "offset = Vector2(" + info.offset.x + ", " + info.offset.y + ")\n" : "";
+  const tscn = "[gd_scene format=3]\n\n" + res.join("\n") + "\n\n" +
+    '[node name="' + node + '" type="Node2D"]\ntexture_filter = 1\nscript = ExtResource("1")\n' +
+    "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n\n" +
+    '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\n' + off +
+    (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "");
+  const enc = new TextEncoder();
+  return [{ name: info.base + ".gd", data: enc.encode(EFFECT_SCENE_SCRIPT) }, { name: info.base + ".tscn", data: enc.encode(tscn) }];
+}
+// README.txt: the one-line spawn, the signals, the options. `infos`: one effect, or a pack's (each in `dir`, if any).
+function godotReadme(infos) {
+  const one = infos[0], dir = (i) => (i.dir ? i.dir + "/" : "");
+  const L = [
+    infos.length === 1 ? one.name + ": a CrunchyVFX effect for Godot 4" : "CrunchyVFX effects for Godot 4 (" + infos.length + ")",
+    "",
+    "Each effect is a READY SCENE: instance it and it plays, signals its hit frame and frees itself.",
+    "",
+    "SPAWN IT (one line; put the folder anywhere in your project and fix the path):",
+    "",
+    "    var fx = preload(\"res://" + dir(one) + one.base + ".tscn\").instantiate(); fx.position = pos; add_child(fx)",
+    "",
+    "The node's position is where the effect happens (its emitter). Or drag the .tscn into a scene.",
+    "",
+    "SIGNALS",
+    "  impact    on the impact frame. Apply damage, shake the camera, here:",
+    "                fx.impact.connect(func(): enemy.hurt(10))",
+    "            (connect right after add_child: the effect starts one step later). A loop emits it every time round.",
+    "  finished  when a one-shot ends (a loop never ends).",
+    "",
+    "OPTIONS (the Inspector, or set them before add_child)",
+    "  autoplay        true   play when it enters the tree. Untick it and call play() yourself.",
+    "  free_when_done  true   a one-shot frees itself after `finished`. Untick it to keep the node.",
+    "  impact_frame    N      the frame `impact` fires on (0 = the first). Defaults to the frame where the",
+    "                         effect is biggest and brightest, or the Impact frame set in CrunchyVFX.",
+    "  sound_frame     N      the frame the sound starts on (0 = with the first frame).",
+    "",
+    "METHODS  play() starts it again from frame 0 · stop() stops it and its sound · is_playing()",
+    "",
+    "FILES (per effect)",
+    "  <name>.tscn  the scene        <name>.gd   its script",
+    "  <name>.tres  SpriteFrames for an AnimatedSprite2D (frames, fps, loop)",
+    "  <name>.png   the sprite sheet <name>.wav  its sound, when it has one",
+    "",
+    infos.length === 1 ? "THIS EFFECT" : "THESE EFFECTS",
+  ];
+  for (const i of infos) {
+    L.push("  " + dir(i) + i.base + ".tscn  " + i.frames + " frames at " + i.fps + " fps, " +
+      (i.loop ? "loops (impact on frame " + i.impact + " every time round; never freed)" : "one-shot, impact on frame " + i.impact + ", then finished and freed") +
+      (i.stream ? "; sound on frame " + i.sound : ""));
+  }
+  L.push("", "Made with CrunchyVFX. CC0: use it in anything, no credit needed.", "");
+  return { name: "README.txt", data: new TextEncoder().encode(L.join("\n")) };
+}
+// The Export dialog's files AND, for a Godot sheet, the ready scene (+ README.txt unless `o.readme === false`). Every
+// export a person makes goes through here; buildExportFiles stays the sheet and its metadata (the frame hash's EXPORT
+// lines hash exactly that). Returns { files, base, scene } (`scene`: godotSceneInfo, for a pack's one README).
+async function buildExportBundle(onProgress, o) {
+  o = Object.assign(exportSettingsNow(), o || {});
+  const out = await buildExportFiles(onProgress, o);
+  out.scene = null;
+  if (o.format === "sheet" && o.meta === "godot") {
+    const info = godotSceneInfo(out.base, out.files, o, o.ctx || liveExportCtx());
+    const sc = godotSceneFiles(info, out.files);
+    if (sc.length) {
+      out.scene = info;
+      for (const f of sc) out.files.push(f);
+      if (o.readme !== false) out.files.push(godotReadme([info]));
+    }
+  }
+  return out;
+}
+
 // ---------- Export dialog ----------
 const expModal = document.createElement("div");
 expModal.className = "modal";
@@ -5037,9 +5331,10 @@ expModal.innerHTML =
         '<option value="grid">Grid</option><option value="row">Horizontal strip</option>' +
         '<option value="col">Vertical strip</option></select></div>' +
       '<div class="exp-row" data-only="sheet"><span>Metadata</span><select id="expMeta">' +
-        '<option value="generic">Generic JSON</option><option value="aseprite">Aseprite JSON</option>' +
+        // Godot first (§26): its choice is a ready scene, the drop-in way to use an effect
+        '<option value="godot">Godot 4: ready scene (.tscn) + SpriteFrames</option>' +
+        '<option value="generic" selected>Generic JSON</option><option value="aseprite">Aseprite JSON</option>' +
         '<option value="phaser">Phaser 3 atlas</option>' +
-        '<option value="godot">Godot 4 SpriteFrames (.tres)</option>' +
         '<option value="none">None</option>' +
       '</select></div>' +
       '<div class="exp-row" data-only="sheet"><span>Playback</span><select id="expPlay" ' +
@@ -5196,11 +5491,18 @@ function refreshExpInfo() {
   if (scales.length > 1) bits.push("Exporting " + scales.length + " sizes (" + scales.join("×, ") + "×) as one .zip.");
   if (fmt === "sheet" && expMetaSel.value !== "none" && expMetaSel.value !== "aseprite" && expMetaSel.value !== "phaser") {
     const lp = loopFor(expPlay.value);
-    bits.push(lp ? "Plays as a <b>loop</b>." : "Plays <b>once</b> and stops" +
-      (expMetaSel.value === "godot" ? ": Godot emits <b>animation_finished</b> at the end." : "."));
+    if (expMetaSel.value !== "godot") bits.push(lp ? "Plays as a <b>loop</b>." : "Plays <b>once</b> and stops.");
   }
-  if (expMetaSel.value === "godot") {
-    bits.push("Drops straight into Godot 4 as a <b>SpriteFrames</b> — set it on an AnimatedSprite2D. " +
+  if (fmt === "sheet" && expMetaSel.value === "godot") {
+    // §26: say it in plain words; the frame is the one the scene will use (the Impact frame set, else the brightest)
+    const n = rendered.canvases.length, hit = Math.min(n - 1, soundFrame > 0 ? soundFrame : impactFrameOf(rendered));
+    bits.push(loopFor(expPlay.value)
+      ? "<b>Godot 4: a ready scene.</b> Instance the <b>.tscn</b> and it plays and loops, signalling <b>impact</b> on frame " + hit +
+        " every time round, until you call <b>stop()</b> or free it."
+      : "<b>Godot 4: a ready scene.</b> Instance the <b>.tscn</b> and it plays, signals its hit frame (<b>impact</b> on frame " + hit +
+        ", counting from 0) and frees itself when done.");
+    bits.push("Spawn it in one line: <code>var fx = preload(\"res://…/" + sanitize(exportNameNow()) + ".tscn\").instantiate(); fx.position = pos; add_child(fx)</code>. " +
+      "Beside it: its script, the <b>SpriteFrames</b> .tres (for an AnimatedSprite2D of your own) and a README. " +
               (expTrim.checked
                 ? "Trimmed cells carry an AtlasTexture <b>margin</b>, so they line up in-engine exactly as if untrimmed."
                 : "Verified against Godot 4.7 for grid, strip and trimmed sheets."));
@@ -5360,7 +5662,7 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
   expMsg.classList.remove("saved");
   expMsg.textContent = "Rendering…";
   try {
-    const { files, base } = await buildExportFiles((mult) => {
+    const { files, base } = await buildExportBundle((mult) => {
       expMsg.textContent = "Rendering… " + mult + "×";
     });
     if (files.length === 1) {
@@ -5475,7 +5777,7 @@ async function batchExport(which, opts) {
   if (!sets.length) { expMsg.textContent = "Nothing to export"; return; }
 
   const before = snapshotEffect(), beforeLabel = effectLabel;
-  const files = [];
+  const files = [], scenes = [];
   const used = new Set();
   try {
     for (let i = 0; i < sets.length; i++) {
@@ -5498,6 +5800,12 @@ async function batchExport(which, opts) {
       // each effect's folder carries its sidecar (§18): what the pack made, and how to reopen it
       const exp = { layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked, pot: expPot.checked,
                     emissive: false, sound: false, scales: [1], playback: expPlay.value };
+      // a Godot pack: each folder's ready scene (§26), and one README.txt at the root
+      if (exp.meta === "godot") {
+        const info = Object.assign(godotSceneInfo(base, mine, exp, Object.assign(liveExportCtx(), { soundFrame: 0 })), { dir: base });
+        const sc = godotSceneFiles(info, mine);
+        if (sc.length) { scenes.push(info); for (const f of sc) mine.push(f); }
+      }
       mine.push(effectSidecarFile(base, name, Object.assign(effectFields(name, exp), { base: base }), mine));
       for (const f of mine) files.push({ name: base + "/" + f.name, data: f.data });
       expMsg.textContent = "Rendering " + (i + 1) + "/" + sets.length + " — " + name;
@@ -5508,6 +5816,7 @@ async function batchExport(which, opts) {
       app: "CrunchyVFX", exported: sets.length,
       effects: sets.map((s, i) => ({ name: s.name, folder: [...used][i] })),
     }, null, 2)) });
+    if (scenes.length && !opts.folder) files.push(godotReadme(scenes));   // not into a folder of the game's own
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
     if (opts.folder) {
       await writeFilesToFolder(files, opts.folder);
@@ -5645,9 +5954,10 @@ async function runExportToFolder(folder) {
   if (!rendered) { expMsg.textContent = "Nothing to export yet"; return; }
   expMsg.textContent = "Rendering…";
   try {
-    const { files } = await buildExportFiles((mult) => {
+    // a Godot sheet brings its ready scene (§26); no README.txt, as the folder is the game's own and may hold one
+    const { files } = await buildExportBundle((mult) => {
       expMsg.textContent = "Rendering… " + mult + "×";
-    });
+    }, { readme: false });
     if (!files.length) { expMsg.textContent = "Nothing was produced"; return; }
     await writeFilesToFolder(files, folder);
     const kb = Math.round(files.reduce((a, f) => a + f.data.length, 0) / 1024);
@@ -6571,13 +6881,14 @@ varAmtEl.addEventListener("change", seedVariations);
 // Playback all hold. It used to write its own sheet + a generic .json whatever the dialog said, so a Godot user got no
 // .tres (usability test, 2026-10-15). The sound is the editor's, not a variation's, so it stays out of the pack.
 async function variationFiles(genomes, base, onEach) {
-  const files = [], exp = Object.assign(exportSettingsNow(), { sound: false });
+  const files = [], scenes = [], exp = Object.assign(exportSettingsNow(), { sound: false });
   for (let i = 0; i < genomes.length; i++) {
     const nn = base + "_" + String(i + 1).padStart(2, "0");
     const st = fullGenome(genomes[i]);
     const r = renderFrames(st, { fit: fitOn });
     const C = { st: st, r: r, fit: fitOn, ref: NO_REF, synth: null, link: null, soundFrame: 0 };
-    const out = await buildExportFiles(null, Object.assign({}, exp, { base: nn, ctx: C }));
+    const out = await buildExportBundle(null, Object.assign({}, exp, { base: nn, ctx: C, readme: false }));
+    if (out.scene) scenes.push(out.scene);
     // each variation's sidecar beside its files, at the zip's root (§18)
     out.files.push(effectSidecarFile(nn, nn, effectFields(nn, exp, C), out.files));
     for (const f of out.files) files.push(f);
@@ -6585,6 +6896,7 @@ async function variationFiles(genomes, base, onEach) {
     if (onEach) onEach(i);
     await new Promise((res) => setTimeout(res, 0));
   }
+  if (scenes.length) files.push(godotReadme(scenes));          // one README.txt at the zip's root (§26)
   return files;
 }
 varModal.querySelector("#varExport").addEventListener("click", async () => {
@@ -6593,7 +6905,7 @@ varModal.querySelector("#varExport").addEventListener("click", async () => {
   try {
     const files = await variationFiles(varGenomes, base, (i) => { varMsg.textContent = "Rendering… " + (i + 1) + "/" + varGenomes.length; });
     download(new Blob([makeZip(files)], { type: "application/zip" }), base + "-pack.zip");
-    const kind = { godot: "Godot SpriteFrames (.tres)", aseprite: "Aseprite JSON", phaser: "Phaser JSON", generic: "JSON", none: "no metadata" }[expMetaSel.value] || expMetaSel.value;
+    const kind = { godot: "a Godot scene + SpriteFrames (.tscn, .tres; README.txt at the root)", aseprite: "Aseprite JSON", phaser: "Phaser JSON", generic: "JSON", none: "no metadata" }[expMetaSel.value] || expMetaSel.value;
     varMsg.textContent = "Saved " + base + "-pack.zip: " + varGenomes.length + " variations, " + files.length + " files, each with " + kind + ". Format and metadata follow the Export dialog.";
   } catch (e) {
     varMsg.textContent = "Export failed: " + e.message;
@@ -6708,33 +7020,33 @@ foundryModal.querySelector("#fndGen").addEventListener("click", foundryRun);
 // 1. WHAT'S IT FOR? `loop`: whether this kind of effect repeats in a game. It is NOT a setting the Wizard writes: the
 // export's Playback (§21) is a dialog-wide choice, and Auto already follows the effect (Seamless loop on = it loops).
 // A status or atmosphere composition is made to loop (Seamless loop, part of the effect, so Auto loops it); every
-// result says what Playback will do. `cats`, `words` (and for a projectile, `systems`) say which presets are of the
-// type: those are the skeletons' donors.
+// result says what Playback will do. `cats`, `moments` (§27: the game moments that are this type), `words` (and for a
+// projectile, `systems`) say which presets are of the type: those are the skeletons' donors.
 const WIZARD_TYPES = [
   { key: "hit", sample: "Hit Flash", name: "A hit or an impact", note: "a sword strike, a punch, a bullet landing", noun: "hit", loop: false,
     cats: ["Impacts"], words: ["hit", "slash", "strike", "punch", "clash", "parry", "cut", "chop", "slam", "crit", "smash", "impact", "gash", "cracks", "shatter"],
-    systems: ["Impact", "Slice", "Fracture"] },
+    systems: ["Impact", "Slice", "Fracture"], moments: ["hit", "crit"] },
   { key: "explosion", sample: "Big Boom", name: "An explosion", note: "a blast, a bomb, a burst of debris", noun: "explosion", loop: false,
     cats: ["Explosions"], words: ["explosion", "boom", "blast", "bomb", "nova", "firework", "meteor", "disintegrate"],
-    systems: ["Burst", "Shatter"] },
+    systems: ["Burst", "Shatter"], moments: ["explosion"] },
   { key: "pickup", sample: "Coin Fountain", name: "A pickup or a reward", note: "a coin, a heart, a level up", noun: "pickup", loop: false,
     cats: ["Pickups & Charm"], words: ["coin", "coins", "pickup", "level", "treasure", "unlock", "victory", "crown"],
-    systems: ["Twinkle"] },
+    systems: ["Twinkle"], moments: ["pickup", "powerup"] },
   { key: "spell", sample: "Rune Circle", name: "A spell or an ability", note: "a fireball, a teleport, a summoning", noun: "spell", loop: false,
     cats: ["Magic", "Ice & Frost", "Sequences"], words: ["spell", "summon", "portal", "teleport", "rune", "zap", "lightning", "freeze", "rift", "seal", "ritual"],
-    systems: ["Sigil", "Vortex", "Rift", "Arc", "Tunnel"] },
+    systems: ["Sigil", "Vortex", "Rift", "Arc", "Tunnel"], moments: ["muzzle", "spawn", "heal"] },
   { key: "status", sample: "Poisoned", name: "A status effect", note: "poisoned, shielded, stunned, a buff", noun: "aura", loop: true,
     cats: ["Status & HUD"], words: ["aura", "shield", "poison", "poisoned", "curse", "cursed", "stun", "charge", "sleepy", "boost", "magnetized", "overcharge", "static", "orbit"],
-    systems: ["Aura", "Orbit", "Sigil"] },
+    systems: ["Aura", "Orbit", "Sigil"], moments: ["status", "shield"] },
   { key: "projectile", sample: "Comet Arc", name: "A projectile or a trail", note: "a laser, a magic bolt, a comet's tail", noun: "trail", loop: false,
     cats: [], words: ["bolt", "laser", "comet", "trail", "beam", "shot", "jet", "dash", "streaks", "exhaust", "path", "missile", "arrow", "whip"],
-    systems: ["Beam", "Ribbon", "Path trail", "Smear"], presetSystems: true },
+    systems: ["Beam", "Ribbon", "Path trail", "Smear"], presetSystems: true, moments: ["projectile", "dash"] },
   { key: "atmosphere", sample: "Firefly Swarm", name: "Atmosphere or weather", note: "rain, snow, drifting embers, light", noun: "weather", loop: true,
     cats: ["Weather", "Atmosphere", "Ambient"], words: ["rain", "snow", "fog", "mist", "motes", "fireflies", "drift", "steam"],
-    systems: ["Weather", "Haze", "Light shafts", "Droplets", "Bokeh"] },
+    systems: ["Weather", "Haze", "Light shafts", "Droplets", "Bokeh"], moments: ["ambient"] },
   { key: "ui", sample: "Emoji Burst", name: "A UI or HUD flourish", note: "an emote, a pop, a damage number, a sparkle", noun: "flourish", loop: false,
     cats: ["Emotes", "Symmetry & Stylise", "Camera & Light"], words: ["level", "victory", "target", "alert", "rally", "focus", "damage", "pop", "banner", "twinkle", "emote"],
-    systems: ["Bubble", "Lines", "Zoom blur", "Kaleidoscope"] },
+    systems: ["Bubble", "Lines", "Zoom blur", "Kaleidoscope"], moments: ["ui"] },
 ];
 
 // 2. WHAT'S IT MADE OF? A material, as VFX can draw it. An effect carries a tag STRONGLY when its name says so (`words`),
@@ -6833,10 +7145,12 @@ function wizardTagsOf(patch, name) {
   const L = wizardLook(fullGenome(patch), name);
   return WIZARD_TAGS.filter((t) => wizardTagHit(L, t) === 2).map((t) => t.key);
 }
-// Is a preset this kind of effect? By its category, a word in its name, or (a projectile, which has no category of its
-// own) one of the type's systems.
+// Is a preset this kind of effect? By its category, one of the type's game MOMENTS (§27: every projectile preset says
+// so now, where the type had no category of its own), a word in its name, or (a projectile) one of the type's systems.
 function wizardPresetIs(name, type) {
   if (type.cats.indexOf(PRESET_CAT_OF[name]) >= 0) return true;
+  const mo = PRESETS[name] && PRESETS[name].moments;
+  if (type.moments && Array.isArray(mo) && mo.some((k) => type.moments.indexOf(k) >= 0)) return true;
   const words = name.toLowerCase().split(/[^a-z]+/);
   if (type.words.some((w) => words.indexOf(w) >= 0)) return true;
   if (!type.presetSystems) return false;
@@ -8157,7 +8471,7 @@ const TOUR = [
   { target: "#presetbar", title: "Start from an effect",
     // Counts are interpolated, not typed: every one of them was already stale (118 effects, 88
     // shapes, 42 systems) because nothing connected the copy to the thing it counts.
-    body: Object.keys(PRESETS).length + " ready-made effects in the strip along the top. Click a picture to load it (hover to watch it play), page with the arrows, search by name, or pick a type from the chips. Everything after this is tweaking what you loaded." },
+    body: Object.keys(PRESETS).length + " ready-made effects in the strip along the top. Click a picture to load it (hover to watch it play), page with the arrows, search by name or by what it is for, or pick a moment from the chips (a hit, a death, a pickup, a projectile…; Techniques and Tags group them other ways). Everything after this is tweaking what you loaded." },
   { target: "#foundry", title: "Foundry: invent originals",
     body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
   { target: "#breed,#variations", title: "Breed: evolve by eye",
@@ -8588,7 +8902,7 @@ function expOf(f) {
   return e;
 }
 function expSummary(e) {
-  const names = { godot: "Godot SpriteFrames", generic: "Generic JSON", aseprite: "Aseprite JSON", phaser: "Phaser atlas", none: "no metadata" };
+  const names = { godot: "Godot scene + SpriteFrames", generic: "Generic JSON", aseprite: "Aseprite JSON", phaser: "Phaser atlas", none: "no metadata" };
   return ["sheet", names[e.meta] || e.meta, e.trim ? "trimmed" : null, e.layout === "row" ? "strip" : e.layout === "col" ? "column" : null,
           e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.playback === "loop" ? "loops" : e.playback === "once" ? "plays once" : null,
           e.scales.join("×, ") + "×"].filter(Boolean).join(" · ");
@@ -8624,74 +8938,20 @@ function plantThumb(r) {
   releaseCanvas(cv);
   return url;
 }
-// THE SAME BYTES the Export dialog writes: buildExportFiles itself, with the effect's settings and its context. In a
-// Godot game, also the COMBINED SCENE (SUITE-LINKS.md §4): the sprite and its sound as one thing to drop in.
+// THE SAME BYTES the Export dialog writes: buildExportBundle itself, with the effect's settings and its context, so a
+// Godot sheet comes with its READY SCENE (§26; the combined scene of SUITE-LINKS.md §4 and §19). The Library adds only
+// what it knows: the Impact frame, and the LINKED CrunchySFX WAV by its res:// path (a Replace in CrunchySFX reaches the
+// game with nothing re-exported); a link whose sound is gone is left out (the card says so), and with no link the
+// scene plays the effect's own synthesised <base>.wav, as an Export does.
 async function exportFor(f, C) {
-  const out = await buildExportFiles(null, Object.assign({ format: "sheet" }, expOf(f), { base: f.base, ctx: C }));
-  const files = out.files.map((x) => ({ path: x.name, data: x.data }));
-  if (project && project.engine === "godot" && expOf(f).meta === "godot") files.push.apply(files, await effectSceneFiles(f, files));
-  return { files: files, info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
-}
-// THE COMBINED SCENE (SUITE-LINKS.md §4; AJ: "Wait for play, that sounds like a jumpscare waiting to happen. Lets do
-// impact frame"). `<base>.tscn`: a Node2D whose AnimatedSprite2D plays the effect's SpriteFrames and whose
-// AudioStreamPlayer2D holds its sound, with `<base>.gd`: NOTHING PLAYS ON LOAD; the game calls play(), and the sound
-// starts on `sound_frame` (the impact frame). The sound is the LINKED CrunchySFX WAV, by its res:// path (a Replace in
-// CrunchySFX reaches it); else the effect's own synthesised WAV beside it; else none. A link whose sound is gone is left
-// out (the card says so). Every path but the link's is relative, as the .tres is, so nothing else names res://.
-const EFFECT_SCENE_SCRIPT = [
-  "extends Node2D",
-  "## A CrunchyVFX effect, its sprite and its sound together. Nothing plays when it loads: call play().",
-  "## The sound starts on frame `sound_frame` (the impact frame). `finished` is emitted when a one-shot ends.",
-  "",
-  "signal finished",
-  "",
-  "@export var sound_frame := 0",
-  "",
-  "@onready var _sprite: AnimatedSprite2D = $Sprite",
-  "@onready var _sound: AudioStreamPlayer2D = get_node_or_null(\"Sound\")",
-  "",
-  "func _ready() -> void:",
-  "\t_sprite.stop()",
-  "\t_sprite.frame_changed.connect(_on_frame_changed)",
-  "\t_sprite.animation_finished.connect(func(): finished.emit())",
-  "",
-  "## Play the effect from its first frame; the sound joins on the impact frame.",
-  "func play() -> void:",
-  "\t_sprite.frame = 0",
-  "\t_sprite.play()",
-  "\tif sound_frame <= 0:",
-  "\t\t_play_sound()",
-  "",
-  "func stop() -> void:",
-  "\t_sprite.stop()",
-  "\tif _sound:",
-  "\t\t_sound.stop()",
-  "",
-  "func _on_frame_changed() -> void:",
-  "\tif _sprite.is_playing() and sound_frame > 0 and _sprite.frame == sound_frame:",
-  "\t\t_play_sound()",
-  "",
-  "func _play_sound() -> void:",
-  "\tif _sound and _sound.stream:",
-  "\t\t_sound.play()",
-  ""].join("\n");
-async function effectSceneFiles(f, files) {
-  const e = expOf(f), mult = e.scales.indexOf(1) >= 0 ? 1 : e.scales[0];
-  const tres = f.base + (e.scales.length > 1 ? "@" + mult + "x" : "") + ".tres";
-  if (!files.some((x) => x.path === tres)) return [];
-  let stream = null;
+  let sceneSound;
   const l = plantLinks({ data: f })[0];
-  if (l && await plantLinkState(project, l) === "ok") stream = "res://" + plantLinkPath(project, l);
-  else if (!l && files.some((x) => x.path === f.base + ".wav")) stream = f.base + ".wav";
-  const res = ['[ext_resource type="Script" path="' + f.base + '.gd" id="1"]', '[ext_resource type="SpriteFrames" path="' + tres + '" id="2"]'];
-  if (stream) res.push('[ext_resource type="AudioStream" path="' + stream + '" id="3"]');
-  const node = String(f.exportName || f.base).replace(/[^A-Za-z0-9_]/g, "_") || "Effect";
-  const tscn = "[gd_scene load_steps=" + (res.length + 1) + " format=3]\n\n" + res.join("\n") + "\n\n" +
-    '[node name="' + node + '" type="Node2D"]\nscript = ExtResource("1")\nsound_frame = ' + (f.soundFrame | 0) + "\n\n" +
-    '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\nanimation = &"default"\n' +
-    (stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "");
-  const enc = new TextEncoder();
-  return [{ path: f.base + ".gd", data: enc.encode(EFFECT_SCENE_SCRIPT) }, { path: f.base + ".tscn", data: enc.encode(tscn) }];
+  if (l) sceneSound = project && project.engine === "godot" && await plantLinkState(project, l) === "ok" ? "res://" + plantLinkPath(project, l) : null;
+  const ctx = Object.assign({}, C, { soundFrame: f.soundFrame | 0 });
+  const out = await buildExportBundle(null, Object.assign({ format: "sheet" }, expOf(f),
+    { base: f.base, ctx: ctx, sceneSound: sceneSound }));
+  const files = out.files.map((x) => ({ path: x.name, data: x.data }));
+  return { files: files, info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
 }
 // A SAVED effect rendered from its sidecar: its share string, its own Fit, its own sound, no reference image.
 async function plantedRender(f) {

@@ -10,8 +10,10 @@
 //      CrunchyVFX exported, at every size (@2x is twice); every sheet PNG loads as a texture;
 //      and its loop flag is the effect's Playback (VFX-DESIGN §21): a one-shot does not loop, a looping effect does;
 //   4. the .crunchy sidecar is not a resource and gets no .import;
-//   4b. the planted combined SCENE, played in a running Godot: a one-shot emits `finished` once and stops on its last frame;
-//      a looping effect keeps playing and never emits it;
+//   4b. the planted combined SCENE, played in a running Godot through the §19 API (play() called by the game, the node kept
+//      with free_when_done off): a one-shot emits `finished` once and stops on its last frame; a looping effect keeps
+//      playing and never emits it; left to itself (§26) a planted one-shot plays on its own, emits `impact` once and frees
+//      itself (tests/godot-scene.mjs proves the ready scene in depth, through the web Export dialog);
 //   5. plant.js + VFX's project-app.js, on the REAL disk, read every sidecar back (none skipped), and a delete removes the
 //      files with their .import, after which Godot no longer finds that effect.
 // Needs a Godot 4 binary ($GODOT, else godot / godot4 / godot-mono on PATH) and Firefox; skips (exit 0) without Godot.
@@ -149,26 +151,36 @@ var t = 0.0
 var limit = 0.0
 func _initialize():
 	for c in ${JSON.stringify(scenes.map((c) => [c.path, c.secs]))}:
-		var fx = load(c[0]).instantiate()
-		root.add_child(fx)
-		var run = { "path": c[0], "finished": 0, "playing": false, "frame": -1, "last": -1 }
-		fx.finished.connect(func(): run["finished"] += 1)
-		run["node"] = fx
-		runs.append(run)
+		for kept in [true, false]:
+			var fx = load(c[0]).instantiate()
+			if kept:
+				fx.free_when_done = false    # the §19 way: the game keeps the node and calls play()
+			root.add_child(fx)
+			var run = { "path": c[0], "kept": kept, "finished": 0, "impacts": 0, "playing": false, "frame": -1, "last": -1 }
+			fx.finished.connect(func(): run["finished"] += 1)
+			fx.impact.connect(func(): run["impacts"] += 1)
+			run["node"] = fx
+			runs.append(run)
 		limit = max(limit, c[1] * 3.0 + 0.5)
 func _process(delta):
 	if t == 0.0:
 		for r in runs:
-			r["node"].play()    # after the scene's own _ready (which stops the sprite: nothing plays on load)
+			if r["kept"]:
+				r["node"].play()    # the game's play(): from frame 0 again (it was already playing on its own, §26)
 	t += delta
 	if t < limit:
 		return false
 	var out = {}
 	for r in runs:
+		var key = r["path"] + ("" if r["kept"] else "#own")
+		if not is_instance_valid(r["node"]):
+			out[key] = { "finished": r["finished"], "impacts": r["impacts"], "freed": true }
+			continue
 		var sp = r["node"].get_node("Sprite")
-		out[r["path"]] = { "finished": r["finished"], "playing": sp.is_playing(), "frame": sp.frame,
+		out[key] = { "finished": r["finished"], "impacts": r["impacts"], "freed": false, "playing": sp.is_playing(), "frame": sp.frame,
 			"last": sp.sprite_frames.get_frame_count("default") - 1 }
 	print("FINISHED " + JSON.stringify(out))
+	runs.clear()    # the run dictionaries' lambdas hold the nodes: let them go before the tree quits
 	return true
 `);
 const fr = spawnSync(godot, ["--headless", "--fixed-fps", "60", "--path", proj, "--script", "res://finished.gd"], { encoding: "utf8", timeout: 120000 });
@@ -179,8 +191,16 @@ t("a planted ONE-SHOT scene, played in Godot, emits `finished` exactly once and 
   once.every((c) => { const g = fin[c.path]; return g && g.finished === 1 && !g.playing && g.frame === g.last; }),
   fin ? once.map((c) => c.path + " " + JSON.stringify(fin[c.path])).join(" | ") || "no one-shot scene planted" : (fr.stdout + fr.stderr).slice(-800));
 t("a planted LOOPING scene keeps playing and never emits `finished`", fin && rep.length > 0 &&
-  rep.every((c) => { const g = fin[c.path]; return g && g.finished === 0 && g.playing; }),
-  fin ? rep.map((c) => c.path + " " + JSON.stringify(fin[c.path])).join(" | ") || "no looping scene planted" : "no output");
+  rep.every((c) => { const g = fin[c.path], h = fin[c.path + "#own"]; return g && g.finished === 0 && g.playing && h && !h.freed && h.playing && h.finished === 0 && h.impacts >= 1; }),
+  fin ? rep.map((c) => c.path + " " + JSON.stringify(fin[c.path]) + " " + JSON.stringify(fin[c.path + "#own"])).join(" | ") || "no looping scene planted" : "no output");
+t("a planted ONE-SHOT scene left to itself (§26) plays on its own, emits `impact` once and `finished` once, and frees itself", fin && once.length > 0 &&
+  once.every((c) => { const g = fin[c.path + "#own"]; return g && g.freed && g.finished === 1 && g.impacts === 1; }),
+  fin ? once.map((c) => c.path + " " + JSON.stringify(fin[c.path + "#own"])).join(" | ") : "no output");
+// One line is the harness's, not the scene's: --fixed-fps runs game time faster than real time, so a WAV that is still
+// sounding when the script quits is "1 resources still in use at exit" (the §19 play()-only run alone shows it; at real
+// speed it is gone). Every other ERROR counts.
+const ferr = ((fr.stdout || "") + (fr.stderr || "")).split("\n").filter((l) => /^(SCRIPT )?ERROR/.test(l) && !/resources still in use at exit/.test(l));
+t("the planted scenes play with no Godot error", fin && ferr.length === 0, ferr.slice(0, 4).join(" | "));
 
 // 5. plant.js and VFX's adapter on the real disk
 const nodeFs = {

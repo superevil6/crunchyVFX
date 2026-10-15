@@ -17,6 +17,7 @@ window.PRESETS = {
     fadeOut: 0.6, hue: 32, hueLife: -34, hueVar: 0.06, coreWhite: 0.6, opacity: 0.85,
     flash: 0.85, flashSize: 0.36, flashLife: 0.08, wave: 0.45, waveSpeed: 0.9, waveLife: 0.35,
     glow: 0.45, glowRadius: 10, duration: 0.8, fps: 24,
+    moments: ["explosion"],
   },
   "Big Boom": {
     shape: 0, emitter: 0, count: 420, emitRadius: 0.06, emitTime: 0.08,
@@ -27,11 +28,11 @@ window.PRESETS = {
     wave: 0.6, waveSpeed: 1, waveLife: 0.5,
     shots: 3, shotDelay: 0.1, shotScale: 0.62, shotSpread: 0.45,
     glow: 0.6, glowRadius: 14, duration: 1.2, fps: 24, frameSize: 5,
+    moments: ["explosion"],
   },
   "Shockwave": {
-    shape: 0, count: 1, opacity: 0, wave: 1, waveSpeed: 0.9, waveWidth: 0.14,
-    waveLife: 0.5, waveSquash: 0.55, hue: 200, sat: 0.4, coreWhite: 0.8,
-    glow: 0.5, glowRadius: 8, duration: 0.55, fps: 24,
+    shape: 0, count: 1, opacity: 0, wave: 1, waveSpeed: 0.9, waveWidth: 0.24, waveLife: 0.5, waveSquash: 0.55, hue: 200,
+    sat: 0.4, coreWhite: 0.8, glow: 0.5, glowRadius: 8, duration: 0.55, fps: 24, moments: ["explosion"],
   },
   "Fire Jet": {
     shape: 5, emitter: 1, count: 260, emitAngle: 0, emitSpread: 26, emitTime: 1, emitRadius: 0.03,
@@ -39,24 +40,29 @@ window.PRESETS = {
     life: 0.55, lifeVar: 0.4, size: 26, sizeVar: 0.4, grow: 0.5, fadeIn: 0.12, fadeOut: 0.7,
     hue: 40, hueLife: -46, coreWhite: 0.65, smokeSoft: 0.7,
     originY: 0.8, glow: 0.4, duration: 1.4, fps: 24, loopBlend: 0.5,
+    moments: ["ambient"],
   },
 
   // ---------- Impacts ----------
   // §25: redrawn to READ at game size (usability test: "too faint for melee"). Under Fit, travel costs apparent size, so
   // less speed and more drag, fatter sparks and a bigger, longer flash; the same yellow-white spark burst.
+  // §26 (the moments round): still thin lines at a 64 px game frame ("Hit Spark didn't read"). Now the classic shape: ONE
+  // big starburst that is all there on frame 0 and shrinks away in five frames, with ten short fat sparks (Layer B).
   "Hit Spark": {
-    shape: 1, emitter: 0, count: 22, speed: 300, speedVar: 0.45, drag: 0.82,
-    life: 0.2, lifeVar: 0.35, size: 24, sizeVar: 0.4, grow: -0.7, fadeOut: 0.6,
-    sparkLen: 0.85, sparkTaper: 0.6, hue: 48, hueLife: -20, coreWhite: 0.9,
-    flash: 0.95, flashSize: 0.46, flashLife: 0.09,
-    glow: 0.55, duration: 0.22, fps: 30, frameSize: 3,
+    shape: 38, emitter: 0, count: 1, speed: 0, life: 0.14, lifeVar: 0, size: 72, sizeVar: 0, grow: -0.5, fadeIn: 0,
+    fadeOut: 0.35, sparkLen: 0.55, sparkTaper: 0.15, hue: 48, hueLife: -8, coreWhite: 0.9, emit2Count: 10, emit2Shape: 1,
+    emit2Emitter: 0, emit2Over: 0, emit2Speed: 170, emit2SpeedVar: 0.4, emit2Gravity: 0, emit2Drag: 0.8, emit2Size: 26,
+    emit2SizeVar: 0.3, emit2Grow: -0.6, emit2Life: 0.2, emit2LifeVar: 0.3, emit2FadeIn: 0, emit2FadeOut: 0.5,
+    emit2Hue: 45, emit2Sat: 1, emit2Bright: 1, emit2Opacity: 1, flash: 0.9, flashSize: 0.4, flashLife: 0.08, glow: 0.4,
+    duration: 0.24, fps: 30, frameSize: 3, moments: ["hit"],
   },
   "Muzzle Flash": {
-    shape: 1, emitter: 1, count: 18, emitAngle: 90, emitSpread: 44,
-    speed: 620, speedVar: 0.5, drag: 0.85, life: 0.12, size: 12, grow: -0.9, fadeOut: 0.8,
-    sparkLen: 0.9, hue: 44, hueLife: -22, coreWhite: 0.95,
-    flash: 1, flashSize: 0.42, flashLife: 0.06, flashRays: 4,
-    glow: 0.55, duration: 0.18, fps: 30, frameSize: 3,
+    shape: 1, emitter: 1, count: 12, emitAngle: 90, emitSpread: 36, speed: 260, speedVar: 0.4, drag: 0.85, life: 0.14,
+    size: 24, grow: -0.7, fadeOut: 0.8, sparkLen: 0.6, hue: 44, hueLife: -22, coreWhite: 0.95, flash: 1, flashSize: 0.62,
+    flashLife: 0.08, flashRays: 4, glow: 0.55, duration: 0.2, fps: 30, frameSize: 3, sparkTaper: 0.3, emit2Count: 5,
+    emit2Shape: 0, emit2Emitter: 1, emit2Angle: 270, emit2Spread: 60, emit2Over: 0, emit2Speed: 60, emit2Gravity: 0,
+    emit2Drag: 0.8, emit2Size: 20, emit2Grow: -0.5, emit2Life: 0.12, emit2FadeIn: 0, emit2FadeOut: 0.6, emit2Hue: 44,
+    emit2Sat: 0.8, emit2Bright: 1, emit2Opacity: 0.8, moments: ["muzzle"],
   },
   "Dust Kick": {
     shape: 5, emitter: 4, count: 40, emitRadius: 0.22, emitAngle: 0, emitSpread: 80,
@@ -64,13 +70,13 @@ window.PRESETS = {
     size: 26, sizeVar: 0.5, grow: 0.7, fadeIn: 0.15, fadeOut: 0.75,
     hue: 38, hueLife: 0, sat: 0.22, bright: 0.75, coreWhite: 0, blend: 1, opacity: 0.7,
     smokeSoft: 0.85, originY: 0.72, duration: 0.9, fps: 24,
+    moments: ["land"],
   },
   "Blood Splat": {
-    shape: 6, emitter: 1, count: 46, emitAngle: 45, emitSpread: 110,
-    speed: 380, speedVar: 0.7, drag: 0.35, gravity: 900, spin: 220, spinVar: 1,
-    life: 0.6, lifeVar: 0.5, size: 9, sizeVar: 0.7, grow: -0.3, fadeOut: 0.35,
-    shardSides: 3, shardRatio: 0.8, hue: 355, hueLife: -14, sat: 0.9, bright: 0.8,
-    coreWhite: 0.1, blend: 1, alphaCut: 0.5, duration: 0.8, fps: 24,
+    shape: 6, emitter: 1, count: 30, emitAngle: 45, emitSpread: 110, speed: 220, speedVar: 0.7, drag: 0.35, gravity: 560,
+    spin: 220, spinVar: 1, life: 0.6, lifeVar: 0.5, size: 16, sizeVar: 0.5, grow: -0.3, fadeOut: 0.35, shardSides: 3,
+    shardRatio: 0.8, hue: 355, hueLife: -14, sat: 0.9, bright: 0.8, coreWhite: 0.1, blend: 1, alphaCut: 0.5,
+    duration: 0.7, fps: 24, moments: ["hit"],
   },
 
   // Paint is OPAQUE and it STICKS, and those two facts drove every value here. Alpha blend, not
@@ -106,6 +112,7 @@ window.PRESETS = {
     emit2FadeOut: 0.06, emit2Hue: 338, emit2Sat: 0.95, emit2Bright: 0.34,
     emit2Opacity: 1, emit2Blend: 2,
     duration: 1.1, fps: 24,
+    moments: ["hit"],
   },
 
   // ---------- Magic ----------
@@ -115,6 +122,7 @@ window.PRESETS = {
     life: 0.8, lifeVar: 0.5, size: 11, sizeVar: 0.6, grow: -0.4, fadeIn: 0.2, fadeOut: 0.6,
     starPoints: 4, starInner: 0.24, hue: 288, hueLife: 48, hueVar: 0.2, coreWhite: 0.7,
     glow: 0.5, glowRadius: 8, duration: 1.2, fps: 24,
+    moments: ["muzzle"],
   },
   "Aura Loop": {
     shape: 0, emitter: 2, count: 120, emitRadius: 0.3, emitTime: 1,
@@ -122,6 +130,7 @@ window.PRESETS = {
     life: 1, lifeVar: 0.3, size: 14, sizeVar: 0.5, grow: -0.5, fadeIn: 0.25, fadeOut: 0.5,
     hue: 190, hueLife: 30, sat: 0.75, coreWhite: 0.6,
     glow: 0.5, duration: 1.6, fps: 24, loopBlend: 0.8,
+    moments: ["heal"],
   },
   "Lightning Zap": {
     shape: 7, emitter: 0, count: 14, speed: 260, speedVar: 0.8, drag: 0.6,
@@ -130,30 +139,27 @@ window.PRESETS = {
     hue: 205, hueLife: 55, sat: 0.7, coreWhite: 0.95,
     flash: 0.55, flashSize: 0.35, flashLife: 0.06,
     glow: 0.7, glowRadius: 10, duration: 0.27, fps: 30,
+    moments: ["muzzle"],
   },
   "Heal Rise": {
-    shape: 3, emitter: 4, count: 34, emitRadius: 0.24, emitTime: 0.85,
-    speed: 60, speedVar: 0.5, drag: 0.3, gravity: -220, swirl: 40,
-    life: 1, lifeVar: 0.35, size: 12, sizeVar: 0.4, grow: -0.5, fadeIn: 0.25, fadeOut: 0.5,
-    starPoints: 4, starInner: 0.3, hue: 130, hueLife: 26, sat: 0.8, coreWhite: 0.6,
-    originY: 0.82, glow: 0.45, duration: 1.4, fps: 24,
+    shape: 3, emitter: 4, count: 22, emitRadius: 0.18, emitTime: 0.85, speed: 40, speedVar: 0.5, drag: 0.3, gravity: -160,
+    swirl: 40, life: 1, lifeVar: 0.35, size: 20, sizeVar: 0.3, grow: -0.5, fadeIn: 0.25, fadeOut: 0.5, starPoints: 4,
+    starInner: 0.3, hue: 130, hueLife: 26, sat: 0.8, coreWhite: 0.6, originY: 0.82, glow: 0.45, duration: 1.4, fps: 24,
+    moments: ["heal"],
   },
 
   // ---------- Pickups ----------
   "Coin Pickup": {
-    shape: 3, emitter: 0, count: 14, speed: 200, speedVar: 0.5, drag: 0.5,
-    gravity: 620, spin: 420, spinVar: 0.8,
-    life: 0.6, lifeVar: 0.3, size: 12, sizeVar: 0.3, grow: -0.3, fadeOut: 0.4,
-    starPoints: 5, starInner: 0.42, hue: 46, hueLife: -10, sat: 1, coreWhite: 0.55,
-    flash: 0.5, flashSize: 0.3, flashLife: 0.1,
-    glow: 0.4, duration: 0.7, fps: 24, frameSize: 3,
+    shape: 3, emitter: 0, count: 10, speed: 120, speedVar: 0.5, drag: 0.5, gravity: 320, spin: 420, spinVar: 0.8,
+    life: 0.55, lifeVar: 0.3, size: 22, sizeVar: 0.25, grow: -0.3, fadeOut: 0.4, starPoints: 5, starInner: 0.42, hue: 46,
+    hueLife: -10, sat: 1, coreWhite: 0.55, flash: 0.8, flashSize: 0.42, flashLife: 0.1, glow: 0.4, duration: 0.7, fps: 24,
+    frameSize: 3, moments: ["pickup"],
   },
   "Pixel Burst": {
-    shape: 4, emitter: 0, count: 90, speed: 260, speedVar: 0.5, drag: 0.55,
-    gravity: 260, life: 0.45, lifeVar: 0.35, size: 9, sizeVar: 0.4, grow: -0.6, fadeOut: 0.5,
-    hue: 285, hueLife: 60, hueVar: 0.25, sat: 1, coreWhite: 0.4,
-    pixelate: 4, posterize: 6, alphaCut: 0.5, outline: 1, outlineTone: 0.05,
-    duration: 0.6, fps: 12, frameSize: 3,
+    shape: 4, emitter: 0, count: 60, speed: 150, speedVar: 0.5, drag: 0.55, gravity: 170, life: 0.45, lifeVar: 0.35,
+    size: 15, sizeVar: 0.4, grow: -0.6, fadeOut: 0.5, hue: 285, hueLife: 60, hueVar: 0.25, sat: 1, coreWhite: 0.4,
+    pixelate: 4, posterize: 6, alphaCut: 0.5, outline: 1, outlineTone: 0.05, duration: 0.6, fps: 12, frameSize: 3,
+    moments: ["pickup"],
   },
 
   // ---------- Ice / frost ----------
@@ -165,6 +171,7 @@ window.PRESETS = {
     flash: 0.7, flashSize: 0.3, flashLife: 0.08,
     wave: 0.4, waveSpeed: 0.8, waveWidth: 0.12, waveLife: 0.35,
     glow: 0.45, glowRadius: 8, duration: 0.75, fps: 24,
+    moments: ["explosion"],
   },
   "Frost Nova": {
     shape: 14, emitter: 2, count: 34, emitRadius: 0.08, speed: 130, speedVar: 0.5, drag: 0.55,
@@ -173,6 +180,7 @@ window.PRESETS = {
     flakeArms: 6, flakeBranch: 0.6, hue: 190, hueLife: 12, sat: 0.42, coreWhite: 0.9,
     wave: 0.75, waveSpeed: 0.95, waveWidth: 0.1, waveLife: 0.55, waveSquash: 0.5,
     glow: 0.5, glowRadius: 9, duration: 1.1, fps: 24, frameSize: 5,
+    moments: ["explosion"],
   },
   "Ember Rise": {
     shape: 0, emitter: 3, count: 90, emitRadius: 0.14, emitTime: 1,
@@ -180,6 +188,7 @@ window.PRESETS = {
     life: 1.3, lifeVar: 0.5, size: 8, sizeVar: 0.6, grow: -0.4, fadeIn: 0.15, fadeOut: 0.55,
     hue: 22, hueLife: -14, hueVar: 0.1, coreWhite: 0.45,
     originY: 0.85, glow: 0.5, duration: 1.8, fps: 24, loopBlend: 0.7,
+    moments: ["ambient"],
   },
 
   // ---------- Structures (growth / beam / ribbon layers, not particles) ----------
@@ -206,11 +215,9 @@ window.PRESETS = {
     glow: 0.6, glowRadius: 9, duration: 0.8, fps: 30, frameSize: 5,
   },
   "Magic Bolt": {
-    shape: 0, count: 1, opacity: 0,
-    beam: 1, beamLen: 0.7, beamWidth: 22, beamAngle: 45, beamTaper: 0.7, beamCore: 0.6,
-    beamScroll: 6, beamGrow: 0.35, beamFlicker: 0.8,
-    hue: 280, hueLife: 30, sat: 0.9, bright: 1, coreWhite: 0.8,
-    glow: 0.55, duration: 0.9, fps: 30, frameSize: 5,
+    shape: 0, count: 1, opacity: 0, beam: 1, beamLen: 0.6, beamWidth: 34, beamAngle: 45, beamTaper: 0.7, beamCore: 0.6,
+    beamScroll: 6, beamGrow: 0.35, beamFlicker: 0.8, hue: 280, hueLife: 30, sat: 0.9, bright: 1, coreWhite: 0.8,
+    glow: 0.55, duration: 0.9, fps: 30, frameSize: 5, moments: ["projectile"],
   },
   "Sword Slash": {
     shape: 0, count: 1, opacity: 0,
@@ -218,6 +225,7 @@ window.PRESETS = {
     ribbonSpin: 200, ribbonSweep: 0.35, ribbonTrail: 0.5,
     hue: 200, hueLife: 20, sat: 0.22, bright: 1, coreWhite: 0.9,
     glow: 0.55, duration: 0.6, fps: 30, frameSize: 5,
+    moments: ["hit"],
   },
   "Comet Arc": {
     shape: 0, count: 1, opacity: 0,
@@ -233,6 +241,7 @@ window.PRESETS = {
     vortexSquash: 0.65, vortexScroll: 0.35, vortexGap: 0.5,
     hue: 280, hueLife: 40, sat: 0.85, bright: 1, coreWhite: 0.6,
     glow: 0.5, glowRadius: 9, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.7,
+    moments: ["spawn"],
   },
   "Summon Circle": {
     shape: 0, count: 1, opacity: 0,
@@ -250,12 +259,10 @@ window.PRESETS = {
     glow: 0.6, glowRadius: 9, duration: 0.8, fps: 30, frameSize: 5,
   },
   "Teleport Out": {
-    shape: 3, emitter: 3, count: 60, emitRadius: 0.2, emitTime: 0.3,
-    speed: 40, drag: 0.5, gravity: -140, life: 0.7, lifeVar: 0.4,
-    size: 10, sizeVar: 0.5, grow: -0.4, fadeIn: 0.1, fadeOut: 0.5,
-    starPoints: 4, starInner: 0.3, hue: 265, hueLife: 40, sat: 0.85, coreWhite: 0.8,
-    dissolve: 1, dissolveScale: 5, dissolveEdge: 0.5, dissolveTime: 0.9,
-    glow: 0.5, duration: 1.0, fps: 24, frameSize: 5,
+    shape: 3, emitter: 3, count: 50, emitRadius: 0.2, emitTime: 0.3, speed: 40, drag: 0.5, gravity: -140, life: 0.7,
+    lifeVar: 0.4, size: 16, sizeVar: 0.5, grow: -0.4, fadeIn: 0.1, fadeOut: 0.5, starPoints: 4, starInner: 0.3, hue: 265,
+    hueLife: 40, sat: 0.85, coreWhite: 0.8, dissolve: 1, dissolveScale: 5, dissolveEdge: 0.5, dissolveTime: 0.9,
+    glow: 0.5, duration: 1, fps: 24, frameSize: 5, moments: ["death", "spawn"],
   },
 
   "Glass Shatter": {
@@ -271,6 +278,7 @@ window.PRESETS = {
     shatterGravity: 250, shatterHold: 0.3, shatterFade: 0.4,
     hue: 188, hueLife: 12, sat: 0.5, bright: 1, coreWhite: 0.9,
     glow: 0.45, duration: 1.2, fps: 24, frameSize: 5,
+    moments: ["death"],
   },
   "Impact Lines": {
     shape: 0, count: 1, opacity: 0,
@@ -279,6 +287,7 @@ window.PRESETS = {
     hue: 45, hueLife: -18, sat: 0.5, bright: 1, coreWhite: 0.9,
     flash: 0.5, flashSize: 0.2, flashLife: 0.08,
     glow: 0.4, duration: 0.5, fps: 30, frameSize: 5,
+    moments: ["hit"],
   },
   "Slime Blob": {
     shape: 0, emitter: 3, count: 26, emitRadius: 0.1, size: 34, sizeVar: 0.4,
@@ -315,6 +324,7 @@ window.PRESETS = {
     hue: 300, hueLife: 70, hueVar: 0.3, sat: 1, coreWhite: 0.4,
     glitch: 1, glitchSlices: 8, glitchShift: 0.1, glitchRGB: 0.9, glitchRate: 12,
     pixelate: 3, duration: 0.8, fps: 20, frameSize: 5,
+    moments: ["death"],
   },
 
   // ---------- More impacts ----------
@@ -324,14 +334,14 @@ window.PRESETS = {
     spin: 190, angle: 200, angleVar: 0, crescentArc: 0.34, crescentThick: 0.13,
     hue: 200, hueLife: 20, sat: 0.22, coreWhite: 0.92,
     glow: 0.55, glowRadius: 8, duration: 0.3, fps: 30,
+    moments: ["hit"],
   },
   "Critical Hit": {
-    shape: 11, emitter: 0, count: 10, speed: 330, speedVar: 0.5, drag: 0.75,
-    spin: 220, spinVar: 0.6,
-    life: 0.3, lifeVar: 0.35, size: 24, sizeVar: 0.5, grow: -0.65, fadeOut: 0.6,
-    crossArms: 4, crossThin: 0.11, hue: 46, hueLife: -14, sat: 1, coreWhite: 0.8,
-    flash: 0.8, flashSize: 0.34, flashLife: 0.08, flashRays: 4,
-    glow: 0.55, duration: 0.37, fps: 30, frameSize: 3,
+    shape: 11, emitter: 0, count: 9, speed: 190, speedVar: 0.5, drag: 0.82, spin: 220, spinVar: 0.6, life: 0.32,
+    lifeVar: 0.35, size: 34, sizeVar: 0.35, grow: -0.65, fadeOut: 0.6, crossArms: 4, crossThin: 0.15, hue: 46,
+    hueLife: -14, sat: 1, coreWhite: 0.8, flash: 0.8, flashSize: 0.5, flashLife: 0.08, flashRays: 4, glow: 0.55,
+    duration: 0.37, fps: 30, frameSize: 3, lines: 0.85, lineCount: 12, lineInner: 0.2, lineOuter: 0.5, lineWidth: 3,
+    lineLife: 0.22, moments: ["crit"],
   },
   "Ground Slam": {
     shape: 5, emitter: 4, count: 60, emitRadius: 0.3, emitAngle: 0, emitSpread: 120,
@@ -340,6 +350,7 @@ window.PRESETS = {
     hue: 34, sat: 0.28, bright: 0.72, coreWhite: 0, blend: 1, opacity: 0.75, smokeSoft: 0.85,
     wave: 0.7, waveSpeed: 1, waveWidth: 0.16, waveLife: 0.4, waveSquash: 0.8,
     originY: 0.74, duration: 1, fps: 24, frameSize: 5,
+    moments: ["hit", "land"],
   },
 
   // ---------- More magic ----------
@@ -351,6 +362,7 @@ window.PRESETS = {
     blobLobes: 5, blobRough: 0.6, hue: 96, hueLife: -22, sat: 0.75, bright: 0.8,
     coreWhite: 0.1, blend: 1, opacity: 0.42,
     duration: 2, fps: 20, loopBlend: 0.6,
+    moments: ["ambient"],
   },
   "Summon Swirl": {
     shape: 17, emitter: 2, count: 26, emitRadius: 0.34, emitTime: 0.6,
@@ -358,6 +370,7 @@ window.PRESETS = {
     life: 0.9, lifeVar: 0.3, size: 26, sizeVar: 0.4, grow: -0.5, fadeIn: 0.2, fadeOut: 0.55,
     spiralTurns: 1.8, spiralThick: 0.1, hue: 278, hueLife: 44, hueVar: 0.15, coreWhite: 0.7,
     glow: 0.6, glowRadius: 9, duration: 1.3, fps: 24,
+    moments: ["spawn"],
   },
   "Teleport": {
     shape: 0, emitter: 2, count: 130, emitRadius: 0.4, speed: 20,
@@ -366,6 +379,7 @@ window.PRESETS = {
     hue: 265, hueLife: 55, sat: 0.85, coreWhite: 0.75,
     flash: 0.6, flashSize: 0.24, flashLife: 0.1,
     glow: 0.6, glowRadius: 10, duration: 0.6, fps: 30,
+    moments: ["spawn"],
   },
 
   // ---------- Charm & celebration ----------
@@ -376,14 +390,13 @@ window.PRESETS = {
     hue: 336, hueLife: 24, hueVar: 0.06, sat: 0.68, bright: 0.95, coreWhite: 0.45,
     blend: 1, outline: 1, outlineTone: 0.08,
     originY: 0.7, duration: 1.5, fps: 24,
+    moments: ["heal"],
   },
   "Level Up": {
-    shape: 11, emitter: 4, count: 26, emitRadius: 0.26, emitTime: 0.5,
-    speed: 90, speedVar: 0.6, drag: 0.3, gravity: -320,
-    life: 0.9, lifeVar: 0.35, size: 20, sizeVar: 0.5, grow: -0.45, fadeIn: 0.12, fadeOut: 0.5,
-    crossArms: 4, crossThin: 0.13, hue: 48, hueLife: 10, sat: 0.55, coreWhite: 0.85,
-    flash: 0.6, flashSize: 0.4, flashLife: 0.14,
-    originY: 0.8, glow: 0.55, duration: 1.3, fps: 24, frameSize: 5,
+    shape: 11, emitter: 4, count: 26, emitRadius: 0.2, emitTime: 0.5, speed: 60, speedVar: 0.6, drag: 0.3, gravity: -240,
+    life: 0.9, lifeVar: 0.35, size: 26, sizeVar: 0.5, grow: -0.45, fadeIn: 0.12, fadeOut: 0.5, crossArms: 4,
+    crossThin: 0.13, hue: 48, hueLife: 10, sat: 0.55, coreWhite: 0.85, flash: 0.6, flashSize: 0.4, flashLife: 0.14,
+    originY: 0.8, glow: 0.55, duration: 1.3, fps: 24, frameSize: 5, moments: ["powerup"],
   },
   "Confetti": {
     shape: 12, emitter: 1, count: 70, emitAngle: 0, emitSpread: 90,
@@ -391,14 +404,13 @@ window.PRESETS = {
     life: 1.2, lifeVar: 0.45, size: 11, sizeVar: 0.4, grow: 0, fadeOut: 0.25,
     hue: 0, hueLife: 120, hueVar: 0.95, sat: 0.9, bright: 0.95, coreWhite: 0,
     blend: 1, alphaCut: 0.5, originY: 0.72, duration: 1.5, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
   "Twinkle": {
-    shape: 11, emitter: 3, count: 9, emitRadius: 0.3, emitTime: 0.8,
-    speed: 10, drag: 0.7, spin: 40,
-    life: 0.75, lifeVar: 0.4, size: 22, sizeVar: 0.45, grow: -0.2, fadeIn: 0.35, fadeOut: 0.55,
-    alphaCurve: 0.4, crossArms: 4, crossThin: 0.08,
-    hue: 52, hueLife: 8, sat: 0.35, coreWhite: 0.9,
-    glow: 0.5, duration: 1.2, fps: 24,
+    shape: 11, emitter: 3, count: 10, emitRadius: 0.22, emitTime: 0.8, speed: 10, drag: 0.7, spin: 40, life: 0.75,
+    lifeVar: 0.4, size: 30, sizeVar: 0.45, grow: -0.2, fadeIn: 0.35, fadeOut: 0.55, alphaCurve: 0.4, crossArms: 4,
+    crossThin: 0.08, hue: 52, hueLife: 8, sat: 0.35, coreWhite: 0.9, glow: 0.5, duration: 1.2, fps: 24,
+    moments: ["pickup"],
   },
 
   // ---------- Emotes ----------
@@ -410,6 +422,7 @@ window.PRESETS = {
     life: 0.9, size: 46, sizeVar: 0, grow: 0.06, fadeIn: 0.07, fadeOut: 0.2, alphaCurve: 0.5,
     hue: 48, sat: 0.95, bright: 1, coreWhite: 0.35, blend: 1,
     outline: 2, outlineTone: 0.04, originY: 0.62, duration: 0.9, fps: 24, frameSize: 3,
+    moments: ["ui"],
   },
   "Emoji Burst": {
     // angleVar must come down with it: it defaults to 1 (fully random start rotation), which
@@ -418,6 +431,7 @@ window.PRESETS = {
     speed: 210, speedVar: 0.6, drag: 0.45, gravity: 340, spin: 130, spinVar: 1,
     life: 0.8, lifeVar: 0.35, size: 26, sizeVar: 0.4, grow: -0.2, fadeOut: 0.35,
     blend: 1, duration: 1, fps: 24, frameSize: 4,
+    moments: ["ui"],
   },
 
   // ---------- Weather ----------
@@ -435,6 +449,7 @@ window.PRESETS = {
     life: 2.2, lifeVar: 0.25, size: 14, sizeVar: 0.5, grow: 0, fadeIn: 0.1, fadeOut: 0.2,
     flakeArms: 6, flakeBranch: 0.55, hue: 195, sat: 0.2, coreWhite: 0.85,
     blend: 1, opacity: 0.85, originY: 0.02, duration: 2.2, fps: 20, loopBlend: 0.9,
+    moments: ["ambient"],
   },
   "Fireflies": {
     shape: 0, emitter: 6, count: 22, emitRadius: 0.4, emitTime: 1,
@@ -465,6 +480,7 @@ window.PRESETS = {
     life: 1.2, lifeVar: 0.4, size: 40, sizeVar: 0.5, grow: 0.9, fadeIn: 0.2, fadeOut: 0.7,
     hue: 220, sat: 0.1, bright: 0.7, coreWhite: 0, blend: 1, opacity: 0.55,
     smokeSoft: 0.9, duration: 1.5, fps: 20,
+    moments: ["spawn"],
   },
   // ---- Sigil ----
   "Rune Circle": {
@@ -473,6 +489,7 @@ window.PRESETS = {
     sigilTicks: 16, sigilSpokes: 6, sigilWidth: 2, sigilGrow: 0.3, sigilLife: 2,
     hue: 265, hueLife: 20, sat: 0.85, bright: 1, coreWhite: 0.35,
     glow: 0.5, glowRadius: 8, duration: 2, fps: 24, frameSize: 5, loopBlend: 0.6,
+    moments: ["muzzle"],
   },
   "Summon Seal": {
     shape: 0, count: 40, opacity: 0.7, emitter: 2, emitRadius: 0.3, emitTime: 0.8,
@@ -483,15 +500,14 @@ window.PRESETS = {
     sigilLife: 2.2,
     hue: 40, hueLife: 15, sat: 0.95, bright: 1, coreWhite: 0.5,
     glow: 0.55, glowRadius: 10, duration: 2.2, fps: 24, frameSize: 5,
+    moments: ["spawn"],
   },
 
   // ---- Orbit ----
   "Shield Orbit": {
-    shape: 0, count: 1, opacity: 0,
-    orbit: 1, orbitCount: 6, orbitRadius: 0.32, orbitSpeed: 0.9, orbitTilt: 0.65,
-    orbitAngle: 0, orbitSize: 10, orbitDepth: 0.7, orbitTrail: 0.35,
-    hue: 195, hueLife: 15, sat: 0.85, bright: 1, coreWhite: 0.45,
-    glow: 0.5, glowRadius: 8, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.7,
+    shape: 0, count: 1, opacity: 0, orbit: 1, orbitCount: 6, orbitRadius: 0.32, orbitSpeed: 0.9, orbitTilt: 0.65,
+    orbitAngle: 0, orbitSize: 16, orbitDepth: 0.7, orbitTrail: 0.35, hue: 195, hueLife: 15, sat: 0.85, bright: 1,
+    coreWhite: 0.45, glow: 0.5, glowRadius: 8, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.7, moments: ["shield"],
   },
   "Power Rings": {
     shape: 0, count: 1, opacity: 0,
@@ -501,6 +517,7 @@ window.PRESETS = {
     sigilTicks: 0, sigilWidth: 1.5, sigilSquash: 0.85, sigilGrow: 0.2, sigilLife: 1.8,
     hue: 285, hueLife: 40, sat: 0.9, bright: 1, coreWhite: 0.4,
     glow: 0.6, glowRadius: 10, duration: 1.8, fps: 24, frameSize: 5, loopBlend: 0.7,
+    moments: ["powerup"],
   },
 
   // ---- Tumble ----
@@ -511,6 +528,7 @@ window.PRESETS = {
     ramp: "0,0,0.95,0.6,1,1|0.3,50,0.95,0.6,1,1|0.6,140,0.9,0.55,1,1|1,215,0.9,0.6,1,1",
     hueVar: 1, sat: 0.95, bright: 1, coreWhite: 0, blend: 1,
     duration: 1.8, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
   "Leaf Fall": {
     shape: 0, count: 1, opacity: 0,
@@ -553,6 +571,7 @@ window.PRESETS = {
     riftOpen: 0.1, riftClose: 0.5, riftFlicker: 20, riftLife: 0.6,
     hue: 8, hueLife: 20, sat: 0.95, bright: 1, coreWhite: 0.7,
     glow: 0.55, glowRadius: 7, duration: 0.6, fps: 24, frameSize: 5,
+    moments: ["hit"],
   },
 
   // ---- Haze ----
@@ -567,12 +586,10 @@ window.PRESETS = {
   },
   // ---- Trails (motion streak + frame echo) ----
   "Comet Trail": {
-    shape: 0, count: 9, opacity: 1, emitter: 1, emitAngle: 205, emitSpread: 16,
-    speed: 165, speedVar: 0.25, drag: 0.3, gravity: 60, size: 9, sizeVar: 0.4,
-    life: 0.85, lifeVar: 0.2, fadeIn: 0.04, fadeOut: 0.55, grow: -0.3,
-    trail: 0.9, echo: 0.4, echoDecay: 0.74,
-    hue: 195, hueLife: 45, sat: 0.8, bright: 1, coreWhite: 0.6,
-    glow: 0.5, glowRadius: 7, duration: 1, fps: 24, frameSize: 5, originX: 0.7, originY: 0.3,
+    shape: 0, count: 9, opacity: 1, emitter: 1, emitAngle: 205, emitSpread: 16, speed: 120, speedVar: 0.25, drag: 0.3,
+    gravity: 60, size: 16, sizeVar: 0.4, life: 0.85, lifeVar: 0.2, fadeIn: 0.04, fadeOut: 0.55, grow: -0.3, trail: 0.9,
+    echo: 0.4, echoDecay: 0.74, hue: 195, hueLife: 45, sat: 0.8, bright: 1, coreWhite: 0.6, glow: 0.5, glowRadius: 7,
+    duration: 1, fps: 24, frameSize: 5, originX: 0.7, originY: 0.3, moments: ["projectile"],
   },
   "Neon Streaks": {
     shape: 1, count: 22, opacity: 1, emitter: 4, emitAngle: 90, emitSpread: 10,
@@ -590,6 +607,7 @@ window.PRESETS = {
     bubbleTail: 0.6, bubbleRound: 0.6, bubbleOutline: 2.5, bubbleY: 0.34,
     hue: 45, sat: 0.9, bright: 1, blend: 1,
     duration: 1.2, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
   "Damage Number": {
     shape: 0, count: 1, opacity: 0,
@@ -597,6 +615,7 @@ window.PRESETS = {
     bubbleTail: 0, bubbleRound: 0.25, bubbleOutline: 2, bubbleY: 0.55,
     hue: 0, sat: 0.9, bright: 1, blend: 1,
     duration: 1, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
 
   // ---- Sub-emitter (particles that spawn children) ----
@@ -673,6 +692,7 @@ window.PRESETS = {
     flowerPetals: 5, flowerWidth: 0.4, flowerCore: 0.2,
     hue: 340, hueLife: 15, sat: 0.6, bright: 1, coreWhite: 0.2, blend: 1,
     duration: 2.2, fps: 20, frameSize: 5, originY: 0.12, loopBlend: 0.5,
+    moments: ["ambient"],
   },
   "Leaf Swirl": {
     shape: 20, count: 14, opacity: 1, emitter: 2, emitRadius: 0.2, emitTime: 0.7,
@@ -681,6 +701,7 @@ window.PRESETS = {
     size: 26, sizeVar: 0.4, life: 1.5, lifeVar: 0.3, fadeIn: 0.1, fadeOut: 0.35,
     hue: 34, hueLife: -14, sat: 0.75, bright: 0.9, coreWhite: 0, blend: 1,
     duration: 1.8, fps: 20, frameSize: 5, loopBlend: 0.55,
+    moments: ["ambient"],
   },
   "Cog Burst": {
     shape: 23, count: 12, opacity: 1, emitter: 0, emitSpread: 360,
@@ -695,6 +716,7 @@ window.PRESETS = {
     life: 1.3, lifeVar: 0.3, fadeIn: 0.2, fadeOut: 0.5,
     hue: 195, hueLife: 25, sat: 0.75, bright: 1, coreWhite: 0.5,
     glow: 0.5, glowRadius: 7, duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.6,
+    moments: ["shield"],
   },
   "Music Notes": {
     shape: 24, count: 12, opacity: 1, emitter: 4, emitAngle: 270, emitSpread: 34,
@@ -703,6 +725,7 @@ window.PRESETS = {
     size: 24, sizeVar: 0.35, life: 1.5, lifeVar: 0.3, fadeIn: 0.12, fadeOut: 0.4,
     hue: 265, hueLife: 55, sat: 0.75, bright: 1, coreWhite: 0.25, blend: 1,
     glow: 0.35, duration: 1.8, fps: 24, frameSize: 5, originY: 0.72, loopBlend: 0.5,
+    moments: ["ui"],
   },
   // ---- Swarm ----
   "Firefly Swarm": {
@@ -711,6 +734,7 @@ window.PRESETS = {
     swarmSize: 3.5, swarmFlicker: 0.75,
     hue: 62, hueLife: -10, sat: 0.9, bright: 1, coreWhite: 0.4,
     glow: 0.55, glowRadius: 8, duration: 2.2, fps: 24, frameSize: 5, loopBlend: 0.6,
+    moments: ["ambient"],
   },
   "Spirit Wisps": {
     shape: 0, count: 1, opacity: 0,
@@ -718,6 +742,7 @@ window.PRESETS = {
     swarmSize: 6, swarmFlicker: 0.35,
     hue: 175, hueLife: 40, sat: 0.7, bright: 1, coreWhite: 0.55,
     glow: 0.6, glowRadius: 10, duration: 2.4, fps: 20, frameSize: 5, loopBlend: 0.7,
+    moments: ["ambient"],
   },
 
   // ---- Chain ----
@@ -728,6 +753,7 @@ window.PRESETS = {
     chainSpeed: 1.6, chainLag: 0.1, chainWidth: 6, chainTaper: 0.9,
     hue: 40, hueLife: -22, sat: 0.9, bright: 1, coreWhite: 0.6,
     glow: 0.5, duration: 0.9, fps: 24, frameSize: 5, originX: 0.28, originY: 0.68,
+    moments: ["hit"],
   },
   "Tentacle Lash": {
     shape: 0, count: 1, opacity: 0,
@@ -739,13 +765,10 @@ window.PRESETS = {
 
   // ---- Impact ----
   "Hit Flash": {
-    shape: 0, count: 90, opacity: 1, emitter: 0, emitSpread: 360,
-    speed: 260, speedVar: 0.6, drag: 0.5, size: 7, sizeVar: 0.5,
-    life: 0.35, lifeVar: 0.3, fadeOut: 0.6,
-    flash: 0.8, flashSize: 0.3, flashLife: 0.1,
-    impact: 1, impactLife: 0.08, impactHold: 0.4, impactFill: 0,
-    hue: 45, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.75,
-    glow: 0.5, duration: 0.46, fps: 24, frameSize: 5,
+    shape: 0, count: 70, opacity: 1, emitter: 0, emitSpread: 360, speed: 170, speedVar: 0.6, drag: 0.5, size: 11,
+    sizeVar: 0.5, life: 0.35, lifeVar: 0.3, fadeOut: 0.6, flash: 0.8, flashSize: 0.3, flashLife: 0.1, impact: 1,
+    impactLife: 0.08, impactHold: 0.4, impactFill: 0, hue: 45, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.75,
+    glow: 0.5, duration: 0.46, fps: 24, frameSize: 5, moments: ["hit"],
   },
 
   // ---- Weather ----
@@ -755,6 +778,7 @@ window.PRESETS = {
     weatherLength: 0.16, weatherSize: 1.1,
     hue: 205, hueLife: -8, sat: 0.5, bright: 0.95, coreWhite: 0.35, blend: 1,
     duration: 1.6, fps: 24, frameSize: 5, loopBlend: 0.5,
+    moments: ["ambient"],
   },
   "Ash Fall": {
     shape: 0, count: 1, opacity: 0,
@@ -773,6 +797,7 @@ window.PRESETS = {
     flare: 1, flareLength: 1.1, flareWidth: 9, flareGhosts: 4, flareLife: 0.7,
     hue: 200, hueLife: 45, sat: 0.7, bright: 1, coreWhite: 0.75,
     glow: 0.6, glowRadius: 9, duration: 0.75, fps: 24, frameSize: 5, originX: 0.38,
+    moments: ["explosion"],
   },
   // ---- Decal ----
   "Scorch Mark": {
@@ -792,6 +817,7 @@ window.PRESETS = {
     decalGrow: 0.08, decalFade: 0.6,
     hue: 34, sat: 0.3, bright: 0.8, coreWhite: 0.1, blend: 1,
     duration: 1, fps: 24, frameSize: 5, originY: 0.62,
+    moments: ["land"],
   },
 
   // ---- Tunnel ----
@@ -833,12 +859,10 @@ window.PRESETS = {
 
   // ---- Smear ----
   "Speed Dash": {
-    shape: 1, count: 28, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 26,
-    speed: 240, speedVar: 0.4, drag: 0.25, size: 8, sizeVar: 0.5,
-    life: 0.5, lifeVar: 0.3, fadeOut: 0.5, sparkLen: 0.7,
-    smear: 0.85, smearAngle: 180, smearAmount: 1.4,
-    hue: 200, hueLife: 45, sat: 0.85, bright: 1, coreWhite: 0.6,
-    glow: 0.45, duration: 0.8, fps: 24, frameSize: 5, originX: 0.3,
+    shape: 1, count: 16, opacity: 1, emitter: 6, emitAngle: 270, emitSpread: 4, speed: 200, speedVar: 0.3, drag: 0.6,
+    size: 56, sizeVar: 0.3, life: 0.32, lifeVar: 0.3, fadeOut: 0.5, sparkLen: 1, hue: 200, hueLife: 45, sat: 0.85,
+    bright: 1, coreWhite: 0.75, glow: 0.45, duration: 0.6, fps: 24, frameSize: 5, emitRadius: 0.14, emitTime: 0.4,
+    sparkTaper: 0.5, grow: -0.3, moments: ["dash"],
   },
   // ---- Second showcases for systems that had only one ----
   "Triple Tap": {
@@ -858,12 +882,10 @@ window.PRESETS = {
     originX: 0.22, originY: 0.8, loopBlend: 0.4,
   },
   "Disintegrate": {
-    shape: 4, count: 260, opacity: 1, emitter: 3, emitRadius: 0.3, emitTime: 0.15,
-    speed: 55, speedVar: 0.8, drag: 0.4, gravity: -110, size: 4, sizeVar: 0.5,
-    life: 1, lifeVar: 0.5, fadeOut: 0.5,
-    dissolve: 1, dissolveDir: 0, dissolveScale: 6, dissolveEdge: 0.4, dissolveTime: 0.9,
-    hue: 18, hueLife: 25, sat: 0.9, bright: 1, coreWhite: 0.5,
-    glow: 0.4, duration: 1.15, fps: 24, frameSize: 5,
+    shape: 4, count: 170, opacity: 1, emitter: 3, emitRadius: 0.3, emitTime: 0.15, speed: 55, speedVar: 0.8, drag: 0.4,
+    gravity: -110, size: 9, sizeVar: 0.4, life: 1, lifeVar: 0.5, fadeOut: 0.5, dissolve: 0.85, dissolveDir: 0,
+    dissolveScale: 6, dissolveEdge: 0.4, dissolveTime: 1, hue: 18, hueLife: 25, sat: 0.9, bright: 1, coreWhite: 0.5,
+    glow: 0.4, duration: 0.85, fps: 24, frameSize: 5, moments: ["death"],
   },
   "Focus Lines": {
     shape: 0, count: 1, opacity: 0,
@@ -871,6 +893,7 @@ window.PRESETS = {
     lineJitter: 0.25, lineDir: 1, lineSpin: 12, lineLife: 0.7,
     hue: 0, sat: 0, bright: 1, coreWhite: 0.9, blend: 1,
     duration: 0.7, fps: 24, frameSize: 5,
+    moments: ["crit"],
   },
   "Goo Split": {
     shape: 15, count: 16, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.06,
@@ -881,13 +904,10 @@ window.PRESETS = {
     duration: 1.3, fps: 24, frameSize: 5,
   },
   "Comet Path": {
-    shape: 0, count: 5, opacity: 1, emitter: 1, emitAngle: 210, emitSpread: 14,
-    speed: 175, speedVar: 0.2, drag: 0.15, gravity: 90, size: 10, sizeVar: 0.3,
-    life: 1, lifeVar: 0.15, fadeOut: 0.4,
-    pathTrail: 1, pathLen: 12, pathWidth: 6, pathTaper: 0.85, pathFade: 0.8,
-    hue: 285, hueLife: 55, sat: 0.85, bright: 1, coreWhite: 0.6,
-    glow: 0.55, glowRadius: 8, duration: 1.2, fps: 24, frameSize: 5,
-    originX: 0.76, originY: 0.24,
+    shape: 0, count: 5, opacity: 1, emitter: 1, emitAngle: 210, emitSpread: 14, speed: 130, speedVar: 0.2, drag: 0.15,
+    gravity: 90, size: 16, sizeVar: 0.3, life: 1, lifeVar: 0.15, fadeOut: 0.4, pathTrail: 1, pathLen: 12, pathWidth: 9,
+    pathTaper: 0.85, pathFade: 0.8, hue: 285, hueLife: 55, sat: 0.85, bright: 1, coreWhite: 0.6, glow: 0.55,
+    glowRadius: 8, duration: 1.2, fps: 24, frameSize: 5, originX: 0.76, originY: 0.24, moments: ["projectile"],
   },
   "Jet Exhaust": {
     shape: 5, count: 60, opacity: 0.55, emitter: 1, emitAngle: 0, emitSpread: 26,
@@ -905,6 +925,7 @@ window.PRESETS = {
     flash: 0.9, flashSize: 0.34, flashLife: 0.16,
     hue: 52, hueLife: -18, sat: 1, bright: 1, coreWhite: 0.8,
     glow: 0.55, duration: 0.5, fps: 24, frameSize: 5,
+    moments: ["crit"],
   },
   "Sun Glint": {
     shape: 0, count: 1, opacity: 0,
@@ -921,6 +942,7 @@ window.PRESETS = {
     aura: 0.6, auraRadius: 7, auraTint: 0.9,
     hue: 275, hueLife: 55, sat: 0.9, bright: 1, coreWhite: 0.8,
     glow: 0.6, duration: 1.2, fps: 24, frameSize: 5, loopBlend: 0.4,
+    moments: ["powerup"],
   },
   "Cursed Halo": {
     shape: 17, count: 12, opacity: 0.9, emitter: 2, emitRadius: 0.26, emitTime: 1,
@@ -937,6 +959,7 @@ window.PRESETS = {
     smear: 1, smearAngle: 200, smearAmount: 2.4,
     hue: 210, hueLife: 30, sat: 0.5, bright: 1, coreWhite: 0.4,
     duration: 0.7, fps: 24, frameSize: 5,
+    moments: ["dash"],
   },
   "Corrupt Blip": {
     shape: 4, count: 90, opacity: 1, emitter: 6, emitRadius: 0.26, emitTime: 0.4,
@@ -973,6 +996,7 @@ window.PRESETS = {
     dripRate: 0.6, dripHang: 0.5, dripStretch: 0.6,
     hue: 100, hueLife: -14, sat: 0.9, bright: 0.9, coreWhite: 0.15, blend: 1,
     glow: 0.3, duration: 2, fps: 24, frameSize: 5, originY: 0.2, loopBlend: 0.5,
+    moments: ["ambient"],
   },
   "Molten Drip": {
     shape: 0, count: 1, opacity: 0,
@@ -981,6 +1005,7 @@ window.PRESETS = {
     crackle: 0.4, crackleCount: 6, crackleSpread: 0.2, crackleLength: 0.04, crackleRate: 18,
     hue: 22, hueLife: -18, sat: 1, bright: 1, coreWhite: 0.6,
     glow: 0.6, glowRadius: 8, duration: 2, fps: 24, frameSize: 5, originY: 0.18, loopBlend: 0.5,
+    moments: ["ambient"],
   },
 
   // ---- Sweep ----
@@ -1009,6 +1034,7 @@ window.PRESETS = {
     slice: 1, sliceAngle: 30, sliceOffset: 0.3, sliceGap: 0.14,
     hue: 0, sat: 0.1, bright: 1, coreWhite: 0.85,
     glow: 0.5, duration: 0.7, fps: 24, frameSize: 5,
+    moments: ["hit"],
   },
   "Rift Split": {
     shape: 5, count: 40, opacity: 0.7, emitter: 3, emitRadius: 0.28,
@@ -1029,6 +1055,7 @@ window.PRESETS = {
     warp: 1, warpReach: 0.85, warpBand: 0.28, warpAmount: 1.1, warpLife: 0.55,
     hue: 32, hueLife: -30, sat: 0.95, bright: 1, coreWhite: 0.7,
     glow: 0.55, duration: 0.63, fps: 24, frameSize: 5,
+    moments: ["explosion"],
   },
   "Sonic Pulse": {
     shape: 0, count: 1, opacity: 0,
@@ -1072,6 +1099,7 @@ window.PRESETS = {
     emit2Hue: 28, emit2Sat: 0.12, emit2Bright: 0.45, emit2Opacity: 0.55, emit2Blend: 2,
     hue: 32, hueLife: -26, sat: 1, bright: 1, coreWhite: 0.45,
     glow: 0.45, duration: 1.5, fps: 24, frameSize: 5, originY: 0.66,
+    moments: ["ambient"],
   },
   "Cannon Blast": {
     shape: 1, count: 26, opacity: 1, emitter: 1, emitAngle: 90, emitSpread: 34,
@@ -1087,6 +1115,7 @@ window.PRESETS = {
     flash: 0.85, flashSize: 0.26, flashLife: 0.12,
     hue: 42, hueLife: -32, sat: 1, bright: 1, coreWhite: 0.75,
     glow: 0.5, duration: 1.4, fps: 24, frameSize: 5, originX: 0.3,
+    moments: ["explosion"],
   },
 
   // ---- Fun set (2026-07-30) ----
@@ -1101,6 +1130,7 @@ window.PRESETS = {
     bounce: 0.45, groundY: 0.88,
     hue: 46, hueLife: -10, sat: 0.95, bright: 1, coreWhite: 0.4, blend: 1,
     glow: 0.4, duration: 1.5, fps: 24, frameSize: 5, originY: 0.72,
+    moments: ["pickup"],
   },
   "Bomb Blast": {
     shape: 65, shapeMix: "66", count: 20, opacity: 1, emitter: 0, emitSpread: 360,
@@ -1115,6 +1145,7 @@ window.PRESETS = {
     emit2Hue: 30, emit2Sat: 0.15, emit2Bright: 0.5, emit2Opacity: 0.28, emit2Blend: 2,
     hue: 30, hueLife: -22, sat: 1, bright: 1, coreWhite: 0.6,
     glow: 0.5, duration: 1.1, fps: 24, frameSize: 5,
+    moments: ["explosion"],
   },
   "Sword Clash": {
     shape: 59, shapeMix: "1", count: 18, opacity: 1, emitter: 1, emitAngle: 315, emitSpread: 50,
@@ -1124,6 +1155,7 @@ window.PRESETS = {
     flash: 0.7, flashSize: 0.2, flashLife: 0.1,
     hue: 200, hueLife: 30, sat: 0.5, bright: 1, coreWhite: 0.8,
     glow: 0.5, duration: 0.75, fps: 24, frameSize: 5,
+    moments: ["hit", "shield"],
   },
   "Rock Slide": {
     shape: 67, shapeMix: "75", count: 26, opacity: 1, emitter: 1, emitAngle: 110, emitSpread: 60,
@@ -1148,6 +1180,7 @@ window.PRESETS = {
     life: 1.2, lifeVar: 0.2, fadeIn: 0.15, fadeOut: 0.5,
     hue: 220, hueLife: -20, sat: 0.25, bright: 1, coreWhite: 0.3, blend: 1,
     glow: 0.3, duration: 1.4, fps: 24, frameSize: 5,
+    moments: ["status"],
   },
   "Candy Shower": {
     shape: 82, shapeMix: "10,3", count: 20, opacity: 1, emitter: 4, emitAngle: 180, emitSpread: 24,
@@ -1156,6 +1189,7 @@ window.PRESETS = {
     size: 21, sizeVar: 0.4, life: 1.4, lifeVar: 0.25, fadeOut: 0.25,
     hue: 330, hueLife: 60, hueVar: 0.5, sat: 0.85, bright: 1, coreWhite: 0.2, blend: 1,
     duration: 1.5, fps: 24, frameSize: 5, originY: 0.14,
+    moments: ["pickup"],
   },
   "Crown Victory": {
     shape: 60, shapeMix: "38", count: 14, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 70,
@@ -1165,6 +1199,7 @@ window.PRESETS = {
     fadeIn: 0.1, fadeOut: 0.45,
     hue: 48, hueLife: -14, sat: 0.95, bright: 1, coreWhite: 0.5,
     glow: 0.5, duration: 1.5, fps: 24, frameSize: 5, originY: 0.62,
+    moments: ["powerup"],
   },
   "Spore Drift": {
     shape: 45, shapeMix: "75", count: 20, opacity: 1, emitter: 3, emitRadius: 0.3, emitTime: 0.9,
@@ -1173,6 +1208,7 @@ window.PRESETS = {
     fadeIn: 0.25, fadeOut: 0.5,
     hue: 95, hueLife: 25, hueVar: 0.2, sat: 0.5, bright: 0.95, coreWhite: 0.15, blend: 1,
     glow: 0.25, duration: 2.4, fps: 24, frameSize: 5,
+    moments: ["ambient"],
   },
   "Feather Fall": {
     shape: 32, shapeMix: "52", count: 17, opacity: 1, emitter: 4, emitAngle: 180, emitSpread: 30,
@@ -1182,6 +1218,7 @@ window.PRESETS = {
     life: 2.0, lifeVar: 0.3, fadeIn: 0.15, fadeOut: 0.4,
     hue: 210, hueLife: 25, hueVar: 0.25, sat: 0.35, bright: 1, coreWhite: 0.2, blend: 1,
     duration: 2.0, fps: 24, frameSize: 5, originY: 0.14,
+    moments: ["ambient"],
   },
 
   // ---- Fun set 2 (2026-07-30) ----
@@ -1195,6 +1232,7 @@ window.PRESETS = {
     life: 0.88, lifeVar: 0.2, fadeOut: 0.4,
     hue: 205, hueLife: -25, sat: 0.4, bright: 1, coreWhite: 0.55, blend: 1,
     glow: 0.35, duration: 0.9, fps: 24, frameSize: 5, originX: 0.3,
+    moments: ["hit"],
   },
   "Potion Brew": {
     shape: 55, shapeMix: "28", count: 13, opacity: 1, emitter: 2, emitRadius: 0.11, emitTime: 0.75,
@@ -1212,6 +1250,7 @@ window.PRESETS = {
     life: 1.1, lifeVar: 0.25, fadeIn: 0.1, fadeOut: 0.55,
     hue: 38, hueLife: -26, sat: 1, bright: 1, coreWhite: 0.7,
     glow: 0.6, glowRadius: 10, duration: 1.4, fps: 24, frameSize: 5,
+    moments: ["explosion"],
   },
   "Bird Flock": {
     shape: 64, count: 15, opacity: 1, emitter: 4, emitAngle: 78, emitSpread: 26,
@@ -1221,6 +1260,7 @@ window.PRESETS = {
     life: 1.9, lifeVar: 0.25, fadeIn: 0.15, fadeOut: 0.35,
     hue: 218, hueLife: 15, sat: 0.5, bright: 1, coreWhite: 0.2, blend: 1,
     duration: 1.9, fps: 24, frameSize: 5, originX: 0.2, originY: 0.4,
+    moments: ["ambient"],
   },
   "Tornado Spin": {
     shape: 72, count: 10, opacity: 1, emitter: 2, emitRadius: 0.13, emitTime: 0.7,
@@ -1229,6 +1269,7 @@ window.PRESETS = {
     life: 1.4, lifeVar: 0.25, fadeIn: 0.2, fadeOut: 0.5,
     hue: 30, hueLife: 12, sat: 0.35, bright: 0.9, coreWhite: 0.1, blend: 1,
     duration: 1.8, fps: 24, frameSize: 5, originY: 0.62,
+    moments: ["ambient"],
   },
   "Splash Down": {
     shape: 35, shapeMix: "43,86", count: 20, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 96,
@@ -1236,6 +1277,7 @@ window.PRESETS = {
     size: 24, sizeVar: 0.45, life: 1.15, lifeVar: 0.25, fadeOut: 0.4,
     hue: 198, hueLife: 14, sat: 0.7, bright: 1, coreWhite: 0.45,
     glow: 0.3, duration: 1.15, fps: 24, frameSize: 5, originY: 0.66,
+    moments: ["land"],
   },
   "Treasure Unlock": {
     shape: 54, shapeMix: "79", count: 12, opacity: 1, emitter: 0, emitSpread: 360,
@@ -1246,6 +1288,7 @@ window.PRESETS = {
     flash: 0.7, flashSize: 0.22, flashLife: 0.12,
     hue: 44, hueLife: -12, sat: 0.9, bright: 1, coreWhite: 0.55,
     glow: 0.5, duration: 1.4, fps: 24, frameSize: 5,
+    moments: ["pickup"],
   },
   "Egg Hatch": {
     shape: 80, shapeMix: "47", count: 15, opacity: 1, emitter: 0, emitSpread: 360,
@@ -1255,6 +1298,7 @@ window.PRESETS = {
     flash: 0.6, flashSize: 0.2, flashLife: 0.1,
     hue: 52, hueLife: 20, hueVar: 0.25, sat: 0.55, bright: 1, coreWhite: 0.4, blend: 1,
     duration: 1.05, fps: 24, frameSize: 5,
+    moments: ["spawn"],
   },
   "Heartbreak": {
     shape: 81, count: 9, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 54,
@@ -1263,6 +1307,7 @@ window.PRESETS = {
     size: 24, sizeVar: 0.3, life: 1.2, lifeVar: 0.25, fadeIn: 0.1, fadeOut: 0.45,
     hue: 340, hueLife: -18, sat: 0.85, bright: 1, coreWhite: 0.3, blend: 1,
     glow: 0.3, duration: 1.5, fps: 24, frameSize: 5, originY: 0.42,
+    moments: ["ui"],
   },
   "Axe Chop": {
     shape: 84, shapeMix: "87", count: 11, opacity: 1, emitter: 1, emitAngle: 250, emitSpread: 44,
@@ -1272,6 +1317,7 @@ window.PRESETS = {
     flash: 0.55, flashSize: 0.18, flashLife: 0.1,
     hue: 24, hueLife: -10, sat: 0.5, bright: 0.95, coreWhite: 0.35, blend: 1,
     glow: 0.25, duration: 0.88, fps: 24, frameSize: 5, originX: 0.6, originY: 0.4,
+    moments: ["hit"],
   },
 
   // ---- Fun set 3 (2026-07-30) ----
@@ -1290,6 +1336,7 @@ window.PRESETS = {
     starPoints: 5, starInner: 0.42,
     hue: 50, sat: 0.95, bright: 1, coreWhite: 0.45,
     glow: 0.45, loopBlend: 0.5, duration: 1.6, fps: 24, frameSize: 5,
+    moments: ["status", "ui"],
   },
   "Sleepy Zzz": {
     shape: 18, glyph: "Z", count: 6, opacity: 1, emitter: 1, emitAngle: 20, emitSpread: 18,
@@ -1299,15 +1346,13 @@ window.PRESETS = {
     life: 1.8, lifeVar: 0.2, fadeIn: 0.2, fadeOut: 0.5,
     hue: 205, hueLife: 10, sat: 0.5, bright: 1, coreWhite: 0.5, blend: 1,
     glow: 0.3, duration: 1.9, fps: 24, frameSize: 5, originX: 0.4, originY: 0.7,
+    moments: ["status", "ui"],
   },
   "Sweat Drop": {
-    shape: 16, count: 4, opacity: 1, emitter: 1, emitAngle: 155, emitSpread: 14,
-    emitRadius: 0.02, emitTime: 0.35,
-    speed: 58, speedVar: 0.2, drag: 0.3, gravity: 290,
-    size: 40, sizeVar: 0.2, dropTail: 0.7,
-    life: 0.9, lifeVar: 0.15, fadeIn: 0.08, fadeOut: 0.3,
-    hue: 200, hueLife: 6, sat: 0.6, bright: 1, coreWhite: 0.5,
-    glow: 0.3, duration: 0.95, fps: 24, frameSize: 5, originX: 0.42, originY: 0.36,
+    shape: 16, count: 4, opacity: 1, emitter: 1, emitAngle: 155, emitSpread: 14, emitRadius: 0.02, emitTime: 0.35,
+    speed: 40, speedVar: 0.2, drag: 0.3, gravity: 150, size: 40, sizeVar: 0.2, dropTail: 0.7, life: 0.9, lifeVar: 0.15,
+    fadeIn: 0.08, fadeOut: 0.3, hue: 200, hueLife: 6, sat: 0.6, bright: 1, coreWhite: 0.5, glow: 0.3, duration: 0.95,
+    fps: 24, frameSize: 5, originX: 0.42, originY: 0.36, moments: ["ui"],
   },
   "Perfect Parry": {
     shape: 1, count: 16, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.04,
@@ -1320,6 +1365,7 @@ window.PRESETS = {
     lineTaper: 0.8, lineLife: 0.3,
     hue: 48, hueLife: -10, sat: 0.5, bright: 1, coreWhite: 0.9,
     glow: 0.6, duration: 0.45, fps: 24, frameSize: 5,
+    moments: ["shield"],
   },
   "Freeze Solid": {
     shape: 14, count: 14, opacity: 1, emitter: 2, emitRadius: 0.18, emitTime: 0.4,
@@ -1331,6 +1377,7 @@ window.PRESETS = {
     growWidth: 3, growTaper: 0.7, growTime: 0.5, growSpread: 360,
     hue: 196, hueLife: 14, sat: 0.5, bright: 1, coreWhite: 0.55,
     glow: 0.45, duration: 1.6, fps: 24, frameSize: 5,
+    moments: ["status"],
   },
   "Icicle Drop": {
     shape: 6, count: 12, opacity: 1, emitter: 4, emitAngle: 180, emitSpread: 10,
@@ -1357,6 +1404,7 @@ window.PRESETS = {
     life: 0.6, lifeVar: 0.3, fadeIn: 0.1, fadeOut: 0.6,
     hue: 34, hueLife: -24, sat: 1, bright: 1, coreWhite: 0.55,
     glow: 0.5, loopBlend: 0.7, duration: 1.4, fps: 24, frameSize: 5, originY: 0.72,
+    moments: ["ambient"],
   },
   "Lava Bubble": {
     shape: 15, count: 12, opacity: 1, emitter: 4, emitAngle: 0, emitSpread: 40,
@@ -1372,6 +1420,7 @@ window.PRESETS = {
     emit2Hue: 20, emit2Sat: 0.2, emit2Bright: 0.35, emit2Opacity: 0.3, emit2Blend: 2,
     hue: 22, hueLife: -14, sat: 1, bright: 1, coreWhite: 0.5,
     glow: 0.55, loopBlend: 0.5, duration: 1.8, fps: 24, frameSize: 5, originY: 0.74,
+    moments: ["ambient"],
   },
   "Magnet Pull": {
     shape: 34, shapeMix: "30", count: 16, opacity: 1, emitter: 2, emitRadius: 0.4, emitTime: 0.5,
@@ -1381,6 +1430,7 @@ window.PRESETS = {
     life: 1.3, lifeVar: 0.2, fadeIn: 0.12, fadeOut: 0.35,
     hue: 46, hueLife: -8, sat: 0.9, bright: 1, coreWhite: 0.4, blend: 1,
     glow: 0.4, duration: 1.5, fps: 24, frameSize: 5,
+    moments: ["pickup"],
   },
 
   // ---- Status effects & HUD (2026-07-30) ----
@@ -1397,6 +1447,7 @@ window.PRESETS = {
     wave: 0.7, waveSpeed: 0.55, waveWidth: 0.18, waveLife: 0.45,
     hue: 200, hueLife: 18, sat: 0.7, bright: 1, coreWhite: 0.3, blend: 1,
     glow: 0.3, duration: 1, fps: 24, frameSize: 5,
+    moments: ["shield"],
   },
   "Poisoned": {
     shape: 31, shapeMix: "28", count: 13, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 40,
@@ -1406,6 +1457,7 @@ window.PRESETS = {
     fadeIn: 0.18, fadeOut: 0.55,
     hue: 96, hueLife: 22, hueVar: 0.15, sat: 0.85, bright: 0.95, coreWhite: 0.15, blend: 1,
     glow: 0.35, duration: 1.6, fps: 24, frameSize: 5, originY: 0.62,
+    moments: ["status"],
   },
   "Target Lock": {
     shape: 57, shapeMix: "37", count: 4, opacity: 1, emitter: 2, emitRadius: 0.3, emitTime: 0,
@@ -1415,6 +1467,7 @@ window.PRESETS = {
     lines: 0.5, lineCount: 4, lineInner: 0.3, lineOuter: 0.55, lineWidth: 2, lineLife: 0.4,
     hue: 8, hueLife: 10, sat: 0.85, bright: 1, coreWhite: 0.5,
     glow: 0.4, duration: 1, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
   "Speed Boost": {
     shape: 83, shapeMix: "22", count: 8, opacity: 1, emitter: 4, emitAngle: 270, emitSpread: 12,
@@ -1424,6 +1477,7 @@ window.PRESETS = {
     trail: 0.4,
     hue: 190, hueLife: -25, sat: 0.7, bright: 1, coreWhite: 0.7,
     glow: 0.5, duration: 1, fps: 24, frameSize: 5, originX: 0.66,
+    moments: ["powerup", "dash"],
   },
   "Time Slow": {
     shape: 53, count: 6, opacity: 1, emitter: 2, emitRadius: 0.16, emitTime: 0.5,
@@ -1433,6 +1487,7 @@ window.PRESETS = {
     ripple: 0.7, rippleCount: 3, rippleSpeed: 0.45, rippleWidth: 3, rippleLife: 1.4,
     hue: 265, hueLife: 20, sat: 0.55, bright: 1, coreWhite: 0.4,
     glow: 0.4, duration: 1.8, fps: 24, frameSize: 5,
+    moments: ["status"],
   },
   "Magnetized": {
     shape: 68, shapeMix: "27", count: 14, opacity: 1, emitter: 2, emitRadius: 0.36, emitTime: 0.45,
@@ -1442,6 +1497,7 @@ window.PRESETS = {
     life: 1.1, lifeVar: 0.2, fadeIn: 0.12, fadeOut: 0.4,
     hue: 320, hueLife: -20, sat: 0.75, bright: 1, coreWhite: 0.4,
     glow: 0.4, duration: 1.3, fps: 24, frameSize: 5,
+    moments: ["status"],
   },
   "Hazard Alert": {
     shape: 69, shapeMix: "26", count: 7, opacity: 1, emitter: 2, emitRadius: 0.2, emitTime: 0.2,
@@ -1451,6 +1507,7 @@ window.PRESETS = {
     flash: 0.7, flashSize: 0.3, flashLife: 0.1,
     hue: 44, hueLife: -12, sat: 1, bright: 1, coreWhite: 0.35, blend: 1,
     glow: 0.45, duration: 1.2, fps: 24, frameSize: 5,
+    moments: ["ui"],
   },
   "Curse Mark": {
     shape: 70, count: 1, opacity: 0,
@@ -1459,6 +1516,7 @@ window.PRESETS = {
     sigil: 0.7, sigilRings: 2, sigilRadius: 0.3, sigilLife: 1.4,
     hue: 288, hueLife: -18, sat: 0.8, bright: 1, coreWhite: 0.3,
     glow: 0.5, loopBlend: 0.4, duration: 1.6, fps: 24, frameSize: 5,
+    moments: ["status"],
   },
   "Rally Banner": {
     shape: 73, shapeMix: "48", count: 6, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 40,
@@ -1468,6 +1526,7 @@ window.PRESETS = {
     life: 1.2, lifeVar: 0.2, fadeIn: 0.12, fadeOut: 0.45,
     hue: 36, hueLife: 14, sat: 0.9, bright: 1, coreWhite: 0.12, blend: 1,
     glow: 0.18, duration: 1.5, fps: 24, frameSize: 5, originY: 0.62,
+    moments: ["powerup"],
   },
   "Atom Charge": {
     shape: 56, shapeMix: "58", count: 11, opacity: 1, emitter: 0, emitSpread: 360,
@@ -1478,6 +1537,7 @@ window.PRESETS = {
     ripple: 0.5, rippleCount: 2, rippleSpeed: 0.6, rippleWidth: 2, rippleLife: 0.8,
     hue: 172, hueLife: 26, sat: 0.8, bright: 1, coreWhite: 0.55,
     glow: 0.55, duration: 1.3, fps: 24, frameSize: 5,
+    moments: ["powerup"],
   },
 
   // ---- Camera & light (2026-07-30) ----
@@ -1501,6 +1561,7 @@ window.PRESETS = {
     zoom: 0.7, zoomAmount: 0.85, zoomInner: 0.3,
     hue: 34, hueLife: -20, sat: 0.9, bright: 1, coreWhite: 0.8,
     glow: 0.4, duration: 0.6, fps: 24, frameSize: 5,
+    moments: ["crit"],
   },
   "Star Filter": {
     shape: 3, count: 14, opacity: 1, emitter: 2, emitRadius: 0.18, emitTime: 0.5,
@@ -1538,6 +1599,7 @@ window.PRESETS = {
     flash: 0.8, flashSize: 0.22, flashLife: 0.1,
     hue: 42, hueLife: -22, sat: 0.9, bright: 1, coreWhite: 0.85,
     glow: 0.5, duration: 0.3, fps: 24, frameSize: 5, originX: 0.3,
+    moments: ["muzzle"],
   },
   "Searchbeam": {
     shape: 0, count: 1, opacity: 0,
@@ -1587,6 +1649,7 @@ window.PRESETS = {
     flash: 0.8, flashSize: 0.24, flashLife: 0.1,
     hue: 0, sat: 0.2, bright: 1, coreWhite: 0.5,
     glow: 0.35, duration: 0.6, fps: 24, frameSize: 5,
+    moments: ["hit", "crit"],
   },
   "Galaxy Spin": {
     shape: 0, count: 40, opacity: 1, emitter: 2, emitRadius: 0.22, emitTime: 0.6,
@@ -1617,6 +1680,7 @@ window.PRESETS = {
     shafts: 0.5, shaftCount: 6, shaftWidth: 11, shaftLength: 0.95, shaftSpin: 0.05, shaftLife: 2.4,
     hue: 44, hueLife: 8, sat: 0.45, bright: 1, coreWhite: 0.35,
     glow: 0.35, loopBlend: 0.4, duration: 2.4, fps: 24, frameSize: 5, originY: 0.2,
+    moments: ["ambient"],
   },
   "Rift Light": {
     shape: 1, count: 24, opacity: 1, emitter: 2, emitRadius: 0.08, emitTime: 0.5,
@@ -1633,6 +1697,7 @@ window.PRESETS = {
     weatherLength: 0.16, weatherSize: 0.8,
     hue: 205, hueLife: 5, sat: 0.35, bright: 1, coreWhite: 0.5,
     glow: 0.25, loopBlend: 0.5, duration: 2, fps: 24, frameSize: 5,
+    moments: ["ambient"],
   },
   "Glint Field": {
     shape: 0, count: 12, opacity: 1, emitter: 6, emitRadius: 0.3, emitTime: 1,
@@ -1686,6 +1751,7 @@ window.PRESETS = {
     layerDelay: "Light shafts:0.4",
     hue: 196, hueLife: 24, sat: 0.7, bright: 1, coreWhite: 0.5,
     glow: 0.45, duration: 2.2, fps: 24, frameSize: 5,
+    moments: ["spawn"],
   },
   "Charge Release": {
     // Wind-up, then bang. The charge is the main emitter pulling inward; the release is Layer B.
@@ -1702,6 +1768,7 @@ window.PRESETS = {
     layerDelay: "Flash:0.6,Shockwave:0.63",
     hue: 200, hueLife: 60, sat: 0.8, bright: 1, coreWhite: 0.6,
     glow: 0.5, duration: 1.5, fps: 24, frameSize: 5,
+    moments: ["muzzle"],
   },
   "Summon Ritual": {
     shape: 4, count: 18, opacity: 1, emitter: 2, emitRadius: 0.22, emitTime: 0.8,
@@ -1715,6 +1782,7 @@ window.PRESETS = {
     layerDelay: "Grid:0.35,Cone:0.95",
     hue: 275, hueLife: 35, sat: 0.75, bright: 1, coreWhite: 0.45,
     glow: 0.5, duration: 2.4, fps: 24, frameSize: 5, originY: 0.66,
+    moments: ["spawn"],
   },
   "Meteor Hit": {
     shape: 6, count: 22, opacity: 1, emitter: 1, emitAngle: 40, emitSpread: 70,
@@ -1783,6 +1851,102 @@ window.PRESETS = {
     hue: 150, hueLife: 12, sat: 0.8, bright: 1, coreWhite: 0.4,
     glow: 0.4, duration: 2.2, fps: 24, frameSize: 5,
   },
+
+  // ---------- The moments round (VFX-DESIGN §26): presets a moment had too few of ----------
+  "Fireball": {
+    emit2Count: 1, emit2Emitter: 0, emit2Radius: 0, emit2Delay: 0, emit2Over: 0, emit2Speed: 0, emit2SpeedVar: 0,
+    emit2Gravity: 0, emit2Drag: 0, emit2SizeVar: 0, emit2Grow: 0, emit2LifeVar: 0, emit2FadeIn: 0, emit2FadeOut: 0,
+    emit2Opacity: 1, shape: 0, emitter: 1, emitAngle: 270, emitSpread: 22, emitRadius: 0.03, emitTime: 1, count: 80,
+    speed: 170, speedVar: 0.35, drag: 0.35, life: 0.32, lifeVar: 0.35, size: 30, sizeVar: 0.35, grow: -0.7, fadeIn: 0,
+    fadeOut: 0.55, hue: 44, hueLife: -42, sat: 1, coreWhite: 0.6, glow: 0.5, emit2Shape: 0, emit2Size: 30, emit2Life: 1.1,
+    emit2Hue: 45, emit2Sat: 0.9, emit2Bright: 1, loopBlend: 0.8, duration: 1, fps: 24, frameSize: 3,
+    moments: ["projectile"],
+  },
+  "Energy Bolt": {
+    emit2Count: 1, emit2Emitter: 0, emit2Radius: 0, emit2Delay: 0, emit2Over: 0, emit2Speed: 0, emit2SpeedVar: 0,
+    emit2Gravity: 0, emit2Drag: 0, emit2SizeVar: 0, emit2Grow: 0, emit2LifeVar: 0, emit2FadeIn: 0, emit2FadeOut: 0,
+    emit2Opacity: 1, shape: 1, emitter: 1, emitAngle: 270, emitSpread: 8, emitRadius: 0.02, emitTime: 1, count: 70,
+    speed: 150, speedVar: 0.3, drag: 0.4, life: 0.25, lifeVar: 0.3, size: 36, sizeVar: 0.3, grow: -0.6, sparkLen: 0.9,
+    sparkTaper: 0.5, fadeIn: 0, fadeOut: 0.5, hue: 190, hueLife: 40, sat: 0.9, coreWhite: 0.7, glow: 0.6, glowRadius: 8,
+    emit2Shape: 0, emit2Size: 30, emit2Life: 1.1, emit2Hue: 185, emit2Sat: 0.55, emit2Bright: 1, loopBlend: 0.8,
+    duration: 1, fps: 24, frameSize: 3, moments: ["projectile"],
+  },
+  "Arrow Trail": {
+    shape: 22, emitter: 0, count: 1, speed: 0, drag: 0, life: 0.85, lifeVar: 0, size: 30, sizeVar: 0, grow: 0, fadeIn: 0,
+    fadeOut: 0, angle: 90, angleVar: 0, hue: 30, sat: 0.35, bright: 0.95, coreWhite: 0.2, blend: 1, emit2Count: 50,
+    emit2Shape: 1, emit2Emitter: 1, emit2Angle: 270, emit2Spread: 3, emit2Radius: 0, emit2Over: 1, emit2Speed: 260,
+    emit2SpeedVar: 0.2, emit2Gravity: 0, emit2Drag: 0.5, emit2Size: 40, emit2SizeVar: 0.2, emit2Grow: -0.5,
+    emit2Life: 0.28, emit2LifeVar: 0.2, emit2FadeIn: 0, emit2FadeOut: 0.6, emit2Hue: 210, emit2Sat: 0.15, emit2Bright: 1,
+    emit2Opacity: 0.9, emit2Blend: 1, sparkLen: 1, sparkTaper: 0.8, loopBlend: 0.8, duration: 0.8, fps: 24, frameSize: 3,
+    moments: ["projectile"],
+  },
+  "Frost Shot": {
+    emit2Count: 1, emit2Emitter: 0, emit2Radius: 0, emit2Delay: 0, emit2Over: 0, emit2Speed: 0, emit2SpeedVar: 0,
+    emit2Gravity: 0, emit2Drag: 0, emit2SizeVar: 0, emit2Grow: 0, emit2LifeVar: 0, emit2FadeIn: 0, emit2FadeOut: 0,
+    emit2Opacity: 1, shape: 14, emitter: 1, emitAngle: 270, emitSpread: 30, emitRadius: 0.03, emitTime: 1, count: 46,
+    speed: 150, speedVar: 0.4, drag: 0.4, spin: 300, spinVar: 0.8, life: 0.4, lifeVar: 0.35, size: 18, sizeVar: 0.4,
+    grow: -0.6, flakeArms: 6, flakeBranch: 0.5, fadeIn: 0, fadeOut: 0.5, hue: 196, hueLife: 14, sat: 0.6, coreWhite: 0.5,
+    glow: 0.4, emit2Shape: 0, emit2Size: 30, emit2Life: 1.1, emit2Hue: 192, emit2Sat: 0.7, emit2Bright: 1, loopBlend: 0.8,
+    duration: 1, fps: 24, frameSize: 3, moments: ["projectile"],
+  },
+  "Death Poof": {
+    shape: 5, emitter: 2, emitRadius: 0.08, count: 14, speed: 150, speedVar: 0.3, drag: 0.85, gravity: -30, life: 0.55,
+    lifeVar: 0.3, size: 34, sizeVar: 0.3, grow: 0.4, fadeIn: 0, fadeOut: 0.6, smokeSoft: 0.5, smokeBillow: 0.6, hue: 220,
+    hueLife: 0, sat: 0.08, bright: 1, coreWhite: 0, blend: 1, opacity: 0.95, emit2Count: 1, emit2Shape: 31,
+    emit2Emitter: 0, emit2Radius: 0, emit2Delay: 0.08, emit2Over: 0, emit2Speed: 0, emit2Gravity: -80, emit2Drag: 0,
+    emit2Size: 44, emit2SizeVar: 0, emit2Grow: 0, emit2Life: 0.6, emit2LifeVar: 0, emit2FadeIn: 0.1, emit2FadeOut: 0.45,
+    emit2Hue: 0, emit2Sat: 0, emit2Bright: 1, emit2Opacity: 1, emit2Blend: 2, flash: 0.6, flashSize: 0.3, flashLife: 0.06,
+    duration: 0.75, fps: 24, frameSize: 3, moments: ["death"],
+  },
+  "Soul Rise": {
+    shape: 51, emitter: 0, emitRadius: 0, count: 1, speed: 0, gravity: -150, drag: 0.2, life: 1.1, lifeVar: 0, size: 34,
+    sizeVar: 0, grow: 0, fadeIn: 0.15, fadeOut: 0.5, angle: 0, angleVar: 0, hue: 175, hueLife: 20, sat: 0.35, bright: 1,
+    coreWhite: 0.5, blend: 2, glow: 0.4, emit2Count: 22, emit2Shape: 0, emit2Emitter: 3, emit2Radius: 0.12,
+    emit2Over: 0.7, emit2Speed: 30, emit2SpeedVar: 0.6, emit2Gravity: -160, emit2Drag: 0.3, emit2Size: 10,
+    emit2SizeVar: 0.5, emit2Grow: -0.5, emit2Life: 0.7, emit2LifeVar: 0.4, emit2FadeIn: 0.1, emit2FadeOut: 0.5,
+    emit2Hue: 175, emit2Sat: 0.6, emit2Bright: 1, emit2Opacity: 1, originY: 0.7, duration: 1.15, fps: 24, frameSize: 3,
+    moments: ["death"],
+  },
+  "Dash Trail": {
+    shape: 1, emitter: 6, emitRadius: 0.16, emitAngle: 270, emitSpread: 2, emitTime: 0.35, count: 18, speed: 220,
+    speedVar: 0.3, drag: 0.6, life: 0.3, lifeVar: 0.3, size: 52, sizeVar: 0.3, grow: -0.3, sparkLen: 1, sparkTaper: 0.5,
+    fadeOut: 0.6, hue: 200, hueLife: 20, sat: 0.4, coreWhite: 0.7, glow: 0.3, emit2Count: 10, emit2Shape: 5,
+    emit2Emitter: 4, emit2Angle: 270, emit2Spread: 30, emit2Radius: 0.12, emit2Over: 0.3, emit2Speed: 90,
+    emit2SpeedVar: 0.5, emit2Gravity: -20, emit2Drag: 0.7, emit2Size: 24, emit2SizeVar: 0.4, emit2Grow: 0.6,
+    emit2Life: 0.45, emit2LifeVar: 0.3, emit2FadeIn: 0.05, emit2FadeOut: 0.7, emit2Hue: 38, emit2Sat: 0.2,
+    emit2Bright: 0.8, emit2Opacity: 0.7, emit2Blend: 1, duration: 0.6, fps: 24, frameSize: 3, moments: ["dash"],
+  },
+  "Jump Dust": {
+    shape: 5, emitter: 1, emitAngle: 0, emitSpread: 200, emitRadius: 0.04, count: 18, speed: 300, speedVar: 0.25,
+    drag: 0.9, gravity: 60, life: 0.5, lifeVar: 0.3, size: 30, sizeVar: 0.35, grow: 0.5, fadeIn: 0, fadeOut: 0.6,
+    smokeSoft: 0.5, smokeBillow: 0.6, hue: 36, hueLife: 0, sat: 0.22, bright: 0.95, coreWhite: 0, blend: 1, opacity: 0.95,
+    originY: 0.7, duration: 0.6, fps: 24, frameSize: 3, moments: ["land"],
+  },
+  "Crit Burst": {
+    shape: 38, emitter: 0, count: 1, speed: 0, life: 0.2, lifeVar: 0, size: 80, sizeVar: 0, grow: -0.3, fadeIn: 0,
+    fadeOut: 0.4, spin: 120, hue: 20, hueLife: -14, sat: 1, coreWhite: 0.7, emit2Count: 8, emit2Shape: 11,
+    emit2Emitter: 0, emit2Over: 0, emit2Speed: 160, emit2SpeedVar: 0.4, emit2Gravity: 0, emit2Drag: 0.8, emit2Size: 22,
+    emit2SizeVar: 0.3, emit2Grow: -0.5, emit2Life: 0.3, emit2LifeVar: 0.3, emit2FadeIn: 0, emit2FadeOut: 0.5,
+    emit2Hue: 48, emit2Sat: 1, emit2Bright: 1, emit2Opacity: 1, crossArms: 4, crossThin: 0.15, lines: 0.9, lineCount: 14,
+    lineInner: 0.3, lineOuter: 0.55, lineWidth: 3, lineLife: 0.2, flash: 1, flashSize: 0.5, flashLife: 0.08, glow: 0.45,
+    duration: 0.36, fps: 30, frameSize: 3, moments: ["crit"],
+  },
+  "Heal Pulse": {
+    shape: 27, emitter: 4, emitRadius: 0.2, emitTime: 0.6, count: 12, speed: 30, speedVar: 0.4, drag: 0.4, gravity: -170,
+    life: 0.75, lifeVar: 0.3, size: 20, sizeVar: 0.3, grow: -0.3, fadeIn: 0.15, fadeOut: 0.5, angle: 0, angleVar: 0,
+    hue: 125, hueLife: 10, sat: 0.85, coreWhite: 0.55, glow: 0.4, wave: 0.8, waveSpeed: 0.6, waveWidth: 0.2,
+    waveLife: 0.45, waveSquash: 0.6, originY: 0.72, duration: 1.1, fps: 24, frameSize: 3, moments: ["heal"],
+  },
+  "Burning": {
+    shape: 25, emitter: 4, emitRadius: 0.18, emitAngle: 0, emitSpread: 20, emitTime: 1, count: 40, speed: 50,
+    speedVar: 0.4, drag: 0.4, gravity: -160, turb: 0.3, turbSpeed: 1.5, life: 0.5, lifeVar: 0.3, size: 22, sizeVar: 0.4,
+    grow: -0.4, fadeIn: 0.1, fadeOut: 0.6, angle: 0, angleVar: 0, hue: 36, hueLife: -26, sat: 1, coreWhite: 0.55,
+    glow: 0.45, emit2Count: 16, emit2Shape: 0, emit2Emitter: 4, emit2Angle: 0, emit2Spread: 40, emit2Radius: 0.2,
+    emit2Over: 1, emit2Speed: 60, emit2SpeedVar: 0.5, emit2Gravity: -200, emit2Drag: 0.3, emit2Size: 6, emit2SizeVar: 0.4,
+    emit2Grow: -0.5, emit2Life: 0.6, emit2LifeVar: 0.3, emit2FadeIn: 0, emit2FadeOut: 0.5, emit2Hue: 30, emit2Sat: 1,
+    emit2Bright: 1, emit2Opacity: 1, loopBlend: 0.8, originY: 0.75, duration: 1.2, fps: 24, frameSize: 3,
+    moments: ["status"],
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1800,19 +1964,22 @@ window.PRESET_CATEGORIES = [
                   "Radar Sweep", "Searchlight", "Rift Split"]],
   ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Paint Splatter", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash",
                   "Scorch Mark", "Landing Puff", "Speed Dash", "Focus Lines", "Crit Pop", "Whip Pan",
-                  "Ground Crack", "Katana Cut", "Sword Clash", "Rock Slide", "Ninja Strike", "Axe Chop", "Perfect Parry"]],
+                  "Ground Crack", "Katana Cut", "Sword Clash", "Rock Slide", "Ninja Strike", "Axe Chop", "Perfect Parry",
+                  "Death Poof", "Dash Trail", "Jump Dust", "Crit Burst"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud",
                   "Rune Circle", "Summon Seal", "Shield Orbit", "Power Rings",
                   "Dimension Tear", "Constellation", "Nano Swarm",
                   "Vacuum Pull", "Soul Drain", "Shield Hex", "Spirit Wisps", "Tentacle Lash",
                   "Warp Tunnel", "Portal Depth", "Static Charge", "Spirit Aura",
-                  "Tesla Coil", "Overcharge", "Cursed Halo", "Boo!", "Web Snare", "Potion Brew", "Treasure Unlock"]],
+                  "Tesla Coil", "Overcharge", "Cursed Halo", "Boo!", "Web Snare", "Potion Brew", "Treasure Unlock",
+                  "Soul Rise", "Heal Pulse"]],
   ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom", "Garden Burst", "Coin Fountain", "Candy Shower", "Crown Victory", "Egg Hatch", "Magnet Pull"]],
   ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes", "Heartbreak", "Stun Stars", "Sleepy Zzz", "Sweat Drop"]],
   ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl",
                   "Firefly Swarm", "Downpour", "Ash Fall", "Spore Drift", "Feather Fall", "Bird Flock", "Tornado Spin"]],
   ["Status & HUD", ["Shield Up", "Poisoned", "Target Lock", "Speed Boost", "Time Slow",
-                    "Magnetized", "Hazard Alert", "Curse Mark", "Rally Banner", "Atom Charge"]],
+                    "Magnetized", "Hazard Alert", "Curse Mark", "Rally Banner", "Atom Charge",
+                  "Burning"]],
   ["Camera & Light", ["Warp Speed", "Punch In", "Star Filter", "Signal Lost",
                       "Dream Drift", "Muzzle Cone", "Searchbeam"]],
   ["Symmetry & Stylise", ["Mandala Burst", "Snow Mandala", "Backlit Burst", "Hit Blank",
@@ -1822,4 +1989,47 @@ window.PRESET_CATEGORIES = [
   ["Sequences", ["Portal Open", "Charge Release", "Summon Ritual", "Meteor Hit",
                  "Deep Freeze", "Rift Tear", "Bloom Cycle", "Sonar Sweep"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
+  ["Projectiles", ["Fireball", "Energy Bolt", "Arrow Trail", "Frost Shot"]],
+];
+
+// THE MOMENTS (VFX-DESIGN §26). A game developer thinks in moments ("I need a hit spark, a death puff, a pickup sparkle"),
+// not in techniques, so the effect strip opens on these. Membership is each preset's own `moments` field (a preset may
+// serve several; its FIRST is where it sits on the Moments view's All page); this table is the moments, in the strip's
+// order. `words` are what a person types for it (search reaches every preset of the moment by them); `lead` the effects
+// shown first within it, the rest follow in preset order. Keys are stored nowhere but here: renaming a key is safe,
+// a preset's `moments` must name keys from this table (an assertion checks).
+window.PRESET_MOMENTS = [
+  { key: "hit", name: "Hit", note: "a blow landing: sparks, slashes, a flash",
+    words: ["hit", "hurt", "damage", "strike", "impact", "punch", "melee", "attack", "struck"], lead: ["Hit Spark", "Hit Flash", "Slash"] },
+  { key: "crit", name: "Crit", note: "a critical or finishing blow, bigger than a hit",
+    words: ["crit", "critical", "finisher", "combo", "smash"], lead: ["Critical Hit", "Crit Burst", "Crit Pop"] },
+  { key: "death", name: "Death", note: "an enemy defeated: a poof, a soul, a dissolve",
+    words: ["death", "die", "dies", "dead", "kill", "killed", "defeat", "defeated", "despawn", "ko", "vanish"], lead: ["Death Poof", "Soul Rise", "Disintegrate"] },
+  { key: "spawn", name: "Spawn / Appear", note: "something arriving: a teleport, a summon, a hatch",
+    words: ["spawn", "respawn", "appear", "summon", "arrive", "materialise", "materialize", "enter"], lead: ["Teleport", "Summon Swirl", "Portal Open"] },
+  { key: "pickup", name: "Pickup", note: "a coin, a gem, an item collected",
+    words: ["pickup", "collect", "coin", "coins", "loot", "item", "gem", "reward", "grab"], lead: ["Coin Pickup", "Twinkle", "Coin Fountain"] },
+  { key: "heal", name: "Heal", note: "health coming back",
+    words: ["heal", "healing", "cure", "regen", "regenerate", "restore", "revive", "health", "hp"], lead: ["Heal Pulse", "Heal Rise", "Aura Loop"] },
+  { key: "powerup", name: "Power-up / Level up", note: "a level, a buff, a victory",
+    words: ["powerup", "power", "levelup", "level", "upgrade", "boost", "victory", "win", "buff"], lead: ["Level Up", "Power Rings", "Crown Victory"] },
+  { key: "dash", name: "Dash", note: "a burst of speed: streaks behind a runner",
+    words: ["dash", "sprint", "rush", "dodge", "evade", "speed", "zoom"], lead: ["Speed Dash", "Dash Trail", "Whip Pan"] },
+  { key: "land", name: "Jump / Land", note: "dust at the feet: a jump, a landing, a stomp",
+    words: ["jump", "land", "landing", "dust", "footstep", "stomp", "step"], lead: ["Landing Puff", "Jump Dust", "Dust Kick"] },
+  { key: "projectile", name: "Projectile", note: "a shot in flight: a fireball, a bolt, an arrow (the loops sit on the moving body)",
+    words: ["projectile", "bullet", "fireball", "bolt", "arrow", "missile", "shot", "orb", "comet"], lead: ["Fireball", "Energy Bolt", "Arrow Trail"] },
+  { key: "muzzle", name: "Muzzle / Cast", note: "the moment of firing or casting",
+    words: ["muzzle", "cast", "casting", "gunshot", "shoot", "charge", "channel"], lead: ["Muzzle Flash", "Charge Release", "Rune Circle"] },
+  { key: "explosion", name: "Explosion", note: "a blast, a bomb, a nova",
+    words: ["explosion", "explode", "boom", "blast", "bomb", "grenade", "nova", "detonate"], lead: ["Explosion", "Big Boom", "Bomb Blast"] },
+  { key: "shield", name: "Shield / Block", note: "a barrier, a parry, a block",
+    words: ["shield", "block", "parry", "guard", "defend", "barrier", "deflect"], lead: ["Shield Up", "Perfect Parry", "Shield Hex"] },
+  { key: "status", name: "Status", note: "a lasting condition: poisoned, burning, frozen, stunned",
+    words: ["status", "poison", "poisoned", "burn", "burning", "freeze", "frozen", "stun", "stunned", "sleep", "curse", "slow", "debuff"],
+    lead: ["Poisoned", "Burning", "Stun Stars"] },
+  { key: "ambient", name: "Environment / Ambient", note: "weather and the world: rain, snow, fire, motes",
+    words: ["environment", "ambient", "ambience", "weather", "background", "world", "rain", "snow", "fog"], lead: ["Downpour", "Snow", "Firefly Swarm"] },
+  { key: "ui", name: "UI / Emote", note: "a pop over a head or a HUD flourish",
+    words: ["ui", "hud", "emote", "emoji", "alert", "popup", "menu", "icon", "notification"], lead: ["Emote Pop", "Damage Number", "Speech Pop"] },
 ];

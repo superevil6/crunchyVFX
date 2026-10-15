@@ -186,7 +186,9 @@
        "a trimmed Godot sheet carries the AtlasTexture margin");
     ok(sidecarFor("godot", buildSheet({ trim: false }), "fx", 24).indexOf("margin") < 0,
        "…and an untrimmed one doesn't");
-    ok(genomePixels(Object.assign(snapshotState(), { opacity: 0, flash: 0, wave: 0 })) === 0,
+    // From a plain particle preset, not whatever the random first screen loaded: a launch effect with a layer system or
+    // Layer B (Meteor Hit's lines, Critical Hit's since §27) still draws with the particles' opacity at 0.
+    ok(genomePixels(Object.assign(fullGenome(PRESETS["Explosion"]), { opacity: 0, flash: 0, wave: 0 })) === 0,
        "an invisible genome scores 0 (the visibility guard's basis)");
 
     // ---------------------------------------------------------------- pixel lock
@@ -1015,7 +1017,16 @@
       ok(lostOut.length === 0, "the preview, its transport and every way out live in the stage column", lostOut.join(", "));
       ok(!document.querySelector(".ws-browser, .browser-hidden, .controls, .presetbar"), "the old browser column, toolbar and focus mode are gone");
 
-      // every preset has exactly one cell, and the pages between them show every cell exactly once
+      // every preset has exactly one cell, and the pages between them show every cell exactly once (on the Moments view,
+      // the default since §27, and on the Techniques view the checks below use)
+      ok(presetMode === "moments", "§27: the strip opens on the Moments view", presetMode);
+      for (const mode of ["moments", "cats"]) {
+        presetMode = mode; presetQuery = ""; presetChip = ""; presetMoment = ""; buildPresetStrip();
+        const nm = Object.keys(PRESETS), cn = Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
+        ok(cn.length === nm.length && nm.every((n) => cn.indexOf(n) >= 0), "§27: every preset is exactly one picture on the " + mode + " view's All page",
+           cn.length + "/" + nm.length);
+      }
+      presetMode = "cats";
       presetQuery = ""; presetChip = ""; buildPresetStrip();
       const names = Object.keys(PRESETS);
       const cells = Array.from(presetBar.querySelectorAll(".pcell"));
@@ -1068,7 +1079,8 @@
         const find = (q) => { presetQuery = q; presetPage = 0; buildPresetStrip(); return Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name); };
         const firstPage = (q) => { find(q); return Array.from(presetBar.querySelectorAll(".pcell:not([hidden])")).map((c) => c.dataset.name); };
         const fb = find("fireball");
-        ok(fb[0] === "Meteor Hit" && fb.indexOf("Fire Jet") >= 0, "\"fireball\" opens on Meteor Hit, then the fiery shots", fb.slice(0, 5).join(", "));
+        // §27: there is a preset NAMED Fireball now (a projectile loop); it leads, then the alias's fireball-like effects
+        ok(fb[0] === "Fireball" && fb[1] === "Meteor Hit" && fb.indexOf("Fire Jet") >= 0, "\"fireball\" opens on Fireball, then Meteor Hit and the fiery shots", fb.slice(0, 5).join(", "));
         const want = { spell: "Rune Circle", flame: "Fire Jet", burn: "Scorch Mark", magic: "Magic Sparkle", hit: "Critical Hit", slash: "Slash",
                        heal: "Heal Rise", explosion: "Big Boom", fireballs: "Meteor Hit", "fire spell": "Meteor Hit", ice: "Frost Nova", sword: "Sword Slash" };
         const miss = Object.keys(want).filter((q) => firstPage(q).indexOf(want[q]) < 0);
@@ -1293,6 +1305,91 @@
            "…switching back to Categories keeps the tag (and the switch says one is on)");
         presetTags = []; presetChip = ""; presetMode = "cats"; buildPresetStrip();
         ok(presetBar.querySelectorAll(".pcell").length === Object.keys(PRESETS).length, "…and clearing it shows every effect again");
+        // §27: GAME MOMENTS, the strip's default way in. Data: every moment known, every moment well stocked, and every
+        // effect in one READS at a 16-32 px character's frame (64 px), so nothing in the default view is a speck.
+        {
+          const MOMENT_KEYS = ["hit", "crit", "death", "spawn", "pickup", "heal", "powerup", "dash", "land", "projectile", "muzzle",
+                               "explosion", "shield", "status", "ambient", "ui"];
+          const keys = PRESET_MOMENT_LIST.map((m) => m.key);
+          ok(JSON.stringify(keys) === JSON.stringify(MOMENT_KEYS) && PRESET_MOMENT_LIST.every((m) => m.name && m.note && m.words && m.words.length),
+             "§27: the sixteen moments, in order, each with a name, a line and its words", keys.join(" "));
+          const badM = Object.keys(PRESETS).filter((n) => "moments" in PRESETS[n] && (!Array.isArray(PRESETS[n].moments) || !PRESETS[n].moments.length ||
+            PRESETS[n].moments.some((k, i, a) => keys.indexOf(k) < 0 || a.indexOf(k) !== i)));
+          ok(badM.length === 0, "…every preset's `moments` names known moments, once each", badM.join(", "));
+          const thin = PRESET_MOMENT_LIST.filter((m) => momentNames(m.key).length < 3).map((m) => m.key + " " + momentNames(m.key).length);
+          ok(thin.length === 0, "…every moment has at least three effects", thin.join(", "));
+          const badLead = PRESET_MOMENT_LIST.filter((m) => (m.lead || []).some((n) => presetMomentsOf(n).indexOf(m.key) < 0)).map((m) => m.key);
+          ok(badLead.length === 0 && PRESET_MOMENT_LIST.every((m) => momentNames(m.key)[0] === m.lead[0]), "…a moment's lead effects are its own, and come first", badLead.join(", "));
+          ok(applyPreset(PRESETS["Fireball"], "Fireball", true) === undefined && !("moments" in state) && !("moments" in snapshotState()),
+             "…`moments` is data about a preset, never a param: loading one leaves it out of the effect");
+          // READS AT GAME SCALE: lit (alpha > 48, light enough to see on a dark game) over every frame at 64 px, as the
+          // preset loads (Fit as it says). The bar: on average 1.8% of the frame, at its fullest 2.4% (a "!" emote is 2.5%;
+          // the old Muzzle Flash, a speck, was 0.7% / 1.7%; Rain's 1-px drops 0.5% — Rain stays in Weather, not here).
+          const inMoment = Object.keys(PRESETS).filter((n) => presetMomentsOf(n).length);
+          const faint = [];
+          for (const n of inMoment) {
+            const P = PRESETS[n];
+            const r = withState(fullGenome(P), () => renderFrames(state, { size: 64, fit: P.fit !== false && P.fit !== 0 }));
+            const covs = r.canvases.map((cv) => {
+              const d = cv.getContext("2d").getImageData(0, 0, 64, 64).data;
+              let k = 0;
+              for (let p = 0; p < 4096; p++) {
+                const a = d[p * 4 + 3];
+                if (a > 48 && (d[p * 4] * 0.3 + d[p * 4 + 1] * 0.59 + d[p * 4 + 2] * 0.11) * a >= 45 * 255) k++;
+              }
+              releaseCanvas(cv);
+              return k / 4096;
+            });
+            const mean = covs.reduce((a, b) => a + b, 0) / covs.length, peak = Math.max.apply(null, covs);
+            if (mean < 0.018 || peak < 0.024) faint.push(n + " " + mean.toFixed(3) + "/" + peak.toFixed(3));
+          }
+          ok(inMoment.length >= 100 && faint.length === 0, "…every effect in a moment reads at 64 px (" + inMoment.length + " effects)", faint.join(", "));
+          // the projectile loops sit on a moving body: they loop (Seamless loop), and the Wizard's projectile type finds them
+          const loops = ["Fireball", "Energy Bolt", "Arrow Trail", "Frost Shot"];
+          ok(loops.every((n) => PRESETS[n].loopBlend > 0 && presetMomentsOf(n)[0] === "projectile"), "…the projectile bodies are made to loop (Seamless loop)");
+          const proj = WIZARD_TYPES.find((t) => t.key === "projectile");
+          const projN = Object.keys(PRESETS).filter((n) => wizardPresetIs(n, proj));
+          ok(loops.every((n) => projN.indexOf(n) >= 0) && WIZARD_TYPES.every((t) => !t.moments || t.moments.every((k) => keys.indexOf(k) >= 0)),
+             "…the Wizard's types take their moments (projectile now has " + projN.length + " presets, the four loops among them)");
+          // THE VIEW: the switch, the chips, a chosen moment, its pill elsewhere
+          const modeTxt = [...document.querySelectorAll("#presetMode button")].map((b) => b.textContent.replace(/ ·.*/, ""));
+          ok(JSON.stringify(modeTxt) === JSON.stringify(["Moments", "Techniques", "Tags"]), "…the switch reads Moments | Techniques | Tags", modeTxt.join(" | "));
+          document.querySelector('#presetMode [data-mode="moments"]').click();
+          const mchips = [...document.querySelectorAll("#presetChips .tagchip-moment")];
+          ok(presetMode === "moments" && mchips.length === keys.length + 1 && document.getElementById("presetChips").getAttribute("aria-label") === "Game moments",
+             "…the Moments view has a chip per moment, and All", mchips.length + " chips");
+          const wrongM = [];
+          for (const k of keys) {
+            [...document.querySelectorAll("#presetChips .tagchip-moment")].find((c) => c.dataset.moment === k).click();
+            const got = [...presetBar.querySelectorAll(".pcell")].map((c) => c.dataset.name);
+            if (JSON.stringify(got) !== JSON.stringify(momentNames(k))) wrongM.push(k);
+          }
+          ok(wrongM.length === 0, "…each moment chip shows exactly that moment's effects, its lead first", wrongM.join(", "));
+          presetMoment = "death"; buildPresetStrip();
+          const deathChip = document.querySelector('#presetChips .tagchip-moment[data-moment="death"]');
+          ok(deathChip.classList.contains("on") && /Moments · 1/.test(document.getElementById("presetMode").textContent), "…a chosen moment is lit and counted on the switch");
+          document.querySelector('#presetMode [data-mode="cats"]').click();
+          const mp = document.querySelector("#presetChips .filter-pill");
+          ok(mp && /Death/.test(mp.textContent) && [...presetBar.querySelectorAll(".pcell")].every((c) => presetMomentsOf(c.dataset.name).indexOf("death") >= 0),
+             "…and still filters under Techniques, shown as a pill", mp && mp.textContent);
+          mp.click();
+          ok(!presetMoment && presetBar.querySelectorAll(".pcell").length === Object.keys(PRESETS).length, "…one click on the pill drops it");
+          // SEARCH: a moment's own words reach all of its effects as strong hits, its lead on the first page
+          const mw = { hit: "hit", death: "death", pickup: "pickup", heal: "heal", projectile: "projectile", dash: "dash", spawn: "spawn",
+                       crit: "crit", land: "landing", shield: "block", status: "status", explosion: "explosion", ui: "emote", powerup: "powerup",
+                       muzzle: "muzzle", ambient: "ambient" };
+          const missW = [];
+          for (const k in mw) {
+            if (!momentNames(k).every((n) => presetQueryHit(n, mw[k]) === 2)) { missW.push(mw[k] + ": not all strong"); continue; }
+            presetQuery = mw[k]; presetPage = 0; buildPresetStrip();
+            const first = [...presetBar.querySelectorAll(".pcell:not([hidden])")].map((c) => c.dataset.name);
+            if (first.indexOf(momentNames(k)[0]) < 0) missW.push(mw[k] + " → " + first.slice(0, 3).join("/"));
+          }
+          ok(missW.length === 0, "…search finds a moment by its words (hit, death, pickup, heal, projectile…), its lead on the first page", missW.join(" | "));
+          presetQuery = "death"; presetPage = 0; buildPresetStrip();
+          ok(presetBar.querySelector(".pcell").dataset.name === "Death Poof", "…\"death\" opens on Death Poof", presetBar.querySelector(".pcell").dataset.name);
+          presetQuery = ""; presetMoment = ""; presetMode = "cats"; buildPresetStrip();
+        }
         // LOCK PIXELS SAYS WHAT IT HOLDS
         const lw = pixelLock, lv = lockedValues;
         pixelLock = true; lockedValues = { frameSize: SIZES.indexOf("64") }; updateLockBtn();
@@ -3528,7 +3625,7 @@
       expMetaSel.value = "godot"; expFormat.value = "sheet";
       document.getElementById("variations").click();
       ok(varNameEl.value === "critical-hit", "the Variations name defaults to the loaded effect", varNameEl.value);
-      ok(/Godot 4 SpriteFrames/.test(varMsg.textContent), "…and the pack says it follows the Export dialog's metadata", varMsg.textContent);
+      ok(/Godot 4: ready scene \(\.tscn\) \+ SpriteFrames/.test(varMsg.textContent), "…and the pack says it follows the Export dialog's metadata", varMsg.textContent);
       varModal.hidden = true; clearMinis(varGrid); expMetaSel.value = "generic";
       // 6. Prep for GIF says what it will change before changing it
       state.fps = 15; state.alphaCut = 0; state.duration = 1.8; rerender();

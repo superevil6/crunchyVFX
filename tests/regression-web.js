@@ -91,7 +91,8 @@
     const want = frames(rendered.canvases);
     applyPreset(PRESETS["Hit Spark"], "x", true);
     applyPreset(decodePatch(d.s), d.name, true);
-    return ok(name === "zip-one.zip" && d.format === "crunchy-asset" && d.app === "crunchyvfx" && d.kind === "effect" && d.files.join() === "zip-one.png,zip-one.tres" &&
+    return ok(name === "zip-one.zip" && d.format === "crunchy-asset" && d.app === "crunchyvfx" && d.kind === "effect" && d.files.join() === "zip-one.png,zip-one.tres,zip-one.gd,zip-one.tscn,README.txt" &&   // §26: the ready scene
+              /\nimpact_frame = \d+\n/.test(new TextDecoder().decode(list.find(function (f) { return f.name === "zip-one.tscn"; }).data)) &&
               d.exp.meta === "godot" && d.exp.format === "sheet" && plantHash(list.filter(function (f) { return f !== sc; }).map(function (f) { return { path: f.name, data: f.data }; })) === d.hash &&
               frames(rendered.canvases) === want, list.map(function (f) { return f.name; }).join(","));
   });

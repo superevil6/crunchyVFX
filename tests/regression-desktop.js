@@ -65,7 +65,7 @@
     [expLayout, expMetaSel, expTrim].forEach(function (e) { e.dispatchEvent(new Event("change")); });
   };
   const exportNow = async function (base) {                       // what the Export dialog makes, for the effect on screen
-    const o = await buildExportFiles(null, Object.assign({ format: "sheet" }, plantExpNow(), { base: base }));
+    const o = await buildExportBundle(null, Object.assign({ format: "sheet" }, plantExpNow(), { base: base }));
     return o.files;
   };
   const spriteReady = function (url) { return wait(function () { return imageSpriteEl && imageSpriteEl.src === url && imageSpriteEl.complete; }); };
@@ -161,18 +161,21 @@
     const files = M.list(ROOT + "/explosion/");
     // SUITE-LINKS.md §4: in a Godot game the combined scene and its script ride along; with no sound, no Sound node
     const tscn = M.text(ROOT + "/explosion/explosion.tscn") || "";
-    return ok(files.join(",") === ["crunchy", "gd", "png", "tres", "tscn"].map(function (e) { return ROOT + "/explosion/explosion." + e; }).join(",") &&
+    // §26: the ready scene (plays on ready, `impact` on its brightest frame, frees itself) and the export's README.txt
+    return ok(files.join(",") === [ROOT + "/explosion/README.txt"].concat(["crunchy", "gd", "png", "tres", "tscn"].map(function (e) { return ROOT + "/explosion/explosion." + e; })).join(",") &&
               /path="explosion\.tres"/.test(tscn) && /path="explosion\.gd"/.test(tscn) && /sound_frame = 0/.test(tscn) && !/AudioStreamPlayer2D/.test(tscn) &&
-              /func play\(\)/.test(M.text(ROOT + "/explosion/explosion.gd")) &&
+              new RegExp("impact_frame = " + impactFrameOf(rendered) + "\n").test(tscn) && /texture_filter = 1/.test(tscn) &&
+              /func play\(\)/.test(M.text(ROOT + "/explosion/explosion.gd")) && /signal impact/.test(M.text(ROOT + "/explosion/explosion.gd")) &&
+              /@export var autoplay := true/.test(M.text(ROOT + "/explosion/explosion.gd")) && /explosion\.tscn/.test(M.text(ROOT + "/explosion/README.txt")) &&
               d && d.format === "crunchy-asset" && d.app === "crunchyvfx" && d.suite === "vfx" && d.kind === "effect" && d.name === "Explosion" &&
               d.exp.meta === "godot" && d.exp.trim === true && d.base === "explosion" && d.exportName === "Explosion" &&
-              JSON.stringify(d.files) === '["explosion.png","explosion.tres","explosion.gd","explosion.tscn"]' && d.info.frames === rendered.canvases.length &&
+              JSON.stringify(d.files) === '["explosion.png","explosion.tres","explosion.gd","explosion.tscn","README.txt"]' && d.info.frames === rendered.canvases.length &&
               /^data:image\/png;base64,/.test(d.thumb) && /^2:/.test(d.hash) && decodePatch(d.s).n === "Explosion" &&
               /path="explosion\.png"/.test(M.text(ROOT + "/explosion/explosion.tres")), files.join(",") + " " + status());
   });
   await t("save/the-files-are-byte-equal-to-the-export-dialogs", async function () {
     const ex = await exportNow("explosion");
-    return ok(ex.length === 2 && ex.every(function (f) { return same(M.bytes(ROOT + "/explosion/" + f.name), f.data); }), ex.map(function (f) { return f.name; }).join(","));
+    return ok(ex.length === 5 && ex.every(function (f) { return same(M.bytes(ROOT + "/explosion/" + f.name), f.data); }), ex.map(function (f) { return f.name; }).join(","));
   });
   await t("save/emissive-two-sizes-and-a-sound-byte-equal", async function () {
     applyPreset(PRESETS["Hit Spark"], "Sparks", true);
@@ -181,9 +184,9 @@
     await press(document.getElementById("plantSave"));
     const d = sidecar("sparks"), ex = await exportNow("sparks");
     const names = ex.map(function (f) { return f.name; }).sort().join(",");
-    // the planted files are the Export dialog's plus the combined scene, which plays the effect's own synthesised WAV
+    // the planted files are the Export dialog's, its ready scene (§26) among them, which plays the effect's own synthesised WAV
     const tscn = M.text(ROOT + "/sparks/sparks.tscn") || "";
-    const r = d && JSON.stringify(d.files.slice().sort()) === JSON.stringify(ex.map(function (f) { return f.name; }).concat(["sparks.gd", "sparks.tscn"]).sort()) &&
+    const r = d && JSON.stringify(d.files.slice().sort()) === JSON.stringify(ex.map(function (f) { return f.name; }).sort()) && /sparks\.tscn/.test(names) &&
       /path="sparks@1x\.tres"/.test(tscn) && /type="AudioStream" path="sparks\.wav"/.test(tscn) &&
       ex.every(function (f) { return same(M.bytes(ROOT + "/sparks/" + f.name), f.data); }) && /sparks\.wav/.test(names) && /sparks@2x_emissive\.png/.test(names) &&
       /sparks@2x\.tres/.test(names) && d.sound && d.sound.name === "Spark sound" && d.exp.layout === "row";
@@ -428,7 +431,7 @@
     await projDo(function () { return projOpen(GODOT); });
     await settle();
     await projCheckUpdates();
-    return ok(recorded && name === "zip-spark.zip" && sc.name === "zip-spark.crunchy" && d.s === encodePatch("Zip spark") && d.files.join() === "zip-spark.png,zip-spark.tres" &&
+    return ok(recorded && name === "zip-spark.zip" && sc.name === "zip-spark.crunchy" && d.s === encodePatch("Zip spark") && d.files.join() === "zip-spark.png,zip-spark.tres,zip-spark.gd,zip-spark.tscn,README.txt" &&   // §26: the ready scene rides in the zip
               card("Zip spark") && !projUpdates["zip-spark"] && !project.skipped.length, (list || []).map(function (f) { return f.name; }).join(","));
   });
   await t("web-zip/the-batch-and-variation-packs-carry-sidecars", async function () {
@@ -578,6 +581,7 @@
     const d = sidecar("fireball"), tscn = M.text(ROOT + "/fireball/fireball.tscn") || "";
     return ok(d && d.links && d.links[0].slug === "boom" && d.soundFrame === 3 && soundFrame === 3 &&
               /\[ext_resource type="AudioStream" path="res:\/\/crunchy\/sfx\/boom\/boom\.wav" id="3"\]/.test(tscn) && /sound_frame = 3/.test(tscn) &&
+              /impact_frame = 3\n/.test(tscn) &&                       // §26: a set Impact frame is the scene's impact signal too
               /type="AudioStreamPlayer2D"/.test(tscn) && !M.list(ROOT + "/fireball/").some(function (p) { return /\.wav$/.test(p); }) &&
               Array.from(card("Fireball").querySelectorAll(".lib-badge")).some(function (b) { return /♪ Boom/.test(b.textContent); }), tscn.slice(0, 300) + " " + status());
   });

@@ -55,6 +55,6 @@ can be deleted by accident isn't verification.
 `python3 tests/build.py <suite>` builds `run-<suite>.html` for one of: `hash` (frame-hash.js: every preset's frames and
 the Export dialog's bytes, against `frame-hash.expected.txt`), `fixtures` (make-fixtures.js: run ONCE on HEAD 11e8d14, it
 wrote `fixtures/`), `web`, `desktop` (with `tauri-mock.js`, an in-memory disk), `godot` (the page half of
-`godot-check.mjs`) and `show` (a look, for `wkshot.py` in WebKitGTK). They are async and talk through `dump()`:
+`godot-check.mjs`), `scene` (`godot-scene.js`, the web half of `godot-scene.mjs`: the ready Godot scene, §26) and `show` (a look, for `wkshot.py` in WebKitGTK). They are async and talk through `dump()`:
 `node tests/run-ff.mjs <suite> [--quiet]` runs one in a fresh headless Firefox and exits 0 on `VFX END PASS`.
 `plant.test.mjs` is a Node test of `project-app.js` over `plant.js`.

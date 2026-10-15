@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 7;
+    --css-build: 8;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1423,6 +1423,7 @@ main#panels { display: block; }
 .layer-about { min-height: 1.4em; font-size: 12px; }
 .pbar-mode { flex: none; }
 .pbar-mode button { padding: 2px 8px; }
+.pbar-mode button[hidden] { display: none; }   /* §26: Tags waits for the Wizard's section; Moments and Techniques are always there */
 @media (max-width: 700px) {
   .layer-kind { flex-direction: column; gap: 3px; }
 }

@@ -1022,7 +1022,8 @@ permissions were already complete (read/write text, read-dir, exists, mkdir, rem
 
 **Not yet.** A person clicking the native dialogs (AJ did for Tile, UI and SFX); a live Unity import. A `.tscn`
 (AnimatedSprite2D) per effect was proposed in PROJECTS-HANDOFF §4 but is not what the Export dialog writes, so it is not
-planted either; adding it would be an export change (web too) and a decision for AJ.
+planted either; adding it would be an export change (web too) and a decision for AJ. **Superseded by §26** (AJ decided
+2026-10-15: every Godot export, web and desktop, ships the ready scene).
 
 **The removal guard (crunchyCore plant.js 4, 2026-10-12; crunchyTile TILE-DESIGN §115):** a save of an existing asset
 (Save, Replace, Re-export, Update all) or a Delete that would remove a file one of the game's scenes or resources uses
@@ -1048,7 +1049,8 @@ jumpscare waiting to happen. Lets do impact frame."
 - **Impact** (a frame number in the Sound panel, desktop only, `soundFrame`): the sound starts on that frame, in the
   planted scene when the game calls play() and in the preview too. 0 = with the first frame (the web's only value, a
   no-op there).
-- **The combined scene**, planted with every effect in a Godot game: `<base>.tscn` (a Node2D: an AnimatedSprite2D with
+- **The combined scene** (**superseded in part by §26**: it is now every Godot export's, web too, and it PLAYS ON READY by
+  default; play(), stop(), `finished` and `sound_frame` still work as written here), planted with every effect in a Godot game: `<base>.tscn` (a Node2D: an AnimatedSprite2D with
   the effect's SpriteFrames, and, when it has a sound, an AudioStreamPlayer2D) and `<base>.gd`. NOTHING PLAYS ON LOAD:
   `play()` starts the sprite from frame 0 and the sound on `sound_frame`; `stop()`; `finished` when a one-shot ends (a
   looping SpriteFrames loops, its sound again each time round). The sound is the LINKED WAV by its res:// path, else the
@@ -1601,3 +1603,122 @@ things. What changed, in the report's order of priority:
 
 Not done: the Foundry's near-identical "Explosion" candidates (listed low in the report, not in this round's brief).
 `--css-build` 7.
+
+## 26. The ready Godot scene: every Godot export is drop-in (2026-10-15)
+
+**Why.** AJ (2026-10-15), deciding what §18 parked: "do it, and make it the drop-in way to use an effect". Before, the web
+gave a SpriteFrames `.tres` only and only the planted Library wrote §19's `.tscn` + `.gd`, which waited for play().
+
+**What.** Every Godot export (the Export dialog with Godot chosen, a pipeline's folder, the batch and Variations packs,
+Drag out, and the planted save) ships beside the sheet and its `.tres`: `<base>.tscn` and `<base>.gd`, from ONE
+implementation (`godotSceneInfo` → `godotSceneFiles`, wrapped by `buildExportBundle`). The planted Library's `exportFor`
+calls `buildExportBundle` too and adds only what it knows: the linked CrunchySFX WAV (res://, or left out when gone) and
+the Impact frame. `buildExportFiles` stays the sheet + metadata, so the frame hash's EXPORT lines are what they were.
+- **The scene:** a Node2D (texture filter Nearest) with an AnimatedSprite2D (the SpriteFrames; at several sizes the @1x
+  one), offset so the NODE'S POSITION IS THE EMITTER (renderPrep's own transform; the frame centre for most effects,
+  Fit or not, trimmed or not: the AtlasTexture margin keeps the frame), and an AudioStreamPlayer2D when there is a sound
+  (the export's own `<base>.wav`: the web's "Match a sound" with "Also export the sound"; the planted link). Written as
+  Godot 4.7.2 writes it: `[gd_scene format=3]`, no load_steps, no uid, relative paths.
+- **The script** (the same for every effect): `signal impact`, `signal finished`; `@export autoplay := true` (it starts
+  one step after _ready, call_deferred, so a signal connected right after add_child is heard), `free_when_done := true`,
+  `impact_frame`, `sound_frame`; `play()` (from frame 0, again if playing), `stop()`, `is_playing()`. Every frame passed
+  is visited, so a slow game frame never skips the impact. A one-shot: `impact` once, `finished`, queue_free. A loop:
+  `impact` every time round, never `finished`, never freed.
+- **The impact frame:** the Impact frame set (desktop's Sound panel), else `impactFrameOf`: the frame with the most light
+  (alpha × brightness summed over every other pixel; the first wins a tie), the flash or the fireball at its fullest.
+  The sound keeps its own `sound_frame` (the Impact frame if set, else 0, where the preview starts it), so nothing that
+  sounded right before moves. Both are clamped to the last frame.
+- **README.txt** (the export zip's root; one at a pack's root; each planted effect's folder; NOT in a pipeline's folder
+  or the batch written to a folder, which are the game's own and may hold a README): the one-line spawn
+  `var fx = preload("res://hit_spark.tscn").instantiate(); fx.position = pos; add_child(fx)`, the signals, the options.
+- **The Export dialog** lists "Godot 4: ready scene (.tscn) + SpriteFrames" first (Generic JSON stays the default
+  selection) and says: "Godot 4: a ready scene. Instance the .tscn and it plays, signals its hit frame (impact on frame N,
+  counting from 0) and frees itself when done", or for a loop "…plays and loops, signalling impact on frame N every time
+  round, until you call stop() or free it", with the spawn line.
+
+**Planted effects saved before** show "update available" (their `.gd`/`.tscn` differ); Re-export / Update all gives them
+the ready scene. A planted scene already placed in a level now plays when the level loads (untick `autoplay`).
+
+**Proved.** `tests/godot-scene.mjs` (31 checks): the WEB build exports a one-shot with a sound, a one-shot at two sizes and
+a loop through the Export button; Godot 4.7.2 imports them with no error and, spawned the README's way with the signals
+connected after add_child: each plays by itself; Boom (19 frames at 24 fps) `impact` once on frame 4 at tick 10 of 60 fps
+(expected 10), sound on frame 0, `finished` once, freed at tick 49; Spark (7 at 30) impact on frame 1 at tick 3, freed at
+tick 16; Rain (26 at 24) 3 cycles, `impact` 3 times on frame 24, never finished, alive, stop() stops it; with autoplay
+unticked nothing plays until play(). `tests/godot-check.mjs` 19 (the planted scenes: the §19 play()-and-keep way, and
+left to themselves they free themselves; no Godot error). Frame hash 276 IDENTICAL (its BATCH lines leave out the new
+`.gd`/`.tscn`/README.txt as they leave out `.crunchy`); regression 647, async 77, desktop 55, web 12, plant 14, worker
+38, cargo.
+
+## 27. Moments: the presets by what a game needs, and a quality pass at game scale (2026-10-15)
+
+**Why** (AJ agreed): a game developer thinks in moments ("I need a hit spark, a death puff, a pickup sparkle"), not in
+techniques. And the docs kept finding presets "nearly invisible" at game size, Fit shrinking fast effects into specks, the
+§25 tester's "Hit Spark didn't read", and twelve presets of no Wizard type while "projectile" had no category at all.
+
+**The Moments view is the strip's default.** The switch is now Moments | Techniques | Tags (Techniques is the old
+Categories row, unchanged; Tags as §24). `PRESET_MOMENTS` (presets.js) is the sixteen moments in order: Hit, Crit, Death,
+Spawn / Appear, Pickup, Heal, Power-up / Level up, Dash, Jump / Land, Projectile, Muzzle / Cast, Explosion, Shield / Block,
+Status, Environment / Ambient, UI / Emote; each with a line, its `words` and a `lead` (the effects shown first). Membership
+is DATA ON THE PRESET: a `moments: [...]` field, appended to each preset that serves one (a preset may serve several; its
+first is where it sits on the All page). `moments` is not a param: `presetOutcome` copies only keys that are in `state`,
+so loading, share links, saved effects and every export are untouched, and the frame hash proves it (every preset given
+only a `moments` field hashes byte-identical). The All page shows every effect once, by moment, then "Other effects"
+(the 74 that serve no moment: techniques, scenes, showpieces), so nothing left the person's reach. A chosen moment holds
+in the other two rows as a pill (§25's rule), the switch counts it ("Moments · 1"), and the chip counts follow the search,
+category and tags. Search: a moment's key, name words and `words` reach every effect of it as a STRONG hit (alias or not:
+"death", "pickup", "heal", "projectile", "landing", "block"…), ranked in the moment's own order, so "death" opens on Death
+Poof; aliases gained the new presets. `--css-build` 8 (one rule: a hidden mode button hides).
+
+**Moments → the Wizard's types** (`WIZARD_TYPES[].moments`, read by `wizardPresetIs`): hit ← hit, crit; explosion ←
+explosion; pickup ← pickup, power-up; spell ← muzzle/cast, spawn, heal; status ← status, shield; projectile ← projectile,
+dash; atmosphere ← ambient; UI ← UI. Death and Jump / Land map to no type. Projectile now has real donors (the four loops).
+
+**New presets (11, APPENDED; nothing inserted or reordered):** four PROJECTILE BODIES made to loop (Seamless loop 0.8, a
+Layer B core that lives the whole clip so the head is there from frame 0, the trail streaming left from a fixed point: the
+game moves the node): Fireball, Energy Bolt, Arrow Trail, Frost Shot (a new "Projectiles" technique category); Death Poof
+(a white smoke ring and a rising skull), Soul Rise (a ghost and wisps), Crit Burst (a big starburst, impact lines and
+crosses), Dash Trail (speed streaks and dust), Jump Dust (puffs thrown out at the feet), Heal Pulse (green crosses rising
+over a ring), Burning (a looping status flame). Every moment has at least four effects.
+
+**The quality pass.** Every preset in a moment was rendered at 64 and 96 px (a 16-32 px character's frame) and LOOKED at as
+frames over time (`moments-sheet.png` in the round's scratch). Improved, names kept (a MEANT frame-hash change):
+
+| preset | wrong | done |
+|---|---|---|
+| Hit Spark | thin 1-px lines at 64 px; read late | one big starburst, whole on frame 0, shrinking out in five frames; ten short fat sparks as Layer B |
+| Critical Hit | sparse crosses | fatter crosses, less travel, impact lines, a bigger flash |
+| Muzzle Flash | a speck at the frame's edge (Fit fitted the forward sparks only) | slower, fatter sparks, a bigger flash, a small backward glow (Layer B) so Fit centres it |
+| Blood Splat | specks (fast, far, tiny) | fewer, twice the size, less speed and gravity |
+| Coin Pickup | tiny stars | bigger stars, less travel, brighter flash |
+| Heal Rise, Level Up, Twinkle, Teleport Out, Hit Flash | small particles | bigger particles, less spread or speed |
+| Speed Dash | a speck (smeared dots) | long horizontal streaks from a box emitter, no smear |
+| Disintegrate | 4-px specks | 9-px grains; shorter (0.85 s) with a dissolve that leaves no dead tail |
+| Pixel Burst | flew out of a 7-frame clip | half the speed, bigger pixels |
+| Shockwave | a hairline ring | thicker ring |
+| Magic Bolt, Comet Trail, Comet Path | thin at 64 px | wider beam / bigger heads, less travel |
+| Sweat Drop | fell out of the frame, so Fit shrank it | half the gravity |
+| Shield Orbit | small bodies | bigger bodies |
+
+**Left out of the Moments view** (kept in their technique category, reachable as before): Rain (1-px drops: 0.5% of a
+64 px frame; Downpour is the rain there), Fireflies, Leaf Fall, Steam, Ash Fall, Dust Motes, Heat Shimmer, Glint Field, Water
+Splash, Water Ripple (too faint at game scale); Summon Circle, Comet Arc, Spirit Aura, Static Charge, Cursed Halo, Laser,
+Chain Lightning, Neon Streaks, Spark Shower, Triple Tap, Warp Speed, Sonic Pulse, Meteor Hit (thin lines or a mostly empty
+clip at 64 px; each moment has stronger ones). The rest of the 74 are techniques and scenes, not moments.
+
+**Tests** (sync suite 666): the sixteen moments in order with names, lines and words; every `moments` value known, once
+each; every moment ≥ 3 effects; leads belong and come first; `moments` never reaches `state`; every effect in a moment
+READS at 64 px (lit = alpha > 48 and light enough on a dark game, over all frames: mean ≥ 1.8%, peak ≥ 2.4%; the old
+Muzzle Flash was 0.7% / 1.7%); the projectile loops loop and the Wizard's projectile type takes them; the switch, a chip
+per moment, each chip exactly its moment in order, a chosen moment lit and counted, a pill under Techniques that one click
+drops; sixteen moment words find their moment as strong hits with the lead on the first page, "death" opens on Death Poof;
+every preset exactly once on both All pages. Existing tests moved to the Techniques view where they test categories;
+"fireball" now opens on the Fireball preset, then Meteor Hit; the invisible-genome check starts from Explosion (it used the
+random launch effect, and a launch effect with a layer draws at opacity 0). Frame hash: 246 of 275 old lines identical;
+the 29 that moved are exactly the 19 presets above (their frames, their three export cases, the sound case on Hit Spark)
+and the Everything batch zip; 17 new lines for the new presets (293 in all). Async 77, desktop 55, web 12, worker 38,
+plant 14, Godot 17, pull-core --check, the pre-commit hook, cargo build.
+
+**For AJ:** the moment table (membership, leads, words) is taste and cheap to retune; Hit Flash, Punch In and Hit Blank
+are close cousins (all kept: different colours); a projectile loop's seam is the engine's Seamless loop (the head is solid,
+the trail's first frames are a half-strength blend); the Foundry's look-alike Explosion candidates (§25's open item) are
+untouched by this round.

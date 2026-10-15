@@ -92,10 +92,12 @@
 
     // ---- the batch export's zip (My Effects, then Everything), through download()
     // Hashed from what goes INTO the zip (makeZip's list), less any `.crunchy` sidecar: zips carry sidecars since the
-    // planted Library (VFX-DESIGN §18, DESKTOP-ROADMAP.md decision 4), and that is the one intended difference.
+    // planted Library (VFX-DESIGN §18, DESKTOP-ROADMAP.md decision 4), and that is the one intended difference. So is a
+    // Godot pack's ready scene (§26: each folder's <base>.gd and <base>.tscn, the root README.txt), proved in real
+    // Godot by tests/godot-scene.mjs; what is left is byte for byte the pack as it was.
     const keepDl = download, keepZip = makeZip, keepUser = userEffects, got = [];
     let lastZip = null;
-    makeZip = function (list) { lastZip = list.filter(function (f) { return !/\.crunchy$/.test(f.name); }); return keepZip(list); };
+    makeZip = function (list) { lastZip = list.filter(function (f) { return !/\.(crunchy|gd|tscn)$|(^|\/)README\.txt$/.test(f.name); }); return keepZip(list); };
     download = function (blob, name) { got.push({ files: lastZip, name: name }); };
     try {
       userEffects = [{ id: 1, name: "One", state: withState(PRESETS[names[2]], snapshotState) },
