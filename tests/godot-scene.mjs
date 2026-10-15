@@ -1,9 +1,9 @@
 // CrunchyVFX — is every Godot export a DROP-IN scene in a real Godot?                 node tests/godot-scene.mjs
 //
 // VFX-DESIGN §26 (AJ, 2026-10-15: the ready scene is the drop-in way to use an effect). The WEB path, end to end:
-//   1. the real index.html (no Tauri) exports three effects through the Export dialog with Godot 4 chosen, pressing
+//   1. the real index.html (no Tauri) exports four effects through the Export dialog with Godot 4 chosen, pressing
 //      Export (tests/godot-scene.js, headless Firefox): a one-shot with a synthesised sound, a one-shot at two sizes,
-//      and a loop; the zips the button downloaded come back here, with what each scene should say;
+//      a loop, and (§28) an Icon effect; the zips the button downloaded come back here, with what each scene should say;
 //   2. each zip unpacks into its own folder of a scratch Godot 4 project, and Godot's importer runs;
 //   3. in a RUNNING SceneTree (--fixed-fps 60), each scene is spawned the README's way (instantiate, position, add_child),
 //      with its signals connected AFTER add_child, and never told to play:
@@ -37,9 +37,9 @@ for (const line of (ff.stdout || "").split("\n")) {
   const m = /^VFX SCENEZIP (\{.*\}) (\S+)$/.exec(line);
   if (m) fx.push(Object.assign(JSON.parse(m[1]), { zip: Buffer.from(m[2], "base64") }));
 }
-t("the web build exported three effects with the Export button, Godot 4 chosen", /VFX END PASS 3/.test(ff.stdout || "") && fx.length === 3,
+t("the web build exported four effects with the Export button, Godot 4 chosen", /VFX END PASS 4/.test(ff.stdout || "") && fx.length === 4,
   (ff.stdout || "").split("\n").filter((l) => /END|ERR/.test(l)).join(" ") || (ff.stderr || "").slice(-400));
-if (fx.length !== 3) { report(); }
+if (fx.length !== 4) { report(); }
 
 // 2. unzip (STORE-only, as makeZip writes) into res://fx/<base>/
 const unzip = (z) => {

@@ -79,7 +79,7 @@ keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `bor
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
 
-**`plant.js`, `library.js`, `settings.js`, `desktop.js` and `feedback.js` are GENERATED from crunchyCore too** (§18, §20), with the stamp
+**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js` and `glyphs.js` are GENERATED from crunchyCore too** (§18, §20, §28), with the stamp
 guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
 before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
 with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the
@@ -209,6 +209,7 @@ more particles.
 | `styles.css` | VFX's CSS: layout and the accent (the shared look is `crunchy-base.css`) |
 | `suite.js`, `crunchy-base.css`, `crunchy-icons.js` | **generated** from crunchyCore — the suite dialog, the shared look, the pixel icons |
 | `plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js` | **generated** from crunchyCore — planting, the docked Library, ⚙ Settings, the desktop gate (§18), the Feedback dialog (§20) |
+| `glyphs.js` | **generated** from crunchyCore — the suite's icon drawings (CrunchyUI's roster), the Icon particle's source (§28) |
 | `project-app.js` | VFX's own `PROJECT_APP`: a planted effect's kind and sidecar fields (§18) |
 | `tests/` | `build.py`, the browser suites, the frame hash, the planted Library's suites, the Godot check; see `tests/README.md` |
 | `tools/pull-synth.py` | re-vendors the synth engine from `../crunchyfx` |
@@ -220,6 +221,12 @@ more particles.
 
 ## Status
 
+- **The Icon particle (§28, 2026-10-15)**: shape 97 `icon` draws any of crunchyCore glyphs.js's 193 offered icons (not the
+  `ported` VFX shapes, not `hidden`), chosen by NAME in the PATCH_EXTRAS `icon` from a searchable picture picker; a `sized`
+  shape is drawn AT the particle's pixel size (glyphMask, unsmoothed), pixel for pixel CrunchyUI's icon. `iconFill` (Fill
+  holes, off) fills a skull's eyes or a coin's band darker. 8 presets (Heart Heal, Coin Burst, Gem Pickup, Skull Puff,
+  Alert Pop, Talk Bubble, Prompt Pop, Trophy Win); old frame hashes identical. Also: an old `.crunchyvfx` missing a newer
+  row now opens (`restoreEdit` defaults it). items.js not taken (full-colour; see §28).
 - **Moments (§27, 2026-10-15)**: the preset strip opens on GAME MOMENTS (Hit, Crit, Death, Spawn, Pickup, Heal, Power-up, Dash,
   Jump / Land, Projectile, Muzzle / Cast, Explosion, Shield, Status, Ambient, UI) from `PRESET_MOMENTS` + each preset's
   `moments`; Techniques and Tags one switch away. Every moment's effects read at 64 px (tested); 19 presets improved, 11

@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp index.html crunchy-base.css styles.css presets.js shapes.js vfx.js gif.js apng.js suite.js crunchy-icons.js project-app.js plant.js library.js settings.js desktop.js feedback.js crunchysfx-synth.js dist/
+          cp index.html crunchy-base.css styles.css presets.js glyphs.js shapes.js vfx.js gif.js apng.js suite.js crunchy-icons.js project-app.js plant.js library.js settings.js desktop.js feedback.js crunchysfx-synth.js dist/
 
       - name: Install Linux webview deps
         if: matrix.platform == 'ubuntu-22.04'

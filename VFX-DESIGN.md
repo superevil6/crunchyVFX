@@ -1722,3 +1722,90 @@ plant 14, Godot 17, pull-core --check, the pre-commit hook, cargo build.
 are close cousins (all kept: different colours); a projectile loop's seam is the engine's Seamless loop (the head is solid,
 the trail's first frames are a half-strength blend); the Foundry's look-alike Explosion candidates (§25's open item) are
 untouched by this round.
+
+## 28. The Icon particle: the suite's shared icons as particles (2026-10-15)
+
+**Why** (AJ: "UI has a massive set of icons … sharing through crunchyCore … usable as the particles here"): hearts on a
+heal, coins and gems on a pickup, a skull on a death, a warning sign, a talk bubble, a button prompt. CrunchyUI's icon
+DRAWINGS moved into crunchyCore as `glyphs.js` (GLYPHS_BUILD 1, core 6115463); VFX now takes it as a core file and
+draws any of them as a particle.
+
+**glyphs.js is a core file** (tools/core-files.json, `node tools/pull-core.mjs`; GENERATED here, never edited), loaded
+before shapes.js, with a `want: 1` stamp row and a line in Feedback's Files detail, `FRONTEND` in build.rs (19), the
+desktop-build.yml copy line, and the subresource prose in worker.js (seventeen), DEPLOY.md and .assetsignore (fifteen
+scripts). Pure; no DOM.
+
+**One appended shape, `icon` (97)**, in SHAPE_CATS' Symbol row and RANDOM_SHAPES. WHICH icon is the PATCH_EXTRAS string
+`icon` (a glyph NAME, default "heart"; a name rather than the core's index because a share link should read as what it
+draws, and the core never reuses a name). An unknown name draws the default. Only the icon shape reads it, so the
+default moves nothing. **One PARAMS row**, `iconFill` ("Fill holes", group Icon, 0..1, default 0 = off): the icon's HOLES
+(the empty pixels the outside cannot reach: a skull's eyes, a coin's band, the ! of a warning sign) filled in a darker
+tone of the particle's own colour (lightness x (1 - 0.8 x fill)), the two-tone read of a game pickup. 0 leaves them
+see-through, as CrunchyUI's bare glyph is.
+
+**Pixel-exact at the particle's size.** Every other shape draws a 64 px master that vfx.js scales per particle; a 12 px
+heart scaled from 64 is a smudge. A shape record may now say `sized: true`: drawFrame asks for its sprite AT
+round(particle size) px (`getSprite(..., px)`, the size appended to the cache key only then) and blits it with smoothing
+off on whole pixels (a rotated one turns nearest-neighbour). The icon's draw is `glyphMask(name, n)` straight into the
+sprite, so the particle is, pixel for pixel, the icon CrunchyUI draws at that size (tested at 9-40 px). Masks are cached
+by name and size (`iconMaskCache`, with their holes). The tint pass is unchanged (one flat tone from the effect's colour,
+ramp or palette, like every shape); a record may also say `after(g, R, st, hue, sat, lum)`, run over the tinted sprite
+(the filled holes). Every other shape takes exactly the old path: the frame hash proves it.
+
+**What is offered:** `iconOffered()` = every core glyph except `ported` (the 45 that were VFX's own shapes, already in
+the shape picker under their own names) and `hidden` (duplicates, drawings that do not read): 193 icons. Some share a
+name with a VFX shape (heart, star, coin, skull, crown …); they are CrunchyUI's drawings, so an effect can match a game's
+UI kit, and they stay. **The Icon panel** (generated from its row; shown while either layer draws the icon, PANEL_SHAPES)
+leads with a picture picker in Secondary's look (b-shape classes, no new CSS: a filter, a scrolling grid of 24 px
+glyphMask pictures from an idle queue, the chosen one lit), ordered shapes, then marks, then input legends; the filter
+matches the name, its group and a few game words (`ICON_WORDS`: "death" finds skull, "money" coin, "!" warn). Randomize:
+when it rolls the icon shape it draws from `ICON_PICKS` (twenty game icons, not the file/menu marks). The Wizard is
+untouched (its ingredients name VFX shapes; there is no icon hook to append to).
+
+**Presets (8, APPENDED; judged at 64 and 96 px on a game-green ground, frames over time).** Every icon upright and still
+(angleVar 0, no spin: a tilted icon reads as a mistake). Main's lightness falls toward 0.5 as its hot core cools, so where
+an icon must stay WHITE it is Layer B, whose brightness holds.
+
+| preset | moment | what |
+|---|---|---|
+| Heart Heal | heal | pink hearts rising over a ring (normal blend: additive overlaps went white) |
+| Coin Burst | pickup | gold coins thrown up and falling, Fill holes 0.55 (bare, the coin read as a ring) |
+| Gem Pickup | pickup | one cut gem rising, sparkle stars round it |
+| Skull Puff | death | a white skull (Layer B, Fill holes 0.9) rising out of a violet smoke puff |
+| Alert Pop | ui | a red-orange warning sign popping up, outlined |
+| Talk Bubble | ui | a white speech bubble (Layer B) with pop lines |
+| Prompt Pop | ui | a button prompt: a green ring (Main) with the A legend (Layer B), a shockwave |
+| Trophy Win | powerup | a gold trophy with sparkles |
+
+Fixed while judging: the coin bare (a ring: Fill holes), the skull at a random start angle (upside down), the bubble and
+the button letter on Main (they greyed: moved to Layer B), the trophy small at 64 (sparkles flew far, Fit shrank it).
+Not made: "?" and "!" alone and a music note (the core has no bare ! or ? glyph; the note is VFX's own, `ported`, and
+Music Notes exists). Categories: Heart Heal → Magic; Coin Burst, Gem Pickup, Trophy Win → Pickups & Charm; Skull Puff →
+Impacts; Alert Pop, Talk Bubble, Prompt Pop → Emotes.
+
+**A fix found on the way: old project files would not open.** `restoreEdit` wrote `snap[key]` for every PARAMS row and
+PATCH_EXTRA, so a `.crunchyvfx` saved before a row existed put `undefined` into state and the open threw ("val is
+undefined"; the desktop suite's legacy/a-head-crunchyvfx-file-opens-as-it-did). The uncommitted crescentTaper row had
+already tripped it; iconFill and icon would have too. A missing key now takes its default (neutral by rule); undo history
+always carries every key, so nothing else moves.
+
+**Not taken: items.js** (the CrunchyItems engine). Its items are full-colour shaded icons (three materials x six tones,
+outlines, enchant motes), so as particles they would bypass hue, ramps and palettes (the `ownColour` escape hatch the
+glyph and image shapes use), at 8,000 lines loaded on every page. The glyphs already carry the item SILHOUETTES (sword,
+potion, coin, chest, gem, shield …) that a particle needs. Worth revisiting as an "Item" shape with a tint slider if AJ
+wants loot drops in their real colours.
+
+**Tests.** Sync suite 683 (+17): icon appended and glyphs.js loaded; in SHAPE_CATS and RANDOM_SHAPES; the offer excludes
+ported and hidden; an unknown name falls back; pixel-exact sprites at 9/13/16/24/40 px (hard alpha, = glyphMask); Fill
+holes 0 see-through, 1 dark; the panel hides and shows with the shape, a picture per icon, the preset's icon lit, the
+filter's game words, a click chooses and redraws, the icon rides a share link and only when not the default; a snapshot
+missing a newer key restores at its default; the Icon presets upright. The extras check sets `icon`, and the picture check
+drains the Icon queue. Frame hash: every old line identical except the Everything batch zip (it holds every preset); 11
+new FRAME lines and one EXPORT line (306 in all). tests/godot-scene.mjs exports a fourth effect, Heart Heal, and plays it
+in real Godot (40 checks). Async 77, desktop 55, web 12, worker 38, plant 14, Godot 19, pull-core --check --strict, the
+pre-commit hook, cargo build.
+
+**For AJ:** whether same-named icons (heart, star, coin, skull …) should stay beside VFX's own shapes (kept: they are the
+UI kit's drawings); a bare "!" and "?" would be worth adding to the core (GLYPH_LATE) for emote pops; the glyph KNOBS
+(star points, arrow direction, dice face, cog teeth) are not exposed, every icon draws at its defaults; the Wizard does
+not use icons yet; items.js as particles (above).

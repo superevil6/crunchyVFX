@@ -329,9 +329,9 @@ window.PRESETS = {
 
   // ---------- More impacts ----------
   "Slash": {
-    shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
+    shape: 13, emitter: 0, count: 1, speed: 110, drag: 0.85,
     life: 0.22, lifeVar: 0.2, size: 78, sizeVar: 0.15, grow: 0.5, fadeOut: 0.6,
-    spin: 190, angle: 200, angleVar: 0, crescentArc: 0.34, crescentThick: 0.13,
+    spin: 190, angle: 200, angleVar: 0, crescentArc: 0.34, crescentThick: 0.16, crescentTaper: 1,
     hue: 200, hueLife: 20, sat: 0.22, coreWhite: 0.92,
     glow: 0.55, glowRadius: 8, duration: 0.3, fps: 30,
     moments: ["hit"],
@@ -1947,6 +1947,90 @@ window.PRESETS = {
     emit2Bright: 1, emit2Opacity: 1, loopBlend: 0.8, originY: 0.75, duration: 1.2, fps: 24, frameSize: 3,
     moments: ["status"],
   },
+  // 2026-10-16 (AJ: "it spawns two slices. If it were twin slash, that would make sense"): the double slash under its own
+  // name, Slash now being one. Tapered tips, like Slash.
+  "Twin Slash": {
+    shape: 13, emitter: 0, count: 2, speed: 110, drag: 0.85,
+    life: 0.22, lifeVar: 0.2, size: 78, sizeVar: 0.15, grow: 0.5, fadeOut: 0.6,
+    spin: 190, angle: 200, angleVar: 0, crescentArc: 0.34, crescentThick: 0.16, crescentTaper: 1,
+    hue: 200, hueLife: 20, sat: 0.22, coreWhite: 0.92,
+    glow: 0.55, glowRadius: 8, duration: 0.3, fps: 30,
+    moments: ["hit"],
+  },
+
+  // ---------- Icons (VFX-DESIGN §28): the suite's shared icons (crunchyCore glyphs.js) as particles, shape 97 ----------
+  // Every icon stays UPRIGHT and still (angleVar 0, no spin): an icon tilted at random reads as a mistake. Main's
+  // lightness falls toward 0.5 as its hot core cools, so an icon that must stay WHITE is Layer B, whose brightness holds.
+  "Heart Heal": {
+    shape: 97, icon: "heart", emitter: 4, emitRadius: 0.3, emitTime: 0.35, count: 7, speed: 25, speedVar: 0.4, drag: 0.4,
+    gravity: -150, life: 0.8, lifeVar: 0.25, size: 18, sizeVar: 0.25, grow: -0.15, fadeIn: 0.12, fadeOut: 0.45,
+    angle: 0, angleVar: 0, hue: 350, hueLife: 0, hueVar: 0.03, sat: 0.85, coreWhite: 0.25, blend: 1, glow: 0.3,
+    wave: 0.7, waveSpeed: 0.6, waveWidth: 0.2, waveLife: 0.45, waveSquash: 0.6, originY: 0.72, duration: 1.15, fps: 24,
+    frameSize: 3, moments: ["heal"],
+  },
+  "Coin Burst": {
+    shape: 97, icon: "coin", emitter: 0, count: 8, emitSpread: 120, speed: 150, speedVar: 0.35, drag: 0.45, gravity: 380,
+    life: 0.6, lifeVar: 0.2, size: 22, sizeVar: 0.15, grow: -0.2, fadeIn: 0, fadeOut: 0.35, angle: 0, angleVar: 0,
+    hue: 46, hueLife: -8, hueVar: 0, sat: 1, coreWhite: 0.3, flash: 0.75, flashSize: 0.4, flashLife: 0.08, glow: 0.3,
+    iconFill: 0.55, blend: 1, originY: 0.6, duration: 0.7, fps: 24, frameSize: 3, moments: ["pickup"],
+  },
+  "Gem Pickup": {
+    shape: 97, icon: "gemcut", emitter: 0, count: 1, emitSpread: 0, speed: 70, drag: 0.85, gravity: 0, life: 0.65,
+    lifeVar: 0, size: 34, sizeVar: 0, grow: 0.1, fadeIn: 0.05, fadeOut: 0.35, angle: 0, angleVar: 0, hue: 190,
+    hueLife: 0, hueVar: 0, sat: 0.9, coreWhite: 0.35, glow: 0.35,
+    emit2Count: 10, emit2Shape: 3, emit2Emitter: 0, emit2Speed: 110, emit2SpeedVar: 0.4, emit2Drag: 0.6, emit2Size: 12,
+    emit2SizeVar: 0.3, emit2Grow: -0.6, emit2Life: 0.45, emit2LifeVar: 0.3, emit2FadeIn: 0, emit2FadeOut: 0.5,
+    emit2Hue: 190, emit2Sat: 0.4, emit2Bright: 1, emit2Opacity: 1,
+    originY: 0.6, duration: 0.7, fps: 24, frameSize: 3, moments: ["pickup"],
+  },
+  "Skull Puff": {
+    shape: 5, emitter: 2, emitRadius: 0.08, count: 12, speed: 130, speedVar: 0.3, drag: 0.85, gravity: -30, life: 0.5,
+    lifeVar: 0.3, size: 30, sizeVar: 0.3, grow: 0.4, fadeIn: 0, fadeOut: 0.6, smokeSoft: 0.5, smokeBillow: 0.6, hue: 270,
+    hueLife: 0, sat: 0.15, bright: 0.9, coreWhite: 0, blend: 1, opacity: 0.9, angleVar: 0,
+    emit2Count: 1, emit2Shape: 97, emit2Emitter: 0, emit2Radius: 0, emit2Delay: 0.06, emit2Over: 0, emit2Speed: 0,
+    emit2Gravity: -90, emit2Drag: 0, emit2Size: 34, emit2SizeVar: 0, emit2Grow: 0, emit2Life: 0.65, emit2LifeVar: 0,
+    emit2FadeIn: 0.08, emit2FadeOut: 0.4, emit2Hue: 0, emit2Sat: 0, emit2Bright: 1, emit2Opacity: 1, icon: "skull",
+    iconFill: 0.9, duration: 0.8, fps: 24, frameSize: 3, moments: ["death"],
+  },
+  "Alert Pop": {
+    shape: 97, icon: "warn", emitter: 0, count: 1, emitSpread: 0, angleVar: 0, speed: 95, drag: 0.88,
+    life: 0.9, size: 40, sizeVar: 0, grow: 0.06, fadeIn: 0.07, fadeOut: 0.2, alphaCurve: 0.5,
+    hue: 8, hueLife: 0, hueVar: 0, sat: 0.95, bright: 1, coreWhite: 0.15, blend: 1,
+    outline: 2, outlineTone: 0.04, originY: 0.62, duration: 0.9, fps: 24, frameSize: 3,
+    moments: ["ui"],
+  },
+  "Talk Bubble": {
+    // The bubble is Layer B (it keeps its white); Main is the few pop lines thrown out behind it as it appears.
+    shape: 1, emitter: 0, count: 6, emitSpread: 360, speed: 120, speedVar: 0.2, drag: 0.8, life: 0.25, lifeVar: 0.2,
+    size: 14, sizeVar: 0.2, grow: -0.4, fadeIn: 0, fadeOut: 0.5, sparkLen: 0.7, hue: 200, hueLife: 0, hueVar: 0,
+    sat: 0.4, coreWhite: 0.9, blend: 1, angle: 0, angleVar: 0,
+    emit2Count: 1, emit2Shape: 97, emit2Emitter: 0, emit2Spread: 0, emit2Angle: 0, emit2Speed: 70, emit2Drag: 0.9,
+    emit2Gravity: 0, emit2Size: 40, emit2SizeVar: 0, emit2Grow: 0.04, emit2Life: 1, emit2LifeVar: 0, emit2FadeIn: 0.06,
+    emit2FadeOut: 0.2, emit2Hue: 200, emit2Sat: 0.15, emit2Bright: 1, emit2Opacity: 1, emit2Blend: 2, icon: "speech",
+    outline: 2, outlineTone: 0.04, originY: 0.62, duration: 1, fps: 24, frameSize: 3,
+    moments: ["ui"],
+  },
+  "Prompt Pop": {
+    // A button prompt landing: the ring (Main) is the button, the letter (Layer B, which keeps its white) its legend.
+    shape: 2, emitter: 0, count: 1, emitSpread: 0, angleVar: 0, speed: 0, drag: 0,
+    life: 0.8, size: 58, sizeVar: 0, grow: -0.1, fadeIn: 0.02, fadeOut: 0.25, alphaCurve: 0.5, ringThick: 0.2, ringSoft: 0,
+    hue: 140, hueLife: 0, hueVar: 0, sat: 0.75, bright: 1, coreWhite: 0.3, blend: 1,
+    emit2Count: 1, emit2Shape: 97, emit2Emitter: 0, emit2Spread: 0, emit2Speed: 0, emit2Drag: 0, emit2Gravity: 0,
+    emit2Size: 34, emit2SizeVar: 0, emit2Grow: -0.1, emit2Life: 0.8, emit2LifeVar: 0, emit2FadeIn: 0.02, emit2FadeOut: 0.25,
+    emit2Hue: 140, emit2Sat: 0.1, emit2Bright: 1, emit2Opacity: 1, emit2Blend: 2, icon: "btn-a",
+    wave: 0.8, waveSpeed: 0.55, waveWidth: 0.15, waveLife: 0.4, waveSquash: 0,
+    outline: 2, outlineTone: 0.04, duration: 0.8, fps: 24, frameSize: 3,
+    moments: ["ui"],
+  },
+  "Trophy Win": {
+    shape: 97, icon: "trophy", emitter: 0, count: 1, emitSpread: 0, angleVar: 0, speed: 60, drag: 0.85, gravity: 0,
+    life: 1.1, lifeVar: 0, size: 50, sizeVar: 0, grow: 0.08, fadeIn: 0.08, fadeOut: 0.3, hue: 44, hueLife: 0, hueVar: 0,
+    sat: 1, coreWhite: 0.3, glow: 0.35,
+    emit2Count: 24, emit2Shape: 3, emit2Emitter: 0, emit2Speed: 90, emit2SpeedVar: 0.5, emit2Drag: 0.5,
+    emit2Gravity: 120, emit2Size: 10, emit2SizeVar: 0.3, emit2Grow: -0.4, emit2Life: 0.7, emit2LifeVar: 0.3,
+    emit2FadeIn: 0, emit2FadeOut: 0.5, emit2Hue: 50, emit2Sat: 0.9, emit2Bright: 1, emit2Opacity: 1,
+    originY: 0.6, duration: 1.1, fps: 24, frameSize: 3, moments: ["powerup"],
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -1962,19 +2046,19 @@ window.PRESET_CATEGORIES = [
                   "Firework", "Water Ripple", "Sonar Ping", "Glitch Out", "Goo Split", "Comet Path",
                   "Sun Glint", "Corrupt Blip", "Glass Web", "Slime Drip", "Molten Drip",
                   "Radar Sweep", "Searchlight", "Rift Split"]],
-  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Paint Splatter", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash",
+  ["Impacts",    ["Hit Spark", "Muzzle Flash", "Slash", "Twin Slash", "Critical Hit", "Ground Slam", "Dust Kick", "Blood Splat", "Paint Splatter", "Slash Gash", "Bouncing Debris", "Rubble Drop", "Cog Burst", "Whip Crack", "Hit Flash",
                   "Scorch Mark", "Landing Puff", "Speed Dash", "Focus Lines", "Crit Pop", "Whip Pan",
                   "Ground Crack", "Katana Cut", "Sword Clash", "Rock Slide", "Ninja Strike", "Axe Chop", "Perfect Parry",
-                  "Death Poof", "Dash Trail", "Jump Dust", "Crit Burst"]],
+                  "Death Poof", "Dash Trail", "Jump Dust", "Crit Burst", "Skull Puff"]],
   ["Magic",      ["Magic Sparkle", "Aura Loop", "Lightning Zap", "Heal Rise", "Summon Swirl", "Teleport", "Poison Cloud",
                   "Rune Circle", "Summon Seal", "Shield Orbit", "Power Rings",
                   "Dimension Tear", "Constellation", "Nano Swarm",
                   "Vacuum Pull", "Soul Drain", "Shield Hex", "Spirit Wisps", "Tentacle Lash",
                   "Warp Tunnel", "Portal Depth", "Static Charge", "Spirit Aura",
                   "Tesla Coil", "Overcharge", "Cursed Halo", "Boo!", "Web Snare", "Potion Brew", "Treasure Unlock",
-                  "Soul Rise", "Heal Pulse"]],
-  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom", "Garden Burst", "Coin Fountain", "Candy Shower", "Crown Victory", "Egg Hatch", "Magnet Pull"]],
-  ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes", "Heartbreak", "Stun Stars", "Sleepy Zzz", "Sweat Drop"]],
+                  "Soul Rise", "Heal Pulse", "Heart Heal"]],
+  ["Pickups & Charm", ["Coin Pickup", "Pixel Burst", "Charm Hearts", "Level Up", "Confetti", "Twinkle", "Confetti Toss", "Flower Bloom", "Garden Burst", "Coin Fountain", "Candy Shower", "Crown Victory", "Egg Hatch", "Magnet Pull", "Coin Burst", "Gem Pickup", "Trophy Win"]],
+  ["Emotes",     ["Emote Pop", "Emoji Burst", "Speech Pop", "Damage Number", "Music Notes", "Heartbreak", "Stun Stars", "Sleepy Zzz", "Sweat Drop", "Alert Pop", "Talk Bubble", "Prompt Pop"]],
   ["Weather",    ["Rain", "Snow", "Fireflies", "Leaf Fall", "Petal Fall", "Leaf Swirl",
                   "Firefly Swarm", "Downpour", "Ash Fall", "Spore Drift", "Feather Fall", "Bird Flock", "Tornado Spin"]],
   ["Status & HUD", ["Shield Up", "Poisoned", "Target Lock", "Speed Boost", "Time Slow",

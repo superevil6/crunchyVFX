@@ -290,6 +290,9 @@
      CrunchySFX sources and run `python3 tools/pull-synth.py`. Exposes one global, CrunchySynth.
      Optional: if it's missing the app still runs, minus in-app sound synthesis. -->
 <script src="crunchysfx-synth.js"></script>
+<!-- The suite's icon DRAWINGS (crunchyCore glyphs.js, GENERATED: never edit it here), the Icon particle's source (§28).
+     Pure; loaded before shapes.js, whose "icon" shape draws them. -->
+<script src="glyphs.js"></script>
 <script src="shapes.js"></script>
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
@@ -327,6 +330,7 @@
     { file: "settings.js", want: 3, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
     { file: "desktop.js", want: 3, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
+    { file: "glyphs.js", want: 1, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
@@ -443,6 +447,7 @@ const PARAMS = [
   ["crossThin",  "Thinness",    0.02, 0.5, 0.01, 0.14, "","Cross"],
   ["crescentArc","Arc",         0.1, 1, 0.01, 0.55, "", "Crescent"],
   ["crescentThick","Thickness", 0.05, 0.6, 0.01, 0.22, "","Crescent"],
+  ["crescentTaper","Taper",      0, 1, 0.01, 0, "",     "Crescent"],   // 2026-10-16: 0 = round ends (as before), 1 = pointed tips
   ["flakeArms",  "Arms",        3, 8, 1, 6, "",        "Snowflake"],
   ["flakeBranch","Branches",    0, 1, 0.01, 0.5, "",   "Snowflake"],
   ["blobLobes",  "Lobes",       3, 9, 1, 5, "",        "Blob"],
@@ -451,6 +456,8 @@ const PARAMS = [
   ["spiralTurns","Turns",       0.5, 4, 0.1, 1.5, "",  "Spiral"],
   ["spiralThick","Thickness",   0.02, 0.4, 0.01, 0.12, "","Spiral"],
   ["glyphTint",  "Tint amount", 0, 1, 0.01, 1, "",     "Glyph"],
+  // §28: the Icon's holes (a skull's eyes, a coin's band) filled in a darker tone of its colour. 0 = see-through, as before.
+  ["iconFill",   "Fill holes",  0, 1, 0.01, 0, "",     "Icon"],
   ["imgTint",    "Tint amount", 0, 1, 0.01, 0, "",     "Image sprite"],
   // Flipbook: an imported strip animates per particle. 1×1 = a single still image (the default).
   ["imgCols",    "Strip cols",  1, 16, 1, 1, "",       "Image sprite"],
@@ -957,7 +964,10 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        layerDelay: "",
                        // Orbit's own shape selection. Empty = follow the particle shape,
                        // which is what every effect did before the picker existed.
-                       orbitShapes: "" };
+                       orbitShapes: "",
+                       // §28: WHICH suite icon the "icon" shape draws, by glyph NAME (crunchyCore glyphs.js).
+                       // Read only by that shape, so the default changes no existing effect.
+                       icon: ICON_DEFAULT };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -976,6 +986,7 @@ const PANEL_SHAPES = {
   Cross: [11], Crescent: [13], Snowflake: [14], Blob: [15], Teardrop: [16], Spiral: [17], Glyph: [18],
   Flower: [19],
   "Custom sprite": [8], "Image sprite": [9],
+  Icon: [SHAPES.indexOf("icon")],
 };
 
 // ---------- Render + preview ----------
@@ -1609,6 +1620,119 @@ let glyphInput = null;
       });
       picks.appendChild(b);
     }
+  }
+}
+
+// ---------- The Icon picker (§28) ----------
+// The "icon" shape draws one of the suite's shared icons (crunchyCore glyphs.js: CrunchyUI's roster), chosen HERE by
+// name into the PATCH_EXTRAS string `icon`. The Icon panel is generated from its PARAMS row (Fill holes); if it ever
+// is not, it is made here (the "Custom sprite" lesson). The same picture-picker look as Secondary's shape picker (the
+// b-shape classes, a filter, a scrolling grid), each icon drawn by glyphMask at 24 px into an <img> from an idle queue
+// (WebKitGTK drops a hidden canvas). Ordered for effects: the item/nature/symbol shapes, then the marks, then the
+// input legends. The filter matches the name, its group and a few game words (ICON_WORDS).
+const ICON_WORDS = {
+  heart: "health life love heal hp", coin: "money gold cash pickup currency", skull: "death dead die poison kill",
+  warn: "alert exclamation ! danger warning", info: "hint tip i", speech: "talk chat dialogue bubble ? question emote",
+  star: "favourite rating bonus", flame: "fire burn hot", drop: "water blood rain liquid", bolt: "lightning shock electric zap",
+  moneybag: "money gold loot", gemcut: "diamond jewel gem loot", gemstar: "sparkle twinkle shine", potion: "heal mana drink",
+  ghost: "spirit soul haunt", shield: "block defend guard", crown: "king royal win", trophy: "win victory award",
+  check: "ok yes done correct", close: "x no wrong cancel", plus: "add heal +", minus: "less damage -",
+  clock: "time timer", stopwatch: "time timer", sound: "music audio", leaf: "nature plant", clover: "luck lucky",
+};
+// What Randomize draws from when it rolls the icon shape: game icons, not the file/menu marks.
+const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame", "drop", "bolt", "gemcut", "gemstar",
+                    "crown", "ghost", "leaf", "clover", "potion", "trophy", "check", "plus", "moneybag"];
+{
+  const groupOrder = { shape: 0, mark: 1, input: 2 };
+  const groupLabel = {};
+  if (typeof GLYPH_GROUPS !== "undefined") for (const [k, l] of GLYPH_GROUPS) groupLabel[k] = l;
+  const offered = iconOffered().map((n, i) => ({ n, i, g: glyphInfo(n).group }))
+    .sort((a, b) => (groupOrder[a.g] - groupOrder[b.g]) || (a.i - b.i));
+  let panel = panels.querySelector('[data-group="Icon"]');
+  if (!panel && offered.length) {
+    panel = document.createElement("div");
+    panel.className = "panel";
+    panel.dataset.group = "Icon";
+    panel.innerHTML = "<h2>Icon</h2>";
+    const gp = panels.querySelector('[data-group="Glyph"]');
+    if (gp && gp.nextSibling) panels.insertBefore(panel, gp.nextSibling); else panels.appendChild(panel);
+    panel.hidden = true;
+  }
+  if (panel && offered.length) {
+    const wrap = document.createElement("div");
+    wrap.className = "b-shape icon-pick";
+    wrap.innerHTML = '<div class="b-shape-head" id="iconCount"></div>' +
+      '<input type="text" class="b-shape-filter" id="iconFilter" placeholder="Filter icons… (e.g. coin, death, !)" autocomplete="off" spellcheck="false" aria-label="Filter icons">' +
+      '<div class="b-shape-grid" id="iconGrid"></div>' +
+      '<p class="hint">The suite\'s shared icons (the same drawings as CrunchyUI\'s), drawn pixel-exact at the particle\'s size and coloured like any particle.</p>';
+    // after the panel's heading, above its Fill holes row: choosing the icon comes first
+    const head = panel.querySelector("h2");
+    panel.insertBefore(wrap, head ? head.nextSibling : panel.firstChild);
+    const grid = wrap.querySelector("#iconGrid"), count = wrap.querySelector("#iconCount");
+    const filter = wrap.querySelector("#iconFilter");
+    const btns = {}, hay = {};
+    const queue = [];
+    let timer = 0;
+    function pic(name) {
+      const n = 24, m = glyphMask(name, n), c = document.createElement("canvas");
+      c.width = c.height = n;
+      const g = c.getContext("2d"), img = g.createImageData(n, n);
+      for (let i = 0; i < n * n; i++) if (m && m.a[i]) { img.data[i * 4] = 232; img.data[i * 4 + 1] = 228; img.data[i * 4 + 2] = 242; img.data[i * 4 + 3] = 255; }
+      g.putImageData(img, 0, 0);
+      return c.toDataURL("image/png");
+    }
+    // all = true draws every waiting picture now (the suite's "every picture draws" check drains it this way).
+    function pump(all) {
+      timer = 0;
+      for (let k = 0; (all || k < 12) && queue.length; k++) { const [name, im] = queue.shift(); im.src = pic(name); }
+      if (queue.length) timer = setTimeout(pump, 16);
+    }
+    window.pumpIconPics = pump;
+    for (const { n: name, g: grp } of offered) {
+      const b = document.createElement("button");
+      b.className = "engine-btn compact shape-pic";
+      const im = document.createElement("img");
+      im.className = "shape-img"; im.alt = ""; im.width = im.height = 24;
+      const nm = document.createElement("span");
+      nm.className = "shape-name"; nm.textContent = name;
+      b.append(im, nm);
+      b.title = name; b.setAttribute("aria-label", "Icon " + name);
+      b.addEventListener("click", () => {
+        if (state.icon === name) return;
+        state.icon = name;
+        syncIconPicker(); commitHistory(); rerender();
+      });
+      grid.appendChild(b);
+      btns[name] = b;
+      hay[name] = (name + " " + name.replace(/^btn-/, "button ") + " " + (groupLabel[grp] || grp) + " " + (ICON_WORDS[name] || "")).toLowerCase();
+      queue.push([name, im]);
+    }
+    if (!timer) timer = setTimeout(pump, 0);
+    function applyFilter() {
+      const q = filter.value.trim().toLowerCase();
+      let shown = 0;
+      for (const name in btns) {
+        const hit = !q || q.split(/\s+/).every((w) => hay[name].indexOf(w) >= 0);
+        btns[name].hidden = !hit;
+        if (hit) shown++;
+      }
+      count.textContent = q ? shown + " of " + offered.length + " icons" : offered.length + " icons";
+    }
+    filter.addEventListener("input", applyFilter);
+    filter.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { filter.value = ""; applyFilter(); }
+      e.stopPropagation();
+    });
+    applyFilter();
+    window.syncIconPicker = function () {
+      const cur = iconName(state.icon);
+      for (const name in btns) {
+        const on = name === cur;
+        btns[name].classList.toggle("active", on);
+        btns[name].setAttribute("aria-pressed", on ? "true" : "false");
+      }
+    };
+    syncIconPicker();
   }
 }
 
@@ -2707,6 +2831,7 @@ function syncUI() {
   syncParamInputs();
   if (window.syncFrameRow) window.syncFrameRow();
   if (glyphInput) glyphInput.value = state.glyph;
+  if (window.syncIconPicker) window.syncIconPicker();
   if (bubbleInput) bubbleInput.value = state.bubbleText;
   syncPaletteUI();
   if (window.syncCustomSprite) window.syncCustomSprite();
@@ -2759,8 +2884,11 @@ function commitHistory() {
 }
 function restoreEdit(snap) {
   restoringHistory = true;
-  for (const p of PARAMS) state[p[0]] = snap[p[0]];
-  for (const k in PATCH_EXTRAS) state[k] = snap[k];
+  // A key the snapshot lacks takes its DEFAULT (neutral by rule): a project file saved before a PARAMS row or
+  // PATCH_EXTRA existed (crescentTaper; §28's iconFill, icon) otherwise wrote `undefined` into state and the open
+  // failed on it ("val is undefined"). Undo history always carries every key, so it is unchanged.
+  for (const p of PARAMS) state[p[0]] = snap[p[0]] !== undefined ? snap[p[0]] : p[5];
+  for (const k in PATCH_EXTRAS) state[k] = snap[k] !== undefined ? snap[k] : PATCH_EXTRAS[k];
   applyFitOf(snap);
   applyImageSprite(state.imageSprite);
   syncUI();
@@ -2840,7 +2968,7 @@ const SHAPE_CATS = [
               "crown", "chain", "sun", "clover", "bird", "bomb", "grenade", "magnet", "planet", "tornado",
               "bulb", "dice", "handcuffs", "paintbrush", "puzzle", "rose", "saxophone",
               "scroll", "sprout", "web", "lock", "egg", "heartbreak", "candy"]],
-  ["Symbol", ["glyph", "note", "rune", "hazard", "pentagram", "peace"]],
+  ["Symbol", ["glyph", "note", "rune", "hazard", "pentagram", "peace", "icon"]],
   // "custom" and "image" were implemented — the drawing grid, the PNG import with animated-strip
   // support, both covered by the suite — but listed in no category, so the picker never built a
   // button for them and no preset selected them. Fully working features with no door in.
@@ -4212,7 +4340,7 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
                        47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
                        59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75,
                        76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
-                       89, 90, 91, 92, 93, 94, 95, 96];
+                       89, 90, 91, 92, 93, 94, 95, 96, 97];
 // THE STARTING FRAME SIZE (§22.1, AJ 2026-10-13: "the preview pane is much larger now… the default effect size should
 // bump up too"). What a NEW effect starts at: Randomize, the Foundry and Match a sound. It is NOT the frameSize PARAMS
 // default, which stays 128 (index 4): that default is what every preset and share link without a frameSize key MEANS
@@ -4230,6 +4358,7 @@ function randomize() {
   applyImageSprite("");
   state.shape = RANDOM_SHAPES[Math.floor(Math.random() * RANDOM_SHAPES.length)];
   state.glyph = GLYPH_PICKS[Math.floor(Math.random() * GLYPH_PICKS.length)];
+  if (SHAPES[state.shape] === "icon") state.icon = ICON_PICKS[Math.floor(Math.random() * ICON_PICKS.length)];
   state.emitter = Math.floor(Math.random() * EMITTERS.length);
   for (const k of RAND_KEYS) {
     const p = PARAM_BY_KEY[k];
@@ -8811,7 +8940,7 @@ var feedback = feedbackMount({
   details: () => [["Build", isDesktop ? "desktop" : "web"],
                   ["Effect", effectLabel + " (" + (SHAPES[state.shape] || state.shape) + ", " + state.fps + " fps, pixelate " + state.pixelate + ")"],
                   ["Files", "suite " + SUITE_BUILD + ", crunchy-icons " + CRUNCHY_ICONS_BUILD + ", plant " + PLANT_BUILD + ", library " + LIBRARY_BUILD +
-                            ", settings " + SETTINGS_BUILD + ", desktop " + DESKTOP_BUILD + ", feedback " + FEEDBACK_BUILD +
+                            ", settings " + SETTINGS_BUILD + ", desktop " + DESKTOP_BUILD + ", feedback " + FEEDBACK_BUILD + ", glyphs " + GLYPHS_BUILD +
                             ", crunchy-base " + getComputedStyle(document.documentElement).getPropertyValue("--base-build").trim()]]
     .concat(project ? [["Planted", (project.engine === "godot" ? "a Godot project" : project.engine === "unity" ? "a Unity project" : "a folder") + ", " + project.assets.length + " effects"]] : []),
   // the Share dialog's link form (?e=), always the web build's: what anyone can open

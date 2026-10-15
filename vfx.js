@@ -672,11 +672,13 @@ function hslParts(h, s, l) {
   return [Math.round(ch(hh + 1 / 3) * 255), Math.round(ch(hh) * 255), Math.round(ch(hh - 1 / 3) * 255)];
 }
 
-function makeSprite(shape, hue, sat, lum, st, frame) {
+// `px` (optional, §28): a `sized` shape's sprite at the particle's own pixel size instead of the SPRITE_PX master.
+function makeSprite(shape, hue, sat, lum, st, frame, px) {
+  const S = px > 0 ? px : SPRITE_PX;
   const c = document.createElement("canvas");
-  c.width = c.height = SPRITE_PX;
+  c.width = c.height = S;
   const g = c.getContext("2d");
-  const R = SPRITE_PX / 2;
+  const R = S / 2;
   // draw the shape in white/alpha first, then tint it in one source-in pass
   g.fillStyle = "#fff"; g.strokeStyle = "#fff";
   const def = SHAPE_DEFS[shape] || SHAPE_DEFS[0];   // out of range falls back to glow, as ever
@@ -691,21 +693,22 @@ function makeSprite(shape, hue, sat, lum, st, frame) {
     g.globalCompositeOperation = def.ownColour ? "source-atop" : "source-in";
     g.globalAlpha = tintAmt;
     g.fillStyle = hsl(hue, sat, lum);
-    g.fillRect(0, 0, SPRITE_PX, SPRITE_PX);
+    g.fillRect(0, 0, S, S);
     g.globalAlpha = 1;
   }
+  if (def.after) def.after(g, R, st, hue, sat, lum);
   return c;
 }
 
-function getSprite(shape, hue, sat, light, st, frame) {
+function getSprite(shape, hue, sat, light, st, frame, px) {
   const hi = Math.round((((hue % 360) + 360) % 360) / 360 * HUE_STEPS) % HUE_STEPS;
   const si = Math.round(clamp01(sat) * (SAT_STEPS - 1));
   const li = Math.round(clamp01(light) * (LIGHT_STEPS - 1));
   const fr = shape === 9 ? (frame | 0) : 0;      // only the flipbook varies per frame
-  const key = spriteKey(shape, hi, si, li, st, fr);
+  const key = spriteKey(shape, hi, si, li, st, fr) + (px > 0 ? "|px" + px : "");
   let s = spriteCache.get(key);
   if (!s) {
-    s = makeSprite(shape, hi / HUE_STEPS * 360, si / (SAT_STEPS - 1), li / (LIGHT_STEPS - 1), st, fr);
+    s = makeSprite(shape, hi / HUE_STEPS * 360, si / (SAT_STEPS - 1), li / (LIGHT_STEPS - 1), st, fr, px);
     spriteCache.set(key, s);
   }
   return s;
@@ -826,9 +829,31 @@ function drawFrame(sim, f, g, st, xf) {
     const set = kind === K_PART2 ? setB : setA;
     const shp = set.length === 1 ? set[0]
       : set[Math.min(set.length - 1, Math.floor(rnd(seed, arr[o + P_ID], 70) * set.length))];
-    const spr = getSprite(shp, hue, sat, light, st, arr[o + P_FRAME]);
+    // A `sized` shape (the Icon, §28) is drawn AT this particle's pixel size and blitted unsmoothed on whole pixels:
+    // crisp as the icon CrunchyUI draws at that size. Everything else draws from its 64 px master, as ever.
+    const crisp = SHAPE_DEFS[shp] && SHAPE_DEFS[shp].sized ? Math.max(1, Math.round(sz)) : 0;
+    const spr = getSprite(shp, hue, sat, light, st, arr[o + P_FRAME], crisp);
     // spark and teardrop are directional shapes — they point where they're going
     const rot = (shp === 1 || shp === 16) ? Math.atan2(arr[o + P_VY], arr[o + P_VX]) : arr[o + P_ANG];
+    if (crisp) {
+      const smooth = g.imageSmoothingEnabled;
+      g.imageSmoothingEnabled = false;
+      const ghostsC = trail > 0 ? 4 : 0;
+      for (let t = ghostsC; t >= 0; t--) {
+        const back = t / Math.max(1, ghostsC) * trail * 0.06;
+        const gx = x - arr[o + P_VX] * xf.k * back, gy = y - arr[o + P_VY] * xf.k * back;
+        g.globalAlpha = a * (t === 0 ? 1 : 0.45 * (1 - t / (ghostsC + 1)));
+        if (rot) {
+          g.save(); g.translate(Math.round(gx), Math.round(gy)); g.rotate(rot);
+          g.drawImage(spr, -crisp / 2, -crisp / 2, crisp, crisp);
+          g.restore();
+        } else {
+          g.drawImage(spr, Math.round(gx - crisp / 2), Math.round(gy - crisp / 2), crisp, crisp);
+        }
+      }
+      g.imageSmoothingEnabled = smooth;
+      continue;
+    }
     // motion trail: a few ghosts back along the velocity vector. Cheap, and it reads as speed.
     const ghosts = trail > 0 ? 4 : 0;
     for (let t = ghosts; t >= 0; t--) {

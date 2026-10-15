@@ -6,6 +6,7 @@
 //   one-shot  Explosion, Play once, trimmed, with a synthesised sound ("Match a sound"'s WAV in the export)
 //   one-shot  Hit Spark, Auto (no Seamless loop: a one-shot), two sizes (the scene points at the @1x .tres)
 //   loop      Rain, Auto (Seamless loop on: it loops)
+//   one-shot  Heart Heal, Play once, trimmed (§28: an Icon particle effect)
 (async function () {
   const say = function (l) { dump("VFX " + l + "\n"); };
   const b64 = function (b) {
@@ -20,6 +21,8 @@
       { preset: "Explosion", name: "Boom Once", play: "once", trim: true, scales: [1], sound: true },
       { preset: "Hit Spark", name: "Spark Two Sizes", play: "auto", trim: true, scales: [1, 2], sound: false },
       { preset: "Rain", name: "Rain Loop", play: "auto", trim: false, scales: [1], sound: false },
+      // §28: an Icon effect (the suite's glyphs, drawn at the particle's pixel size) is a scene like any other
+      { preset: "Heart Heal", name: "Heart Heal Icons", play: "once", trim: true, scales: [1], sound: false },
     ];
     const keepDl = window.download;
     for (const p of plan) {

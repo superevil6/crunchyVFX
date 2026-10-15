@@ -106,7 +106,7 @@
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
-                  orbitShapes: "3,10" }, "extras");
+                  orbitShapes: "3,10", icon: "coin" }, "extras");
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -1142,6 +1142,7 @@
       ok(badPick.length === 0, "every shape button in all three pickers is a picture named by its shape", badPick.join(" · "));
       const cacheBefore = spriteCache.size;
       while (shapePicQueue.length) pumpShapePics();
+      if (window.pumpIconPics) pumpIconPics(true);     // §28: the Icon panel's pictures, drawn from their own queue
       const noPic = SHAPES.filter((n, i) => !SHAPE_PIC_ICONS[n] && !/^data:image\/png/.test(shapePicURL[i] || ""));
       const blankImg = Array.from(document.querySelectorAll("img.shape-img")).filter((im) => !im.getAttribute("src"));
       ok(noPic.length === 0 && blankImg.length === 0, "every shape draws its picture", noPic.join(", ") + (blankImg.length ? " · " + blankImg.length + " blank" : ""));
@@ -3660,6 +3661,69 @@
       pixelLock = lockWas; updateLockBtn();
       restoreEdit(snap25); effectLabel = label25;
       palPasteEl.blur(); window.scrollTo(0, 0);   // Game palette scrolled the page: the result box is fixed to the top
+    }
+    // ---------------------------------------------------------------- §28: the Icon particle (crunchyCore glyphs.js)
+    {
+      const snap28 = snapshotState(), label28 = effectLabel;
+      const ICON = SHAPES.indexOf("icon");
+      ok(ICON === 97 && typeof GLYPHS_BUILD === "number" && GLYPHS_BUILD >= 1, "the icon shape is appended (97) and glyphs.js is loaded", ICON + " / build " + (typeof GLYPHS_BUILD === "undefined" ? "-" : GLYPHS_BUILD));
+      ok(RANDOM_SHAPES.indexOf(ICON) >= 0 && SHAPE_CATS.some(([, l]) => l.indexOf("icon") >= 0), "the icon shape is in SHAPE_CATS and RANDOM_SHAPES");
+      const offered = iconOffered();
+      const portedOrHidden = offered.filter((n) => glyphInfo(n).ported || glyphInfo(n).hidden);
+      ok(offered.length >= 150 && !portedOrHidden.length, "the Icon picker offers the core's glyphs minus VFX's own (ported) and hidden ones", offered.length + " offered");
+      ok(iconName("no-such-glyph") === ICON_DEFAULT && iconName("skull") === "skull", "an unknown icon name falls back to the default");
+      // pixel-exact: the sprite at a particle's size IS glyphMask at that size (hard alpha, no smoothing)
+      const st28 = fullGenome({ shape: ICON, icon: "skull" });
+      let exact = true;
+      const sizes = [9, 13, 16, 24, 40];
+      for (const n of sizes) {
+        const spr = makeSprite(ICON, 0, 0, 1, st28, 0, n), m = glyphMask("skull", n);
+        const d = spr.getContext("2d").getImageData(0, 0, n, n).data;
+        for (let i = 0; i < n * n; i++) if ((d[i * 4 + 3] === 255) !== !!m.a[i] || (d[i * 4 + 3] !== 0 && d[i * 4 + 3] !== 255)) { exact = false; break; }
+      }
+      ok(exact, "an icon particle is drawn at its own pixel size, pixel for pixel the core's glyphMask", sizes.join(", ") + " px");
+      // Fill holes: 0 leaves the skull's eyes see-through, 1 fills them darker
+      const holesOf = (fill) => {
+        const s = fullGenome({ shape: ICON, icon: "skull", iconFill: fill });
+        const n = 20, spr = makeSprite(ICON, 0, 0, 1, s, 0, n), d = spr.getContext("2d").getImageData(0, 0, n, n).data;
+        const h = iconMask("skull", n).holes;
+        let op = 0, dark = 0;
+        for (let i = 0; i < n * n; i++) if (h[i] && d[i * 4 + 3] === 255) { op++; if (d[i * 4] < 128) dark++; }
+        return [op, dark];
+      };
+      const h0 = holesOf(0), h1 = holesOf(1);
+      ok(h0[0] === 0 && h1[0] > 0 && h1[1] === h1[0], "Fill holes 0 leaves an icon's holes see-through; 1 fills them in a darker tone", h0 + " / " + h1);
+      // the panel: hidden until the icon is chosen, a picture per offered icon, a filter by game words, a click chooses
+      const pnl = panels.querySelector('[data-group="Icon"]');
+      applyPreset(PRESETS["Explosion"], "Explosion", true); syncUI();
+      ok(pnl && pnl.hidden, "the Icon panel hides while no layer draws the icon");
+      applyPreset(PRESETS["Coin Burst"], "Coin Burst", true); syncUI();
+      ok(pnl && !pnl.hidden, "…and shows when one does");
+      const ibtns = pnl ? Array.from(pnl.querySelectorAll("#iconGrid button")) : [];
+      ok(ibtns.length === offered.length && ibtns.every((b) => b.querySelector("img.shape-img") && b.querySelector("img.shape-img").getAttribute("src")),
+         "the Icon picker has a picture per offered icon", ibtns.length + " buttons");
+      ok(ibtns.filter((b) => b.classList.contains("active")).map((b) => b.title).join() === "coin", "…the preset's icon is the lit one");
+      const iflt = document.getElementById("iconFilter");
+      iflt.value = "death"; iflt.dispatchEvent(new Event("input"));
+      const shownI = ibtns.filter((b) => !b.hidden).map((b) => b.title);
+      ok(shownI.indexOf("skull") >= 0 && shownI.length < 10, "the icon filter knows game words (death -> skull)", shownI.join(","));
+      iflt.value = ""; iflt.dispatchEvent(new Event("input"));
+      const pxBefore = rendered.canvases[4].toDataURL();
+      ibtns.find((b) => b.title === "skull").click();
+      ok(state.icon === "skull" && rendered.canvases[4].toDataURL() !== pxBefore, "clicking an icon chooses it and redraws the effect");
+      const dec28 = decodePatch(encodePatch("x"));
+      ok(dec28 && dec28.icon === "skull", "the chosen icon travels in a share link");
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+      ok(!("icon" in decodePatch(encodePatch("x"))), "…and a link without the icon does not carry it");
+      // a snapshot from before a row existed (an old .crunchyvfx's editor) restores with that row's default
+      const old = snapshotState(); delete old.iconFill; delete old.icon; state.iconFill = 0.5; state.icon = "coin";
+      restoreEdit(old);
+      ok(state.iconFill === 0 && state.icon === ICON_DEFAULT, "a snapshot missing a newer key restores it at its default");
+      // the §28 presets: every icon stands upright (a tilted icon reads as a mistake)
+      const ICON_PRESETS = ["Heart Heal", "Coin Burst", "Gem Pickup", "Skull Puff", "Alert Pop", "Talk Bubble", "Prompt Pop", "Trophy Win"];
+      ok(ICON_PRESETS.every((n) => { const p = PRESETS[n]; return p && (p.shape === ICON || p.emit2Shape === ICON) && p.angleVar === 0 && !p.spin; }),
+         "every Icon preset draws the icon, upright and still");
+      restoreEdit(snap28); effectLabel = label28; syncUI();
     }
   } catch (e) {
     fails++;

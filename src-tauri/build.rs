@@ -5,12 +5,14 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 18] = [
+const FRONTEND: [&str; 19] = [
     "index.html",
     "favicon.png",
     "presets.js",
     // The shape roster — vfx.js reads SHAPE_DEFS out of it, so the app is blank without it.
     "shapes.js",
+    // The suite's icon drawings (crunchyCore glyphs.js, GENERATED; VFX-DESIGN §28): the Icon particle draws them.
+    "glyphs.js",
     // Vendored CrunchySFX synthesis engine (tools/pull-synth.py) — the desktop build
     // must carry it or the app loses in-app sound.
     "crunchysfx-synth.js",

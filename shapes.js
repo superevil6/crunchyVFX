@@ -12,6 +12,9 @@
 //              is the point of the record: the two can no longer drift apart.
 //   ownColour  optional — for shapes that arrive already coloured (the glyph, an imported
 //              PNG). Returns how far to tint them; everything else is a flat repaint.
+//   sized      optional — true for a pixel-exact drawing (the Icon, §28): draw() fills a canvas of the
+//              particle's own pixel size (R = size / 2) and vfx.js blits it unsmoothed.
+//   after      optional — after(g, R, st, hue, sat, lum) paints over the TINTED sprite (the Icon's filled holes).
 //
 // ADDING A SHAPE: append a record here. That is the whole job — SHAPES, the cache key and
 // the draw call all come off this one list. Then add the name to SHAPE_CATS in index.html
@@ -284,13 +287,28 @@ const SHAPE_DEFS = [
   // ---- 13 crescent — an arc segment. Sword slashes, swooshes, orbit trails.
   {
     name: "crescent",
-    key: (st) => st.crescentArc + "," + st.crescentThick,
+    key: (st) => st.crescentArc + "," + st.crescentThick + "," + (st.crescentTaper || 0),
     draw(g, R, st, frame) {
       const th = Math.max(1, R * st.crescentThick), arc = st.crescentArc * Math.PI * 2;
-      g.lineWidth = th; g.lineCap = "round";
+      const taper = Math.max(0, Math.min(1, st.crescentTaper || 0));
+      if (!taper) {                                   // the original round-ended stroke, unchanged
+        g.lineWidth = th; g.lineCap = "round";
+        g.beginPath();
+        g.arc(R, R, R - th / 2 - 1, -Math.PI / 2 - arc / 2, -Math.PI / 2 + arc / 2);
+        g.stroke();
+        return;
+      }
+      // TAPERED (AJ, 2026-10-16: "taper the edges off to look more triangular"): a blade's arc, full thickness at the
+      // middle, thinning toward both tips (to a point at taper 1). The outer edge is the arc; the inner edge comes in
+      // by the thickness at each point along it.
+      const ro = R - 1, a0 = -Math.PI / 2 - arc / 2, N = 48;
       g.beginPath();
-      g.arc(R, R, R - th / 2 - 1, -Math.PI / 2 - arc / 2, -Math.PI / 2 + arc / 2);
-      g.stroke();
+      for (let i = 0; i <= N; i++) { const a = a0 + arc * i / N; g.lineTo(R + ro * Math.cos(a), R + ro * Math.sin(a)); }
+      for (let i = N; i >= 0; i--) {
+        const s = i / N, t = th * ((1 - taper) + taper * Math.sin(Math.PI * s)), a = a0 + arc * s, ri = ro - t;
+        g.lineTo(R + ri * Math.cos(a), R + ri * Math.sin(a));
+      }
+      g.closePath(); g.fill();
     },
   },
   // ---- 14 snowflake — radial arms with side branches. The ice primitive.
@@ -1875,7 +1893,85 @@ const SHAPE_DEFS = [
     ["C",0.432,0.038,0.461,0.067,0.461,0.104],["C",0.461,0.14,0.432,0.17,0.395,0.17],
     ["C",0.359,0.17,0.329,0.14,0.329,0.104],["C",0.329,0.067,0.359,0.038,0.395,0.038],["Z"]
   ]),
+  // ---- 97 icon — any of the suite's shared icon drawings (crunchyCore glyphs.js, VFX-DESIGN §28): the hearts, coins,
+  // skulls, warning signs, button prompts and items CrunchyUI's icons are made of, as a particle. WHICH icon is the
+  // patch's `icon` (a glyph NAME, a PATCH_EXTRAS string), not a slider. `sized`: vfx.js asks for this sprite AT THE
+  // PARTICLE'S PIXEL SIZE and blits it unsmoothed, so a 12 px heart is the 12 px heart CrunchyUI would draw (glyphMask
+  // fills pixel centres, no antialiasing), not a 64 px drawing blurred down to a smudge. Coloured like every shape: a
+  // white mask, tinted flat by the tint pass (so hue, ramps, palettes and eras all reach it).
+  {
+    name: "icon",
+    key: (st) => iconName(st.icon) + "," + (st.iconFill || 0),
+    sized: true,
+    draw(g, R, st, frame) {
+      const n = Math.max(1, Math.round(R * 2));
+      const m = iconMask(iconName(st.icon), n);
+      if (!m) return;
+      const img = g.createImageData(n, n), d = img.data;
+      for (let i = 0; i < n * n; i++) if (m.a[i]) { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255; d[i * 4 + 3] = 255; }
+      g.putImageData(img, 0, 0);
+    },
+    // AFTER the tint (vfx.js makeSprite): `iconFill` > 0 fills the icon's HOLES (a skull's eyes, a coin's band, the !
+    // on a warning sign) in a darker tone of the particle's own colour, so a flat icon gets the two-tone read of a
+    // game pickup. 0 (the default) leaves them see-through, as CrunchyUI's bare glyph is.
+    after(g, R, st, hue, sat, lum) {
+      const fill = Math.max(0, Math.min(1, st.iconFill || 0));
+      if (!fill) return;
+      const n = Math.max(1, Math.round(R * 2));
+      const m = iconMask(iconName(st.icon), n);
+      if (!m || !m.holes) return;
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = hsl(hue, sat, lum * (1 - 0.8 * fill));
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m.holes[y * n + x]) g.fillRect(x, y, 1, 1);
+    },
+  },
 ];
+
+// ---- the Icon particle's helpers (§28) -----------------------------------------------------------------------------
+// The default icon, and the one an unknown name falls back to (a link from a later core, a typo in a hand-made patch).
+const ICON_DEFAULT = "heart";
+// The glyphs the Icon picker OFFERS: every core glyph except the `ported` ones (VFX's own shapes, already in the shape
+// picker under their own names) and the `hidden` ones (duplicates, or drawings that do not read). A patch may still
+// NAME any glyph and it draws; the list only decides what is shown.
+function iconOffered() {
+  if (typeof glyphNames !== "function") return [];
+  return glyphNames().filter((n) => { const i = glyphInfo(n); return i && !i.ported && !i.hidden; });
+}
+function iconName(name) {
+  return (typeof glyphInfo === "function" && name && glyphInfo(name)) ? name : ICON_DEFAULT;
+}
+// Masks by name and size. A particle that grows asks for every size on its way, so this is a cache, not a nicety.
+const iconMaskCache = new Map();
+function iconMask(name, n) {
+  if (typeof glyphMask !== "function") return null;
+  const k = name + "|" + n;
+  let m = iconMaskCache.get(k);
+  if (m === undefined) {
+    m = glyphMask(name, n) || null;
+    if (m) m.holes = iconHoles(m.a, n);
+    if (iconMaskCache.size > 4000) iconMaskCache.clear();
+    iconMaskCache.set(k, m);
+  }
+  return m;
+}
+// The HOLES of a mask: the empty pixels the outside cannot reach (4-connected flood from the border). null if none.
+function iconHoles(a, n) {
+  const out = new Uint8Array(n * n), seen = new Uint8Array(n * n), stack = [];
+  for (let i = 0; i < n; i++) stack.push(i, (n - 1) * n + i, i * n, i * n + n - 1);
+  while (stack.length) {
+    const p = stack.pop();
+    if (seen[p] || a[p]) continue;
+    seen[p] = 1;
+    const x = p % n, y = (p / n) | 0;
+    if (x > 0) stack.push(p - 1);
+    if (x < n - 1) stack.push(p + 1);
+    if (y > 0) stack.push(p - n);
+    if (y < n - 1) stack.push(p + n);
+  }
+  let any = false;
+  for (let p = 0; p < n * n; p++) if (!a[p] && !seen[p]) { out[p] = 1; any = true; }
+  return any ? out : null;
+}
 
 // The patch format stores `shape` as an index into this list — see the APPEND ONLY note.
 const SHAPES = SHAPE_DEFS.map((d) => d.name);
