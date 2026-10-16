@@ -32,7 +32,7 @@ configured to auto-save downloads and read the file.
 ## The edge handler
 
 ```sh
-node tests/worker.test.mjs        # 29 assertions, exits non-zero on failure
+node tests/worker.test.mjs        # 47 assertions (with the search-engine pass, tests/seo.test.mjs), exits non-zero on failure
 ```
 
 A second runner, and only just justified: `worker.js` is an ES module built on Cloudflare globals,

@@ -118,7 +118,8 @@ The published set is deliberately tiny — see DEPLOY.md.
 useful to run it in headless. (Node *does* exist here, v24, despite what this file used to say. It
 earns its keep for exactly one thing: `worker.js` is an ES module full of Cloudflare globals and
 can't be inlined into the browser suite, so it has its own runner —
-`node tests/worker.test.mjs`. Don't reach for it for anything else.)
+`node tests/worker.test.mjs`. Don't reach for it for anything else. It also spawns `tests/seo.test.mjs`, the
+suite's generic search-engine check (VFX-DESIGN §29), copied byte-identical from CrunchyTile: never edit it here.)
 
 ```sh
 python3 tests/build.py          # concatenates index.html + a suite into tests/run*.html
@@ -221,6 +222,11 @@ more particles.
 
 ## Status
 
+- **The search-engine pass (§29, 2026-10-16)**: a real title/description and SoftwareApplication JSON-LD on index.html, whose
+  layout is untouched except one `data-web` "About CrunchyVFX" link in the licence footer; the words live on a static
+  `about.html` (web only, NOT in build.rs; served at /about: h1, FAQ + FAQPage JSON-LD, the suite's links), plus robots.txt,
+  sitemap.xml (/ and /about), the IndexNow key. `tests/seo.test.mjs` is generic and byte-identical across the suite (run by
+  `node tests/worker.test.mjs`).
 - **The Icon particle (§28, 2026-10-15)**: shape 97 `icon` draws any of crunchyCore glyphs.js's 193 offered icons (not the
   `ported` VFX shapes, not `hidden`), chosen by NAME in the PATCH_EXTRAS `icon` from a searchable picture picker; a `sized`
   shape is drawn AT the particle's pixel size (glyphMask, unsmoothed), pixel for pixel CrunchyUI's icon. `iconFill` (Fill

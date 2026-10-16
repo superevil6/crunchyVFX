@@ -123,5 +123,40 @@ eq("on the real domain it is a no-op",
 eq("a relative value is left alone", sameOrigin("og.png", "https://x.test"), "og.png");
 eq("and so is an empty one", sameOrigin("", "https://x.test"), "");
 
+// --- the search-engine files (VFX-DESIGN §29) ------------------------------------------------------
+// Plain assets, through the same one rule as og.png: unversioned, so revalidated, never pinned for a year.
+for (const f of ["/robots.txt", "/sitemap.xml", "/44b30b0415e1540c853a5d3826a59855.txt"])
+  ok(f + " is served no-cache", cacheHeaderFor(u(f), f.endsWith(".xml") ? "application/xml" : "text/plain") === "no-cache");
+// The About page (about.html, served by the static assets at /about): the Worker passes it through ASSETS unchanged and
+// it comes back as no-cache HTML. HTMLRewriter is a Cloudflare global; a pass-through stands in for it here.
+{
+  const worker = (await import("../worker.js")).default;
+  const page = "<!doctype html><html lang=\"en\"><title>About CrunchyVFX</title></html>";
+  const seen = [];
+  globalThis.HTMLRewriter = class { on() { return this; } transform(r) { return r; } };
+  const ASSETS = { fetch: async (req) => { seen.push(new URL(req.url).pathname);
+    return new URL(req.url).pathname === "/about"
+      ? new Response(page, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=3600" } })
+      : new Response("not found", { status: 404, headers: { "content-type": "text/plain" } }); } };
+  const r = await worker.fetch(new Request("https://crunchyvfx.com/about"), { ASSETS, CF_VERSION_METADATA: { id: "abc12345" } });
+  const body = await r.text();
+  ok("/about is asked of ASSETS as /about", seen.length === 1 && seen[0] === "/about", seen.join(","));
+  ok("/about comes back 200", r.status === 200, String(r.status));
+  ok("/about is HTML", /text\/html/.test(r.headers.get("content-type") || ""), r.headers.get("content-type"));
+  ok("/about is no-cache", r.headers.get("cache-control") === "no-cache", r.headers.get("cache-control"));
+  ok("/about's page is passed through unchanged", body === page, body);
+  delete globalThis.HTMLRewriter;
+}
+// And what a crawler reads (title, description, JSON-LD, the About FAQ, the suite footer, robots, sitemap, the
+// IndexNow key, none of it hidden by .assetsignore): its own file, the same in every Crunchy app.
+{
+  const { spawnSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL("./seo.test.mjs", import.meta.url))], { encoding: "utf8" });
+  const lines = (r.stdout + r.stderr).trim().split("\n");
+  ok("the search-engine pass (node tests/seo.test.mjs): " + lines[lines.length - 1], r.status === 0,
+     lines.filter((l) => l.startsWith("FAIL ")).join("; "));
+}
+
 console.log((fail ? "FAIL" : "PASS") + " · " + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

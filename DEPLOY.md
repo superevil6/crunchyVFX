@@ -119,7 +119,13 @@ Tauri and Flatpak sources. Without it, `assets.directory: "."` publishes the **e
 every path a crawler can find.
 
 The published set is exactly: `index.html`, the fifteen sibling scripts (suite.js and crunchy-icons.js from crunchyCore; since VFX-DESIGN §18 project.js is gone and project-app.js, plant.js, library.js, settings.js and desktop.js joined; feedback.js with §20; glyphs.js with §28), the two stylesheets (`crunchy-base.css`, `styles.css`), and
-`favicon.png` / `apple-touch-icon.png` / `og.png`. **If you add a file the app loads at runtime, it
+`favicon.png` / `apple-touch-icon.png` / `og.png`; and, for search engines (VFX-DESIGN §29), `about.html` (the About page, web
+only: static, no script, served at `/about` by the default `html_handling`, which redirects `/about.html` there; the Worker
+passes it through as `no-cache` HTML and stamps its one stylesheet link), `robots.txt`, `sitemap.xml` (`/` and `/about`) and
+the IndexNow key file `44b30b0415e1540c853a5d3826a59855.txt` (plain assets: unversioned, so `no-cache` like og.png; nothing
+in the Worker special-cases them, and there is no SPA fallback to eat them). `tests/seo.test.mjs` (run by
+`node tests/worker.test.mjs`) checks `.assetsignore` never hides them. After a deploy that changes either page, `node
+tools/indexnow.mjs` tells Bing (and DuckDuckGo through it) to recrawl; bump `sitemap.xml`'s `lastmod` first. **If you add a file the app loads at runtime, it
 must not be matched by `.assetsignore`** — re-run the verification below after adding one.
 
 ---
@@ -130,7 +136,7 @@ Unlike the siblings, this Worker has been **run against the real Cloudflare runt
 `workerd`, via `npx wrangler dev` — so its behaviour isn't taken on faith:
 
 ```sh
-node tests/worker.test.mjs                    # the pure helpers (33 assertions)
+node tests/worker.test.mjs                    # the pure helpers + the search-engine pass (47 assertions)
 rm -rf .wrangler                              # see the reload-loop note below
 npx wrangler dev --port 8787 --local          # the whole thing, on workerd
 ```

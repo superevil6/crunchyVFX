@@ -1809,3 +1809,31 @@ pre-commit hook, cargo build.
 UI kit's drawings); a bare "!" and "?" would be worth adding to the core (GLYPH_LATE) for emote pops; the glyph KNOBS
 (star points, arrow direction, dice face, cog teeth) are not exposed, every icon draws at its defaults; the Wizard does
 not use icons yet; items.js as particles (above).
+
+---
+
+## 29. The search-engine pass: words a crawler can read (2026-10-16)
+
+**Why.** The suite's sites were not being found on DuckDuckGo or Bing: a crawler saw a logo-only `<h1>`, button labels and
+no sitemap, and the suite's cross-links lived only inside the JS suite dialog. The same pass in all five apps (CrunchyTile
+§143 is the reference). A first cut put an About section and the suite footer under the app; AJ: "that scroll is pretty
+ugly", so the words moved to their own page the same day.
+
+**What.**
+- **index.html (the app, its layout untouched):** `<title>` "CrunchyVFX: free CC0 pixel-art sprite VFX generator for games";
+  one meta description (free, CC0, no generative AI) shared word for word by og:/twitter:; a `SoftwareApplication`
+  JSON-LD before the stylesheets (one price-0 web offer, operatingSystem "Web" only while suite.js has no VFX store page,
+  author superevil6, NO `license`: CC0 covers the OUTPUT, not the code); one `<a href="about.html" data-web>` at the end of
+  the licence footer's tool notice. `isDesktop` hides `[data-web]`. styles.css is unchanged.
+- **about.html (web only, served at /about, canonical `https://crunchyvfx.com/about`):** a static page (no script but the
+  FAQPage JSON-LD), `crunchy-base.css` plus a small inline style in the tokens with VFX's violet accent. "Open CrunchyVFX"
+  back to the app, h1 "Free CC0 pixel-art sprite VFX generator", four paragraphs, "Things you can make", five questions
+  (the FAQPage JSON-LD is them word for word) and `<footer class="suitelinks">`: exactly suite.js's other web links and
+  every published desktop page. NOT in src-tauri/build.rs or the desktop CI copy list.
+- **Files:** `robots.txt`, `sitemap.xml` (`/` and `/about`; bump `lastmod` when a page changes), the IndexNow key
+  `44b30b0415e1540c853a5d3826a59855.txt`, `tools/indexnow.mjs` (run by hand after a deploy; the only file that touches
+  the network, never published). The Worker serves them as plain unversioned assets (`no-cache`).
+- **Tests:** `tests/seo.test.mjs` is the suite's generic checker, byte-identical in every app (never edit it here); VFX has
+  no wiring test, so `tests/worker.test.mjs` spawns it, and also runs a request for `/about` through the Worker over a
+  mocked ASSETS (47 assertions, was 38). Web suite row `seo/the-about-link-is-on-the-web-and-the-app-page-keeps-its-layout`,
+  desktop row `gate/no-website-about-link`. Presentation only: frame hash unchanged.

@@ -2,11 +2,11 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CrunchyVFX — sprite VFX generator</title>
+<title>CrunchyVFX: free CC0 pixel-art sprite VFX generator for games</title>
 <link rel="icon" href="favicon.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#14121a">
-<meta name="description" content="Free, from-scratch sprite VFX generator in your browser — explosions, magic, impacts, weather. Design an effect, share it as a link, export a sprite sheet your engine can read.">
+<meta name="description" content="Free browser VFX generator: pixel-art explosions, hits, magic and weather as sprite sheets, GIFs and Godot scenes. No generative AI. Output is CC0.">
 <!-- Open Graph / Twitter card. Scrapers do not run JavaScript and generally reject relative image
      paths, so og:image MUST be absolute. Hosting is settled: crunchyvfx.com at the root, matching
      crunchysfx.com — one domain per tool in the suite. If that ever moves, these four URLs and
@@ -16,17 +16,56 @@
 <link rel="canonical" href="https://crunchyvfx.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="CrunchyVFX">
-<meta property="og:title" content="CrunchyVFX — make &amp; share sprite VFX">
-<meta property="og:description" content="Design animated 2D game effects in your browser — explosions, magic, impacts, weather — and export sprite sheets, GIFs or APNGs. Free, and what you make is yours.">
+<meta property="og:title" content="CrunchyVFX: free CC0 pixel-art sprite VFX generator for games">
+<meta property="og:description" content="Free browser VFX generator: pixel-art explosions, hits, magic and weather as sprite sheets, GIFs and Godot scenes. No generative AI. Output is CC0.">
 <meta property="og:url" content="https://crunchyvfx.com/">
 <meta property="og:image" content="https://crunchyvfx.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="CrunchyVFX — a from-scratch sprite VFX generator">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="CrunchyVFX — make &amp; share sprite VFX">
-<meta name="twitter:description" content="Design animated 2D game effects in your browser and export sheets your engine can read. Free, and what you make is yours.">
+<meta name="twitter:title" content="CrunchyVFX: free CC0 pixel-art sprite VFX generator for games">
+<meta name="twitter:description" content="Free browser VFX generator: pixel-art explosions, hits, magic and weather as sprite sheets, GIFs and Godot scenes. No generative AI. Output is CC0.">
 <meta name="twitter:image" content="https://crunchyvfx.com/og.png">
+<!-- THE SEARCH-ENGINE PASS (VFX-DESIGN §29): what a crawler reads. tests/seo.test.mjs keeps the title, description, cards,
+     this JSON-LD and the link to about.html (the About page: its FAQ and the suite's links) in agreement. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "CrunchyVFX",
+  "url": "https://crunchyvfx.com/",
+  "description": "Free browser VFX generator: pixel-art explosions, hits, magic and weather as sprite sheets, GIFs and Godot scenes. No generative AI. Output is CC0.",
+  "applicationCategory": "DesignApplication",
+  "applicationSubCategory": "Pixel-art sprite VFX generator",
+  "operatingSystem": "Web",
+  "isAccessibleForFree": true,
+  "image": "https://crunchyvfx.com/og.png",
+  "author": {
+    "@type": "Person",
+    "name": "superevil6"
+  },
+  "offers": [
+    {
+      "@type": "Offer",
+      "name": "Web version",
+      "price": "0",
+      "priceCurrency": "USD",
+      "url": "https://crunchyvfx.com/"
+    }
+  ],
+  "featureList": [
+    "Animated 2D game effects: explosions, hits, magic, pickups, weather",
+    "Particle systems, layers, timing and nearly a hundred code-drawn particle shapes",
+    "Era styles and palettes for a pixel-art look, or your game's own palette",
+    "PNG sprite sheets, PNG frames, animated PNG and GIF export",
+    "Godot 4 ready scene (.tscn) with SpriteFrames, Aseprite JSON and Phaser 3 atlas",
+    "Share any effect as a link",
+    "Everything it makes is CC0 (public domain)",
+    "No generative AI, no samples"
+  ]
+}
+</script>
 <!-- The suite's shared look (crunchyCore, VFX-DESIGN §17): GENERATED, never edited here. It loads BEFORE
      styles.css, which keeps only VFX's layout and its violet accent. -->
 <link rel="stylesheet" href="crunchy-base.css">
@@ -282,7 +321,7 @@
   <h2>License</h2>
   <p><strong>Your effects are yours — free and clear.</strong> Every effect you create or export with CrunchyVFX is released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0 (public domain)</a>. Use them in anything — commercial games, videos, apps, whatever — forever. <strong>No attribution required, no credit, no strings.</strong> You never need to mention CrunchyVFX.</p>
   <p>Every particle shape is drawn in code — no third-party artwork is bundled, so nothing you export carries someone else's licence. If you <strong>import your own sprite or reference image</strong>, the CC0 dedication above doesn't extend to that file: its licensing is your responsibility.</p>
-  <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 superevil6 — all rights reserved. The CC0 dedication above covers the <em>effects you create</em>, not this tool's source code.</p>
+  <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 superevil6 — all rights reserved. The CC0 dedication above covers the <em>effects you create</em>, not this tool's source code.<span data-web> · <a href="about.html" data-web>About CrunchyVFX</a></span></p>
 </footer>
 
 <script src="presets.js"></script>
@@ -9620,6 +9659,9 @@ for (const m of document.querySelectorAll(".modal")) {
 // The web's "Get the desktop app" button is the core's, and it appears ONLY once suite.js carries CrunchyVFX's store
 // link (one edit in crunchyCore, then a pull): until then nothing is shown. This replaced VFX's own ITCH_LIVE flag and
 // dialog. The list is what the desktop adds, said plainly: workflow, never effects.
+// The other way round (§29): the About link (about.html, the website's page of words) is for people (and search
+// engines) landing on the website, so the desktop app, which is already installed, leaves it out.
+if (isDesktop) document.querySelectorAll("[data-web]").forEach(function (e) { e.hidden = true; });
 const desktopGate = desktopMount("vfx", {
   place: document.getElementById("hdrGlobals"),
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (u) => window.__TAURI__.opener.openUrl(u) : null,

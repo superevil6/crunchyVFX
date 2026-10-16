@@ -147,6 +147,14 @@
     const bad = text.match(/\b(pro|premium|unlock(ed|s)?)\b/gi);
     return ok(!bad, bad ? bad.join(",") : "");
   });
+  // §29: the About page is its own file (about.html); the app page keeps its layout and carries one plain link to it
+  await t("seo/the-about-link-is-on-the-web-and-the-app-page-keeps-its-layout", function () {
+    const a = document.querySelector('a[href="about.html"]');
+    if (!shown(a)) return ok(false, "no About link shown on the web");
+    if (document.querySelector("section.about, footer.suitelinks")) return ok(false, "an About section or suite footer is still on the app page");
+    const lic = document.querySelector("footer.license");
+    return ok(lic.contains(a) && a.hasAttribute("data-web"), "the link is not data-web inside the licence footer");
+  });
   await t("safety/no-page-errors", function () { return ok(!window.__pageErrors.length, window.__pageErrors.slice(0, 3).join(" | ")); });
 
   const failed = rows.filter(function (r) { return !r.pass; });

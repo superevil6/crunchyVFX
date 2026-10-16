@@ -94,6 +94,11 @@
               /Imports & history/.test(ih.textContent) && !/^Library$/.test(ih.textContent.trim()) && shown(document.getElementById("setBtn")) &&
               !document.querySelector(".desk-cta") && !document.querySelector(".desk-overlay") && !document.getElementById("deskCta"));
   });
+  // §29: the website's About link (about.html) is web only
+  await t("gate/no-website-about-link", function () {
+    const a = document.querySelector('a[href="about.html"]');
+    return ok(!!a && !shown(a));
+  });
   await t("legacy/the-head-store-is-read-as-it-was", function () {
     const up = JSON.parse(V.localStorage.store["crunchyvfx.userpresets.v1"]);
     return ok(userEffects.length === 6 && JSON.stringify(userEffects) === JSON.stringify(up.items) && upSeq === up.seq &&
