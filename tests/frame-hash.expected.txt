@@ -152,7 +152,7 @@ VFX FRAME "Molten Drip" 066a38050517d472
 VFX FRAME "Radar Sweep" 819c5ea5d0cf8b1c
 VFX FRAME "Searchlight" 89832990d112b935
 VFX FRAME "nofit:Searchlight" f3d562adb16b5c48
-VFX FRAME "Katana Cut" a5c10d901afb0533
+VFX FRAME "Katana Cut" acaef862373f0845
 VFX FRAME "Rift Split" 169f91a093283a0f
 VFX FRAME "Blast Shell" 8a25108058d39db9
 VFX FRAME "nofit:Blast Shell" 890b421fd7260dca
@@ -303,6 +303,6 @@ VFX EXPORT "Heal Pulse|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none
 VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 21e911c7e2fae494
 VFX EXPORT "sound:Hit Spark" 8a6e12898e771aee
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" a7d268aae62cf855
-VFX FRAMEHASH e45da201675ea91a over 306
+VFX BATCH "crunchyvfx-pack.zip" 921c82cf7410fe12
+VFX FRAMEHASH a2f4c4e72fac8bb6 over 306
 VFX END PASS 306 hashes

@@ -1036,10 +1036,15 @@ function drawBeam(g, st, t, xf, fs, ox, oy, seed) {
 // crescent SHAPE approximates this and can't curve along motion; this is the real thing.
 function drawRibbon(g, st, t, xf, fs, ox, oy) {
   if (st.ribbon <= 0) return;
-  const head = clamp01(t / Math.max(0.01, st.duration * st.ribbonSweep));
+  const u = t / Math.max(0.01, st.duration * st.ribbonSweep);
+  const head = clamp01(u);
   if (head <= 0) return;
   const tail = Math.max(0.02, st.ribbonTrail);
-  const from = Math.max(0, head - tail);
+  let from = Math.max(0, head - tail);
+  // FOLLOW-THROUGH: once the head stops, the tail can keep going and sweep the ribbon away, so a slash
+  // finishes instead of hanging there frozen until the effect ends (AJ, 2026-10-15: Katana Cut). Off = as before.
+  if (st.ribbonRetract > 0 && u > 1) from = Math.min(head, from + st.ribbonRetract * (u - 1));
+  if (head - from < 1e-3) return;
   const arc = st.ribbonArc * Math.PI * 2;
   const a0 = (st.ribbonSpin - 90) * DEG;
   const R = st.ribbonRadius * fs * xf.k;

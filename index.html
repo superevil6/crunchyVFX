@@ -529,6 +529,7 @@ const PARAMS = [
   ["ribbonSpin", "Start angle", 0, 360, 1, 0, "°",     "Ribbon"],
   ["ribbonSweep","Sweep over",  0.05, 1, 0.01, 0.5, "","Ribbon"],
   ["ribbonTrail","Trail",       0.02, 1, 0.01, 0.6, "","Ribbon"],
+  ["ribbonRetract","Retract",   0, 1, 0.01, 0, "",     "Ribbon"],   // 2026-10-15: 0 = the trail stays once the sweep ends (as before), 1 = it follows the head away
   // Vortex — concentric rotating rings. Portals, summoning circles, drains.
   ["vortex",     "Vortex",      0, 1, 0.01, 0, "",     "Vortex"],
   ["vortexRings","Rings",       1, 8, 1, 4, "",        "Vortex"],

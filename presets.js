@@ -1030,10 +1030,11 @@ window.PRESETS = {
     shape: 0, count: 46, opacity: 1, emitter: 4, emitAngle: 30, emitSpread: 16,
     emitRadius: 0.34, speed: 150, speedVar: 0.5, drag: 0.4, size: 6, sizeVar: 0.5,
     life: 0.4, lifeVar: 0.3, fadeOut: 0.5,
-    ribbon: 0.9, ribbonWidth: 10, ribbonArc: 0.6, ribbonAngle: 30, ribbonLife: 0.4,
+    ribbon: 0.9, ribbonWidth: 13, ribbonArc: 0.35, ribbonAngle: 30, ribbonLife: 0.4,
+    ribbonSweep: 0.5, ribbonRetract: 1,      // a short swing that follows through and clears (AJ, 2026-10-15: "should stop sooner")
     slice: 1, sliceAngle: 30, sliceOffset: 0.3, sliceGap: 0.14,
     hue: 0, sat: 0.1, bright: 1, coreWhite: 0.85,
-    glow: 0.5, duration: 0.7, fps: 24, frameSize: 5,
+    glow: 0.5, duration: 0.5, fps: 24, frameSize: 5,
     moments: ["hit"],
   },
   "Rift Split": {
