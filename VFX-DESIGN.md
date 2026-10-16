@@ -785,6 +785,9 @@ are this project's, measured with `objdump -T`.
 a **draft** release, and pushes only the Windows installer to itch. Never publish that draft — the
 paid installers would become a free public download.
 
+> **Note (superseded in part, §30, 2026-10-16):** the Flatpak manifest exists and CI ships it to itch; no AppImage is
+> built at all; the version lives in five places. `.github/workflows/desktop-build.yml` and RELEASE.md are authoritative.
+
 **Linux is not shipped to itch yet, on purpose.** CrunchySFX ships a **Flatpak** as its Linux
 product rather than the AppImage, because the Flatpak runtime brokers host GPU drivers and works on
 bleeding-edge distros where an AppImage's bundled GL libraries blank-screen. That needs a
@@ -1837,3 +1840,38 @@ ugly", so the words moved to their own page the same day.
   no wiring test, so `tests/worker.test.mjs` spawns it, and also runs a request for `/about` through the Worker over a
   mocked ASSETS (47 assertions, was 38). Web suite row `seo/the-about-link-is-on-the-web-and-the-app-page-keeps-its-layout`,
   desktop row `gate/no-website-about-link`. Presentation only: frame hash unchanged.
+
+---
+
+## 30. The 1.0.0 release machinery (2026-10-16)
+
+**Why.** The first desktop release, ported from what CrunchySFX (three releases) and CrunchyTile (1.0.0) already had,
+with both of their latest lessons: Tile's Windows build failed because a CRLF checkout changed every crunchyCore copy's
+bytes, and SFX 1.2.1 dropped the AppImage (its bundled GStreamer had no sound on rolling distros) and taught the audio
+context to sleep when idle.
+
+**What.**
+- **Version 1.0.0 in five places:** tauri.conf.json, Cargo.toml (+ Cargo.lock), `APP_VERSION`, the Flatpak metainfo's
+  newest `<release>`, `version.json`. `tests/build.py` (the version check every test run and CI go through) now checks
+  all five; `tests/worker.test.mjs` too, and that `.assetsignore` publishes version.json (56 assertions, was 47).
+- **`scripts/release.sh`** (SFX's): pre-flight (main, clean tree, the tag new locally and on origin), the checks
+  (build.py, worker/plant tests, `pull-core --check --strict`, `pull-synth --check`, `cargo check`; a real run adds the
+  web/desktop/hash Firefox suites and the Godot checks), the bump, a confirm, commit, push main, tag, push the tag.
+  `--dry` applies the bump to scratch copies and prints the diff: it never writes the repo (SFX's reverted with git
+  checkout, which would also discard uncommitted work). Asked for the version the files already carry, it bumps
+  nothing and only tags (the first release). `scripts/` is in `.assetsignore`.
+- **The workflow** is Tile's shape: no frontend copy step (build.rs fills `dist/`; CI only `mkdir -p dist`, since Tauri
+  checks frontendDist before build.rs runs), a wiring step (build.py; `pull-core --check`, where exit 3 = intact but no
+  crunchyCore beside the checkout), no AppImage anywhere, the Flatpak built from the .deb and pushed with the .exe.
+  `.gitattributes`: `* text=auto eol=lf`.
+- **The update check** (SFX's notifier, desktop only): on launch (2 s later; never on `file://`, so the test pages never
+  touch the network) it reads `https://crunchyvfx.com/version.json` (worker.js already served it with CORS + no-cache)
+  and, when this build is behind, shows a banner linking the itch page (`info.url`, accepted only on sevi66.itch.io).
+  Settings gains "Check for updates on launch" (`crunchyvfx.checkUpdates.v1`, on unless "0") and "Check now". It never
+  downloads anything. It is in 1.0.0 because a shipped binary can never gain it later.
+- **Audio (SFX 1.2.1's lesson):** `playSound` wakes the context through `ensureAudio` (it used to assume a running one,
+  so a context the OS suspended stayed silent until Pause/Play), starts the clip only once `resume()` has resolved
+  (shifted by the wait, so it stays in step with the picture), and arms an idle suspend 3 s after the clip ends; a
+  closed context is replaced. VFX never showed a "sound is blocked" warning, so there was nothing to reword. Sync
+  suite rows `audio: …` and `update check: …`.
+

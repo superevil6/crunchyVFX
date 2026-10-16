@@ -32,6 +32,19 @@ if _conf.exists():
     if _app.group(1) != _bundle:
         sys.exit("build.py: version drift — index.html says %s, tauri.conf.json says %s"
                  % (_app.group(1), _bundle))
+    # §30: and the other three places a release carries it (scripts/release.sh bumps all five; CI runs this file).
+    _root = HERE.parent
+    _more = {
+        "src-tauri/Cargo.toml": (r'^version = "([^"]+)"', re.M),
+        "flatpak/com.crunchyvfx.app.metainfo.xml": (r'<release version="([^"]+)"', 0),
+        "version.json": (r'"version"\s*:\s*"([^"]+)"', 0),
+    }
+    for _f, (_rx, _fl) in _more.items():
+        _p = _root / _f
+        _m = re.search(_rx, _p.read_text(encoding="utf-8"), _fl) if _p.exists() else None
+        if not _m or _m.group(1) != _bundle:
+            sys.exit("build.py: version drift — %s says %s, tauri.conf.json says %s"
+                     % (_f, _m.group(1) if _m else "nothing", _bundle))
 
 # index.html loads its siblings by relative path, so rebase them to the parent directory. EVERY
 # sibling (a new runtime file needs no edit here): any bare file name ending .js/.css/.png/.svg.

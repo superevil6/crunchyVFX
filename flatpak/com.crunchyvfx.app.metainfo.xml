@@ -37,6 +37,9 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.0.0" date="2026-10-16">
+      <description><p>First release: the planted Library, ready Godot scenes, game moments, the Wizard and the Icon particle.</p></description>
+    </release>
     <release version="0.1.0" date="2026-07-29">
       <description><p>First desktop build.</p></description>
     </release>

@@ -1,0 +1,5 @@
+# Every text file is LF in every checkout, Windows included. The core copies (tools/core-files.json) carry a sha256 of
+# their exact bytes, and a CRLF checkout (Git for Windows' default) changed every one: CrunchyTile's Windows release
+# build failed its wiring check with "edited by hand" on all of them (Tile v1.0.0, 2026-10-16). Binary files are
+# detected and left alone.
+* text=auto eol=lf

@@ -452,6 +452,37 @@
     stopSound(); playSound(0);
     ok(!snd.src, "playSound with no clip is a no-op, not a crash");
 
+    // §30 (CrunchySFX 1.2.1's lesson): a context the OS or the idle timer suspended is WOKEN by the next play, and the
+    // clip starts only once it runs (a source started against a stopped clock is silently lost). A fake context, so
+    // this needs no audio device; the real one (if any) is put back after.
+    {
+      const real = { ctx: snd.ctx, buf: snd.buf, gain: snd.gain, on: snd.on };
+      let resumed = 0, started = 0;
+      const fake = {
+        state: "suspended", currentTime: 0, destination: {},
+        resume() { resumed++; return new Promise(() => {}); },   // never resolves here: the clip must not start
+        suspend() { fake.state = "suspended"; return Promise.resolve(); },
+        createBufferSource() { return { connect() {}, start() { started++; }, stop() {} }; },
+      };
+      snd.ctx = fake; snd.gain = {}; snd.on = true; snd.buf = { duration: 0.5 };
+      playSound(0);
+      ok(resumed >= 1, "audio: playing again resumes a suspended context", resumed + " resume calls");
+      ok(started === 0, "audio: the clip waits for the context to run instead of starting on a stopped clock");
+      ok(!!idleTimer, "audio: a play arms the idle suspend (the context sleeps a few seconds after the clip)");
+      fake.state = "closed";
+      const fresh = ensureAudio();
+      ok(fresh !== fake, "audio: a closed context is replaced, not reused");
+      try { fresh.close(); } catch (e) { /* no device */ }
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; idleAt = 0; }
+      Object.assign(snd, real, { src: null });
+    }
+
+    // §30: the desktop's update check compares versions numerically, and a test page (file://) never asks the network
+    ok(versionGreater("1.0.10", "1.0.9") && !versionGreater("1.0.0", "1.0.0") && !versionGreater("0.9.9", "1.0.0")
+       && versionGreater("2.0.0", "1.9.9"), "update check: versions compare per segment, numerically");
+    ok(UPDATE_URL === "https://crunchyvfx.com/version.json", "update check: reads version.json on the web build's domain");
+    ok(!document.getElementById("updBanner"), "update check: no banner on a page that never checked");
+
     // ---------------------------------------------------------------- docked preview
     applyPreset(PRESETS["Explosion"], "Explosion");
     dockOn = true;

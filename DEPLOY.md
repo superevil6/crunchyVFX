@@ -197,16 +197,14 @@ Only the things no local runtime can stand in for:
       "no version_metadata binding" warning; if it's there, step 4 was missed
 - [ ] the custom domain and `www` both resolve and serve over HTTPS
 - [ ] paste a `?e=…` share link into Discord or a card validator and see the effect's name unfurl
-- [ ] `crunchyvfx.com/version.json` — expect 404 until the update checker ships; the point is that
-      the CORS header is present
+- [ ] `crunchyvfx.com/version.json` — the JSON (VFX-DESIGN §30), with the CORS header and `no-cache`
 - [ ] mobile width: toolbar wraps, panels fit, nothing scrolls horizontally
 
 ---
 
 ## Still to do before launch
 
-- [ ] **`version.json` + the update checker** — deferred by decision. The Worker route already
-      exists, so enabling it is committing one JSON file, not editing and re-verifying the Worker.
+- [x] **`version.json` + the update checker** — shipped with 1.0.0 (VFX-DESIGN §30). The Worker route needed no change.
 
 Both sibling issues that were listed here are **fixed** (edits staged in their repos, uncommitted):
 CrunchySFX's share encoder threw on any non-latin1 sound name, and CrunchyBGM's `isVersioned()`

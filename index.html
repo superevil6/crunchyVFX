@@ -360,7 +360,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 8;   // must match --css-build in styles.css
+  const CSS_BUILD = 9;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 9, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 10, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1207,14 +1207,32 @@ dockWrap.addEventListener("click", () => {
 // and the whole point here is judging tens of ms.
 const snd = { ctx: null, buf: null, name: "", src: null, gain: null, volume: 0.8, offsetMs: 0, on: true };
 function ensureAudio() {
-  if (!snd.ctx) {
+  // A CLOSED context (the output device torn down) never plays again: make a fresh one. Decoded AudioBuffers are not
+  // tied to a context, so snd.buf carries over.
+  if (!snd.ctx || snd.ctx.state === "closed") {
     snd.ctx = new (window.AudioContext || window.webkitAudioContext)();
     snd.gain = snd.ctx.createGain();
     snd.gain.gain.value = snd.volume;
     snd.gain.connect(snd.ctx.destination);
   }
-  if (snd.ctx.state === "suspended") snd.ctx.resume();   // browsers need a gesture first
+  if (snd.ctx.state !== "running") snd.ctx.resume().catch(() => {});   // browsers need a gesture first
   return snd.ctx;
+}
+// IDLE SUSPEND (CrunchySFX 1.2.1's lesson, VFX-DESIGN §30). A running-but-silent AudioContext left open gets its output
+// underrun or suspended by the OS audio backend (PipeWire/PulseAudio): clicks, and in WebKit playback that stops until
+// a restart. So the context sleeps a few seconds after the last sound ends (paused, sound off, a loop longer than its
+// clip), and playSound wakes it. The suspend only ever moves LATER, so a long clip is never cut off.
+const IDLE_SUSPEND_SEC = 3;
+let idleTimer = null, idleAt = 0;
+function armIdleSuspend(soundSec) {
+  const at = Date.now() + (soundSec + IDLE_SUSPEND_SEC) * 1000;
+  if (idleTimer && at <= idleAt) return;
+  if (idleTimer) clearTimeout(idleTimer);
+  idleAt = at;
+  idleTimer = setTimeout(() => {
+    idleTimer = null; idleAt = 0;
+    if (snd.ctx && snd.ctx.state === "running") snd.ctx.suspend().catch(() => {});
+  }, at - Date.now());
 }
 function stopSound() {
   if (snd.src) { try { snd.src.stop(); } catch (e) { /* already ended */ } snd.src = null; }
@@ -1226,16 +1244,27 @@ function playSound(atSec) {
   stopSound();
   // the IMPACT FRAME (desktop, SUITE-LINKS.md §4) delays it as the planted scene does; 0 (the web's only value) is a no-op
   const off = snd.offsetMs / 1000 + (rendered && soundFrame ? soundFrame / rendered.fps : 0);
-  const into = (atSec || 0) - off;
-  const src = snd.ctx.createBufferSource();
+  const ctx = ensureAudio();   // wakes a context that idled, or that the OS suspended, or makes one if it closed
+  const src = ctx.createBufferSource();
   src.buffer = snd.buf;
   src.connect(snd.gain);
-  if (into >= 0) {
-    if (into < snd.buf.duration) src.start(snd.ctx.currentTime, into);
-  } else {
-    src.start(snd.ctx.currentTime - into);                // still ahead of us: schedule it
+  const start = (late) => {
+    const into = (atSec || 0) + late - off;
+    if (into >= 0) {
+      if (into < snd.buf.duration) src.start(ctx.currentTime, into);
+    } else {
+      src.start(ctx.currentTime - into);                  // still ahead of us: schedule it
+    }
+  };
+  // resume() is ASYNC: a source started against a stopped clock is silently lost (SFX's "sometimes it doesn't
+  // play"). So wait for it, and start that much further into the loop, which keeps the sound in step with the picture.
+  if (ctx.state === "running") start(0);
+  else {
+    const t0 = performance.now();
+    ctx.resume().then(() => { if (snd.src === src) start((performance.now() - t0) / 1000); }).catch(() => {});
   }
   snd.src = src;
+  armIdleSuspend(Math.max(0, snd.buf.duration + off - (atSec || 0)));
 }
 // ---------- In-app synthesis (the vendored CrunchySFX engine) ----------
 // A CrunchySFX share link carries the whole patch, so once the engine is here there is no reason
@@ -1492,7 +1521,7 @@ function fmt(p, val) {
 // The shipped version. MUST match `version` in src-tauri/tauri.conf.json — tests/build.py fails
 // the whole suite if they drift, because a mismatch is invisible until someone reports a bug
 // against a version number that never existed.
-const APP_VERSION = "0.1.0";
+const APP_VERSION = "1.0.0";
 
 // ---------- Web vs desktop ----------
 // Same split as CrunchySFX, and the same principle: the LIBRARY and BULK workflow are the desktop
@@ -8964,6 +8993,70 @@ tutModal.addEventListener("click", (e) => { if (e.target === tutModal) tutModal.
   if (v) v.textContent = "CrunchyVFX v" + APP_VERSION + (isDesktop ? " · desktop" : " · web");
 }
 
+// ---------- Update check (DESKTOP only; CrunchySFX's, VFX-DESIGN §30) ----------
+// A NOTIFIER, not an auto-updater: it reads one tiny JSON from our own domain (version.json at the repo root, served by
+// worker.js with CORS + no-cache), compares versions, and if this build is behind offers a link to the store page. It
+// never downloads or installs anything, sends nothing but the request itself, and can be switched off in Settings. A
+// shipped binary can never gain this later, which is why it is in 1.0.0. The web build is always current: never runs.
+const UPDATE_URL = "https://crunchyvfx.com/version.json";
+const ITCH_URL_FALLBACK = "https://sevi66.itch.io/crunchyvfx";
+const UPDATE_PREF = "crunchyvfx.checkUpdates.v1";   // "0" = off; absent = on
+// "1.0.10" > "1.0.9": numerically per segment, not lexically.
+function versionGreater(a, b) {
+  const pa = String(a).split("."), pb = String(b).split(".");
+  for (let i = 0; i < 3; i++) {
+    const x = parseInt(pa[i], 10) || 0, y = parseInt(pb[i], 10) || 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+function updateChecksOn() { try { return localStorage.getItem(UPDATE_PREF) !== "0"; } catch (e) { return true; } }
+function showUpdateBanner(info) {
+  if (document.getElementById("updBanner")) return;           // only ever one
+  const bar = document.createElement("div");
+  bar.className = "update-banner";
+  bar.id = "updBanner";
+  bar.setAttribute("role", "status");
+  const text = document.createElement("span");
+  setIconLabel(text, "sparkle", "CrunchyVFX " + info.version + " is available" + (info.notes ? ": " + info.notes : ""));
+  const get = document.createElement("button");
+  get.className = "primary";
+  get.textContent = "Get the update ↗";
+  const url = /^https:\/\/sevi66\.itch\.io\//.test(info.url || "") ? info.url : ITCH_URL_FALLBACK;
+  get.addEventListener("click", () => {
+    if (window.__TAURI__ && window.__TAURI__.opener) window.__TAURI__.opener.openUrl(url);
+    else window.open(url, "_blank", "noopener");
+  });
+  const no = document.createElement("button");
+  no.textContent = "×";
+  no.title = "Dismiss";
+  no.addEventListener("click", () => bar.remove());
+  bar.appendChild(text); bar.appendChild(get); bar.appendChild(no);
+  document.body.appendChild(bar);
+}
+// manual: report the outcome in Settings; on launch it stays silent unless there is an update.
+async function checkForUpdates(manual) {
+  const say = (t) => { const el = document.getElementById("updMsg"); if (el) el.textContent = t; };
+  if (manual) say("Checking…");
+  try {
+    const res = await fetch(UPDATE_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const info = await res.json();
+    if (info && typeof info.version === "string" && versionGreater(info.version, APP_VERSION)) {
+      showUpdateBanner(info);
+      say("Update available: " + info.version);
+      return info;
+    }
+    say(manual ? "You're up to date (v" + APP_VERSION + ")." : "");
+  } catch (e) {
+    console.warn("crunchyvfx: update check failed:", e);
+    say(manual ? "Couldn't reach crunchyvfx.com." : "");
+  }
+  return null;
+}
+// On launch, desktop only. Not on file:// (the test pages, which mock the desktop): they never touch the network.
+if (isDesktop && location.protocol !== "file:" && updateChecksOn()) setTimeout(() => checkForUpdates(false), 2000);
+
 // ---------- The Crunchy suite (suite.js, from crunchyCore) ----------
 // Web and desktop both get it. The desktop webview won't leave for a browser on its own, so there
 // the links go through the opener plugin (scoped in src-tauri/capabilities/default.json).
@@ -9640,7 +9733,20 @@ const settingsDialog = settingsMount({
       run: () => { settingsDialog.close(); startTour(); } },
     { type: "button", label: "Tutorials", sub: "Short walkthroughs of the parts that don't explain themselves.", text: "Open tutorials",
       run: () => { settingsDialog.close(); document.getElementById("tutBtn").click(); } },
-  ],
+  ].concat(isDesktop ? [
+    // §30: the desktop's update check, as CrunchySFX's Settings has it
+    { type: "check", id: "setUpdates", label: "Check for updates on launch",
+      sub: "Ask crunchyvfx.com whether a newer desktop version exists: no account, no telemetry, just a version number.",
+      get: () => updateChecksOn(),
+      set: (on) => { try { localStorage.setItem(UPDATE_PREF, on ? "1" : "0"); } catch (e) { /* private mode */ } } },
+    { type: "element", label: "Updates", sub: "Check right now.", el: (() => {
+      const box = document.createElement("div"), b = document.createElement("button"), m = document.createElement("span");
+      b.type = "button"; b.textContent = "Check now"; m.id = "updMsg"; m.className = "hint";
+      b.addEventListener("click", () => checkForUpdates(true));
+      box.appendChild(m); box.appendChild(b);
+      return box;
+    })() },
+  ] : []),
 });
 
 // Every dialog says it is one to assistive tech, named by its heading. Run after boot so every runtime-built .modal is

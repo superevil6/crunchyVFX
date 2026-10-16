@@ -168,9 +168,8 @@ export default {
     // CROSS-ORIGIN request and needs CORS or the browser blocks it; no-cache so a fresh release is
     // seen immediately rather than after an edge TTL. Same as both siblings.
     //
-    // NOTE: there is no version.json in this repo yet — the update checker is deliberately
-    // deferred. The route lives here anyway so that turning it on later means committing one JSON
-    // file, not editing the Worker and re-running the whole preview-deploy verification.
+    // version.json (the repo root) arrived with 1.0.0 and its update check (VFX-DESIGN §30); this route
+    // was here first, so turning it on was committing one JSON file, not editing the Worker.
     if (url.pathname === "/version.json") {
       const r = await env.ASSETS.fetch(request);
       const h = new Headers(r.headers);

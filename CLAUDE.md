@@ -41,8 +41,8 @@ a non-neutral default silently changes every existing preset that doesn't mentio
 the desktop build is blank, or the suite can't see it:
 1. `<script src>` in `index.html`
 2. `FRONTEND` in `src-tauri/build.rs` (bump the array length)
-3. the copy line in `.github/workflows/desktop-build.yml` (`tests/build.py` now rebases every sibling by pattern,
-   so it needs no edit), plus the subresource counts in the prose of `worker.js`, `DEPLOY.md` and `.assetsignore`
+3. the subresource counts in the prose of `worker.js`, `DEPLOY.md` and `.assetsignore` (`tests/build.py` rebases every
+   sibling by pattern, and since §30 the CI workflow has no copy line of its own: build.rs fills `dist/`)
 
 **Anything not generated from `PARAMS` needs its own container.** Panels are built from PARAMS
 groups. Three separate times a finished feature turned out to be unreachable because it needed a
@@ -100,8 +100,9 @@ tour/preset/shape tables and every rendered label and tooltip.
 domain — the art ends up in sprite sheets users ship commercially, so any licence propagates to
 *them*. See VFX-DESIGN §12.
 
-**`APP_VERSION` (index.html) must match `version` (src-tauri/tauri.conf.json).** `tests/build.py`
-exits non-zero on drift.
+**`APP_VERSION` (index.html) must match `version` (src-tauri/tauri.conf.json)**, and so must Cargo.toml, the Flatpak
+metainfo's newest `<release>` and `version.json` (§30). `tests/build.py` exits non-zero on drift (CI runs it too);
+`scripts/release.sh` bumps all five. RELEASE.md is the release runbook.
 
 **New system → at least one preset** (two is the standard). An assertion fails otherwise, because a
 system no preset uses is undiscoverable. New shape → an entry in `SHAPE_CATS` *and* `RANDOM_SHAPES`.
@@ -148,8 +149,8 @@ that prints the page's `VFX …` lines and kills its own process):
 
 ```sh
 node tests/run-ff.mjs hash | grep -v '(console)' > /tmp/h.txt; diff tests/frame-hash.expected.txt /tmp/h.txt   # no frame moved
-node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (55)
-node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (12)
+node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (57)
+node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (13)
 node tests/plant.test.mjs                # project-app.js over plant.js, in Node
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
 node tests/godot-scene.mjs               # §26: the WEB Export's ready Godot scene plays, signals impact, frees itself (real Godot)
@@ -222,6 +223,11 @@ more particles.
 
 ## Status
 
+- **Release machinery for 1.0.0 (§30, 2026-10-16)**: version 1.0.0 in all five places; `scripts/release.sh` (SFX's, with
+  VFX's checks; `--dry` writes nothing); RELEASE.md; `.gitattributes` (LF everywhere: Tile v1.0.0's CRLF core-copy
+  failure); no AppImage (the Flatpak is the Linux product; the workflow is Tile's shape, with a wiring step); the
+  desktop update check (SFX's notifier: `version.json`, a Settings switch, never on file://); the audio context wakes
+  on play and sleeps when idle (SFX 1.2.1). `--css-build` 9.
 - **The search-engine pass (§29, 2026-10-16)**: a real title/description and SoftwareApplication JSON-LD on index.html, whose
   layout is untouched except one `data-web` "About CrunchyVFX" link in the licence footer; the words live on a static
   `about.html` (web only, NOT in build.rs; served at /about: h1, FAQ + FAQPage JSON-LD, the suite's links), plus robots.txt,

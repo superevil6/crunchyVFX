@@ -1,28 +1,29 @@
 name: Desktop build (Windows + Linux)
 
-# Builds native installers on a version tag (v1.2.3), and on demand from the Actions tab.
-# Produces a DRAFT GitHub Release with the installers attached, and pushes the Windows build
-# straight to itch.io so paid binaries never sit on a public URL.
+# CrunchyVFX's release pipeline (RELEASE.md), the same shape as CrunchySFX's (shipped three times) and CrunchyTile's.
 #
-# NEVER click "Publish release" on the draft — that would make the paid installers a free
-# public download. The draft exists so you can grab artefacts, not to publish them.
+# Builds native installers on a version tag (v1.2.3), and on demand from the Actions tab. Produces a DRAFT GitHub
+# Release with the installers attached: the Windows .exe (NSIS) and the Linux .deb, which is wrapped as the Flatpak
+# (the Linux product). No AppImage: its bundled GStreamer/GL can't reach a rolling distro's PipeWire or a new GPU
+# (CrunchySFX 1.2.1: no sound on CachyOS, 2026-10-16; blank pages on bleeding-edge GPUs before that).
 #
-# WHY ubuntu-22.04 AND NOT ubuntu-latest — this is the whole reason CI exists for this project.
-# A Linux binary needs whatever glibc it was BUILT against. Building on a modern desktop distro
-# produces something most buyers cannot run:
+# On a TAG push it ALSO uploads to itch.io via butler (Windows installer + Linux Flatpak), so the paid binaries never
+# sit on a public surface. The GitHub release stays a DRAFT on purpose: NEVER click "Publish release", or the paid
+# installers become free public downloads.
 #
-#     built on CachyOS (glibc 2.43)  ->  binary requires GLIBC_2.39
-#     Ubuntu 22.04 LTS has 2.35  ·  Debian 12 has 2.36   ->  will not start
+# WHY ubuntu-22.04 AND NOT ubuntu-latest. A Linux binary needs whatever glibc it was BUILT against: a build on
+# CachyOS (glibc 2.43) requires GLIBC_2.39, which neither Ubuntu 22.04 (2.35) nor the GNOME 46 Flatpak runtime
+# has. ubuntu-22.04 is the oldest runner that still has webkit2gtk-4.1, so it is the floor. Measured, not assumed.
 #
-# ubuntu-22.04 (glibc 2.35) is the oldest runner that still has webkit2gtk-4.1, so it is the
-# floor. Measured on this project, not assumed.
+# The frontend is copied into dist/ by src-tauri/build.rs (every sibling is listed in its FRONTEND, and a missing one
+# panics), so there is no separate copy step here to keep in step with it.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 
 env:
-  ITCH_TARGET: sevi66/crunchyvfx # <itch-user>/<project-slug> — must match the itch page URL
+  ITCH_TARGET: sevi66/crunchyvfx # <itch-user>/<project-slug>: must match the itch page URL
 
 jobs:
   build:
@@ -32,19 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-22.04 # Linux: .deb + .AppImage
+          - platform: ubuntu-22.04 # Linux: .deb (wrapped as the Flatpak; 22.04 for glibc 2.35)
           - platform: windows-latest # Windows: .exe (NSIS)
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
-      # src-tauri/build.rs copies these into ../dist itself; doing it here too means a missing
-      # file fails at this step with an obvious message rather than as a blank window at runtime.
-      - name: Prepare frontend
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp index.html crunchy-base.css styles.css presets.js glyphs.js shapes.js vfx.js gif.js apng.js suite.js crunchy-icons.js project-app.js plant.js library.js settings.js desktop.js feedback.js crunchysfx-synth.js dist/
 
       - name: Install Linux webview deps
         if: matrix.platform == 'ubuntu-22.04'
@@ -57,6 +50,19 @@ jobs:
             libayatana-appindicator3-dev \
             patchelf
 
+      # One version everywhere it lives (tests/build.py exits non-zero on drift), and every crunchyCore copy intact,
+      # byte for byte (pull-core --check: 0 intact; 3 intact but crunchyCore is not beside this checkout, which is CI;
+      # 1 corrupt, e.g. a CRLF checkout: see .gitattributes). PYTHONUTF8: Windows' Python reads cp1252 otherwise.
+      - name: Check the wiring (versions agree, core copies intact)
+        shell: bash
+        env:
+          PYTHONUTF8: "1"
+        run: |
+          PY=python3; command -v python3 >/dev/null && python3 -c "" 2>/dev/null || PY=python
+          "$PY" tests/build.py
+          set +e; node tools/pull-core.mjs --check; s=$?; set -e
+          [ "$s" -eq 0 ] || [ "$s" -eq 3 ] || { echo "::error::pull-core --check failed ($s)"; exit 1; }
+
       - name: Set up Rust (official stable)
         uses: dtolnay/rust-toolchain@stable
 
@@ -65,30 +71,29 @@ jobs:
         with:
           workspaces: "src-tauri -> target"
 
-      # linuxdeploy ships as an AppImage and self-mounts via libfuse2. Runners have it, but this
-      # costs nothing and makes the job work on hosts that dropped FUSE 2 (every modern Arch-based
-      # distro, including the machine this was developed on, where the AppImage bundle fails with
-      # `dlopen(): error loading libfuse.so.2`).
+      # Tauri checks frontendDist (../dist) exists BEFORE cargo runs build.rs, which is what fills it. dist/ is not
+      # committed, so a fresh checkout needs the folder first.
+      - name: Create the frontend folder (build.rs fills it)
+        shell: bash
+        run: mkdir -p dist
+
       - name: Build the app + create draft release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPIMAGE_EXTRACT_AND_RUN: 1
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "CrunchyVFX ${{ github.ref_name }}"
-          releaseBody: "Desktop builds of CrunchyVFX. Windows installer + Linux .deb/.AppImage attached below."
+          releaseBody: "Desktop builds of CrunchyVFX. Windows installer + Linux .deb attached below (the Flatpak ships on itch)."
           releaseDraft: true
           prerelease: false
 
-      # ---- Windows -> itch.io (purchase-gated, never a public URL) ----
-      # Tag pushes only, so a manual "Run workflow" cannot accidentally ship to the store.
+      # ---- Windows to itch.io (purchase-gated, never public). Tag pushes only: a manual run cannot ship. ----
       - name: Install butler (itch.io CLI)
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         run: |
-          # butler moved hosts: broth.itch.ovh was RETIRED (now NXDOMAIN) -> use broth.itch.zone.
-          # curl.exe (bundled on the runner) retries transient CDN hiccups; Invoke-WebRequest does not.
+          # broth.itch.ovh was retired; broth.itch.zone is the host. curl.exe retries transient CDN errors.
           curl.exe -sL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 -o butler.zip https://broth.itch.zone/butler/windows-amd64/LATEST/archive/default
           Expand-Archive -Force butler.zip -DestinationPath butler-bin
           "$PWD\butler-bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
@@ -100,20 +105,17 @@ jobs:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
         run: |
           if [ -z "$BUTLER_API_KEY" ]; then
-            echo "::warning::BUTLER_API_KEY secret is not set — skipping the itch.io upload."
+            echo "::warning::BUTLER_API_KEY secret is not set: skipping the itch.io upload."
             exit 0
           fi
           butler -V
-          # NOTE: glob is UNQUOTED so the shell expands it; quoting passes a literal '*' to butler.
+          # the glob is UNQUOTED so the shell expands it
           butler push src-tauri/target/release/bundle/nsis/CrunchyVFX_*_x64-setup.exe \
             "$ITCH_TARGET:windows" --userversion "${GITHUB_REF_NAME#v}"
           butler status "$ITCH_TARGET"
 
-      # ---- Linux: wrap the CI-built .deb into a Flatpak, and ship THAT ----
-      # Flatpak, not the AppImage, is the Linux product: its runtime brokers the host GPU drivers,
-      # which is what fixes the WebKitGTK blank-page bug on bleeding-edge distros. Building here on
-      # ubuntu-22.04 is also REQUIRED — a .deb built on a newer host needs a glibc the GNOME 46
-      # runtime doesn't have (measured: a local CachyOS build wants GLIBC_2.39).
+      # ---- Linux: the CI-built .deb wrapped as a Flatpak, which is what ships. The Flatpak runtime brokers the host's
+      # GPU drivers and audio; building on ubuntu-22.04 is REQUIRED (a newer host's .deb needs a glibc GNOME 46 lacks). ----
       - name: Install flatpak tooling + runtime
         if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -127,6 +129,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # The manifest takes the .deb as its source: see flatpak/com.crunchyvfx.app.yml
           cp src-tauri/target/release/bundle/deb/*.deb flatpak/crunchyvfx.deb
           cd flatpak
           # --disable-rofiles-fuse: CI runners can't always use FUSE for the build overlay.
@@ -138,7 +141,6 @@ jobs:
       - name: Install butler (itch.io CLI)
         if: matrix.platform == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/v')
         run: |
-          # butler moved hosts: broth.itch.ovh was RETIRED (now NXDOMAIN) -> use broth.itch.zone.
           curl -sL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 30 \
             -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip -o butler.zip -d "$HOME/butler-bin"
@@ -151,26 +153,10 @@ jobs:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
         run: |
           if [ -z "$BUTLER_API_KEY" ]; then
-            echo "::warning::BUTLER_API_KEY secret is not set — skipping the itch.io upload."
+            echo "::warning::BUTLER_API_KEY secret is not set: skipping the itch.io upload."
             exit 0
           fi
           butler -V
           butler push flatpak/CrunchyVFX-*.flatpak \
             "$ITCH_TARGET:linux-flatpak" --userversion "${GITHUB_REF_NAME#v}"
           butler status "$ITCH_TARGET"
-
-      # ---- The .AppImage rides along on the draft release only ----
-      # CrunchySFX ships Flatpak as its Linux product, not the AppImage: the Flatpak runtime
-      # brokers host GPU drivers, so it works on bleeding-edge distros (Arch/CachyOS/Steam Deck)
-      # where an AppImage's bundled GL libs blank-screen. That needs a flatpak/ manifest, which
-      # this project does not have yet — see VFX-DESIGN.md §14.
-      #
-      # Until then the .deb and .AppImage are attached to the DRAFT release only, so they can be
-      # tested on a normal machine before anyone is asked to pay for them. Do not shortcut this:
-      # the AppImage has never been verified on a non-bleeding-edge host.
-      - name: Note the Linux artefacts
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          echo "Linux artefacts are attached to the draft release for manual testing."
-          ls -la src-tauri/target/release/bundle/deb/ || true
-          ls -la src-tauri/target/release/bundle/appimage/ || true

@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 8;
+    --css-build: 9;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1441,3 +1441,10 @@ main#panels { display: block; }
 .pal-box.pal-flash { outline: 2px solid transparent; outline-offset: 4px; animation: palFlash 1.4s steps(4) 1; }
 .modal-foot > button { flex: none; white-space: nowrap; }
 .modal-foot > .hint { flex: 1 1 auto; min-width: 0; }
+
+/* §30: the desktop's update banner (CrunchySFX's), bottom centre over everything but the dialogs. Square, the hard lift. */
+.update-banner { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 300;
+  display: flex; align-items: center; gap: 12px; max-width: min(680px, 92vw);
+  background: var(--panel); border: 1px solid var(--accent); padding: 10px 12px 10px 16px; box-shadow: var(--lift); font-size: 13px; }
+.update-banner button { flex: none; padding: 6px 10px; font-size: 12px; }
+#updMsg { margin-right: 8px; }

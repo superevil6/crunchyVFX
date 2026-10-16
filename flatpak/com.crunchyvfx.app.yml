@@ -1,9 +1,11 @@
 # CrunchyVFX — Flatpak manifest (cross-distro PAID Linux build).
 #
-# Why Flatpak and not the AppImage: the Flatpak runtime brokers the host GL/Mesa/NVIDIA drivers
-# correctly, which is what fixes the WebKitGTK "EGL_BAD_PARAMETER / blank white page" bug the CI
-# AppImage hits on bleeding-edge distros (Arch/CachyOS, Steam Deck). Ship the resulting single
-# .flatpak through itch — it's purchase-gated like any other download.
+# Why Flatpak and not the AppImage: the Flatpak runtime brokers the host GL/Mesa/NVIDIA drivers and
+# audio correctly, which is what fixes the WebKitGTK "EGL_BAD_PARAMETER / blank white page" bug an
+# AppImage hits on bleeding-edge distros (Arch/CachyOS, Steam Deck), and the AppImage's bundled
+# GStreamer had no sound on rolling distros (CrunchySFX 1.2.1). No AppImage is built any more. CI
+# (.github/workflows/desktop-build.yml) builds this bundle on a tag and ships it to itch, where it is
+# purchase-gated like any other download; the commands below are for building one by hand.
 #
 # ── BUILD (produces one distributable file) ───────────────────────────────────────────────────
 #   # one-time (Arch/CachyOS): sudo pacman -S flatpak flatpak-builder
@@ -16,18 +18,18 @@
 #      project: a .deb built on CachyOS (glibc 2.43) needs GLIBC_2.39 and dies in the sandbox with
 #         "libc.so.6: version `GLIBC_2.39' not found (required by crunchyvfx)"
 #      Rule of thumb: the binary you bundle must be built on an OLDER base than the runtime.
-#   cp ~/Downloads/CrunchyVFX_0.1.0_amd64.deb flatpak/crunchyvfx.deb
+#   cp ~/Downloads/CrunchyVFX_1.0.0_amd64.deb flatpak/crunchyvfx.deb
 #
 #   cd flatpak
 #   flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo build-dir com.crunchyvfx.app.yml
-#   flatpak build-bundle repo CrunchyVFX-0.1.0.flatpak com.crunchyvfx.app
+#   flatpak build-bundle repo CrunchyVFX-1.0.0.flatpak com.crunchyvfx.app
 #
 # ── TEST ──────────────────────────────────────────────────────────────────────────────────────
 #   flatpak-builder --run build-dir com.crunchyvfx.app.yml crunchyvfx
-#   # or install the bundle: flatpak install --user ./CrunchyVFX-0.1.0.flatpak && flatpak run com.crunchyvfx.app
+#   # or install the bundle: flatpak install --user ./CrunchyVFX-1.0.0.flatpak && flatpak run com.crunchyvfx.app
 #
 # ── WHAT THE BUYER DOES ───────────────────────────────────────────────────────────────────────
-#   flatpak install --user ./CrunchyVFX-0.1.0.flatpak     # first run pulls org.gnome.Platform//46
+#   flatpak install --user ./CrunchyVFX-1.0.0.flatpak     # first run pulls org.gnome.Platform//46
 #   flatpak run com.crunchyvfx.app
 
 id: com.crunchyvfx.app

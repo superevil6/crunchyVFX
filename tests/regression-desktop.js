@@ -142,6 +142,24 @@
     lockedValues = { pixelate: 2 }; saveLockPref(); updateLockBtn();
     return ok(on && off && agree && localStorage.getItem("crunchyvfx.lockpixels.v1") === V.localStorage.store["crunchyvfx.lockpixels.v1"]);
   });
+  // §30: the update check's two rows (desktop only), its switch kept in its own key, and the banner it shows when behind
+  await t("settings/update-check-switch-and-banner", function () {
+    settingsDialog.open();
+    const m = document.getElementById("setModal"), u = m.querySelector("#setUpdates");
+    const rows = !!u && u.checked === true && !!m.querySelector("#updMsg") && /Check now/.test(m.textContent);
+    u.click();
+    const off = localStorage.getItem("crunchyvfx.checkUpdates.v1") === "0" && !updateChecksOn();
+    u.click();
+    const on = localStorage.getItem("crunchyvfx.checkUpdates.v1") === "1" && updateChecksOn();
+    settingsDialog.close();
+    const none = !document.getElementById("updBanner");              // file:// never checked on launch
+    showUpdateBanner({ version: "9.9.9", url: "https://example.com/x", notes: "Test notes." });
+    const b = document.getElementById("updBanner");
+    const shownOk = !!b && /9\.9\.9 is available: Test notes\./.test(b.textContent) && getComputedStyle(b).position === "fixed";
+    if (b) b.remove();
+    localStorage.removeItem("crunchyvfx.checkUpdates.v1");
+    return ok(rows && off && on && none && shownOk, JSON.stringify({ rows, off, on, none, shownOk }));
+  });
 
   // ---- the docked panel, planting into Godot ----
   await t("dock/a-docked-panel-with-the-start-screen", function () {

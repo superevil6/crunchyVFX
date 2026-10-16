@@ -158,5 +158,35 @@ for (const f of ["/robots.txt", "/sitemap.xml", "/44b30b0415e1540c853a5d3826a598
      lines.filter((l) => l.startsWith("FAIL ")).join("; "));
 }
 
+// §30: version.json, what the DESKTOP app's update check reads. It must be published (not hidden by .assetsignore),
+// parse, carry the shipped version (the same one tauri.conf.json, Cargo.toml, index.html's APP_VERSION and the Flatpak
+// metainfo's newest <release> carry: scripts/release.sh bumps all five), and point at the store page.
+{
+  const { readFileSync } = await import("node:fs");
+  const rd = (p) => readFileSync(new URL("../" + p, import.meta.url), "utf8");
+  let info = null;
+  try { info = JSON.parse(rd("version.json")); } catch (e) { /* reported below */ }
+  ok("version.json exists and parses", !!info);
+  const want = JSON.parse(rd("src-tauri/tauri.conf.json")).version;
+  const found = {
+    "version.json": info && info.version,
+    "src-tauri/Cargo.toml": (rd("src-tauri/Cargo.toml").match(/^version = "([^"]+)"/m) || [])[1],
+    "index.html APP_VERSION": (rd("index.html").match(/const APP_VERSION = "([^"]+)"/) || [])[1],
+    "flatpak metainfo's newest release": (rd("flatpak/com.crunchyvfx.app.metainfo.xml").match(/<release version="([^"]+)"/) || [])[1],
+  };
+  for (const [where, v] of Object.entries(found)) eq(where + " is tauri.conf.json's version", v, want);
+  ok("version.json points at the itch page", !!info && /^https:\/\/sevi66\.itch\.io\/crunchyvfx$/.test(info.url), info && info.url);
+  ok("version.json has notes for the update banner", !!info && typeof info.notes === "string" && info.notes.length > 10);
+  ok("the app's update check reads crunchyvfx.com/version.json",
+     rd("index.html").includes('const UPDATE_URL = "https://crunchyvfx.com/version.json";'));
+  const pats = rd(".assetsignore").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  const rx = (p) => {
+    const dir = p.endsWith("/"), body = p.replace(/\/$/, "").replace(/^\//, "");
+    const re = body.split("**/").map((part) => part.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")).join("(?:.*/)?");
+    return new RegExp((body.includes("/") ? "^" : "(^|/)") + re + (dir ? "/" : "(/|$)"));
+  };
+  ok(".assetsignore publishes version.json", !pats.some((p) => rx(p).test("version.json")));
+}
+
 console.log((fail ? "FAIL" : "PASS") + " · " + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);
