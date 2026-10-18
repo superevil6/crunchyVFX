@@ -1783,14 +1783,14 @@
          document.getElementById("expBatchMine").hidden,
          "batch export is desktop-only — it exists to render the library");
       // The desktop CTA is the core's (desktop.js, §18): it exists ONLY once suite.js carries CrunchyVFX's store link,
-      // because a dead "buy it" link is worse than no link. Today there is none, so there is no button and no dialog;
+      // because a dead "buy it" link is worse than no link. Live since 2026-10-16 (crunchyCore suite.js 10);
       // and if the link appears, the button must too (that is what the old ITCH_LIVE flag asserted).
       const storeUrl = desktopStoreUrl("vfx");
-      ok(!!document.querySelector(".desk-cta") === !!storeUrl && !!document.querySelector(".desk-overlay") === !!storeUrl,
+      ok(!!document.querySelector(".desk-cta") === !!storeUrl,
          "the desktop button appears exactly when CrunchyVFX's store link exists",
          "link " + (storeUrl || "none") + ", button " + (document.querySelector(".desk-cta") ? "present" : "absent"));
       ok(!document.getElementById("deskCta"), "VFX's own desktop CTA is gone (the core's replaced it)");
-      ok(desktopGate && desktopGate.isDesktop === false && desktopGate.cta === null, "the core's gate ran, and shows nothing while there is no link");
+      ok(desktopGate && desktopGate.isDesktop === false && (desktopGate.cta !== null) === !!storeUrl, "the core's gate ran, and shows its button exactly when there is a link");
 
       // The line is "library and bulk workflow are paid; making and exporting an effect is free".
       // If any of these ever ended up gated, the free build would stop being worth using.

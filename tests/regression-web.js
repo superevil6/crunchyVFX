@@ -38,9 +38,11 @@
               !shown(document.getElementById("ihBtn")) && !shown(document.getElementById("mypresets")) && project === null &&
               Array.from(document.querySelectorAll("[data-desktop]")).every(function (e) { return e.hidden; }));
   });
-  await t("gate/no-desktop-button-while-vfx-has-no-store-link", function () {
-    return ok(desktopStoreUrl("vfx") === "" && !document.querySelector(".desk-cta") && !document.querySelector(".desk-overlay") &&
-              !document.getElementById("deskCta") && desktopGate.cta === null && typeof ITCH_LIVE === "undefined");
+  // VFX's store page went live 2026-10-16 (crunchyCore suite.js 10): the button follows suite.js's link, either way.
+  await t("gate/the-desktop-button-follows-the-store-link", function () {
+    const live = desktopStoreUrl("vfx") !== "";
+    return ok(live === !!document.querySelector(".desk-cta") && live === (desktopGate.cta !== null) &&
+              !document.getElementById("deskCta") && typeof ITCH_LIVE === "undefined", "store " + JSON.stringify(desktopStoreUrl("vfx")));
   });
   await t("gate/the-button-would-appear-with-a-link", function () {
     const tool = CRUNCHY_SUITE.find(function (x) { return x.id === "vfx"; }), keep = tool.desktop, host = document.createElement("div");

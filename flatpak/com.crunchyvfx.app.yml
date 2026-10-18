@@ -50,8 +50,10 @@ finish-args:
   # remembered folder and drag-out too. The Tauri fs scope (src-tauri/capabilities/default.json) is $HOME/** and the
   # usual places: the two must agree or a refused write looks like a bug. (Was xdg-download:rw before planting.)
   - --filesystem=home
-  # NOT granted: --share=network. CrunchyVFX generates everything locally and has no update check,
-  # so the desktop build works fully offline and never phones home. Add it only if that changes.
+  # Network: only for the optional update check on launch (it fetches crunchyvfx.com/version.json and
+  # nothing else; off in Settings). Everything else is generated locally. Without this the check
+  # silently failed in the 1.0.0 Flatpak (found 2026-10-16; ship in 1.0.1).
+  - --share=network
 
 modules:
   - name: crunchyvfx
