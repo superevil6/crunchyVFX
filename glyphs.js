@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/glyphs.js @ 7cd64e5 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 989a8535e2e73d18a60563cd586778766ec1fbd9e389c7ec3c56ce5ddf553926
+// GENERATED from crunchyCore/glyphs.js @ cae0419 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 8d1e38aba86b06a7bd98e62ce2ac35e13ea63e62d50b8d706446c22709db7743
 "use strict";
 // Crunchy suite: GLYPHS. The icon DRAWINGS CrunchyUI's icon roster is made of (close, check, cog, sword, flame, the
 // button letters, START …), shared so any app can draw the same icon: CrunchyUI wraps them in its treatment (styles,
@@ -8,10 +8,10 @@
 // with them is unchanged, proved by fingerprinting all of them before and after.
 //
 // PURE and SELF-CONTAINED (like textures.js and items.js): no DOM, no app state, every name its own (prefixed
-// `glyph` / `GLYPH_`). It holds ONLY drawings. How an icon is coloured, outlined, backed or textured is the app's.
+// `glyph` / `GLYPH_`). It holds ONLY drawings. How an icon is colored, outlined, backed or textured is the app's.
 //
 // ---- WHAT A GLYPH IS ---------------------------------------------------------------------------------------------
-// A list of LAYERS, each a path in the -1..1 box centred on the origin (y runs DOWN), spelled as segments:
+// A list of LAYERS, each a path in the -1..1 box centered on the origin (y runs DOWN), spelled as segments:
 //   ["M", x, y]  ["L", x, y]  ["Q", cx, cy, x, y]  ["C", c1x, c1y, c2x, c2y, x, y]  ["Z"]
 // Each layer is filled EVEN-ODD on its own (a second loop inside it is a HOLE), and the layers are painted in order,
 // one over the other (a later layer UNIONS; it never erases). Most glyphs are one layer; a coin's boss, a flask's lip
@@ -33,7 +33,7 @@
 //   glyphLayers(name, slots)         the layers (above), slots over the glyph's defaults; null for an unknown name
 //   glyphMask(name, size, opts)      { w, h, a: Uint8Array } (a = 1 inside, 0 outside; size x size, row-major), the
 //                                      glyph filled into the whole box exactly as CrunchyUI's renderer fills a path
-//                                      (pixel centres, even-odd per layer, layers unioned, no antialiasing).
+//                                      (pixel centers, even-odd per layer, layers unioned, no antialiasing).
 //                                      opts: { slots, angle (degrees, clockwise), layers: false for the first only }
 //   glyphTrace(ctx, segs, x, y, size)  issues one layer as moveTo/lineTo/quadraticCurveTo/bezierCurveTo/closePath on
 //                                      a Canvas2D-shaped `ctx`, the -1..1 box mapped onto [x, x+size] x [y, y+size].
@@ -49,7 +49,7 @@
 // The long notes below are the drawings' own history, written while CrunchyUI authored them; a § number in them is
 // CrunchyUI's UI-DESIGN.md, and "the treatment", "pathOps", "ELEMENT_DEFS" and "the sheet" are CrunchyUI's.
 
-const GLYPHS_BUILD = 1;
+const GLYPHS_BUILD = 2;
 
 // CLOCKWISE, because screen y runs DOWN: `glyphRotPt` is the ordinary rotation matrix, and under a
 // flipped y a positive angle turns the way a clock does. Worth stating rather than leaving as an
@@ -110,7 +110,7 @@ const GLYPH_SET_ASIDE = {
   splash: "no agreed silhouette at icon size; drop covers the same ground",
   // FOUND BY THE COLLISION SWEEP, not by eye — `heart` and `bigheart` never sat next to each other
   // on a contact sheet, which is exactly the blind spot a pairwise check exists to cover. They are
-  // the same heart at 0.97 normalised overlap, and `heart` is the commodity mark (§11.6).
+  // the same heart at 0.97 normalized overlap, and `heart` is the commodity mark (§11.6).
   bigheart: "heart, at 0.97 silhouette overlap",
 };
 
@@ -434,17 +434,17 @@ const GLYPH_MARKS = [
 // WHAT IS AND IS NOT SAFE HERE, stated once so it does not have to be rediscovered:
 //
 //   * A LETTER IS NOT A TRADEMARK, and neither is a triangle. What is protectable is a specific
-//     brand's COLOURS, its logo, and the particular arrangement it puts these in. So: the names in
+//     brand's COLORS, its logo, and the particular arrangement it puts these in. So: the names in
 //     this file describe the mark and never a console; nothing is drawn in a brand's palette,
 //     because every icon takes the KIT'S ramp by construction; and nothing here arranges them into
 //     anyone's layout — the app hands over eleven separate sprites.
-//   * That is the same reasoning the palettes already follow (themes.js): colour VALUES carry no
-//     licence and names would, so VFX renamed them and so did we. The suite's no-brand-names rule
+//   * That is the same reasoning the palettes already follow (themes.js): color VALUES carry no
+//     license and names would, so VFX renamed them and so did we. The suite's no-brand-names rule
 //     covers this file too.
 //
 // A LETTERFORM DRAWN AS A PATH IS A DRAWING, NOT TEXT (§13). The rule that no export contains text
 // is about UI LABELS — the user's engine supplies the font for those, and a bundled one would drag
-// its licence into their game. A button mark shaped like an A is a symbol the way an arrow is; it
+// its license into their game. A button mark shaped like an A is a symbol the way an arrow is; it
 // carries no font, no glyph table and no `<text>` element, and the assertion added alongside these
 // checks exactly that rather than taking anyone's word for it.
 //
@@ -629,7 +629,7 @@ function glyphLetterG() {
           ["C", -0.26, -0.60, -0.40, -0.42, -0.40, 0],
           ["C", -0.40, 0.42, -0.26, 0.60, -0.02, 0.60],
           ["C", 0.18, 0.60, 0.38, 0.48, 0.38, 0.26],
-          // THE SPUR REACHES PAST CENTRE. At half this length it read as a nub on a C rather than
+          // THE SPUR REACHES PAST CENTER. At half this length it read as a nub on a C rather than
           // as a G — the bar is the whole difference between the two letters and has to be the
           // longest thing on the right-hand side.
           ["L", 0.38, -0.08], ["L", -0.04, -0.08], ["L", -0.04, 0.08], ["L", 0.22, 0.08],
@@ -662,7 +662,7 @@ function glyphLetterJ() {
 }
 
 // One outline. Two arm quads would overlap where they meet the stem, and the hole would land dead
-// centre of the letter — the exact failure §11.3 opens with.
+// center of the letter — the exact failure §11.3 opens with.
 function glyphLetterK() {
   return glyphPolySegs([[-0.40, GLYPH_CAP_T], [-0.24, GLYPH_CAP_T], [-0.24, -0.10], [0.12, GLYPH_CAP_T], [0.38, GLYPH_CAP_T],
                    [-0.02, 0], [0.38, GLYPH_CAP_B], [0.12, GLYPH_CAP_B], [-0.24, 0.10], [-0.24, GLYPH_CAP_B],
@@ -685,7 +685,7 @@ function glyphLetterN() {
 
 // WIDER THAN THE DIGIT ZERO, which is the whole of the 0/O distinction and is worth stating: at
 // cap height an oval narrow enough to look like a letter O looks like a zero instead. O gets the
-// full 0.84 of width; `glyphDigit0` gets 0.64 and a centre dot on top of that.
+// full 0.84 of width; `glyphDigit0` gets 0.64 and a center dot on top of that.
 function glyphLetterO() { return glyphOvalSegs(0, 0, 0.42, GLYPH_CAP_B).concat(glyphOvalSegs(0, 0, 0.26, 0.42)); }
 
 function glyphLetterP() {
@@ -856,7 +856,7 @@ function glyphDigit8() {
 }
 
 // The three shape marks default to RINGS, which is how they appear on a controller and what keeps
-// them readable over a coloured button. `solid` fills them for anyone who wants the other reading.
+// them readable over a colored button. `solid` fills them for anyone who wants the other reading.
 const GLYPH_LETTER_SEGS = { a: glyphLetterA, b: glyphLetterB, c: glyphLetterC, l: glyphLetterL,
                       r: glyphLetterR, x: glyphLetterX, y: glyphLetterY, z: glyphLetterZ,
                       d: glyphLetterD, e: glyphLetterE, f: glyphLetterF, g: glyphLetterG, h: glyphLetterH, i: glyphLetterI,
@@ -984,7 +984,7 @@ const GLYPH_KAPPA = 0.5522847498;
 // throws that work away and re-opens a question already answered; a rotation preserves it exactly.
 //
 // THE FIT IS NOT OPTIONAL. A tall shape turned 45 degrees has a bounding box the length of its own
-// diagonal, so without renormalising every blade would hang out of its box and be clipped.
+// diagonal, so without renormalizing every blade would hang out of its box and be clipped.
 function glyphRotFitSegs(segs, deg, slim, span) {
   const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
   // ACROSS THE BLADE FIRST, and this is the part the first attempt got wrong. Turning a tall shape
@@ -1056,9 +1056,9 @@ function glyphBoxSegs(x, y, w, h) {
   return [["M", x, y], ["L", x + w, y], ["L", x + w, y + h], ["L", x, y + h], ["Z"]];
 }
 
-// A GLYPH IS SCALED IN UNIT SPACE, BEFORE `glyphToUnit`. Every roster authors in the same -1..1 box centred
+// A GLYPH IS SCALED IN UNIT SPACE, BEFORE `glyphToUnit`. Every roster authors in the same -1..1 box centered
 // on zero — hand-written, ported, and imported alike (importer.js fits to it) — so multiplying the
-// coordinates shrinks the drawing about its own centre and needs nothing from the op.
+// coordinates shrinks the drawing about its own center and needs nothing from the op.
 function glyphScaleSegs(segs, k) {
   if (k === 1) return segs;
   return segs.map(function (g) {
@@ -1107,8 +1107,8 @@ const GLYPH_WORD_SPAN = 0.86;
 //
 // EACH GLYPH KEEPS ITS OWN WIDTH AND THEY SHARE ONE SCALE. Packing N glyphs into N equal cells is
 // the obvious version and it is wrong twice: the digit 1 is 0.38 wide against R's 0.82, so a fixed
-// cell leaves it swimming, and `glyphDigit1` is not centred on its own origin (its flag hangs left), so
-// centring by ORIGIN rather than by INK visibly shunts it. Measuring instead gives proportional
+// cell leaves it swimming, and `glyphDigit1` is not centered on its own origin (its flag hangs left), so
+// centering by ORIGIN rather than by INK visibly shunts it. Measuring instead gives proportional
 // advances for free.
 //
 // UNIFORM SCALE ONLY. Condensing a glyph to make it fit is what makes a pair read as two typefaces,
@@ -1165,7 +1165,7 @@ function glyphWordSegs(str, span) {
 }
 
 // `segs(rp)` returns ONE path. `over(rp)` returns a SECOND path drawn back on top (its own even-odd fill, unioned over
-// the first), which is how a coin gets its centre boss and a flask its lip without an erase.
+// the first), which is how a coin gets its center boss and a flask its lip without an erase.
 const GLYPH_SHAPES = [
   { name: "shield", segs: function () {
       return [["M", 0, -0.97], ["L", 0.82, -0.6], ["Q", 0.82, 0.44, 0, 0.97],
@@ -1177,7 +1177,7 @@ const GLYPH_SHAPES = [
   // and `wing` were. Six shapes with one outline between them. A flame is bulbous low and tapers
   // hard, so the fix is mass at the bottom rather than more detail at the top.
   { name: "flame", segs: function () {
-      // A LEANING TIP AND A WAVY EDGE. The deep centred notch that was here made a spade, because a
+      // A LEANING TIP AND A WAVY EDGE. The deep centered notch that was here made a spade, because a
       // symmetric two-lobed bottom IS one. Fire is asymmetric: the tip curls off to one side and the
       // sides ripple. That also separates it from `drop`, which is now a clean symmetric teardrop.
       // THREE TONGUES OF UNEQUAL HEIGHT over a round base. The S-curl attempt before this came out
@@ -1244,7 +1244,7 @@ const GLYPH_SHAPES = [
       return glyphCircleSegs(0, 0, 0.97).concat(glyphCircleSegs(0, 0, 0.7));
     },
     over: function () { return glyphCircleSegs(0, 0, 0.34); } },
-  // THE JAW WAS A SEPARATE BOX OVERLAPPING THE CRANIUM, and the overlap cancelled (§11.3): it bit a
+  // THE JAW WAS A SEPARATE BOX OVERLAPPING THE CRANIUM, and the overlap canceled (§11.3): it bit a
   // notch out of the skull's underside and left the teeth floating below a gap. Cranium and jaw are
   // ONE outline now — an arc from where the jaw meets the circle, over the top, back down to the
   // other corner, then round the jaw. The sockets, nose and tooth gaps stay cuts, because those
@@ -1303,7 +1303,7 @@ const GLYPH_SHAPES = [
   // the extraction turned that into extra loops, which under even-odd cancel instead of erasing.
 
   // A STRAY `Z` MID-PATH. The port closed the dome as its own subpath and then started the wavy
-  // skirt as a second one — so the skirt overlapped the dome and cancelled, leaving a semicircle
+  // skirt as a second one — so the skirt overlapped the dome and canceled, leaving a semicircle
   // with a diagonal bite out of it. It is one loop: up the left, over the crown, down the right,
   // and three scallops back along the bottom.
   { name: "ghost", segs: function () {
@@ -1319,17 +1319,17 @@ const GLYPH_SHAPES = [
         .concat(glyphOvalSegs(0.30, -0.22, 0.15, 0.20));
     } },
 
-  // FOUR STEM BARS RADIATING FROM THE CENTRE, drawn twice and all crossing each other — which under
+  // FOUR STEM BARS RADIATING FROM THE CENTER, drawn twice and all crossing each other — which under
   // even-odd is a hole at every intersection, so the leaves fused into one blob and the bars became
   // the four spikes sticking out of it. Redrawn as four TANGENT lobes and one stem: tangent because
   // overlapping lobes would cancel exactly the way the bars did.
   { name: "clover", segs: function () {
       // FOUR TANGENT CIRCLES ENCLOSE NOTHING. The first redraw placed them touching, which left a
       // diamond of daylight where all four meet — tangency is a single POINT, not a join — and a
-      // stem that could not reach the body without overlapping a lobe and cancelling it.
+      // stem that could not reach the body without overlapping a lobe and canceling it.
       //
       // ONE OUTLINE FIXES BOTH. Trace 270 degrees of each lobe, hand off at the tangent point to
-      // the next, and the centre is interior by construction. The stem is a spur inserted at the
+      // the next, and the center is interior by construction. The stem is a spur inserted at the
       // BOTTOM cusp: a triangle tapering from the point where the two lower lobes meet, which is
       // the one place a stem can attach without crossing anything.
       const r = 0.40, d = 0.40, SEG = 14;
@@ -1494,7 +1494,7 @@ const GLYPH_SHAPES = [
 //   CONVERGENT GAME SHAPES — `bolt`, `bag`, `chest`, `helm`, `bow`, `wand`. Not commodity in the
 //   close-button sense, but each has one silhouette everybody draws, and each fills a hole the
 //   review found: the roster had `sword`, `axe` and `hammer` but no RANGED weapon and no MAGIC one;
-//   `coin` and `gemcut` but nothing to put them IN; a `crown` but no armour.
+//   `coin` and `gemcut` but nothing to put them IN; a `crown` but no armor.
 //
 // WHAT IS DELIBERATELY ABSENT: crossed swords, a mute speaker and a refresh arrow, all wanted and
 // all blocked by the same thing — they are defined by strokes that CROSS, and the path op fills
@@ -1513,7 +1513,7 @@ const GLYPH_SHAPES = [
 // ONE FUNCTION, TWO DEFS, rather than one def with a direction control. `play`, `pause` and `stop`
 // are separate marks, freedesktop names the two separately (`media-seek-forward` /
 // `media-seek-backward`), and a searcher types the word, not a control value. Rewind is the SAME
-// points mirrored, so the two cannot drift apart. Worst neighbour `diamond` at 0.60 — `play` and
+// points mirrored, so the two cannot drift apart. Worst neighbor `diamond` at 0.60 — `play` and
 // `boost` were the ones worth checking and neither is close.
 function glyphSeekSegs(back) {
   const H = 0.78, W = 0.94, OV = 0.14;
@@ -1646,7 +1646,7 @@ const GLYPH_LATE = [
               ["Q", 0.56, 0.64, 0.60, 0.20], ["L", 0.84, 0.04],
               ["Q", 0.92, -0.36, 0.70, -0.60], ["L", 0.28, -0.84],
               ["Q", 0, -0.56, -0.28, -0.84], ["Z"]]
-        .concat(glyphBoxSegs(-0.05, -0.44, 0.10, 1.26));          // centre seam, cut
+        .concat(glyphBoxSegs(-0.05, -0.44, 0.10, 1.26));          // center seam, cut
     } },
 
   { name: "boot", segs: function () {
@@ -1655,7 +1655,7 @@ const GLYPH_LATE = [
         .concat(glyphBoxSegs(-0.44, 0.60, 1.36, 0.12));           // sole, cut
     } },
 
-  // A GAUNTLET, NOT A FIVE-FINGER GLOVE. Four fingers at 30px is four grey pixels; the mitten
+  // A GAUNTLET, NOT A FIVE-FINGER GLOVE. Four fingers at 30px is four gray pixels; the mitten
   // silhouette plus a thumb is what actually survives, and it is what every inventory draws.
   { name: "glove", segs: function () {
       return [["M", -0.46, 0.88], ["L", -0.46, -0.20],
@@ -1799,7 +1799,7 @@ const GLYPH_LATE = [
       return out;
     } },
 
-  // THE HANDS ARE ONE L-SHAPED POLYGON, not two bars. Two bars from the centre overlap AT the centre
+  // THE HANDS ARE ONE L-SHAPED POLYGON, not two bars. Two bars from the center overlap AT the center
   // and cancel a square out of the middle of the clock — the same trap crossed swords fell into,
   // and the same fix: draw the outline the pieces would have made. Inside the ring's hole it counts
   // odd, so it fills solid (the `compass` trick, §11.12).
@@ -1864,9 +1864,9 @@ const GLYPH_LATE = [
 
   // ---- a fourth pass (2026-08-14) ---------------------------------------------------------------
 
-  // A ROSETTE OF TANGENT LOBES, generalised out of `clover`'s fix (§11.14). Lobes touch rather than
+  // A ROSETTE OF TANGENT LOBES, generalized out of `clover`'s fix (§11.14). Lobes touch rather than
   // overlap — overlap cancels — and the outline hands off at each tangent point, which is what makes
-  // the CENTRE interior instead of a hole. Tangency needs r = d*sin(pi/n); anything else either
+  // the CENTER interior instead of a hole. Tangency needs r = d*sin(pi/n); anything else either
   // gaps or cancels, so the caller gives the ring radius and the lobe radius follows.
   //
   // The arc for each lobe runs between its two tangent points THE LONG WAY, out past the lobe's own
@@ -1985,7 +1985,7 @@ const GLYPH_LATE = [
       //
       // AND BROADENING THE BLADE WAS THE WRONG LEVER, measured rather than assumed. The first
       // attempt widened it to 0.25 to keep the dagger distinct and moved it TOWARD the greatsword
-      // (0.554 -> 0.667), which is the neighbour it shares a broad blade with. What is free is the
+      // (0.554 -> 0.667), which is the neighbor it shares a broad blade with. What is free is the
       // SMALL GUARD: the sword is a narrow blade in a wide guard and the greatsword a broad blade
       // in a wider one, so nothing else in the roster is a blade in a SHORT guard.
       return glyphRotFitSegs(glyphPolySegs([[0, -0.95], [0.20, -0.34], [0.20, 0.06], [0.34, 0.06], [0.34, 0.21],
@@ -2217,7 +2217,7 @@ const GLYPH_LATE = [
     } },
 
   // A VOLCANO — a truncated cone with a crater bitten out of the top and a plume above it. The
-  // plume is a SEPARATE subpath sitting clear of the cone, which is what stops it from cancelling
+  // plume is a SEPARATE subpath sitting clear of the cone, which is what stops it from canceling
   // and also what makes it read as smoke rather than a peak.
   { name: "volcano", segs: function () {
       // A ONE-LOBE PLUME IS A BALL. It came out as a cone with a dot floating over it — the plume
@@ -2684,7 +2684,7 @@ const GLYPH_LATE = [
       // 14x13 now, with a 5px bar in front and a 5px floor under it.
       //
       // A TRIGGER WAS DRAWN INTO IT AND LOST. Cut as a tongue in the HOLE's own outline (the only
-      // way to hang one off the frame without cancelling), it turns a clean guard opening into a
+      // way to hang one off the frame without canceling), it turns a clean guard opening into a
       // ragged bite — the hole stops reading as a guard and starts reading as damage. Rendered
       // both ways side by side; the plain oval wins and the measurement is here so it is not
       // re-proposed. The SIGHTS are the cheap half and they stayed: both are outline bumps.
@@ -2809,7 +2809,7 @@ const GLYPH_LATE = [
   // be got right rather than tried. An ear drawn as its own subpath overlapping the head cancels
   // where the two meet, so it arrives as a crescent with a notch bitten out of the ring beneath it.
   // Tangency is no better — a tangent point is under a pixel wide (`clover`, `snowman`). The union
-  // of the three discs is traced as ONE outline by taking, for each ray from the head's centre, the
+  // of the three discs is traced as ONE outline by taking, for each ray from the head's center, the
   // furthest point any of them reaches; the ear is then simply where that outline bulges.
   //
   // THE PATCHES MUST STAY INSIDE THE FACE, which is a hard bound rather than a preference: a patch
@@ -2818,7 +2818,7 @@ const GLYPH_LATE = [
   // wanted — the ring gave up its thickness so the patches could have their size.
   //
   // AND THE PATCHES ARE THE ANIMAL. Round dots at 0.17 read as a SKULL: two sockets and a nose in a
-  // bone-coloured face is exactly what a skull is. Slanting them 45 degrees and taking them out to
+  // bone-colored face is exactly what a skull is. Slanting them 45 degrees and taking them out to
   // 0.24 x 0.19 is what makes them patches — the slant is the only thing separating the two
   // subjects, and it was worth four renders to find. Reads down to about 24px; below that the
   // patches close on the ring and it becomes a bear, which is still not another icon in the roster.
@@ -2837,7 +2837,7 @@ const GLYPH_LATE = [
         }
         ring.push([far * cs, HY + far * sn]);
       }
-      // A patch is an oval turned about its own centre; `glyphRotPt` is the ordinary rotation matrix and
+      // A patch is an oval turned about its own center; `glyphRotPt` is the ordinary rotation matrix and
       // under a flipped y a positive angle turns clockwise, which is the way a panda's mask slants.
       const patch = function (cx, cy, rx, ry, deg) {
         const pts = [];
@@ -2870,7 +2870,7 @@ const GLYPH_LATE = [
   // correctly-proportioned board is 8px wide and 80% of its own bounding box — the `vial` rule
   // exactly, a glyph shrinking along the dimension that carries its shape.
   //
-  // THE STRINGER IS THE IDENTITY AND IT NEEDS THE DIAGONAL TO EXIST. Upright, the centre line is
+  // THE STRINGER IS THE IDENTITY AND IT NEEDS THE DIAGONAL TO EXIST. Upright, the center line is
   // sub-pixel and vanishes, leaving a plain lens that measured 0.817 against `mouse` and 0.796
   // against `bullet`. On the diagonal the same board is 18px across its own bounding box, the line
   // renders, and it drops to 0.573. Turning the glyph bought the space the detail needed.
@@ -2930,7 +2930,7 @@ const GLYPH_LATE = [
   // THE RAIL IS GENTLY SCALLOPED — eight lobes at 0.032, which is about a pixel of wobble at 30px.
   // It suggests rows without becoming lumps; at 0.085 the cob is a pine cone. The sweep cannot see
   // it (24x24 downsampling swallows +/-1px, and the score is identical either way), so it is a
-  // judgement made on the mask and recorded as one.
+  // judgment made on the mask and recorded as one.
   { name: "corn", segs: function () {
       // THE HUSKS REACH UP, and getting there cost five wrong drawings. Every version with the
       // leaves BELOW the ear read as a rocket — a capsule over two symmetric fins is an
@@ -3064,7 +3064,7 @@ const GLYPH_LATE = [
   // attempt. Abutting a separate triangle at the arc's end seams along the shared edge; flaring its
   // base INWARD past the ring's inner radius leaves a sub-pixel wedge that rasterizes as a hole two
   // pixels from the join. Letting the band thicken over its last stretch has neither problem and is
-  // also what an arrow drawn with one stroke actually looks like. Worst neighbour `info` at 0.477.
+  // also what an arrow drawn with one stroke actually looks like. Worst neighbor `info` at 0.477.
   { name: "refresh", system: true, segs: function () {
       const gap = 1.4, rIn = 0.44, rOut = 0.62, flare = 0.22, len = 0.40, ramp = 0.14;
       const a1 = -Math.PI / 2 - gap / 2, a0 = a1 - (2 * Math.PI - gap);
@@ -3093,7 +3093,7 @@ const GLYPH_LATE = [
   // THE CUP HAS TO TAPER FROM THE RIM. Straight-sided it measured 0.674 against `mushroom` and
   // looked like a box with ears — a cap on a stem is structurally the same object. Narrowing it to
   // the stem is both the better trophy and the thing that separates them: 0.661, and every other
-  // neighbour under 0.62.
+  // neighbor under 0.62.
   //
   // AND THE HANDLE BAR IS SIZED IN UNITS, NOT INSET FROM THE EDGE. Specified as an inset it came
   // out ONE pixel wide and vanished by 15px, which is the `vial` floor arriving at a detail rather
@@ -3143,16 +3143,16 @@ const GLYPH_LATE = [
       return ring(L, -1).concat(ring(Rt, 1), link(-0.135, 0.098), link(0.135, 0.098));
     } },
 
-  // PAINTBRUSH. Traced with square corners, because every version built by offsetting a centreline
+  // PAINTBRUSH. Traced with square corners, because every version built by offsetting a centerline
   // came back a BOTTLE: perpendicular offsets round the shoulders off, and what survives at 30px is
   // the profile — thin at one end, fat at the other — which is a skittle. A brush is a long thin
   // handle and a SHORT wide head with corners on it, and the ferrule has to step OUT rather than
-  // swell. Upright rather than diagonal: on a 45 degree axis the square end of the head rasterises
+  // swell. Upright rather than diagonal: on a 45 degree axis the square end of the head rasterizes
   // as a staircase and reads as a taper, which is a knife.
   { name: "paintbrush", segs: function () {
       // DIAGONAL, WHICH THE FIRST PASS REJECTED AT THE WRONG SIZE. Upright, a handle-ferrule-head
       // stack is a symmetric stepped tower and reads as a ROCKET; every real icon set draws this
-      // one at an angle, and the reason it was refused here — that a square head end rasterises as
+      // one at an angle, and the reason it was refused here — that a square head end rasterizes as
       // a staircase and reads as a taper — was measured at 30px. At 64 the step is fine.
       const P = [
         [-0.055, -0.95], [0.055, -0.95], [0.082, 0.06],   // handle, widening to the ferrule
@@ -3182,7 +3182,7 @@ const GLYPH_LATE = [
   // interior detail never separates an icon at this size and the outline does.
   //
   // TRACED AS ONE OUTLINE, bloom and stem and both leaves together. As separate subpaths the stem
-  // overlapped the bloom and cancelled it, leaving a gap exactly where the flower meets its stalk;
+  // overlapped the bloom and canceled it, leaving a gap exactly where the flower meets its stalk;
   // butting them instead only moves the fault, because tangency is not a join at this size.
   { name: "rose", segs: function () {
       // THE FURL IS A SPIRAL SLOT CUT OUT OF THE BLOOM, which the first pass called sub-pixel and
@@ -3240,7 +3240,7 @@ const GLYPH_LATE = [
   // the bar's own corners poking through. The sectors between the bars ARE the void, so the bars
   // are simply what is left and they meet the ring by construction.
   //
-  // THE VERTICAL RUNS THE WHOLE DIAMETER, so there are THREE lines below the centre, not two.
+  // THE VERTICAL RUNS THE WHOLE DIAMETER, so there are THREE lines below the center, not two.
   // The first drawing stopped it at the hub and cut one void between the legs, which is an
   // inverted Y in a circle — close enough to pass every sweep and wrong to anyone who has seen
   // the symbol (maintainer's, 2026-09-14, with a reference). Four sectors, not three: two wide
@@ -3271,7 +3271,7 @@ const GLYPH_LATE = [
         glyphPolySegs([[hw, under]].concat(arc(botR, loR))));
     } },
 
-  // SAXOPHONE. Drawn as a CENTRELINE with a growing half-width and offset to both sides, because a
+  // SAXOPHONE. Drawn as a CENTERLINE with a growing half-width and offset to both sides, because a
   // sax IS a bent tube of growing bore — placing the two edges by hand let the width drift and the
   // first attempt came out a fat hook wired to a blob. The bow's turn radius stays above the
   // half-width there, or the band crosses itself and even-odd detaches the bell.
@@ -3279,7 +3279,7 @@ const GLYPH_LATE = [
   // THE KEYWORK IS HOLES, and that is the whole icon. Five earlier attempts drew a solid silhouette
   // and each read as something else, because a filled bell on a tube is a boot; a hole is the one
   // interior detail that is really a change to the OUTLINE, so even-odd gives it for free. They sit
-  // ON the spine so they are centred in the bore rather than hand-placed — a hand-placed hole ate
+  // ON the spine so they are centered in the bore rather than hand-placed — a hand-placed hole ate
   // one wall of a six-pixel tube on the pass before this.
   { name: "saxophone", segs: function () {
       const SPINE = [
@@ -3296,7 +3296,7 @@ const GLYPH_LATE = [
       ];
       // The mouthpiece is DETACHED, as the reference has it, and it runs along the neck's own
       // axis at its free end rather than being parked nearby. It does not touch the outline,
-      // so it unions instead of cancelling.
+      // so it unions instead of canceling.
       const MOUTH = [[-0.859, -0.283], [-0.703, -0.214], [-0.809, -0.042], [-0.915, -0.089]];
       const at = function (a, i) { return a[Math.max(0, Math.min(a.length - 1, i))]; };
       const cr = function (pts) {
@@ -3358,7 +3358,7 @@ const GLYPH_LATE = [
   //
   // A TILT IS WHAT SEPARATES IT, AND IT HAS TO KEEP ITS CORNERS. At a generous corner radius the
   // tilted square rounds off into a blob and drifts toward `hexagon` (0.743); sharp corners at 15
-  // degrees read unmistakably as a square off its axis and the worst neighbour falls to 0.697.
+  // degrees read unmistakably as a square off its axis and the worst neighbor falls to 0.697.
   //
   // THE FACE IS A CONTROL, which is what the parametric roster is for: a die showing the value
   // that was actually rolled is the thing a game UI wants, and `star`'s points and `cog`'s teeth
@@ -3436,10 +3436,10 @@ const GLYPH_LATE = [
   // JIGSAW PIECE. A square with pips collides with `stop` (the dice measured 0.931 there), and the
   // question was whether a square with KNOBS would do the same. It does not: a tab adds area
   // OUTSIDE the square and a socket removes it from inside, so the union grows while the
-  // intersection shrinks and the worst neighbour is `speech` at 0.674. Built and scored before it
+  // intersection shrinks and the worst neighbor is `speech` at 0.674. Built and scored before it
   // was believed, which is now the habit for anything rectangular.
   //
-  // A KNOB IS A CIRCLE WHOSE CENTRE SITS OFF THE EDGE, and `d / r` IS the neck ratio: the neck is
+  // A KNOB IS A CIRCLE WHOSE CENTER SITS OFF THE EDGE, and `d / r` IS the neck ratio: the neck is
   // 2*sqrt(r^2 - d^2) against a bulb of 2r, so at d = 0.6r the neck is 0.8 of the bulb and reads as
   // a BUMP rather than a tab. At 0.75r it is a jigsaw.
   //
@@ -3469,7 +3469,7 @@ const GLYPH_LATE = [
       const side = function (want, fixed, sgn, horiz) {
         if (!want) return;
         const out = want > 0;
-        const c = fixed + sgn * (out ? d : -d);       // centre out of the body for a tab, in for a socket
+        const c = fixed + sgn * (out ? d : -d);       // center out of the body for a tab, in for a socket
         const ax = horiz ? c : 0, ay = horiz ? 0 : c;
         const p0 = horiz ? [fixed, -sgn * nk] : [sgn * nk, fixed];
         const p1 = horiz ? [fixed, sgn * nk] : [-sgn * nk, fixed];
@@ -3504,9 +3504,9 @@ const GLYPH_LATE = [
   // which is the saxophone's finding reused. Filled dabs are not available — an icon has one ink.
   //
   // TUNED AGAINST THE MASK RATHER THAN THE RENDER. At a gentle scoop (0.28) the outline came back
-  // a plain oval and the notch was simply absent; at a scoop centred on the BOTTOM it read as a
+  // a plain oval and the notch was simply absent; at a scoop centered on the BOTTOM it read as a
   // kidney bean. Beside the thumb hole at 0.70pi it is a palette, which is also where a real one
-  // has it. Worst neighbour 0.686 against a flag of 0.85.
+  // has it. Worst neighbor 0.686 against a flag of 0.85.
   // A D-PAD, AND THE ROSTER HAD NOTHING DIRECTIONAL IN 54 INPUT GLYPHS (maintainer's, 2026-08-27).
   // Every `btn-*` is a face button, a shoulder or a label; "press up" had no mark at all.
   //
@@ -3517,7 +3517,7 @@ const GLYPH_LATE = [
   // THE INDICATED ARM IS SOLID AND THE REST ARE HOLLOW, which is how a real d-pad legend reads and
   // the only version an icon with ONE INK can say. It costs no second mechanism: the hole is the
   // same plus as the shell with that arm's reach collapsed into the hub, so the arm is simply what
-  // even-odd does not cut. Worst neighbour `plusbold` at 0.650 — expected, since a d-pad IS a plus,
+  // even-odd does not cut. Worst neighbor `plusbold` at 0.650 — expected, since a d-pad IS a plus,
   // and the HOLLOW is what separates them.
   {
     name: "dpad", input: true, slots: { dir: "none" },
@@ -3919,7 +3919,7 @@ function glyphLayers(name, slots) {
 //
 // The same fill CrunchyUI's renderer gives a path op (its ui.js `flattenPath` + `fillLoopsIdx`, written out again
 // here so this file needs nothing from an app): curves flattened to GLYPH_PATH_STEPS lines each, every row sampled
-// at its pixel CENTRE, even-odd across a layer's loops, spans rounded to whole pixels, and a sliver thinner than one
+// at its pixel CENTER, even-odd across a layer's loops, spans rounded to whole pixels, and a sliver thinner than one
 // row still kept by its middle. UI's engine suite checks the two agree for every glyph.
 const GLYPH_PATH_STEPS = 12;
 
