@@ -6,7 +6,7 @@
    neutrals (--bg, --panel, --panel2, --line, --line2, --ink, --muted, --bad, --info, with --accent2 kept as an alias
    of --info for older blocks), square corners, the hard step and lift shadows, buttons, selects, sliders and checkboxes. This file
    keeps VFX's LAYOUT and its ACCENT. Square is for chrome: the effect itself, its checkerboards and every canvas
-   are content and keep their own colours. No blurred shadows, no glows, no decorative gradients. */
+   are content and keep their own colors. No blurred shadows, no glows, no decorative gradients. */
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
@@ -156,7 +156,7 @@
     background-position: right 9px center;
   }
   /* The option list is drawn by the platform (a GTK menu in the desktop app), which can ignore the select's
-     colours: both are set so it can never come out light-on-light. */
+     colors: both are set so it can never come out light-on-light. */
   select option { background: #ffffff; color: #14121a; }
   .waverow {
     display: grid;
@@ -171,7 +171,7 @@
     user-select: none; text-transform: none; letter-spacing: normal;
   }
   .wavelock input { accent-color: var(--accent); cursor: pointer; margin: 0; }
-  /* Buttons are the base's (colour, 1 px border, the hard step, hover, the pressed sink, .primary); this keeps
+  /* Buttons are the base's (color, 1 px border, the hard step, hover, the pressed sink, .primary); this keeps
      VFX's size only. */
   button {
     padding: 9px 14px;
@@ -180,7 +180,7 @@
   }
   button:disabled { opacity: 0.4; cursor: default; transform: none; }
   .icon-btn { padding: 9px 12px; }
-  /* An icon with no label beside it sits centred, without the gap the base leaves before a label. */
+  /* An icon with no label beside it sits centered, without the gap the base leaves before a label. */
   .icon-btn .pxi, .pxonly .pxi { margin-right: 0; }
   /* The generators (Randomize, Breed, Variations, Foundry, Match, Reroll): outlined in the accent, so the
      "make me something" row reads as one family beside the plain tools. Was the shared cyan. */
@@ -654,7 +654,7 @@
      Everything above this line is shared with CrunchySFX and should stay
      hand-syncable; keep VFX-only rules in this block.
      ========================================================================== */
-  /* §22: the preview is the column's centre: the box takes the column's width, the transport and the view controls
+  /* §22: the preview is the column's center: the box takes the column's width, the transport and the view controls
      sit under it in compact rows. */
   .stage-box {
     background: var(--panel); border: 1px solid var(--line);
@@ -870,7 +870,7 @@
   .is-btns button { padding: 5px 9px; font-size: 12px; }
   .is-info { font-size: 11px; color: var(--muted); margin-top: 7px; line-height: 1.4; }
 
-  /* Colour-over-lifetime ramp editor */
+  /* Color-over-lifetime ramp editor */
   .ramp-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
   .ramp-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ramp-head > span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
@@ -970,7 +970,7 @@
   }
   .layer-chip:hover { color: var(--accent); border-color: var(--accent); border-style: solid; }
 
-  /* Drag to organise — pointer-driven, so it works in the WebKitGTK desktop webview too */
+  /* Drag to organize — pointer-driven, so it works in the WebKitGTK desktop webview too */
   .uc-ghost {
     position: fixed; z-index: 10000; pointer-events: none;   /* so elementFromPoint sees through it */
     background: var(--panel); border: 1px solid var(--accent); color: var(--ink);
@@ -1005,7 +1005,7 @@
   .frame-lock.on { color: var(--on-accent); background: var(--info); border-color: var(--info); }
 
   /* Params built into the stage controls (Frame size, FPS) instead of a panel. They come out of
-     the same generator, so they arrive as .row/.waverow — restyle them to match the neighbouring
+     the same generator, so they arrive as .row/.waverow — restyle them to match the neighboring
      Zoom/Backdrop rows rather than looking like a panel row that wandered upstairs. */
   .stage-param .row, .stage-param .waverow {
     display: flex; align-items: center; gap: 8px; margin: 0; width: 100%;
@@ -1392,7 +1392,7 @@ header .spacer { flex: 1; }
 /* §24 — layout round 2: every panel folds, rows that do nothing hide, the layer chips grouped by kind with a line each,
    the strip's Categories | Tags switch. */
 /* The panels FLOW in columns (top to bottom, then the next column) instead of a grid of rows: a folded panel is just its
-   heading, and in a grid it left a row-high hole beside a tall neighbour. The layer bar spans every column and heads
+   heading, and in a grid it left a row-high hole beside a tall neighbor. The layer bar spans every column and heads
    the layers below it. */
 main#panels { display: block; }
 .panel-flow { columns: 260px; column-gap: 14px; }
@@ -1442,7 +1442,7 @@ main#panels { display: block; }
 .modal-foot > button { flex: none; white-space: nowrap; }
 .modal-foot > .hint { flex: 1 1 auto; min-width: 0; }
 
-/* §30: the desktop's update banner (CrunchySFX's), bottom centre over everything but the dialogs. Square, the hard lift. */
+/* §30: the desktop's update banner (CrunchySFX's), bottom center over everything but the dialogs. Square, the hard lift. */
 .update-banner { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 300;
   display: flex; align-items: center; gap: 12px; max-width: min(680px, 92vw);
   background: var(--panel); border: 1px solid var(--accent); padding: 10px 12px 10px 16px; box-shadow: var(--lift); font-size: 13px; }

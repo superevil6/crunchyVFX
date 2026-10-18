@@ -17,7 +17,7 @@
   };
   const litAll = (r) => r.canvases.reduce((a, cv) => a + lit(cv), 0);
   const peak = (sim) => { let m = 0; for (let i = 0; i < sim.counts.length; i++) m = Math.max(m, sim.counts[i]); return m; };
-  const colours = (cv, onlyOpaque) => {
+  const colors = (cv, onlyOpaque) => {
     const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, s = new Set();
     for (let i = 0; i < d.length; i += 4) {
       if (onlyOpaque ? d[i + 3] !== 255 : d[i + 3] <= 8) continue;
@@ -257,7 +257,7 @@
        "Playback: Auto loops only with Seamless loop; Loop and Once say so");
     {
       const lsh = buildSheet({});
-      ok(sidecarFor("godot", lsh, "fx", 24).indexOf('"loop": true') > 0, "a .tres loops by default (the old behaviour)");
+      ok(sidecarFor("godot", lsh, "fx", 24).indexOf('"loop": true') > 0, "a .tres loops by default (the old behavior)");
       ok(sidecarFor("godot", lsh, "fx", 24, false).indexOf('"loop": false') > 0, "a one-shot .tres does not loop");
       ok(JSON.parse(sidecarFor("generic", lsh, "fx", 24, false)).loop === false &&
          JSON.parse(sidecarFor("generic", lsh, "fx", 24)).loop === true, "the generic JSON carries the same flag");
@@ -360,13 +360,13 @@
     applyPreset(PRESETS["Explosion"], "Explosion");
     state.paletteLock = P16; state.alphaCut = 0.5; rerender();
     const allowed = new Set(P16.split(",").map((h) => parseInt(h, 16)));
-    const used = colours(rendered.canvases[3]);
-    // exact only where alpha is 255 — canvas stores colour premultiplied, so alphaCut is the
-    // difference between "about 16 colours" and exactly 16.
+    const used = colors(rendered.canvases[3]);
+    // exact only where alpha is 255 — canvas stores color premultiplied, so alphaCut is the
+    // difference between "about 16 colors" and exactly 16.
     ok(used.size <= 16 && [...used].every((c) => allowed.has(c)),
-       "with hard alpha every pixel is a palette colour", used.size + " distinct");
+       "with hard alpha every pixel is a palette color", used.size + " distinct");
     state.posterize = 2; rerender();
-    ok([...colours(rendered.canvases[3])].every((c) => allowed.has(c)), "posterize is bypassed under a palette");
+    ok([...colors(rendered.canvases[3])].every((c) => allowed.has(c)), "posterize is bypassed under a palette");
 
     // ---------------------------------------------------------------- export shaping
     applyPreset(PRESETS["Hit Spark"], "Hit Spark");
@@ -386,7 +386,7 @@
        "Aseprite sidecar");
     const ph = JSON.parse(sidecarFor("phaser", sh, "fx", 24));
     ok(Array.isArray(ph.frames) && ph.frames[1].filename === "fx_001", "Phaser sidecar");
-    ok(framesAtScale(2)[0].width === framesAtScale(1)[0].width * 2, "2× re-rasterises the same sim");
+    ok(framesAtScale(2)[0].width === framesAtScale(1)[0].width * 2, "2× re-rasterizes the same sim");
 
     // the zip writer — this went missing once and every zip path broke silently
     ok(typeof makeZip === "function" && typeof crc32 === "function", "the zip writer exists");
@@ -403,7 +403,7 @@
     const gif = encodeGif(rendered.canvases, state.fps);
     ok(String.fromCharCode.apply(null, gif.subarray(0, 6)) === "GIF89a", "GIF header");
     ok(gif[gif.length - 1] === 0x3B, "GIF trailer");
-    ok(gif[10] === 0xF7, "GIF global colour table flags");
+    ok(gif[10] === 0xF7, "GIF global color table flags");
 
     // ---------------------------------------------------------------- preview guides
     guides.grid = guides.safe = guides.onion = false;
@@ -588,7 +588,7 @@
       else if (srcD[i + 3] > 8) { if (emD[i] === 0 && emD[i + 1] === 0 && emD[i + 2] === 0) dimZeroed++; else dimLeaked++; }
     }
     ok(alphaSame, "the mask keeps the source alpha (so the two sheets line up)");
-    ok(brightKept > 50, "emitting pixels keep their colour", brightKept + " px");
+    ok(brightKept > 50, "emitting pixels keep their color", brightKept + " px");
     ok(dimZeroed > 50 && dimLeaked === 0, "non-emitting pixels go black, not transparent",
        dimZeroed + " zeroed, " + dimLeaked + " leaked");
 
@@ -648,7 +648,7 @@
        Math.round(bsim.bbox.x1 - bsim.bbox.x0) + "px wide");
 
     // ---------------------------------------------------------------- outline & culling
-    // The outline pass was rewritten from a (2r+1)² neighbourhood test to a separable dilation
+    // The outline pass was rewritten from a (2r+1)² neighborhood test to a separable dilation
     // (92ms -> 6ms). It must produce EXACTLY the same pixels — it changes how every outlined
     // preset looks, so "close enough" isn't good enough. Compare against the naive definition.
     const R = 2, W = 96;
@@ -683,7 +683,7 @@
        edgePx + " edge px, " + mismatches + " mismatches");
 
     // Off-screen culling must only skip particles that would draw nothing. A big particle whose
-    // CENTRE is outside the frame but whose body overlaps it still has to be drawn.
+    // CENTER is outside the frame but whose body overlaps it still has to be drawn.
     applyPreset({ shape: 0, count: 1, size: 60, speed: 0, life: 1, duration: 0.3, frameSize: 3,
                   originX: 1.02, originY: 0.5, fadeIn: 0, fadeOut: 0, coreWhite: 0.5 }, "edge");
     const edgeR = renderFrames(state, { size: 96 });
@@ -749,7 +749,7 @@
     ok(lay({ arc: 0 }, 0.3) === 0, "arc at 0 draws nothing");
     ok(lay({ arc: 1, arcLife: 0.9 }, 0.3) > 20, "the arc draws");
     ok(lay({ arc: 1, arcLife: 0.3 }, 0.9) === 0, "the arc stops after arcLife");
-    // it must re-randomise in STEPS, not per frame: same flicker window = same shape
+    // it must re-randomize in STEPS, not per frame: same flicker window = same shape
     applyPreset({ shape: 0, count: 1, opacity: 0, arc: 1, arcRate: 2, arcJitter: 0.9,
                   arcLife: 2, duration: 1.0, fps: 24, frameSize: 4 }, "arcstep");
     const ar = renderFrames(state, { size: 128 });
@@ -759,7 +759,7 @@
        "the arc holds its shape within a flicker step (electricity, not noise)");
     ok(sig(ar.canvases[1]) !== sig(ar.canvases[14]), "…and changes on the next step");
 
-    // dissolve erases over time, and materialise runs the other way
+    // dissolve erases over time, and materialize runs the other way
     applyPreset(PRESETS["Explosion"], "Explosion");
     const solidMid = lit(rendered.canvases[Math.floor(rendered.canvases.length * 0.55)]);
     state.dissolve = 1; state.dissolveTime = 1; state.dissolveEdge = 0; rerender();
@@ -770,7 +770,7 @@
     const early = lit(rendered.canvases[1]);
     state.dissolveDir = 0; rerender();
     const earlySolid = lit(rendered.canvases[1]);
-    ok(early < earlySolid, "materialise hides it early instead", earlySolid + " → " + early + " px");
+    ok(early < earlySolid, "materialize hides it early instead", earlySolid + " → " + early + " px");
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.dissolve === 0, "dissolve is off by default");
 
@@ -907,7 +907,7 @@
       applyMacro(hue, 0);
       const lo = state.hue;
       applyMacro(hue, 1);
-      ok(Math.abs(state.hue - lo) > 180, "its ends are different colours, not both red",
+      ok(Math.abs(state.hue - lo) > 180, "its ends are different colors, not both red",
          lo + "° → " + state.hue + "°");
       applyPreset(PRESETS["Explosion"], "Explosion");
     }
@@ -1077,7 +1077,7 @@
          presetPages.length + " pages, " + Object.keys(seen).length + " seen");
       presetPage = 0; presetPageShow();
       ok(document.getElementById("presetPrev").disabled && (presetPages.length === 1 || !document.getElementById("presetNext").disabled),
-         "the arrows grey out at the ends", document.getElementById("presetPage").textContent);
+         "the arrows gray out at the ends", document.getElementById("presetPage").textContent);
       // a page fits its strip: the visible cells and dividers never overflow the row
       const used = Array.from(presetBar.children).filter((c) => !c.hidden).reduce((a, c) => a + c.offsetWidth + PGAP, 0) - PGAP;
       ok(used <= presetBar.clientWidth + 1, "a page fits the strip's width", used + " of " + presetBar.clientWidth + " px");
@@ -2187,7 +2187,7 @@
          tail.join(", ") || "all " + Object.keys(PRESETS).length + " use their clip");
 
       // FAULT 2: Fit shrinking particles to specks. Under Fit the bounding box across ALL frames
-      // sets the scale, so a fast or far-travelling effect scales itself into nothing — the fix is
+      // sets the scale, so a fast or far-traveling effect scales itself into nothing — the fix is
       // always less travel and bigger particles, never more particles.
       //
       // Only judged where the particles ARE the picture: plenty of presets use them as incidental
@@ -2234,7 +2234,7 @@
     // this keeps it found, because the next generated control would arrive the same way.
     {
       // The real accessible-name rules, not "does a label element exist" — a switch row wraps its
-      // checkbox in a SECOND, text-less label, which counts as labelled while naming nothing.
+      // checkbox in a SECOND, text-less label, which counts as labeled while naming nothing.
       const accName = (el) => {
         const aria = (el.getAttribute("aria-label") || "").trim();
         if (aria) return aria;
@@ -2474,7 +2474,7 @@
       // from the controls that filled it, so this is pinned structurally rather than by eye.
       for (const id of ["ihSprites", "ihExports"]) {
         ok(!!document.getElementById(id).closest(".ih-group"),
-           id + " sits inside its own labelled group");
+           id + " sits inside its own labeled group");
       }
 
       // Recording is gated the same way the UI is: a web visitor has no shelf to come back to.
@@ -2504,7 +2504,7 @@
       captureSoundHold({ count: 12, size: 4, duration: 0.5 }, "some sound");
       ok(soundHold.on, "a sound hold is active for this check");
       applyPreset(PRESETS["Explosion"], "Explosion");
-      ok(state.count === 12, "a PRESET still honours the hold, which is what the hold is for",
+      ok(state.count === 12, "a PRESET still honors the hold, which is what the hold is for",
          "count=" + state.count);
       applyPreset(back, entry.name, true);
       ok(state.count === 77,
@@ -2585,7 +2585,7 @@
          "orbitUseShape defaults to off, so existing orbit presets are untouched",
          String(PARAM_BY_KEY.orbitUseShape[5]));
 
-      // No shipped preset may rely on the new behaviour by accident — if one did, it would have
+      // No shipped preset may rely on the new behavior by accident — if one did, it would have
       // been drawing beads until now and silently change the day this landed.
       const optedIn = Object.keys(PRESETS).filter((n) => PRESETS[n].orbitUseShape > 0);
       ok(optedIn.length === 0 || optedIn.every((n) => PRESETS[n].orbit > 0),
@@ -2606,7 +2606,7 @@
       const one = litAll(renderFrames(state, { size: 96, fit: true }));
       state.shapeMix = String(SHAPES.indexOf("heart"));
       const two = litAll(renderFrames(state, { size: 96, fit: true }));
-      ok(one !== two, "orbit honours the whole shape selection, not only the first",
+      ok(one !== two, "orbit honors the whole shape selection, not only the first",
          one + " vs " + two);
 
       applyPreset(PRESETS["Explosion"], "Explosion");
@@ -2687,7 +2687,7 @@
       undoEdit();
       ok(state.sigil > 0, "removing a layer can be undone");
 
-      // Essential panels must NOT be removable — there is no sensible "off" for Colour.
+      // Essential panels must NOT be removable — there is no sensible "off" for Color.
       for (const g of ["Color", "Motion", "Output"]) {
         const el = panels.querySelector('[data-group="' + g + '"]');
         if (el) ok(!el.querySelector(".layer-remove"), g + " has no remove button");
@@ -2812,7 +2812,7 @@
     ok(lay({ tumble: 0 }, 0.5) === 0, "tumble at 0 draws nothing");
     ok(lay({ tumble: 1, tumbleStagger: 0 }, 0.3) > 50, "the tumble draws",
        lay({ tumble: 1, tumbleStagger: 0 }, 0.3) + " px");
-    // Falling is the point: the cloud's centre of mass must descend over time.
+    // Falling is the point: the cloud's center of mass must descend over time.
     {
       const cy = (frac) => {
         applyPreset({ shape: 0, count: 1, opacity: 0, duration: 1.2, fps: 24, frameSize: 4,
@@ -2869,7 +2869,7 @@
            (early ? early.w : 0) + "px → " + (late ? late.w : 0) + "px");
       }
 
-      // Drip FALLS — the drops' centre of mass descends.
+      // Drip FALLS — the drops' center of mass descends.
       {
         // Comparing one frame to a later one doesn't work: each drop runs its own cycle, so the
         // ensemble is in steady state and the mean height barely moves. Test the PARAMETER
@@ -2930,7 +2930,7 @@
            spanOf(plain) + "px → " + spanOf(cut) + "px");
       }
 
-      // Warp displaces pixels near a travelling front, and the front MOVES — that's what makes it
+      // Warp displaces pixels near a traveling front, and the front MOVES — that's what makes it
       // a blast shell rather than a standing distortion like haze.
       {
         const shot = (patch, frame) => {
@@ -2989,7 +2989,7 @@
         const b = boxOf({ decal: 1, decalSquash: 0.8, decalDrop: 0.2, decalGrow: 0 }, 0.4);
         ok(b && b.w > b.h * 2, "the decal is squashed to the ground plane",
            b ? b.w + "×" + b.h : "nothing drawn");
-        ok(b && b.cy > 64, "…and sits below the origin", b ? "centre y " + b.cy.toFixed(0) : "");
+        ok(b && b.cy > 64, "…and sits below the origin", b ? "center y " + b.cy.toFixed(0) : "");
       }
 
       // A tunnel recedes: rings scroll, so the pattern changes between frames.
@@ -3007,7 +3007,7 @@
         ok(moved > 100, "the tunnel's rings travel toward the viewer", moved + " px changed");
       }
 
-      // Crackle re-randomises in STEPS: two frames inside one step are identical, and it changes
+      // Crackle re-randomizes in STEPS: two frames inside one step are identical, and it changes
       // across a step boundary. Continuous jitter reads as noise; stepped reads as electricity.
       {
         const frameAt = (f, rate) => {
@@ -3128,7 +3128,7 @@
         ok(corners === 0, "the impact flash stays inside the sprite, not the background",
            corners + " lit corners");
         // Measure BRIGHTNESS, not coverage: source-atop paints inside the sprite's existing
-        // alpha, so it changes colour without lighting a single new pixel. And frame 0 is often
+        // alpha, so it changes color without lighting a single new pixel. And frame 0 is often
         // empty anyway — particles haven't faded in yet — so compare the early run as a whole.
         const meanRGB = (cv) => {
           const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
@@ -3231,8 +3231,8 @@
          early + " → " + mid + " → " + late + " px");
       ok(lay({ rift: 0 }, 0.5) === 0, "rift at 0 draws nothing");
 
-      // Haze displaces pixels rather than recolouring them: the image changes, but it neither
-      // brightens nor erases the sprite the way a colour pass would.
+      // Haze displaces pixels rather than recoloring them: the image changes, but it neither
+      // brightens nor erases the sprite the way a color pass would.
       const hazeShot = (patch) => {
         applyPreset(Object.assign({ shape: 5, count: 40, opacity: 0.8, emitter: 3,
                                     emitRadius: 0.2, speed: 40, size: 18, duration: 1.0,
@@ -3295,9 +3295,9 @@
     // the inner radius must leave an actual hole in the middle
     const holeCv = lay2({ lines: 1, lineInner: 0.3, lineOuter: 0.6, lineLife: 0.9, lineJitter: 0 }, 0.6);
     const hd = holeCv.getContext("2d").getImageData(0, 0, 128, 128).data;
-    let centreLit = 0;
-    for (let y = 58; y < 70; y++) for (let x = 58; x < 70; x++) if (hd[(y * 128 + x) * 4 + 3] > 8) centreLit++;
-    ok(centreLit === 0, "the inner radius leaves a gap in the middle", centreLit + " px in the centre");
+    let centerLit = 0;
+    for (let y = 58; y < 70; y++) for (let x = 58; x < 70; x++) if (hd[(y * 128 + x) * 4 + 3] > 8) centerLit++;
+    ok(centerLit === 0, "the inner radius leaves a gap in the middle", centerLit + " px in the center");
 
     // merge: overlapping soft particles must FUSE, not stay separate blobs
     const gooPatch = { shape: 0, count: 20, size: 34, speed: 60, drag: 0.6, life: 1.0,
@@ -3311,15 +3311,15 @@
       let n2 = 0; for (let i = 3; i < d.length; i += 4) if (d[i] === 255) n2++; return n2; };
     ok(solid(fused) > solid(loose) * 3, "merge hardens overlapping particles into a solid body",
        solid(loose) + " → " + solid(fused) + " opaque px");
-    // and the bridges between blobs must be coloured, not black
+    // and the bridges between blobs must be colored, not black
     const fd = fused.getContext("2d").getImageData(0, 0, 128, 128).data;
-    let black = 0, coloured = 0;
+    let black = 0, colored = 0;
     for (let i = 0; i < fd.length; i += 4) {
       if (fd[i + 3] !== 255) continue;
-      if (fd[i] + fd[i + 1] + fd[i + 2] < 12) black++; else coloured++;
+      if (fd[i] + fd[i + 1] + fd[i + 2] < 12) black++; else colored++;
     }
-    ok(coloured > 100 && black === 0, "merged bridges take a colour, not black",
-       coloured + " coloured, " + black + " black");
+    ok(colored > 100 && black === 0, "merged bridges take a color, not black",
+       colored + " colored, " + black + " black");
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.merge === 0 && state.shatter === 0 && state.lines === 0, "all three default to off");
 
@@ -3367,7 +3367,7 @@
     // A STATIC source: every frame is identical without the glitch, so any difference between
     // frames is the glitch pattern and nothing else.
     // Truly static needs more pinning than it looks: grow, hueLife and coreWhite all drift with
-    // particle AGE by default, so a motionless particle still changes size and colour every frame.
+    // particle AGE by default, so a motionless particle still changes size and color every frame.
     const staticPatch = { shape: 4, count: 40, size: 16, sizeVar: 0, speed: 0, life: 9, lifeVar: 0,
                           fadeIn: 0, fadeOut: 0, grow: 0, hueLife: 0, coreWhite: 0,
                           duration: 1.0, fps: 24, frameSize: 4, emitter: 6, emitRadius: 0.3 };
@@ -3389,7 +3389,7 @@
     applyPreset(PRESETS["Explosion"], "Explosion");
     ok(state.glitch === 0 && state.ripple === 0 && state.pathTrail === 0, "all three default to off");
 
-    // ---------------------------------------------------------------- drag to organise
+    // ---------------------------------------------------------------- drag to organize
     // Driven through the real pointer handlers. elementFromPoint is stubbed because headless
     // layout can't be relied on to put a category under a synthetic coordinate.
     userCats = []; ucSeq = 0;
@@ -3453,7 +3453,7 @@
          "the Wizard heads the header's globals, with the core's wand icon");
       ok(wizModal.classList.contains("modal") && wizModal.getAttribute("role") === "dialog" &&
          wizModal.getAttribute("aria-modal") === "true" && wizModal.getAttribute("aria-label") === "Wizard",
-         "the Wizard is a labelled modal dialog");
+         "the Wizard is a labeled modal dialog");
       ok(TOUR[0].body.indexOf("Wizard") >= 0 && TOUR.some((t) => t.target === "#wizardBtn"), "the tour's welcome points at the Wizard");
 
       // THE TABLES name only real things, so a renamed shape, system, palette, category or archetype fails here
@@ -3471,13 +3471,13 @@
         if (!PRESETS[ty.sample]) badRef.push(ty.key + " sample " + ty.sample);
       }
       ok(!badRef.length, "the Wizard's tables name only shapes, systems, palettes and categories that exist", badRef.join(", ") || "clean");
-      // every tag's palettes paint that tag's colour (so a painted roll honestly carries it)
+      // every tag's palettes paint that tag's color (so a painted roll honestly carries it)
       const offPal = [];
       for (const t of WIZARD_TAGS) for (const n of t.palettes) {
         const L = wizardColour(wizardPaint(fullGenome({}), n));
-        if (!t.colour(L.h, L.s, L.cw, L.blend)) offPal.push(t.key + ":" + n);
+        if (!t.color(L.h, L.s, L.cw, L.blend)) offPal.push(t.key + ":" + n);
       }
-      ok(!offPal.length, "every tag's palette is that tag's colour", offPal.join(", ") || "clean");
+      ok(!offPal.length, "every tag's palette is that tag's color", offPal.join(", ") || "clean");
 
       // TAGS ARE DERIVED: a preset is tagged by what it is, never by a list
       const expectTag = { "Torch Flicker": "fire", "Explosion": "fire", "Frost Nova": "ice", "Lightning Zap": "lightning",
@@ -3756,6 +3756,32 @@
          "every Icon preset draws the icon, upright and still");
       restoreEdit(snap28); effectLabel = label28; syncUI();
     }
+    // ---------------------------------------------------------------- American spelling
+    // AJ, 2026-10-18: "no British spelling … wipe it out everywhere in all apps" (the suite rule). CrunchyUI's
+    // copy/on-screen-text-uses-american-spelling, ported: every word the page holds (open panel or folded), every
+    // title / placeholder / alt / aria-label, every option, and the words that reach the screen from data: row labels
+    // and sections, presets and their categories, layer kinds and blurbs, era hints, tour steps. The same
+    // word-boundary list as Tile's, SFX's and UI's rows. Search synonyms (icon words, moment words) keep both spellings
+    // on purpose and are not shown, so they are not scanned.
+    {
+      const BRIT = /\b(\w*colour\w*|grey|greys|greyed|greying|greyish|greyscale|\w*armour\w*|armoury|centre|centres|centred|centring|centrepiece|behaviour\w*|favourites?|favour(s|ed|ing)?|\w*neighbour\w*|honour\w*|harbour\w*|rumour\w*|flavour\w*|odour\w*|vapour\w*|humour\w*|labour\w*|saviour|valour|splendour|licences?|defences?|offences?|fibres?|metres?|litres?|theatres?|calibre|lustre|sombre|spectres?|sceptres?|catalogue\w*|analogue|programmes?|jewellery|jeweller\w*|mould\w*|plough\w*|aluminium|cheques?|travell(ed|ing|er)|cancell(ed|ing)|modell(ed|ing)|labell(ed|ing)|fuell(ed|ing)|panelling|whilst|amongst|learnt|spelt|sulphur\w*|manoeuvre\w*|maths|storeys?|kerb|tyres?|artefacts?|(organ|real|recogn|custom|random|normal|optim|minim|maxim|visual|initial|synthes|serial|summar|stabil|categor|character|util|special|sanit|quant|material|raster|harmon|author|local|equal|neutral|synchron|crystall|styl|general|personal|ideal|final|priorit|emphas|apolog|memor|vapor|color|standard|modern|parameter)is(e|ed|es|ing|ation|ations|er|able))\b/i;
+      const bad = [];
+      const look = (where, s) => { const m = String(s || "").match(BRIT); if (m) bad.push(where + ": " + m[0] + " in " + JSON.stringify(String(s).trim().slice(0, 40))); };
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      for (let n = w.nextNode(); n; n = w.nextNode()) if (!n.parentElement.closest("script, style")) look("text", n.nodeValue);
+      ["placeholder", "title", "alt", "aria-label"].forEach((a) => document.querySelectorAll("[" + a + "]").forEach((e) => look("@" + a, e.getAttribute(a))));
+      document.querySelectorAll("optgroup").forEach((g) => look("optgroup", g.label));
+      PARAMS.forEach((p) => { look("row " + p[0], p[1]); look("section of " + p[0], p[7]); });
+      Object.keys(PRESETS).forEach((k) => look("preset", k));
+      (window.PRESET_CATEGORIES || []).forEach((c) => look("category", c[0]));
+      LAYER_KINDS.forEach((k) => look("layer kind", k));
+      Object.keys(LAYER_ABOUT).forEach((k) => { look("layer", k); look("layer " + k, LAYER_ABOUT[k][1]); });
+      STYLES.forEach((s) => { look("era", s.name); look("era " + s.name, s.hint); });
+      TOUR.forEach((s) => { look("tour", s.title); look("tour", s.body); });
+      const sane = BRIT.test("Colour over lifetime") && BRIT.test("Post & stylise") && BRIT.test("synthesised") && !BRIT.test("noise") && !BRIT.test("Color");
+      ok(!bad.length && sane, "copy: the text a person reads uses American spelling" + (sane ? "" : " (the word list itself)"), bad.slice(0, 8).join(" · "));
+    }
+
   } catch (e) {
     fails++;
     lines.push("FAIL threw: " + e.message);

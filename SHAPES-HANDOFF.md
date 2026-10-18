@@ -29,7 +29,7 @@ be reconciled:
 A shared **ordered list** would make every future addition append-only in two products at once,
 with no way to reconcile a divergence once it happened. A shared **dictionary** costs nothing: each
 app keeps its own registration order and looks geometry up by name. This is the single decision that
-is cheap now and expensive to retrofit — the analogue of UI's own `describe`/`rasterize` split.
+is cheap now and expensive to retrofit — the analog of UI's own `describe`/`rasterize` split.
 
 The corollary: **the shared file must not decide visibility either.** UI hides four names as
 duplicates (`SHOP_DUPLICATES`: `gear`≈`cog`, `plusbold`≈`plus`, `padlock`≈`lock`, `shard`=`triangle`)
@@ -58,7 +58,7 @@ Measured 2026-08-26.
 | with `segs()` | **107** | `ICON_DEFS` 16 + `LATE_DEFS` 91; the portable pool |
 | object icons new to VFX | **68** | |
 | multi-subpath (even-odd matters) | **70 of 106** | |
-| `segs(rp)` — weight-parameterised | 16 | UI-native, cannot be static data |
+| `segs(rp)` — weight-parameterized | 16 | UI-native, cannot be static data |
 | `btn-*` input glyphs | 54 | not particles |
 | `icons-vfx.js` `VFX_SHAPES` | **54** | already ported from VFX |
 
@@ -78,7 +78,7 @@ comment on `bolt` is the one to keep:
 > out of a seeded jitter, so what ports is one arbitrary instance of a lightning bolt rather than a
 > drawing of one.
 
-**UI's parameterised icons.** 16 records take `segs(rp)` and read `rp.weight`; the icon treatment
+**UI's parameterized icons.** 16 records take `segs(rp)` and read `rp.weight`; the icon treatment
 controls that weight. Baking one instance throws away the reason they exist.
 
 **Semantic ops.** §1.2 — `roundRect` is a snapped stair-step in raster and an arc in SVG; a ramp
@@ -166,7 +166,7 @@ it there would make two repos disagree about a shape neither owns."*
    **Adopting UI's versions changes the appearance of every saved VFX effect using them**, so it is
    a maintainer decision, not a consequence of plumbing. VFX's default is to keep its own.
 4. **Whether the shared file carries anything beyond geometry** — a category, a suggested size band,
-   an even-odd-safe flag. Keep it minimal; each app already has its own categorisation
+   an even-odd-safe flag. Keep it minimal; each app already has its own categorization
    (`SHAPE_CATS` here, families there) and they do not agree.
 
 ---

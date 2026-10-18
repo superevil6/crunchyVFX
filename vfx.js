@@ -27,7 +27,7 @@ const SIZES    = ["32", "48", "64", "96", "128", "192", "256"];
 const P_STRIDE = 14;       // one particle per stride in the per-frame Float32Array
 const P_X = 0, P_Y = 1, P_SIZE = 2, P_ANG = 3, P_ALPHA = 4;
 const P_HUE = 5, P_WHITE = 6, P_KIND = 7, P_VX = 8, P_VY = 9;
-// Colour is resolved at SIMULATE time, not draw time: with a ramp, hue/sat/light are a function
+// Color is resolved at SIMULATE time, not draw time: with a ramp, hue/sat/light are a function
 // of the particle's own life fraction, which the frame table doesn't otherwise carry.
 const P_SAT = 10, P_LIGHT = 11;
 // Flipbook frame for the imported-sprite shape: which cell of the strip this particle is showing.
@@ -53,7 +53,7 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 // Custom drawn sprite (shape 8): a 16×16 ALPHA grid, base64'd into the patch so it travels in
 // share links and saved effects — the 2D cousin of CrunchySFX's drawn wavetable. Alpha only: the
-// tint pass colours it, so it responds to Hue/palettes like every other shape.
+// tint pass colors it, so it responds to Hue/palettes like every other shape.
 const CUSTOM_SPRITE_N = 16;
 function decodeSpriteAlpha(b64) {
   if (!b64) return null;
@@ -210,7 +210,7 @@ function emitPlace(kind, seed, g, i, n, cx, cy, emitR, baseDir, spreadR) {
 }
 
 // Layer B's fade envelope. Mirrors lifeAlpha() but reads emit2* — kept separate rather than
-// parameterising lifeAlpha, because that one is called for every particle of the main population
+// parameterizing lifeAlpha, because that one is called for every particle of the main population
 // on every frame and is worth leaving branch-free.
 function layerBAlpha(st, u) {
   const fi = st.emit2FadeIn, fo = st.emit2FadeOut;
@@ -228,7 +228,7 @@ function simulate(st) {
   const dt = 1 / (fps * SUB);
   const seed = Math.max(1, Math.round(st.seed)) | 0;
 
-  // Shots: the whole burst re-fires `shots` times, each smaller and nudged off-centre. One loop
+  // Shots: the whole burst re-fires `shots` times, each smaller and nudged off-center. One loop
   // around the emitter, not a second engine.
   const shots = Math.max(1, Math.round(st.shots));
   const perShot = Math.min(MAX_PARTS, Math.max(1, Math.round(st.count)));
@@ -238,7 +238,7 @@ function simulate(st) {
   // integrator works on them unchanged; they're just born later. One generation only: children
   // never spawn grandchildren, which would be an unbounded population.
   const subN = Math.max(0, Math.round(st.subCount));
-  // Layer B: a SECOND, INDEPENDENT population — its own shape, emitter, motion, colour and
+  // Layer B: a SECOND, INDEPENDENT population — its own shape, emitter, motion, color and
   // timing. Not the sub-emitter, which spawns children FROM dying parents and inherits their
   // position and velocity. This is "fire AND smoke", where sub-emitter is "embers OFF the fire".
   //
@@ -288,7 +288,7 @@ function simulate(st) {
     pspin[g] = (st.spin * (1 + st.spinVar * rndS(seed, g, 5))) * DEG;
     pang[g] = st.angle * DEG + st.angleVar * rnd(seed, g, 6) * Math.PI * 2;
 
-    // Shots after the first are nudged off-centre so a burst doesn't fire three times from the
+    // Shots after the first are nudged off-center so a burst doesn't fire three times from the
     // exact same spot.
     const jx = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 21) : 0;
     const jy = k ? st.shotSpread * fs * 0.25 * rndS(seed, k, 22) : 0;
@@ -368,7 +368,7 @@ function simulate(st) {
         scratch[o + P_ANG] = pang[g];
         if (ramp) {
           // With a ramp the gradient owns hue/sat/light; hueVar still jitters per particle and
-          // the fade envelope still multiplies, so the ramp is a colour curve, not a replacement
+          // the fade envelope still multiplies, so the ramp is a color curve, not a replacement
           // for the envelope.
           const c = sampleRamp(ramp, u);
           scratch[o + P_HUE] = c.h + (phue[g] - st.hue);
@@ -571,7 +571,7 @@ function simulate(st) {
   return { frames, counts, nFrames, fps, fs, bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 } };
 }
 
-// ---------- colour ramp ----------
+// ---------- color ramp ----------
 // An optional multi-stop gradient over particle lifetime, stored as "p,h,s,l,a|…" in the patch.
 // Empty string = off, and the classic hue / hueLife / coreWhite path runs instead — so every
 // existing preset and share link is untouched.
@@ -655,8 +655,8 @@ function clearSpriteCache() { spriteCache.clear(); }
 
 function hsl(h, s, l) { return "hsl(" + (((h % 360) + 360) % 360) + "," + Math.round(clamp01(s) * 100) + "%," + Math.round(clamp01(l) * 100) + "%)"; }
 
-// The same colour as RGB components, for the passes that write pixels directly rather than setting
-// a fillStyle. Kept beside hsl() so the two can never disagree about what a colour means.
+// The same color as RGB components, for the passes that write pixels directly rather than setting
+// a fillStyle. Kept beside hsl() so the two can never disagree about what a color means.
 function hslParts(h, s, l) {
   const hh = ((((h % 360) + 360) % 360)) / 360, ss = clamp01(s), ll = clamp01(l);
   if (ss <= 0) { const v = Math.round(ll * 255); return [v, v, v]; }
@@ -683,10 +683,10 @@ function makeSprite(shape, hue, sat, lum, st, frame, px) {
   g.fillStyle = "#fff"; g.strokeStyle = "#fff";
   const def = SHAPE_DEFS[shape] || SHAPE_DEFS[0];   // out of range falls back to glow, as ever
   def.draw(g, R, st, frame);
-  // Tint: one pass over whatever alpha we just drew, in the colour simulate() already resolved
+  // Tint: one pass over whatever alpha we just drew, in the color simulate() already resolved
   // (classic hue/coreWhite path or a ramp sample — makeSprite doesn't need to know which).
   // Shapes drawn in white take source-in (a flat repaint). The glyph and the imported PNG carry
-  // their own colours, so they get source-atop at partial alpha — letting their tint slider fade
+  // their own colors, so they get source-atop at partial alpha — letting their tint slider fade
   // between "keep 🔥 / my artwork as drawn" and "treat it as a particle like any other".
   const tintAmt = def.ownColour ? clamp01(def.ownColour(st)) : 1;
   if (tintAmt > 0) {
@@ -909,9 +909,9 @@ function drawRays(g, x, y, sz, st, hue, a) {
 // measure only the particles and crop the structure.
 // ============================================================================================
 
-// Shared colour for the layers: honours the ramp when there is one, the classic hue/sat/bright
-// path when there isn't, so a ramp'd patch doesn't have two colour systems fighting.
-// Returns the CSS colour AND its components. The components are what getSprite() needs — structure
+// Shared color for the layers: honors the ramp when there is one, the classic hue/sat/bright
+// path when there isn't, so a ramp'd patch doesn't have two color systems fighting.
+// Returns the CSS color AND its components. The components are what getSprite() needs — structure
 // layers that draw a real particle shape rather than a filled path have to key the sprite cache on
 // h/s/l, and re-deriving them at the call site would be the same formula written twice.
 function layerColour(st, u, whiteBias) {
@@ -1113,7 +1113,7 @@ function drawVortex(g, st, t, xf, fs, ox, oy) {
 // ---------- arc ----------
 // Lightning from the origin to a point, with branches. The `bolt` SHAPE is a particle that
 // travels; this is an arc anchored at both ends, which is what chain lightning and tesla coils
-// actually are. It re-randomises in discrete steps (arcRate) rather than every frame, because
+// actually are. It re-randomizes in discrete steps (arcRate) rather than every frame, because
 // continuous jitter reads as noise while stepped jitter reads as electricity.
 function drawArc(g, st, t, xf, fs, ox, oy, seed) {
   if (st.arc <= 0) return;
@@ -1128,7 +1128,7 @@ function drawArc(g, st, t, xf, fs, ox, oy, seed) {
   const nx = -dy / len, ny = dx / len;                     // perpendicular, for the jitter
   // 0.9 white-bias crushed saturation to ~23% and lifted lightness to ~95%, so every bolt came
   // out white no matter what hue was set — purple lightning was simply not expressible. 0.55
-  // keeps the hot-white read while letting the colour through. (Same call the sigil needed.)
+  // keeps the hot-white read while letting the color through. (Same call the sigil needed.)
   const c = layerColour(st, u, 0.55);
   const fade = 1 - u * u;
 
@@ -1302,7 +1302,7 @@ function drawFracture(g, st, t, xf, fs, ox, oy, seed) {
       x += Math.cos(a) * step; y += Math.sin(a) * step;
       g.lineTo(x, y);
       // Forks: a second crack leaving at a sharp angle, thinner and shorter. One level only —
-      // deeper recursion turns into a grey smear at sprite sizes.
+      // deeper recursion turns into a gray smear at sprite sizes.
       if (depth < 1 && st.fractureFork > 0 && rnd(seed, id * 32 + s, 183) < st.fractureFork) {
         const bx = x, by = y, ba = a + (rnd(seed, id * 32 + s, 184) < 0.5 ? -1 : 1) * (0.5 + rnd(seed, id, 185) * 0.7);
         g.stroke();
@@ -1481,7 +1481,7 @@ function drawTunnel(g, st, t, xf, fs, ox, oy) {
 // weapon. `arc` is ONE bolt between two chosen endpoints; this is a FIELD of tiny ones with no
 // endpoints to aim, which is a different thing to author and a different thing to look at.
 //
-// Re-randomises in discrete steps like the arc layer does: continuous jitter reads as noise,
+// Re-randomizes in discrete steps like the arc layer does: continuous jitter reads as noise,
 // stepped jitter reads as electricity.
 function drawCrackle(g, st, t, xf, fs, ox, oy, seed) {
   if (st.crackle <= 0) return;
@@ -1684,7 +1684,7 @@ function drawWeather(g, st, t, xf, fs, ox, oy, seed) {
 
 // ---------- flare ----------
 // An anamorphic lens flare: a wide horizontal streak plus ghost discs marching along the axis
-// through the frame centre. Flash's rays radiate from a point; a flare is a property of the
+// through the frame center. Flash's rays radiate from a point; a flare is a property of the
 // LENS — it's what makes a bright effect read as filmed rather than drawn, and it's the look every
 // modern game trailer leans on.
 function drawFlare(g, st, t, xf, fs, ox, oy, seed) {
@@ -1706,7 +1706,7 @@ function drawFlare(g, st, t, xf, fs, ox, oy, seed) {
   g.fillStyle = grd;
   const th = Math.max(1, st.flareWidth * xf.k);
   g.fillRect(ox - len, oy - th * 0.5, len * 2, th);
-  // Ghosts: discs spaced along the line from the source THROUGH the frame centre, which is what
+  // Ghosts: discs spaced along the line from the source THROUGH the frame center, which is what
   // makes them track the source as it moves off-axis rather than sitting on it.
   const ghosts = Math.round(st.flareGhosts);
   if (ghosts > 0) {
@@ -1841,7 +1841,7 @@ function drawRift(g, st, t, xf, fs, ox, oy, seed) {
 
 // ---------- sigil ----------
 // A magic circle: concentric rings, a tick ring, and radial spokes, each ring counter-rotating
-// against its neighbour. Rings alone read as a target; it's the OPPOSING rotation plus the tick
+// against its neighbor. Rings alone read as a target; it's the OPPOSING rotation plus the tick
 // marks that read as arcane machinery, which is why the spin alternates by index rather than
 // giving every ring the same direction. Draws flat by default and squashes to a ground plane —
 // summoning circles are almost always seen in perspective.
@@ -1858,7 +1858,7 @@ function drawSigil(g, st, t, xf, fs, ox, oy, seed) {
   const scale = grow * (0.6 + 0.4 * grow);
   if (R * scale < 1) return;
   // Lower white-bias than the other ring layers on purpose: a summoning circle lives on its
-  // colour, and at vortex's 0.55 it washes to lavender-white and loses the arcane read.
+  // color, and at vortex's 0.55 it washes to lavender-white and loses the arcane read.
   const c = layerColour(st, u, 0.35);
   g.save();
   g.translate(ox, oy);
@@ -1973,7 +1973,7 @@ function drawOrbit(g, st, t, xf, fs, ox, oy, seed) {
     }
     if (st.orbitTrail > 0) {
       // A short arc swept BEHIND each body along its own path — a straight streak would betray
-      // that these are dots being moved rather than things travelling a curve.
+      // that these are dots being moved rather than things traveling a curve.
       const steps = 6;
       g.strokeStyle = c.css;
       g.lineWidth = rr * 1.1;
@@ -2032,8 +2032,8 @@ function drawCone(g, st, t, xf, fs, ox, oy, seed) {
   if (st.cone <= 0) return;
   const u = clamp01(t / Math.max(0.01, st.coneLife));
   if (u >= 1) return;
-  // Low white bias: a cone drawn near-white reads as grey paint on an empty canvas rather than
-  // light, because additive over nothing just gives you the colour. Let its hue show.
+  // Low white bias: a cone drawn near-white reads as gray paint on an empty canvas rather than
+  // light, because additive over nothing just gives you the color. Let its hue show.
   const c = layerColour(st, clamp01(t / Math.max(0.01, st.duration)), 0.3);
   const len = st.coneLength * fs * xf.k * (0.35 + 0.65 * Math.min(1, u * 2.2));
   const half = st.coneSpread * DEG * 0.5;
@@ -2061,9 +2061,9 @@ function drawCone(g, st, t, xf, fs, ox, oy, seed) {
 
 // ---------- arms ----------
 // Logarithmic spiral arms sweeping out of the origin — a galaxy, a summoning, water going down a
-// drain. The Vortex layer curls PARTICLES around a centre and the spiral SHAPE draws one coil per
+// drain. The Vortex layer curls PARTICLES around a center and the spiral SHAPE draws one coil per
 // sprite; neither can draw the structure itself, which is what an arm is: a curve that exists
-// whether or not anything is travelling along it.
+// whether or not anything is traveling along it.
 function drawArms(g, st, t, xf, fs, ox, oy, seed) {
   if (st.arms <= 0) return;
   const u = clamp01(t / Math.max(0.01, st.armLife));
@@ -2389,7 +2389,7 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
 }
 
 // ---------- dissolve ----------
-// A noise threshold that erases (or reveals) the WHOLE frame over time — burn-away, materialise,
+// A noise threshold that erases (or reveals) the WHOLE frame over time — burn-away, materialize,
 // teleport-out. Unlike everything else here it isn't a thing that draws, it's a post pass over
 // whatever else drew, which is why it composes with every effect in the tool.
 //
@@ -2412,7 +2412,7 @@ function dissolveNoise(seed, scale, w, h) {
 }
 
 // ---------- palette lock ----------
-// Pixel artists work INSIDE a palette, not around one. "Make this effect use my 16 colours" turns
+// Pixel artists work INSIDE a palette, not around one. "Make this effect use my 16 colors" turns
 // a generic particle sim into something that drops straight into their game. Stored in the patch
 // as a comma-separated hex list, so it travels in share links and saved effects.
 let palCacheSrc = null, palCacheArr = null;
@@ -2564,8 +2564,8 @@ function postProcess(cv, st, overlay, t) {
   const w = cv.width, h = cv.height, g = cv.getContext("2d");
 
   // ---------- haze ----------
-  // Heat shimmer: displace each pixel by a scrolling wave instead of changing its colour. Every
-  // other post pass is a per-pixel COLOUR operation (blur, threshold, quantize); this one moves
+  // Heat shimmer: displace each pixel by a scrolling wave instead of changing its color. Every
+  // other post pass is a per-pixel COLOR operation (blur, threshold, quantize); this one moves
   // pixels, which is a category the chain didn't have — and it's what makes fire, jets and
   // explosions read as hot rather than merely orange.
   //
@@ -2634,9 +2634,9 @@ function postProcess(cv, st, overlay, t) {
   }
 
   // ---------- warp ----------
-  // A ring of refraction travelling outward — the air-bending shell of a blast. Haze is also
+  // A ring of refraction traveling outward — the air-bending shell of a blast. Haze is also
   // displacement, and this is the same family, but the SHAPE is what matters: haze is a standing
-  // shimmer over the whole frame, warp is a single travelling front with nothing behind it. One
+  // shimmer over the whole frame, warp is a single traveling front with nothing behind it. One
   // says hot, the other says something just detonated.
   if (st.warp > 0) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
@@ -2672,9 +2672,9 @@ function postProcess(cv, st, overlay, t) {
   }
 
   // ---------- aura ----------
-  // A coloured halo that hugs the silhouette. This is NOT glow: glow blooms bright pixels outward
+  // A colored halo that hugs the silhouette. This is NOT glow: glow blooms bright pixels outward
   // additively, so a dark sprite gets none and a white one washes out. Aura is derived from the
-  // ALPHA — it traces whatever shape ended up on the frame, whatever colour it is — and sits
+  // ALPHA — it traces whatever shape ended up on the frame, whatever color it is — and sits
   // BEHIND it, so the sprite stays crisp and gains a rim. Rim light, spirit glow, holy/cursed
   // outlines, readability against a busy background.
   //
@@ -2685,7 +2685,7 @@ function postProcess(cv, st, overlay, t) {
     for (let i = 3; i < d.length; i += 4) mask[i] = d[i];        // alpha only
     const spread = boxBlur(mask, w, h, Math.max(1, Math.round(st.auraRadius)));
     const col = layerColour(st, 0.5, 1 - st.auraTint);
-    // Parse the layer colour once into components rather than per pixel.
+    // Parse the layer color once into components rather than per pixel.
     const probe = document.createElement("canvas").getContext("2d");
     probe.fillStyle = col.css;
     probe.fillRect(0, 0, 1, 1);
@@ -2751,7 +2751,7 @@ function postProcess(cv, st, overlay, t) {
 
   if (st.kaleido > 0 && st.kalCount >= 2) {
     // Fold the frame into N mirrored wedges around the origin. This is the one system that changes
-    // an effect's SYMMETRY rather than its colour or motion, which is why a burst put through it
+    // an effect's SYMMETRY rather than its color or motion, which is why a burst put through it
     // stops being a burst and becomes a mandala — the source material is unchanged, the geometry is
     // not. Mirroring alternate wedges (rather than rotating copies) is what makes the seams meet:
     // rotation alone leaves a visible cut at every boundary.
@@ -2805,7 +2805,7 @@ function postProcess(cv, st, overlay, t) {
         if (dist < inner || dist < 0.5) continue;
         let r = 0, gg = 0, b = 0, a = 0;
         for (let k = 0; k < taps; k++) {
-          const f = 1 - (k / taps) * reach;            // sample back toward the centre
+          const f = 1 - (k / taps) * reach;            // sample back toward the center
           const sx = Math.round(cx + ddx * f), sy = Math.round(cy + ddy * f);
           if (sx < 0 || sy < 0 || sx >= w || sy >= h) continue;
           const o2 = (sy * w + sx) * 4;
@@ -2894,7 +2894,7 @@ function postProcess(cv, st, overlay, t) {
     // overlap sum above the threshold and fuse into one blob with a single smooth outline — which
     // is what separates slime, mercury and lava from "a pile of circles".
     //
-    // Blurred RGB is carried alongside so newly-solid pixels BETWEEN particles have a colour to
+    // Blurred RGB is carried alongside so newly-solid pixels BETWEEN particles have a color to
     // take; without that the bridges between blobs come out black.
     const img = g.getImageData(0, 0, w, h), d = img.data;
     const src = new Uint8ClampedArray(d);
@@ -2914,7 +2914,7 @@ function postProcess(cv, st, overlay, t) {
       const inside = ba >= thr;
       const wasOpaque = d[i + 3] > 8;
       if (inside && !wasOpaque) {                    // a bridge between two blobs
-        const k = blurred[i + 3] ? 255 / blurred[i + 3] : 0;   // un-premultiply the blurred colour
+        const k = blurred[i + 3] ? 255 / blurred[i + 3] : 0;   // un-premultiply the blurred color
         d[i] = d[i] + (Math.min(255, blurred[i] * k) - d[i]) * mix;
         d[i + 1] = d[i + 1] + (Math.min(255, blurred[i + 1] * k) - d[i + 1]) * mix;
         d[i + 2] = d[i + 2] + (Math.min(255, blurred[i + 2] * k) - d[i + 2]) * mix;
@@ -2929,10 +2929,10 @@ function postProcess(cv, st, overlay, t) {
   }
 
   if (st.rim > 0) {
-    // A soft coloured edge where the effect meets nothing — backlight, not an outline. The Crunch
+    // A soft colored edge where the effect meets nothing — backlight, not an outline. The Crunch
     // outline traces the final alpha with a hard pixel border for pixel-art crispness; this is the
     // opposite intent, a glow that says the shape is lit from behind. Built from the alpha gradient
-    // rather than a threshold, so it follows soft edges instead of quantising them.
+    // rather than a threshold, so it follows soft edges instead of quantizing them.
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src);
     const reach = Math.max(1, Math.round(st.rimWidth * frameRefPx(w, h) * 0.06));
@@ -2966,9 +2966,9 @@ function postProcess(cv, st, overlay, t) {
   }
 
   if (st.silhouette > 0) {
-    // Flatten every colour to one tone — the hit-flash every action game uses, where a struck thing
-    // goes solid white for two frames. Flash draws a NEW sprite at the origin; this recolours what
-    // is already there, so the shape reads exactly as before and only its colour is gone. Alpha is
+    // Flatten every color to one tone — the hit-flash every action game uses, where a struck thing
+    // goes solid white for two frames. Flash draws a NEW sprite at the origin; this recolors what
+    // is already there, so the shape reads exactly as before and only its color is gone. Alpha is
     // untouched: the silhouette is the effect's own outline, not a shape of its own.
     const img = g.getImageData(0, 0, w, h), d = img.data;
     const tone = hslParts(st.hue, st.sat * (1 - clamp01(st.silWhite)), clamp01(0.5 + st.silWhite * 0.5));
@@ -2984,7 +2984,7 @@ function postProcess(cv, st, overlay, t) {
 
   if (st.scan > 0) {
     // CRT interlace: every other band dimmed, optionally rolling. Distinct from the Crunch group,
-    // which reduces the IMAGE (fewer pixels, fewer colours) — this adds a display on top of it, so
+    // which reduces the IMAGE (fewer pixels, fewer colors) — this adds a display on top of it, so
     // the two stack rather than compete. Only ever darkens, and only where there is already alpha,
     // so on a transparent sprite it modulates the effect instead of laying bars across the frame.
     const img = g.getImageData(0, 0, w, h), d = img.data;
@@ -3008,13 +3008,13 @@ function postProcess(cv, st, overlay, t) {
   }
 
   if (st.chroma > 0) {
-    // Chromatic aberration: red and blue pulled apart along the ray from the centre, the way a real
+    // Chromatic aberration: red and blue pulled apart along the ray from the center, the way a real
     // lens fails to focus every wavelength on one plane. Deliberately radial rather than a flat
     // offset — a uniform shift reads as a printing error, a radial one reads as glass, and it
-    // leaves the centre clean so the subject stays readable.
+    // leaves the center clean so the subject stays readable.
     //
     // Placed after the light has been shaped and before the pixel-art crunch: it is a lens
-    // artefact, so it belongs on the image the lens formed, then gets crunched with everything else.
+    // artifact, so it belongs on the image the lens formed, then gets crunched with everything else.
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src);
     const cx = w / 2, cy = h / 2;
@@ -3043,7 +3043,7 @@ function postProcess(cv, st, overlay, t) {
   }
 
   if (st.glitch > 0) {
-    // Digital corruption: horizontal bands slide sideways and the colour channels separate. Both
+    // Digital corruption: horizontal bands slide sideways and the color channels separate. Both
     // step in time (glitchRate) rather than changing every frame — a glitch that never repeats
     // reads as static, while one that holds for a few frames reads as a fault.
     const seed2 = Math.max(1, Math.round(st.seed)) | 0;
@@ -3080,13 +3080,13 @@ function postProcess(cv, st, overlay, t) {
 
   if (st.dissolve > 0) {
     const u = clamp01(t / Math.max(0.01, st.duration * st.dissolveTime));
-    // Direction: erase over time, or materialise. Threshold sweeps the noise field either way.
+    // Direction: erase over time, or materialize. Threshold sweeps the noise field either way.
     const cut = st.dissolveDir ? 1 - u : u;
     const field = dissolveNoise(Math.max(1, Math.round(st.seed)) | 0, st.dissolveScale, w, h);
     const img = g.getImageData(0, 0, w, h), d = img.data;
     const edge = st.dissolveEdge * 0.35;
     const ec = layerColour(st, u, 1);
-    // parse the edge colour once rather than per pixel
+    // parse the edge color once rather than per pixel
     const probe = document.createElement("canvas").getContext("2d");
     probe.fillStyle = ec.css; probe.fillRect(0, 0, 1, 1);
     const px = probe.getImageData(0, 0, 1, 1).data;
@@ -3104,7 +3104,7 @@ function postProcess(cv, st, overlay, t) {
     g.putImageData(img, 0, 0);
   }
 
-  if (st.pixelate > 1) {   // nearest-neighbour down + up
+  if (st.pixelate > 1) {   // nearest-neighbor down + up
     const p = Math.round(st.pixelate);
     const sw = Math.max(1, Math.round(w / p)), sh = Math.max(1, Math.round(h / p));
     const tmp = document.createElement("canvas");
@@ -3129,13 +3129,13 @@ function postProcess(cv, st, overlay, t) {
   }
   if (pal) {
     // Snap every visible pixel to its nearest palette entry. A 15-bit cache makes this "one search
-    // per distinct colour" instead of per pixel. Dither biases the colour BEFORE the lookup, which
-    // keeps the cache valid — a biased colour is just another colour.
+    // per distinct color" instead of per pixel. Dither biases the color BEFORE the lookup, which
+    // keeps the cache valid — a biased color is just another color.
     //
-    // KNOWN LIMIT: exact only where alpha is 255. Canvas stores colour premultiplied, so writing
+    // KNOWN LIMIT: exact only where alpha is 255. Canvas stores color premultiplied, so writing
     // an on-palette RGB at alpha 8 and reading it back returns something up to ~60/255 away — the
     // precision simply isn't there at low alpha. Soft edges therefore land between palette
-    // colours. Raising `alphaCut` removes partial alpha entirely and the palette becomes exact,
+    // colors. Raising `alphaCut` removes partial alpha entirely and the palette becomes exact,
     // which is what a pixel-art workflow wants anyway; the UI says so.
     const cache = new Int16Array(32768).fill(-1);
     const n = pal.length, dith = st.dither;
@@ -3165,7 +3165,7 @@ function postProcess(cv, st, overlay, t) {
       d[i] = pc[0]; d[i + 1] = pc[1]; d[i + 2] = pc[2];
     }
   } else if (st.posterize < 32) {   // the bitcrush analog — skipped entirely when a palette is set,
-    const lv = Math.max(2, Math.round(st.posterize)), q = 255 / (lv - 1);   // since both quantize colour
+    const lv = Math.max(2, Math.round(st.posterize)), q = 255 / (lv - 1);   // since both quantize color
     const dith = st.dither;
     for (let i = 0; i < d.length; i += 4) {
       const p = (i >> 2), bx = p % w, by = (p / w) | 0;
@@ -3176,7 +3176,7 @@ function postProcess(cv, st, overlay, t) {
     }
   }
   if (st.outline > 0) {            // must be last: it traces the FINAL alpha edge
-    // Outline = (alpha dilated by r) minus alpha. The neighbourhood is a SQUARE, and a square
+    // Outline = (alpha dilated by r) minus alpha. The neighborhood is a SQUARE, and a square
     // structuring element decomposes into a horizontal pass followed by a vertical one — so this
     // is two sliding-window counts, O(w·h) and independent of r, rather than the (2r+1)² test per
     // pixel it used to be. Measured: 92ms → 4ms for r=3 over 29 frames at 192px, identical output.
@@ -3248,8 +3248,8 @@ function renderPrep(st, opt) {
     dx = outW / 2 - cx * k; dy = outH / 2 - cy * k;
   } else {
     // Keep the emitter origin at ITS fractional position in the frame and scale around it.
-    // (Mapping the origin to the centre instead would silently cancel originX/originY out — a
-    // flame authored to sit at the bottom of the frame would render dead centre.)
+    // (Mapping the origin to the center instead would silently cancel originX/originY out — a
+    // flame authored to sit at the bottom of the frame would render dead center.)
     dx = st.originX * outW - (st.originX * sim.fs) * k;
     dy = st.originY * outH - (st.originY * sim.fs) * k;
   }
@@ -3329,7 +3329,7 @@ function renderFrames(st, opt) {
 //   * `reverse` only flips the OUTPUT order, and every consumer is index-addressed (cell i of a
 //     sheet, frame_007.png), so it costs nothing — emit with a flipped index.
 //   * `loopBlend` cross-dissolves the LAST L frames into the FIRST L, so a head frame can't be
-//     finalised until its partner exists. Hold the head (at most 35% of the sequence) and emit
+//     finalized until its partner exists. Hold the head (at most 35% of the sequence) and emit
 //     each head frame the moment its partner is rendered.
 //
 // onFrame may be async and is awaited, so a caller can encode to PNG without buffering canvases.

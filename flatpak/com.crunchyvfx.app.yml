@@ -43,7 +43,7 @@ finish-args:
   - --socket=fallback-x11      # …or XWayland/X11
   - --share=ipc                # required with X11 (shared memory)
   - --device=dri               # GPU access — the driver brokering that fixes the blank-page bug
-  - --socket=pulseaudio        # the synthesised matched sound plays through WebAudio
+  - --socket=pulseaudio        # the synthesized matched sound plays through WebAudio
   # The planted Library (VFX-DESIGN §18) writes straight into the game's own folder (crunchy/vfx/ inside a Godot or
   # Unity project, wherever it lives under home), reads it back and removes what it wrote: real paths, not a portal's
   # one-off file handles. So home is granted, as CrunchyTile's and CrunchySFX's Flatpaks do; it covers pipelines with a

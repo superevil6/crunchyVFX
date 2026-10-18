@@ -3,7 +3,7 @@
 // Tauri), export effects the way a person does — the Export dialog, Godot 4 chosen, the Export button — and hand over the
 // zips the button downloaded, with what each scene should say (its impact frame, frame count, fps, loop), so the Node half
 // can put them into a REAL Godot and play them.
-//   one-shot  Explosion, Play once, trimmed, with a synthesised sound ("Match a sound"'s WAV in the export)
+//   one-shot  Explosion, Play once, trimmed, with a synthesized sound ("Match a sound"'s WAV in the export)
 //   one-shot  Hit Spark, Auto (no Seamless loop: a one-shot), two sizes (the scene points at the @1x .tres)
 //   loop      Rain, Auto (Seamless loop on: it loops)
 //   one-shot  Heart Heal, Play once, trimmed (§28: an Icon particle effect)

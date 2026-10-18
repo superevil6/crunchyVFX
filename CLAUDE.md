@@ -97,7 +97,7 @@ exempt — naming the target is what makes the export usable. An assertion scans
 tour/preset/shape tables and every rendered label and tooltip.
 
 **Artwork must be CC0.** Every particle shape is drawn in code. Nothing bundled unless it is public
-domain — the art ends up in sprite sheets users ship commercially, so any licence propagates to
+domain — the art ends up in sprite sheets users ship commercially, so any license propagates to
 *them*. See VFX-DESIGN §12.
 
 **`APP_VERSION` (index.html) must match `version` (src-tauri/tauri.conf.json)**, and so must Cargo.toml, the Flatpak
@@ -177,7 +177,7 @@ Each of these produced a convincing false result at least once:
 - **`--screenshot` captures the FULL PAGE**, so `position: fixed` overlays (the tour, modals) don't
   land where a viewport layout puts them. Assert coordinates, don't eyeball.
 - **CSS transitions get caught mid-flight.** The headless clock stops at load, so a button that just
-  changed state screenshots in its *old* colour. Read `getComputedStyle` with the transition
+  changed state screenshots in its *old* color. Read `getComputedStyle` with the transition
   overridden instead. (Cost me a bug hunt on a button that was never broken.)
 - **`[hidden]` loses to any author `display` rule.** `.foo { display: flex }` beats the UA's
   `[hidden] { display: none }`, so hiding does nothing. Add an explicit `[hidden]` companion, and
@@ -193,7 +193,7 @@ Each of these produced a convincing false result at least once:
 ## One rendering gotcha worth knowing
 
 **Fit is on by default, and under Fit travel distance costs apparent size.** Fit scales to the
-bounding box across *all* frames, so a fast or far-travelling effect shrinks itself into specks.
+bounding box across *all* frames, so a fast or far-traveling effect shrinks itself into specks.
 When a preset looks too small, the fix is almost always *less travel and bigger particles* — never
 more particles.
 
@@ -229,7 +229,7 @@ more particles.
   desktop update check (SFX's notifier: `version.json`, a Settings switch, never on file://); the audio context wakes
   on play and sleeps when idle (SFX 1.2.1). `--css-build` 9.
 - **The search-engine pass (§29, 2026-10-16)**: a real title/description and SoftwareApplication JSON-LD on index.html, whose
-  layout is untouched except one `data-web` "About CrunchyVFX" link in the licence footer; the words live on a static
+  layout is untouched except one `data-web` "About CrunchyVFX" link in the license footer; the words live on a static
   `about.html` (web only, NOT in build.rs; served at /about: h1, FAQ + FAQPage JSON-LD, the suite's links), plus robots.txt,
   sitemap.xml (/ and /about), the IndexNow key. `tests/seo.test.mjs` is generic and byte-identical across the suite (run by
   `node tests/worker.test.mjs`).
@@ -238,7 +238,7 @@ more particles.
   shape is drawn AT the particle's pixel size (glyphMask, unsmoothed), pixel for pixel CrunchyUI's icon. `iconFill` (Fill
   holes, off) fills a skull's eyes or a coin's band darker. 8 presets (Heart Heal, Coin Burst, Gem Pickup, Skull Puff,
   Alert Pop, Talk Bubble, Prompt Pop, Trophy Win); old frame hashes identical. Also: an old `.crunchyvfx` missing a newer
-  row now opens (`restoreEdit` defaults it). items.js not taken (full-colour; see §28).
+  row now opens (`restoreEdit` defaults it). items.js not taken (full-color; see §28).
 - **Moments (§27, 2026-10-15)**: the preset strip opens on GAME MOMENTS (Hit, Crit, Death, Spawn, Pickup, Heal, Power-up, Dash,
   Jump / Land, Projectile, Muzzle / Cast, Explosion, Shield, Status, Ambient, UI) from `PRESET_MOMENTS` + each preset's
   `moments`; Techniques and Tags one switch away. Every moment's effects read at 64 px (tested); 19 presets improved, 11

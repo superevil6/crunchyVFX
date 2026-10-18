@@ -50,7 +50,7 @@ bubble — which has since been edited out above but is all built.)*
   **The transport was rebuilt for this**, as predicted: frame position now comes from elapsed time
   rather than a per-tick counter, and one restart drives picture and sound together. Without that
   the two drift apart over a loop.
-  **Route (b) — synthesising the sound from the pasted link — is AGREED WORTH DOING, on hold.**
+  **Route (b) — synthesizing the sound from the pasted link — is AGREED WORTH DOING, on hold.**
   (Alex, 2026-07-26.) Notes so it doesn't need re-deriving:
 
   - Linking `dsp.js` live from the sibling repo doesn't work. `<script src="../crunchyfx/dsp.js">`
@@ -100,7 +100,7 @@ bubble — which has since been edited out above but is all built.)*
   *two* other spiral things: a spiral **emitter** (golden-angle placement) and a `swirl` force.
 - **emote / emoji, "!" above a head** ✅ **glyph** shape — renders any character or emoji as the
   particle, with a text box and quick picks (★ ♥ ✦ ! ? 💥 🔥 ❄ ⚡ …). `glyphTint` at 0 keeps an
-  emoji's own colours; at 1 it tints like any other particle. → Emote Pop, Emoji Burst.
+  emoji's own colors; at 1 it tints like any other particle. → Emote Pop, Emoji Burst.
 - **text bubble** ✅ **done** — and it stayed the odd one out: it's a **layer**, drawn once per
   frame from `t` with no simulation behind it. Rounded box, tail, easeOutBack pop-in, `|` for a
   line break, quick picks (!, ?, CRIT!, +10, z z z). Drawn *after* the glow so it isn't bloomed
@@ -139,12 +139,12 @@ bubble — which has since been edited out above but is all built.)*
 
 - **Where the render time actually goes** (measured, 1500 particles / 29 frames / 192px). Alex
   suspected the Pixelate slider; the profile said otherwise and was worth having:
-  `simulate()` **1.3ms**, rasterising **60ms**, glow **+40ms**, `outline 3` **+33ms**, pixelate
+  `simulate()` **1.3ms**, rasterizing **60ms**, glow **+40ms**, `outline 3` **+33ms**, pixelate
   **0ms**. Two conclusions. (1) The simulate/rasterize split does *not* help interactivity — I'd
   been about to wire "reuse the sim for raster-only params" and it would have bought 1.3ms of
   100ms. It earns its keep for Fit and multi-resolution export, not for slider drags. (2) The cost
   is per-particle `drawImage` (~1.3µs each) plus the two full-image post passes.
-- **The outline pass was O(w·h·r²)** — a (2r+1)² neighbourhood test per transparent pixel. A square
+- **The outline pass was O(w·h·r²)** — a (2r+1)² neighborhood test per transparent pixel. A square
   structuring element decomposes into a horizontal then a vertical pass, so it's now two
   sliding-window counts: O(w·h), independent of radius. **33ms → 6ms**, and the output is verified
   *pixel-identical* to the naive version (it changes how every outlined preset looks, so "close
@@ -153,7 +153,7 @@ bubble — which has since been edited out above but is all built.)*
   ~1.3µs and a fast burst spends its whole tail outside the frame. A bounds check first: **117ms →
   26ms** for 3000 fast particles. The cull box is 1.5× the sprite size, since a rotated sprite
   reaches past its nominal square.
-- **Glow deliberately NOT optimised.** Blurring at half resolution is the standard bloom trick and
+- **Glow deliberately NOT optimized.** Blurring at half resolution is the standard bloom trick and
   would take ~40ms to ~12ms, but it shifts every glow slightly — and with 41 presets tuned and the
   quality pass still ahead, silently changing how they all look to save 30ms is a bad trade. Worth
   revisiting *with* the quality pass, not before it.
@@ -165,11 +165,11 @@ bubble — which has since been edited out above but is all built.)*
   shape (the Slash crescent) points somewhere different per seed. Needs an `angle` + `angleVar`
   pair; `spin` only controls rotation *rate*. Small, and it unblocks slashes/arrows/directional
   glyphs.
-- **`originX`/`originY` did nothing until now** — `renderFrames` centred the origin, exactly
-  cancelling them. Fixed; that's what made Rain and Snow able to fall from the top of the frame
+- **`originX`/`originY` did nothing until now** — `renderFrames` centered the origin, exactly
+  canceling them. Fixed; that's what made Rain and Snow able to fall from the top of the frame
   rather than spawning in the middle.
 - **Fixed particle angle** ✅ added while doing the above — `angle` + `angleVar`. `angleVar`
-  defaults to 1 (fully random), which is byte-identical to the old behaviour, so no preset moved.
+  defaults to 1 (fully random), which is byte-identical to the old behavior, so no preset moved.
   Slash now sets `angleVar: 0` and points the same way every seed.
 - **Beware parse-time calls into later declarations.** `renderMyEffects()` ran at parse time and
   I made it refresh the custom categories — whose DOM handles are declared 900 lines further down.
@@ -177,21 +177,21 @@ bubble — which has since been edited out above but is all built.)*
   built earlier in the file the page still *looked* fine: panels, presets and buttons all present,
   just nothing rendered and every later feature silently missing. All initial loading now happens
   in Boot. Worth a `window.onerror` probe whenever the app looks right but behaves oddly.
-- **Generated effects need a visibility guard**, the exact analogue of CrunchySFX's
+- **Generated effects need a visibility guard**, the exact analog of CrunchySFX's
   `audiblePatch()`. A wide mutation trivially produces `opacity: 0` or a 2px particle — valid and
   completely invisible. `visibleGenome()` renders candidates at 40px, counts lit pixels and
   retries, which took the foundry from ~3 of 8 dead cells to ~1.
-- **A locked palette is exact only where alpha is 255.** Canvas stores colour premultiplied, so
+- **A locked palette is exact only where alpha is 255.** Canvas stores color premultiplied, so
   writing an on-palette RGB at alpha 8 and reading it back returns something up to ~60/255 away —
-  the precision isn't there at low alpha. Opaque pixels: exactly N colours. Soft edges: hundreds.
+  the precision isn't there at low alpha. Opaque pixels: exactly N colors. Soft edges: hundreds.
   This looked like a broken snap for a while; it isn't, and `alphaCut` removes it entirely. The
-  palette panel now says so rather than quietly shipping a "16-colour" sprite with 200 colours in
+  palette panel now says so rather than quietly shipping a "16-color" sprite with 200 colors in
   its edges.
 - **Children are born hot.** A sub-emitter's children reset to `u = 0`, so `coreWhite` flashes them
   white at birth. It reads well for fireworks and embers but it does make children look
   disconnected from their parents when that isn't wanted — turn `Hot core` down. If it proves
   annoying, the fix is a "children inherit the parent's life fraction" toggle.
-- **Two bugs Alex spotted from behaviour alone** ("importing a second sound keeps the first's
+- **Two bugs Alex spotted from behavior alone** ("importing a second sound keeps the first's
   length"), both confirmed by driving the real UI in a test rather than guessing:
   1. `decodeSfxLink` took the **first** `?s=` in the box. Paste a second link without clearing
      (click at the end, Ctrl+V) and the field holds both — so it silently re-imported the sound you
@@ -247,7 +247,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   partial-alpha pixels in frame 0, i.e. the soft edges GIF destroys are intact.
 - ~~**Trim + pivot metadata**~~ ✅ **done** — one *shared* bounding box across all frames, not a
   per-frame crop: cropping each frame to its own box would make the sprite hop around inside its
-  cell. Pivot records where the untrimmed centre went, so a trimmed sheet drops in exactly where
+  cell. Pivot records where the untrimmed center went, so a trimmed sheet drops in exactly where
   the untrimmed one was.
 - **Engine sidecars** — generic JSON, Aseprite JSON-hash, Phaser 3 atlas ✅ verified. **Godot 4
   SpriteFrames `.tres`** ✅ **verified in Godot 4.7 on this machine** — imported headless and loaded
@@ -258,12 +258,12 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   it's GUID-based and version-specific, and a malformed one doesn't just fail to import, it can
   disturb the project's asset database. That needs someone with the editor open.
 - ~~**Multi-resolution export**~~ ✅ **done** — 1×/2×/3×/4× checkboxes, zipped together. Exactly
-  as cheap as predicted: re-rasterises the same sim, so every size is the same effect rather than
+  as cheap as predicted: re-rasterizes the same sim, so every size is the same effect rather than
   a similar one.
 - ~~**Emissive / glow mask**~~ ✅ **done** — a checkbox in the export dialog writes a second
   `_emissive` sheet: the same >threshold pixels the glow pass already finds, exported **un-blurred**
   so the engine applies its own bloom. Built from the already-trimmed frames so the two sheets are
-  pixel-aligned — a mask that doesn't line up with its colour sheet is worse than no mask — and
+  pixel-aligned — a mask that doesn't line up with its color sheet is worse than no mask — and
   non-emitting pixels go **black rather than transparent**, since most shaders multiply by this and
   black means "no contribution" where transparent is ambiguous.
 - **Normal map from the sprite** — L, speculative, but a genuine differentiator: nobody generates
@@ -297,7 +297,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   helpers (dot/ring/square/cross/shard/speckle) and an eraser. Alpha-only, so a drawn sprite
   still responds to Hue and the palettes. ~344 base64 chars, small enough to ride in a share link.
 - ~~**Import a PNG as the particle**~~ ✅ **done** — `SHAPES[9]`. `imgTint` defaults to 0 so your
-  art arrives in its own colours; raise it to treat it as a particle like any other.
+  art arrives in its own colors; raise it to treat it as a particle like any other.
 - ~~**Undo / redo**~~ ✅ **done** — Ctrl+Z / Ctrl+Shift+Z, one entry per gesture.
 - ~~**My Presets + custom categories**~~ ✅ **done** — My Effects library (thumbnails, rename,
   delete, JSON export/import) plus custom categories holding built-ins and saved effects side by
@@ -334,7 +334,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**Import a palette**~~ ✅ **done** — Lospec `.hex`, GIMP/Aseprite `.gpl`, paint.net `.txt`, or
   pasted hex. Five built-ins (Sweetie 16, PICO-8, Game Boy, CGA, Grayscale 8) and **⚗ Take 8/16**
   to pull a palette out of the effect itself via the GIF encoder's median-cut. Posterize is
-  bypassed while a palette is locked — both quantise colour, running both is meaningless.
+  bypassed while a palette is locked — both quantize color, running both is meaningless.
 - ~~**Foundry**~~ ✅ **done** — 6 archetypes (Explosion / Impact / Magic / Smoke / Pickup /
   Weather) × 4 art styles (Anything / NES / GBA / Modern). Generates 8 candidates; ✎ loads one,
   ★ keeps it in My Effects.
@@ -370,7 +370,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
 - ~~**Merge (metaballs)**~~ ✅ **done** — blur the field, then threshold it, so two soft particles
   whose halos overlap fuse into one blob with a single smooth outline. That's what separates slime,
   mercury and lava from "a pile of circles". The blurred RGB is carried alongside so the *bridges*
-  between blobs have a colour to take — without that they come out black, which was the first thing
+  between blobs have a color to take — without that they come out black, which was the first thing
   I got wrong. Note it makes an effect end sooner: as particles spread and dim they drop below the
   threshold and vanish, which is inherent to metaballs and arguably right.
 
@@ -379,10 +379,10 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   summoning circles, drains. Dashed rings by default, because a solid ring gives no visual cue that
   it's rotating.
 - ~~**Arc**~~ ✅ **done** — lightning anchored at BOTH ends, unlike the `bolt` shape which is a
-  particle that travels. The jitter re-randomises in **discrete steps** (`arcRate`) rather than
+  particle that travels. The jitter re-randomizes in **discrete steps** (`arcRate`) rather than
   every frame: continuous jitter reads as noise, stepped jitter reads as electricity. Chain
   lightning, tesla coils, arcs to a target.
-- ~~**Dissolve**~~ ✅ **done** — a noise threshold over the whole frame, erasing or materialising,
+- ~~**Dissolve**~~ ✅ **done** — a noise threshold over the whole frame, erasing or materializing,
   with an optional burning edge. It's the first primitive that isn't a thing that *draws* — it's a
   post pass over whatever else drew, so it composes with every effect in the tool. The noise field
   is computed once per render and reused across frames; regenerating it per frame would sparkle
@@ -396,7 +396,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   `imgLoops` (plays per lifetime) and `stagger` so a hundred sprites don't play in lockstep, which
   reads as one flickering object rather than a hundred separate ones. Strip size is guessed from
   the aspect ratio on load.
-- ~~**Curl noise**~~ ✅ **done** — a `Curl` blend on the turbulence force, 0 = the old behaviour
+- ~~**Curl noise**~~ ✅ **done** — a `Curl` blend on the turbulence force, 0 = the old behavior
   exactly. Curl of a scalar noise field is divergence-free, so particles swirl around each other
   instead of piling into the field's sources and sinks — which is precisely why plain value noise
   reads as "jittery" and this reads as "fluid".
@@ -407,7 +407,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   test runs for the mid-air majority. Friction scrubs horizontal speed *and* spin on contact, and
   a small velocity floor stops the micro-bouncing that otherwise buzzes forever on the last pixel.
 - **Frost/crystal growth primitive** — M. Covers Alex's "ice": a shape that extends outward from a
-  seed instead of travelling. Also gives cracks, vines, web, lightning-on-glass.
+  seed instead of traveling. Also gives cracks, vines, web, lightning-on-glass.
 
 ## Quality of life — C
 
@@ -418,7 +418,7 @@ This is the category that decides whether someone *ships* with CrunchyVFX or jus
   with a progress bar, not a worker.
 - **Ping-pong loop preview** — S.
 - ~~**"Prep for GIF" button**~~ ✅ **done** — raises alphaCut and snaps fps to a rate GIF can
-  actually represent. Deliberately doesn't touch colour: posterizing is a look, not a fix.
+  actually represent. Deliberately doesn't touch color: posterizing is a look, not a fix.
 - **Sheet-size warning** — S. Tell people a 60fps × 3s × 256px effect is a 14×14 grid *before*
   they export it.
 
@@ -436,7 +436,7 @@ That list is done. Collision and sub-emitters — which I'd deliberately left *o
 have since been built too; the reasoning still holds, they just stopped being the expensive ones
 once the cheap wins ran out.
 
-**What I'd pick now:** ~~(1) synthesise the matched sound in-app (route b)~~ ✅ **done
+**What I'd pick now:** ~~(1) synthesize the matched sound in-app (route b)~~ ✅ **done
 2026-07-27** — CrunchySFX's engine is extracted to `synth.js` upstream, exported as one namespaced
 bundle and vendored here; "Match a sound" now renders the real audio and ships it beside the
 sheet. ~~(2) the Tauri desktop wrapper~~ ✅ **done 2026-07-27** (build-order step 4; drag-out, itch
@@ -459,7 +459,7 @@ Kept so "how many can it do" has an answer that isn't a guess. The header counts
   Tumble (flat pieces turning over in pseudo-3D).
 - **2026-07-27** — Web (links between nearby particles — the first *relational* layer), Rift (a
   tear that opens, holds and closes), Haze (heat shimmer — the first *displacement* post pass;
-  every other one recolours pixels, this moves them).
+  every other one recolors pixels, this moves them).
 
 Each was picked to be a different KIND rather than a variation: a new silhouette, a new motion
 model, or a new category in the chain. Adding a seventh ring-based layer would raise the count

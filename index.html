@@ -100,7 +100,7 @@
      row): what MAKES an effect, then what holds it (undo, Fit, the pixel lock, the sound hold, Timing). -->
 <div class="genbar" id="genbar">
   <div class="genrow" role="toolbar" aria-label="Make an effect">
-    <button id="rand" class="accent2" data-icon="dice" title="A whole new effect from scratch: systems, shapes and colours">Randomize</button>
+    <button id="rand" class="accent2" data-icon="dice" title="A whole new effect from scratch: systems, shapes and colors">Randomize</button>
     <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again" data-icon="breed">Breed</button>
     <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack" data-icon="package">Variations</button>
     <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style" data-icon="hammer">Foundry</button>
@@ -111,12 +111,12 @@
     <button id="undoBtn" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" data-icon="undo" disabled></button>
     <button id="redoBtn" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" data-icon="redo" disabled></button>
     <span class="gensep" aria-hidden="true"></span>
-    <button id="fitBtn" title="Fit: scale the whole effect so it fills the frame, at any frame size. It centres on the effect, so Origin X/Y are ignored while it is on. Off: the effect keeps its own pixel size and position, so a smaller frame crops it." data-icon="expand">Fit: on</button>
+    <button id="fitBtn" title="Fit: scale the whole effect so it fills the frame, at any frame size. It centers on the effect, so Origin X/Y are ignored while it is on. Off: the effect keeps its own pixel size and position, so a smaller frame crops it." data-icon="expand">Fit: on</button>
     <button id="lockBtn" title="Keep your frame size and Crunch settings when you load a preset, so everything you make stays a consistent asset size" data-icon="lock">Lock pixels</button>
     <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you" data-icon="speaker">Hold sound</button>
     <span class="gensep" aria-hidden="true"></span>
     <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke" data-icon="clock">Timing</button>
-    <button id="palLockBtn" title="Match my game's colours: lock the effect to your game's palette (paste hex codes, load a .hex/.gpl file, or pick one)" data-icon="shade">Game palette</button>
+    <button id="palLockBtn" title="Match my game's colors: lock the effect to your game's palette (paste hex codes, load a .hex/.gpl file, or pick one)" data-icon="shade">Game palette</button>
   </div>
 </div>
 <!-- THE EFFECT STRIP (§22): every preset as a picture, PAGED by arrows (never a sideways scrollbar), the page counted.
@@ -162,7 +162,7 @@
        desktop's project ones, then the status line. The view controls come after. -->
   <div class="stage-out" id="stageOut">
     <button id="expOpen" class="export-btn" title="Sprite sheet, PNG frames or APNG — with trim, pivot, engine metadata and multi-resolution" data-icon="download">Export…</button>
-    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colours and 1-bit alpha" data-icon="download">GIF</button>
+    <button id="expGif" title="Animated GIF — plays anywhere, but 256 colors and 1-bit alpha" data-icon="download">GIF</button>
     <button id="share" title="Copy a link that recreates this exact effect" data-icon="link">Share link</button>
     <button id="dragOut" data-desktop draggable="true" title="Drag the sheet straight into Godot, Unity, Aseprite or a file manager — no save dialog, no Downloads folder" data-icon="download">Drag out</button>
   </div>
@@ -214,7 +214,7 @@
         </span>
       </span>
     </div>
-    <div class="hint stage-hint panel-note" id="fitHint"><b>Origin X/Y</b> are hidden while <b>Fit</b> is on: it centres the effect. Turn Fit off to place it yourself.</div>
+    <div class="hint stage-hint panel-note" id="fitHint"><b>Origin X/Y</b> are hidden while <b>Fit</b> is on: it centers the effect. Turn Fit off to place it yourself.</div>
   </div>
 
   <div class="refbox" id="sndBox">
@@ -309,11 +309,11 @@
     <div class="engine" id="paletteSection">
       <div class="engine-title"><span>Palette</span></div>
       <div class="engine-cat-btns" id="paletteGrid"></div>
-      <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colours (Crunch panel, Palette lock)">Match my game's colours…</button>
+      <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colors (Crunch panel, Palette lock)">Match my game's colors…</button>
     </div>
     <div class="engine" id="styleSection">
       <div class="engine-title"><span>Era style</span>
-        <span class="hint">Clamps resolution, colour, dither and frame rate to what that era could show</span>
+        <span class="hint">Clamps resolution, color, dither and frame rate to what that era could show</span>
       </div>
       <div class="engine-cat-btns" id="styleGrid"></div>
     </div>
@@ -327,7 +327,7 @@
   <div class="hint" id="verLine"></div>
   <h2>License</h2>
   <p><strong>Your effects are yours — free and clear.</strong> Every effect you create or export with CrunchyVFX is released under <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0 (public domain)</a>. Use them in anything — commercial games, videos, apps, whatever — forever. <strong>No attribution required, no credit, no strings.</strong> You never need to mention CrunchyVFX.</p>
-  <p>Every particle shape is drawn in code — no third-party artwork is bundled, so nothing you export carries someone else's licence. If you <strong>import your own sprite or reference image</strong>, the CC0 dedication above doesn't extend to that file: its licensing is your responsibility.</p>
+  <p>Every particle shape is drawn in code — no third-party artwork is bundled, so nothing you export carries someone else's license. If you <strong>import your own sprite or reference image</strong>, the CC0 dedication above doesn't extend to that file: its licensing is your responsibility.</p>
   <p class="tool-notice">CrunchyVFX (the app) &copy; 2026 superevil6 — all rights reserved. The CC0 dedication above covers the <em>effects you create</em>, not this tool's source code.<span data-web> · <a href="about.html" data-web>About CrunchyVFX</a></span></p>
 </footer>
 
@@ -445,7 +445,7 @@ const PARAMS = [
   // did before these existed — so no preset changes. Drop it to 0 and every particle points the
   // same way, which is what a slash, an arrow or a directional glyph needs.
   // Curl turbulence: blends the plain noise force toward a divergence-free curl field. 0 = the
-  // old behaviour exactly, so no preset moves.
+  // old behavior exactly, so no preset moves.
   ["turbCurl",   "Curl",        0, 1, 0.01, 0, "",     "Motion"],
   // Point attractor/repulsor — arbitrary point, unlike `radial` which works from the emitter.
   ["attract",    "Attract",  -900, 900, 5, 0, "px/s²", "Attractor"],
@@ -463,7 +463,7 @@ const PARAMS = [
   ["fadeIn",     "Fade in",     0, 1, 0.01, 0.05, "",  "Life"],
   ["fadeOut",    "Fade out",    0, 1, 0.01, 0.5, "",   "Life"],
   ["alphaCurve", "Fade curve",  0, 1, 0.01, 0, "",     "Life"],
-  // Colour
+  // Color
   ["hue",        "Hue",         0, 360, 1, 30, "°",    "Color"],
   ["hueLife",    "Hue shift", -180, 180, 1, -25, "°",  "Color"],
   ["hueVar",     "Hue var",     0, 1, 0.01, 0.08, "",  "Color"],
@@ -481,7 +481,7 @@ const PARAMS = [
   ["starInner",  "Star inner",  0.05, 0.9, 0.01, 0.3, "","Star"],
   ["flowerPetals","Petals",     3, 12, 1, 5, "",       "Flower"],
   ["flowerWidth", "Petal width",0.1, 0.7, 0.01, 0.34, "","Flower"],
-  ["flowerCore",  "Centre",     0.05, 0.6, 0.01, 0.24, "","Flower"],
+  ["flowerCore",  "Center",     0.05, 0.6, 0.01, 0.24, "","Flower"],
   ["smokeBillow","Billow",      0, 1, 0.01, 0.5, "",   "Smoke"],
   ["smokeSoft",  "Softness",    0, 1, 0.01, 0.8, "",   "Smoke"],
   ["shardSides", "Shard sides", 3, 8, 1, 3, "",        "Shard"],
@@ -502,7 +502,7 @@ const PARAMS = [
   ["spiralTurns","Turns",       0.5, 4, 0.1, 1.5, "",  "Spiral"],
   ["spiralThick","Thickness",   0.02, 0.4, 0.01, 0.12, "","Spiral"],
   ["glyphTint",  "Tint amount", 0, 1, 0.01, 1, "",     "Glyph"],
-  // §28: the Icon's holes (a skull's eyes, a coin's band) filled in a darker tone of its colour. 0 = see-through, as before.
+  // §28: the Icon's holes (a skull's eyes, a coin's band) filled in a darker tone of its color. 0 = see-through, as before.
   ["iconFill",   "Fill holes",  0, 1, 0.01, 0, "",     "Icon"],
   ["imgTint",    "Tint amount", 0, 1, 0.01, 0, "",     "Image sprite"],
   // Flipbook: an imported strip animates per particle. 1×1 = a single still image (the default).
@@ -585,7 +585,7 @@ const PARAMS = [
   ["vortexSquash","Squash",     0, 1, 0.01, 0.6, "",   "Vortex"],
   ["vortexScroll","Drift",     -1, 1, 0.01, 0.3, "",   "Vortex"],
   ["vortexGap",  "Dashes",      0, 1, 0.01, 0.5, "",   "Vortex"],
-  // Arc — lightning anchored at BOTH ends, unlike the travelling bolt shape.
+  // Arc — lightning anchored at BOTH ends, unlike the traveling bolt shape.
   ["arc",        "Arc",         0, 1, 0.01, 0, "",     "Arc"],
   ["arcToX",     "Target X",    0, 1, 0.01, 0.5, "",   "Arc"],
   ["arcToY",     "Target Y",    0, 1, 0.01, 0.12, "",  "Arc"],
@@ -597,7 +597,7 @@ const PARAMS = [
   ["arcLife",    "Arc life",    0.05, 2, 0.01, 0.4, "s","Arc"],
   // Dissolve — a post pass over the whole frame, so it composes with every other effect.
   ["dissolve",   "Dissolve",    0, 1, 0.01, 0, "",     "Dissolve"],
-  ["dissolveDir","Materialise", 0, 1, 1, 0, "",        "Dissolve"],
+  ["dissolveDir","Materialize", 0, 1, 1, 0, "",        "Dissolve"],
   ["dissolveScale","Grain",     1, 16, 0.5, 5, "",     "Dissolve"],
   ["dissolveEdge","Burn edge",  0, 1, 0.01, 0.3, "",   "Dissolve"],
   ["dissolveTime","Over",       0.05, 1, 0.01, 1, "",  "Dissolve"],
@@ -700,12 +700,12 @@ const PARAMS = [
   ["kalCount",   "Segments",    2, 16, 1, 6, "",       "Kaleidoscope"],
   ["kalSpin",    "Rotate",      0, 360, 1, 0, "°",     "Kaleidoscope"],
 
-  // A soft coloured edge where the effect meets nothing — backlight, not an outline.
+  // A soft colored edge where the effect meets nothing — backlight, not an outline.
   ["rim",        "Rim light",   0, 1, 0.01, 0, "",     "Rim light"],
   ["rimWidth",   "Width",       0.1, 1, 0.01, 0.4, "", "Rim light"],
   ["rimHue",     "Hue offset",-180, 180, 1, 0, "°",    "Rim light"],
 
-  // The hit-flash: every colour flattened to one tone, the shape untouched.
+  // The hit-flash: every color flattened to one tone, the shape untouched.
   ["silhouette", "Silhouette",  0, 1, 0.01, 0, "",     "Silhouette"],
   ["silWhite",   "Toward white",0, 1, 0.01, 0.8, "",   "Silhouette"],
 
@@ -792,7 +792,7 @@ const PARAMS = [
   ["riftFlicker","Flicker",     0, 30, 1, 10, "/s",    "Rift"],
   ["riftLife",   "Cycle",       0.1, 3, 0.01, 1, "s",  "Rift"],
 
-  // Haze — heat shimmer. A displacement pass: it moves pixels rather than recolouring them.
+  // Haze — heat shimmer. A displacement pass: it moves pixels rather than recoloring them.
   ["haze",       "Haze",        0, 1, 0.01, 0, "",     "Haze"],
   ["hazeAmount", "Strength",    0.1, 2, 0.05, 0.6, "", "Haze"],
   ["hazeScale",  "Detail",      0.5, 6, 0.1, 2, "",    "Haze"],
@@ -869,7 +869,7 @@ const PARAMS = [
   ["crackleWidth","Width",      0.3, 5, 0.1, 1.2, "px","Crackle"],
   ["crackleRate","Flicker rate",1, 40, 1, 16, "/s",    "Crackle"],
 
-  // Aura — a coloured halo derived from the silhouette. Not glow: it traces alpha, not brightness.
+  // Aura — a colored halo derived from the silhouette. Not glow: it traces alpha, not brightness.
   ["aura",       "Aura",        0, 1, 0.01, 0, "",     "Aura"],
   ["auraRadius", "Spread",      1, 24, 1, 6, "px",     "Aura"],
   ["auraTint",   "Tint",        0, 1, 0.01, 0.7, "",   "Aura"],
@@ -918,7 +918,7 @@ const PARAMS = [
   ["sliceX",     "Cut X",       0, 1, 0.01, 0.5, "",   "Slice"],
   ["sliceY",     "Cut Y",       0, 1, 0.01, 0.5, "",   "Slice"],
 
-  // Warp — a travelling ring of refraction. The shell of a blast.
+  // Warp — a traveling ring of refraction. The shell of a blast.
   ["warp",       "Warp",        0, 1, 0.01, 0, "",     "Warp"],
   ["warpReach",  "Reach",       0.1, 1.2, 0.01, 0.7, "","Warp"],
   ["warpBand",   "Band",        0.05, 1, 0.01, 0.3, "","Warp"],
@@ -1021,7 +1021,7 @@ for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
 
 // Fit is ON by default: it's what makes an effect fill the frame you chose regardless of the
 // numbers behind it, so a fresh load and every preset arrive framed rather than arbitrarily
-// small. The cost is that Fit centres on the bounding box, which overrides Origin X/Y — hence
+// small. The cost is that Fit centers on the bounding box, which overrides Origin X/Y — hence
 // the hint below the stage, so "my Origin slider does nothing" is answered on screen.
 let fitOn = true;
 let effectLabel = "effect";
@@ -1048,7 +1048,7 @@ const statFrames = document.getElementById("statFrames");
 const msg = document.getElementById("msg");
 
 function rerender() {
-  // The sprite cache is keyed by shape + quantized colour; colour/shape params invalidate it.
+  // The sprite cache is keyed by shape + quantized color; color/shape params invalidate it.
   // It repopulates lazily (a handful of sprites per effect), so clearing wholesale is cheaper
   // than tracking which knob touched what.
   clearSpriteCache();
@@ -1106,7 +1106,7 @@ function drawStage() {
   sctx.clearRect(0, 0, stage.width, stage.height);
   if (!ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   if (guides.onion) {
-    // Neighbouring frames, ghosted — the classic animator's view of what changed.
+    // Neighboring frames, ghosted — the classic animator's view of what changed.
     const n = rendered.canvases.length;
     sctx.globalAlpha = 0.22;
     const prev = rendered.canvases[(frameIdx - 1 + n) % n];
@@ -1283,7 +1283,7 @@ const synthAvailable = () => typeof CrunchySynth !== "undefined" && !!CrunchySyn
 let synthSound = null;   // { patch, name, L, R, rate }
 // A SUITE LINK (SUITE-LINKS.md §4, desktop, planted): the editor's sound is a WAV CrunchySFX planted in this game, used
 // WHERE IT IS (the planted Godot scene points at it, so a Replace in CrunchySFX reaches the game). null when the sound
-// is synthesised, loaded from a file, or none: any of those drops it.
+// is synthesized, loaded from a file, or none: any of those drops it.
 var soundLink = null;
 // THE IMPACT FRAME (AJ, 2026-10-12: "Wait for play ... Lets do impact frame"): the Godot scene (§26) starts its sound
 // and emits `impact` on this frame; the preview starts the sound here too. 0: the sound with the first frame, and
@@ -1346,7 +1346,7 @@ function syncSoundUI() {
     try {
       const ctx = ensureAudio();
       snd.buf = await ctx.decodeAudioData(await f.arrayBuffer());
-      synthSound = null;   // a loaded file replaces any synthesised audio; don't export the old WAV
+      synthSound = null;   // a loaded file replaces any synthesized audio; don't export the old WAV
       soundLink = null;    // …and any linked one
       clearSoundHold();    // …and it isn't the matched sound the hold was describing either
       snd.name = f.name;
@@ -1385,7 +1385,7 @@ function syncSoundUI() {
 // to see that. Second: with "Combine on export" the reference is baked into every exported
 // frame, so a character sheet plus an effect comes out as one finished sheet.
 //
-// Session state, not patch state — an imported image has no business travelling in a share link
+// Session state, not patch state — an imported image has no business traveling in a share link
 // or a saved preset.
 const ref = { img: null, name: "", cols: 1, rows: 1, scale: 1, offX: 0, offY: 0, front: false, combine: false };
 
@@ -1469,7 +1469,7 @@ function scheduleRender() {
 // ONE table: a param key -> when its row applies. Each rule is a fact about the engine (vfx.js), not a guess: Turbulence
 // at 0 never reads its scale, speed or curl; Spin at 0 multiplies Spin var by zero; Direction and Spread are read only by
 // the aimed emitters (emitPlace: cone, line, box) and Emit radius by every emitter but the cone; Origin X/Y are replaced
-// by Fit's centring. A hidden row KEEPS its value (state is untouched), so it still renders, saves and rides in share
+// by Fit's centering. A hidden row KEEPS its value (state is untouched), so it still renders, saves and rides in share
 // links exactly as before; only the row goes, and it comes back the moment it matters.
 const AIMED_EMITTERS = [1, 4, 6];               // EMITTERS: cone, line, box
 const aimed = (e) => AIMED_EMITTERS.indexOf(Math.round(e)) >= 0;
@@ -1533,7 +1533,7 @@ const APP_VERSION = "1.0.0";
 // ---------- Web vs desktop ----------
 // Same split as CrunchySFX, and the same principle: the LIBRARY and BULK workflow are the desktop
 // app; making and exporting an effect is free forever on the web. Nothing you can make in the web
-// build is withheld or watermarked — the paid tier is about keeping and organising work, not about
+// build is withheld or watermarked — the paid tier is about keeping and organizing work, not about
 // locking up output.
 const isDesktop = !!window.__TAURI__;
 
@@ -1558,7 +1558,7 @@ for (const [group, ps] of Object.entries(groups)) {
     // A few params belong next to the preview rather than in a panel below the fold — they
     // describe what you're looking at. They're built by this same loop into a different host, so
     // they keep the identical handlers (lock tracking, macro sync, one-history-entry-per-drag);
-    // rebuilding them by hand up there is how those behaviours quietly diverge.
+    // rebuilding them by hand up there is how those behaviors quietly diverge.
     const host = STAGE_PARAM_HOSTS[key]
       ? (document.getElementById(STAGE_PARAM_HOSTS[key]) || panel) : panel;
     // A 0-or-1 param with step 1 has no in-between value, so a slider is the wrong control: it
@@ -1655,7 +1655,7 @@ for (const [group, ps] of Object.entries(groups)) {
         updateMacros();
         scheduleRender();
       });
-      // Normalise on commit, so a typed 9999 or 2.7-on-a-step-of-1 shows what actually landed.
+      // Normalize on commit, so a typed 9999 or 2.7-on-a-step-of-1 shows what actually landed.
       num.addEventListener("change", () => { showNum(); commitHistory(); });
     }
   }
@@ -1706,10 +1706,14 @@ let glyphInput = null;
 // b-shape classes, a filter, a scrolling grid), each icon drawn by glyphMask at 24 px into an <img> from an idle queue
 // (WebKitGTK drops a hidden canvas). Ordered for effects: the item/nature/symbol shapes, then the marks, then the
 // input legends. The filter matches the name, its group and a few game words (ICON_WORDS).
+// AMERICAN SPELLING (AJ, 2026-10-18): a glyph's NAME is crunchyCore's identifier (it rides in share links and saved
+// effects as the `icon` extra), so a British name keeps its spelling there and only what is SHOWN is American.
+const ICON_SHOWN = { armour: "armor" };
+const iconShown = (name) => ICON_SHOWN[name] || name;
 const ICON_WORDS = {
   heart: "health life love heal hp", coin: "money gold cash pickup currency", skull: "death dead die poison kill",
   warn: "alert exclamation ! danger warning", info: "hint tip i", speech: "talk chat dialogue bubble ? question emote",
-  star: "favourite rating bonus", flame: "fire burn hot", drop: "water blood rain liquid", bolt: "lightning shock electric zap",
+  star: "favorite favourite rating bonus", flame: "fire burn hot", drop: "water blood rain liquid", bolt: "lightning shock electric zap",
   moneybag: "money gold loot", gemcut: "diamond jewel gem loot", gemstar: "sparkle twinkle shine", potion: "heal mana drink",
   ghost: "spirit soul haunt", shield: "block defend guard", crown: "king royal win", trophy: "win victory award",
   check: "ok yes done correct", close: "x no wrong cancel", plus: "add heal +", minus: "less damage -",
@@ -1740,7 +1744,7 @@ const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame",
     wrap.innerHTML = '<div class="b-shape-head" id="iconCount"></div>' +
       '<input type="text" class="b-shape-filter" id="iconFilter" placeholder="Filter icons… (e.g. coin, death, !)" autocomplete="off" spellcheck="false" aria-label="Filter icons">' +
       '<div class="b-shape-grid" id="iconGrid"></div>' +
-      '<p class="hint">The suite\'s shared icons (the same drawings as CrunchyUI\'s), drawn pixel-exact at the particle\'s size and coloured like any particle.</p>';
+      '<p class="hint">The suite\'s shared icons (the same drawings as CrunchyUI\'s), drawn pixel-exact at the particle\'s size and colored like any particle.</p>';
     // after the panel's heading, above its Fill holes row: choosing the icon comes first
     const head = panel.querySelector("h2");
     panel.insertBefore(wrap, head ? head.nextSibling : panel.firstChild);
@@ -1770,9 +1774,9 @@ const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame",
       const im = document.createElement("img");
       im.className = "shape-img"; im.alt = ""; im.width = im.height = 24;
       const nm = document.createElement("span");
-      nm.className = "shape-name"; nm.textContent = name;
+      nm.className = "shape-name"; nm.textContent = iconShown(name);
       b.append(im, nm);
-      b.title = name; b.setAttribute("aria-label", "Icon " + name);
+      b.title = iconShown(name); b.setAttribute("aria-label", "Icon " + iconShown(name));
       b.addEventListener("click", () => {
         if (state.icon === name) return;
         state.icon = name;
@@ -1780,7 +1784,7 @@ const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame",
       });
       grid.appendChild(b);
       btns[name] = b;
-      hay[name] = (name + " " + name.replace(/^btn-/, "button ") + " " + (groupLabel[grp] || grp) + " " + (ICON_WORDS[name] || "")).toLowerCase();
+      hay[name] = (name + " " + iconShown(name) + " " + name.replace(/^btn-/, "button ") + " " + (groupLabel[grp] || grp) + " " + (ICON_WORDS[name] || "")).toLowerCase();
       queue.push([name, im]);
     }
     if (!timer) timer = setTimeout(pump, 0);
@@ -1819,7 +1823,7 @@ const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame",
 const BUILTIN_PALETTES = {
   "Sweetie 16": "1a1c2c,5d275d,b13e53,ef7d57,ffcd75,a7f070,38b764,257179,29366f,3b5dc9,41a6f6,73eff7,f4f4f4,94b0c2,566c86,333c57",
   // Named for what they look like, not the hardware or product they came from — the era buttons
-  // hold to the same rule. Colour values themselves carry no licence; the names would.
+  // hold to the same rule. Color values themselves carry no license; the names would.
   "Fantasy 16": "000000,1d2b53,7e2553,008751,ab5236,5f574f,c2c3c7,fff1e8,ff004d,ffa300,ffec27,00e436,29adff,83769c,ff77a8,ffccaa",
   "Handheld Green": "0f380f,306230,8bac0f,9bbc0f",
   "CGA": "000000,55ffff,ff55ff,ffffff",
@@ -1856,7 +1860,7 @@ function setPalette(list, label) {
   syncPaletteUI();
   rerender();
   commitHistory();
-  if (label) msg.textContent = list.length ? label + " — " + list.length + " colours" : "Palette cleared";
+  if (label) msg.textContent = list.length ? label + " — " + list.length + " colors" : "Palette cleared";
 }
 function syncPaletteUI() {
   if (!palSwatches) return;
@@ -1874,24 +1878,24 @@ function syncPaletteUI() {
     return;
   }
   // Exactness depends on alpha: see the KNOWN LIMIT note in vfx.js. Rather than let someone
-  // export a "16-colour" sheet with 200 colours in its soft edges, say so and name the fix.
-  palInfo.textContent = cols.length + " colours — every pixel snaps to these (Colour steps is bypassed).";
+  // export a "16-color" sheet with 200 colors in its soft edges, say so and name the fix.
+  palInfo.textContent = cols.length + " colors — every pixel snaps to these (Color steps is bypassed).";
   // §25 (usability test: a locked palette still left ~85% of the visible pixels semi-transparent): soft edges are the
-  // effect's own colours at partial alpha, so the sprite is only exactly-N-colour once Alpha cut hardens them. Said in
+  // effect's own colors at partial alpha, so the sprite is only exactly-N-color once Alpha cut hardens them. Said in
   // one line, with the fix one click away (never applied unasked: it changes the look).
   if (state.alphaCut < 0.35) {
     const line = document.createElement("div");
     line.className = "pal-soft";
-    line.textContent = "Soft edges stay partly see-through, so they blend between these colours in your game. ";
+    line.textContent = "Soft edges stay partly see-through, so they blend between these colors in your game. ";
     const b = document.createElement("button");
     b.type = "button";
     b.id = "palHard";
     b.textContent = "Hard edges (Alpha cut 0.5)";
-    b.title = "Every pixel fully there or gone: exactly these colours, nothing in between";
+    b.title = "Every pixel fully there or gone: exactly these colors, nothing in between";
     b.addEventListener("click", () => {
       state.alphaCut = 0.5;
       syncUI(); syncPaletteUI(); rerender(); commitHistory();
-      msg.textContent = "Alpha cut 0.5: every pixel is now one of the palette's colours, fully there or gone. Ctrl+Z undoes it.";
+      msg.textContent = "Alpha cut 0.5: every pixel is now one of the palette's colors, fully there or gone. Ctrl+Z undoes it.";
     });
     line.appendChild(b);
     palInfo.appendChild(line);
@@ -1914,7 +1918,7 @@ function showPaletteLock() {
 }
 // ---------- Frame size (W x H with an aspect lock) ----------
 // Lives in the stage controls, next to Zoom and Backdrop, rather than down in the Output panel:
-// it changes what you are looking at, so it belongs where you are looking. Labelled "Size"
+// it changes what you are looking at, so it belongs where you are looking. Labeled "Size"
 // because the row above it already uses "Frame" for the frame-index scrubber.
 //
 // The boxes write frameW/frameH; leaving the frame square writes 0 to both, so a patch that never
@@ -2016,7 +2020,7 @@ function ratioLabel(w, h) {
       if (!f) return;
       const cols = parsePaletteFile(await f.text());
       if (cols.length) setPalette(cols, f.name);
-      else msg.textContent = "No colours found in " + f.name;
+      else msg.textContent = "No colors found in " + f.name;
       palFile.value = "";
     });
     // Pull a palette out of the effect itself, using the GIF encoder's median-cut quantizer.
@@ -2033,7 +2037,7 @@ function ratioLabel(w, h) {
     palPasteEl.addEventListener("change", () => {
       const cols = parsePaletteFile(palPasteEl.value);
       if (cols.length) { setPalette(cols, "Pasted"); palPasteEl.value = ""; }
-      else msg.textContent = "Couldn't find any hex colours in that";
+      else msg.textContent = "Couldn't find any hex colors in that";
     });
     syncPaletteUI();
   }
@@ -2079,7 +2083,7 @@ const BUBBLE_PICKS = ["!", "?", "!?", "…", "Hey!", "+10", "CRIT!", "Level up!"
   }
 }
 
-// ---------- Colour ramp editor ----------
+// ---------- Color ramp editor ----------
 // Hue + Hue-shift is a two-stop gradient with no control over the middle, but VFX artists think
 // in gradients: white-hot → yellow → orange → deep red → smoke. This is that control. It's
 // OPT-IN — an empty `ramp` means the classic hue/hueLife/coreWhite path runs, so every existing
@@ -2105,7 +2109,7 @@ function rampFromString(str) {
   }).filter((s) => Number.isFinite(s.p) && Number.isFinite(s.h));
   return st.sort((a, b) => a.p - b.p);
 }
-// Turning the ramp on shouldn't change the look — seed it from the classic colour params.
+// Turning the ramp on shouldn't change the look — seed it from the classic color params.
 function rampFromClassic() {
   const h0 = state.hue, h1 = state.hue + state.hueLife;
   const w = state.coreWhite;
@@ -2121,7 +2125,7 @@ function rampFromClassic() {
     const box = document.createElement("div");
     box.className = "ramp-box";
     box.innerHTML =
-      '<div class="ramp-head"><span>Colour over lifetime</span>' +
+      '<div class="ramp-head"><span>Color over lifetime</span>' +
       '<button id="rampToggle">Off</button></div>' +
       '<div class="ramp-body" id="rampBody" hidden>' +
         '<canvas id="rampCanvas" width="256" height="34"></canvas>' +
@@ -2283,7 +2287,7 @@ function rampFromClassic() {
 }
 
 // ---------- Custom drawn sprite (shape 8) ----------
-// Draw your own particle on a 16×16 alpha grid. Alpha only — the tint pass colours it, so a
+// Draw your own particle on a 16×16 alpha grid. Alpha only — the tint pass colors it, so a
 // drawn sprite still responds to Hue and the palettes like every other shape. 16×16 keeps the
 // base64 at ~344 chars, small enough to ride along in a share link.
 const customGrid = new Uint8Array(CUSTOM_SPRITE_N * CUSTOM_SPRITE_N);
@@ -2717,19 +2721,19 @@ for (const L of LAYER_GROUPS) {
 // §24: the "Add a layer" chips GROUPED by what a layer does, each with one line saying so (its tooltip, and the line
 // under the chips while a chip is hovered or focused), and a filter over names and lines. One table, keyed by the
 // LAYER_GROUPS name; an assertion checks it covers LAYER_GROUPS exactly. Within a kind, LAYER_GROUPS order holds.
-const LAYER_KINDS = ["Light", "Particles", "Motion", "Shapes & lines", "Post & stylise"];
+const LAYER_KINDS = ["Light", "Particles", "Motion", "Shapes & lines", "Post & stylize"];
 const LAYER_ABOUT = {
   "Flash":          ["Light", "A bright pop at the start: the moment it lands"],
   "Glow":           ["Light", "Blooms the bright parts outward"],
   "Flare":          ["Light", "A lens flare: a wide streak and ghost discs"],
-  "Light shafts":   ["Light", "Rays fanning out from the centre"],
+  "Light shafts":   ["Light", "Rays fanning out from the center"],
   "Bokeh":          ["Light", "Soft out-of-focus discs drifting in front"],
   "Twinkle":        ["Light", "Little star glints popping on and off"],
-  "Rim light":      ["Light", "A coloured edge light hugging the shapes"],
-  "Aura":           ["Light", "A soft coloured halo around the silhouette"],
+  "Rim light":      ["Light", "A colored edge light hugging the shapes"],
+  "Aura":           ["Light", "A soft colored halo around the silhouette"],
   "Cone":           ["Light", "A wedge of light that spreads as it goes"],
   "Streaks":        ["Light", "Star-filter streaks off the brightest pixels"],
-  "Layer B":        ["Particles", "A second set of particles with its own shape and colour"],
+  "Layer B":        ["Particles", "A second set of particles with its own shape and color"],
   "Sub-emitter":    ["Particles", "Each particle bursts into smaller ones when it dies"],
   "Burst":          ["Particles", "Fires the effect several times in a row"],
   "Tumble":         ["Particles", "Flat pieces flipping as they fall: confetti, petals, coins"],
@@ -2744,19 +2748,19 @@ const LAYER_ABOUT = {
   "Trails":         ["Motion", "Streaks behind moving particles, and frame echo"],
   "Path trail":     ["Motion", "A line tracing where each particle has been"],
   "Smear":          ["Motion", "Motion smear, as an animator draws speed"],
-  "Orbit":          ["Motion", "Shapes circling the centre on a tilted ring"],
-  "Shockwave":      ["Shapes & lines", "An expanding ring from the centre"],
+  "Orbit":          ["Motion", "Shapes circling the center on a tilted ring"],
+  "Shockwave":      ["Shapes & lines", "An expanding ring from the center"],
   "Ripples":        ["Shapes & lines", "Rings spreading out, as on water"],
   "Vortex":         ["Shapes & lines", "Spinning rings on a flat plane: a portal, a whirlpool"],
   "Sigil":          ["Shapes & lines", "A magic circle: rings, ticks and spokes"],
   "Beam":           ["Shapes & lines", "A straight beam firing one way"],
-  "Ribbon":         ["Shapes & lines", "A curved sweep of colour: a slash or a swirl"],
+  "Ribbon":         ["Shapes & lines", "A curved sweep of color: a slash or a swirl"],
   "Arc":            ["Shapes & lines", "One lightning bolt between two points"],
   "Chain":          ["Shapes & lines", "An articulated whip, tentacle or tether"],
   "Crackle":        ["Shapes & lines", "A field of tiny jumping sparks"],
   "Growth":         ["Shapes & lines", "Branches growing outward: vines, frost"],
   "Fracture":       ["Shapes & lines", "Angular cracks racing out and forking"],
-  "Lines":          ["Shapes & lines", "Speed lines radiating from the centre"],
+  "Lines":          ["Shapes & lines", "Speed lines radiating from the center"],
   "Grid":           ["Shapes & lines", "An expanding wireframe floor, in perspective"],
   "Arms":           ["Shapes & lines", "Spiral arms sweeping out: a galaxy, a summoning"],
   "Rift":           ["Shapes & lines", "A jagged tear in space opening and closing"],
@@ -2767,16 +2771,16 @@ const LAYER_ABOUT = {
   "Web":            ["Shapes & lines", "Lines joining particles that are close: nets, constellations"],
   "Decal":          ["Shapes & lines", "A mark on the ground: a shadow, scorch or splat"],
   "Bubble":         ["Shapes & lines", "A speech bubble with text (!, ?, Hey!)"],
-  "Impact":         ["Post & stylise", "A whole-frame hit flash for a frame or two"],
-  "Zoom blur":      ["Post & stylise", "Radial blur, as if rushing at the camera"],
-  "Chromatic":      ["Post & stylise", "Splits the colours apart at the edges"],
-  "Kaleidoscope":   ["Post & stylise", "Mirrors the effect into a symmetric pattern"],
-  "Silhouette":     ["Post & stylise", "Fills the shapes with one flat colour"],
-  "Scanlines":      ["Post & stylise", "Old-screen horizontal lines"],
-  "Glitch":         ["Post & stylise", "Digital glitch: sliced, shifted, colour-split"],
-  "Dissolve":       ["Post & stylise", "Eats the effect away in a noisy pattern"],
-  "Warp":           ["Post & stylise", "A ring of bent air travelling outward"],
-  "Haze":           ["Post & stylise", "Heat shimmer: the picture wobbles"],
+  "Impact":         ["Post & stylize", "A whole-frame hit flash for a frame or two"],
+  "Zoom blur":      ["Post & stylize", "Radial blur, as if rushing at the camera"],
+  "Chromatic":      ["Post & stylize", "Splits the colors apart at the edges"],
+  "Kaleidoscope":   ["Post & stylize", "Mirrors the effect into a symmetric pattern"],
+  "Silhouette":     ["Post & stylize", "Fills the shapes with one flat color"],
+  "Scanlines":      ["Post & stylize", "Old-screen horizontal lines"],
+  "Glitch":         ["Post & stylize", "Digital glitch: sliced, shifted, color-split"],
+  "Dissolve":       ["Post & stylize", "Eats the effect away in a noisy pattern"],
+  "Warp":           ["Post & stylize", "A ring of bent air traveling outward"],
+  "Haze":           ["Post & stylize", "Heat shimmer: the picture wobbles"],
 };
 let layerFilter = "";
 // Built once (the filter keeps its focus while the chips under it are rebuilt).
@@ -2935,7 +2939,7 @@ function snapshotState() {
 }
 // The EFFECT as a person sees it: the params plus Fit, which changes the pixels as much as any slider (it is part of
 // the effect: share links, My Effects, A/B and undo keep it). snapshotState stays params-only for the genome code.
-// `fit` absent (anything saved before) means "leave Fit as it is", the old behaviour.
+// `fit` absent (anything saved before) means "leave Fit as it is", the old behavior.
 function snapshotEffect() { return Object.assign(snapshotState(), { fit: fitOn }); }
 function applyFitOf(obj) {
   if (!obj || !("fit" in obj)) return;
@@ -3085,11 +3089,11 @@ const LAYER_KEYS = {
 };
 const layerKeys = () => LAYER_KEYS[editLayer];
 // Says the three true things a user needs before touching anything, in the order they will hit
-// them: where Secondary's own colour sliders are, what it SHARES with Main, and what it simply
-// does not have. The middle one is the trap — those sliders sit in the Colour section looking
+// them: where Secondary's own color sliders are, what it SHARES with Main, and what it simply
+// does not have. The middle one is the trap — those sliders sit in the Color section looking
 // like Main's, and they move both populations at once.
 const LAYER_SHARED = "Secondary's own Hue, Saturation and Brightness sliders are in its panel " +
-  "below \u2014 the Colour section always drives Main. It borrows Hue drift, Hue variance and Spin " +
+  "below \u2014 the Color section always drives Main. It borrows Hue drift, Hue variance and Spin " +
   "from Main, so changing those changes both. It has no hot core, by design: it exists to sit " +
   "behind Main rather than compete with it.";
 
@@ -3098,7 +3102,7 @@ function syncLayerScope() {
   for (const b of layerScope.children) b.classList.toggle("active", b.dataset.layer === editLayer);
   layerScopeHint.textContent = editLayer === "B"
     ? "Secondary \u00b7 its own particles and palette"
-    : (on ? "Secondary is on and keeps its own colour" : "Secondary is off");
+    : (on ? "Secondary is on and keeps its own color" : "Secondary is off");
   layerScopeNote.textContent = editLayer === "B" ? LAYER_SHARED : "";
   layerScopeNote.hidden = editLayer !== "B";
 }
@@ -3147,7 +3151,7 @@ for (const [cat, names] of SHAPE_CATS) {
 }
 
 // ---------- Shape filter ----------
-// 88 shapes across four categories is past the point where scanning works. Same behaviour as the
+// 88 shapes across four categories is past the point where scanning works. Same behavior as the
 // preset search so the two feel like one tool: substring match on the name, categories with no
 // hits disappear, and the count tells you whether a search found nothing or you simply cannot see
 // it. Escape clears, because a filter you can't get out of is a trap.
@@ -3301,7 +3305,7 @@ function syncShapeButtons() {
 }
 
 // ---------- Palettes ----------
-// Buttons, not a param (the CONSOLES pattern): they write the real colour params, so the patch
+// Buttons, not a param (the CONSOLES pattern): they write the real color params, so the patch
 // keeps carrying honest values through share links, presets and breeding.
 const PALETTES = [
   ["Fire",     { hue: 32,  hueLife: -30, sat: 0.95, coreWhite: 0.7, blend: 0 }],
@@ -3341,7 +3345,7 @@ for (const [name, patch] of PALETTES) {
   b.addEventListener("click", () => {
     // SCOPED to whichever population the switcher above has selected. Until that switcher existed
     // every palette wrote Layer A keys only, so on the eight presets that run a second population
-    // a palette click recoloured half the picture and silently left the rest — which is exactly
+    // a palette click recolored half the picture and silently left the rest — which is exactly
     // how "a second layer that isn't affected by the controls" got reported from the app.
     if (editLayer === "B") {
       // Three of the six keys a palette sets have NO Secondary equivalent: hueLife, hueVar and
@@ -3436,9 +3440,9 @@ const MACROS = [
     },
     from() { return inv(state.gravity, -120, 900); } },
   // §25: "Heat: white-hot" on an ice spell read as a contradiction (usability test). Heat is INTENSITY, not temperature:
-  // how white and glowing a particle's core is, in whatever colour Hue gives it. The ends and the row's note say so.
+  // how white and glowing a particle's core is, in whatever color Hue gives it. The ends and the row's note say so.
   { name: "Heat", id: "mHeat", left: "dim", right: "white-hot",
-    note: "Heat is intensity, not temperature: how white and glowing each particle's core is, in any colour (an ice spell can have a white-hot core). Hue sets the colour.",
+    note: "Heat is intensity, not temperature: how white and glowing each particle's core is, in any color (an ice spell can have a white-hot core). Hue sets the color.",
     to(v) {
       state.coreWhite = lerpN(0, 0.95, v);
       state.glow = lerpN(0, 0.65, v);
@@ -3447,7 +3451,7 @@ const MACROS = [
       state.sat = lerpN(0.55, 1, v);
     },
     from() { return inv(state.coreWhite, 0, 0.95); } },
-  // Sits next to Heat because they're the two colour macros, and they don't collide: Heat owns
+  // Sits next to Heat because they're the two color macros, and they don't collide: Heat owns
   // saturation, brightness and the over-life drift, while this owns only the base hue.
   //
   // Stops at 330° rather than 360° on purpose. Hue wraps, so a full-range slider would put red at
@@ -3546,13 +3550,13 @@ const PAL_MICRO = "000000,ffffff,880000,aaffee,cc44cc,00cc55,0000aa,eeee77," +
 const PAL_HANDHELD = "0f380f,306230,8bac0f,9bbc0f";
 const STYLES = [
   { name: "Anything", hint: "no clamp", patch: {} },
-  { name: "Woodgrain", hint: "earliest home consoles: enormous pixels, almost no colour",
+  { name: "Woodgrain", hint: "earliest home consoles: enormous pixels, almost no color",
     patch: { pixelate: 6, posterize: 3, dither: 0, alphaCut: 0.5, outline: 0, outlineTone: 0,
              fps: 12, frameSize: 2, glow: 0, paletteLock: "" } },
-  { name: "Micro", hint: "home-computer era: chunky, fixed 16-colour palette",
+  { name: "Micro", hint: "home-computer era: chunky, fixed 16-color palette",
     patch: { pixelate: 4, posterize: 32, dither: 0, alphaCut: 0.5, outline: 0,
              fps: 12, frameSize: 2, glow: 0, paletteLock: PAL_MICRO } },
-  { name: "8-bit", hint: "cartridge era: few colours, hard edges, outlined",
+  { name: "8-bit", hint: "cartridge era: few colors, hard edges, outlined",
     patch: { pixelate: 3, posterize: 4, dither: 0, alphaCut: 0.5, outline: 1, outlineTone: 0,
              fps: 12, frameSize: 2, glow: 0, paletteLock: "" } },
   { name: "Pocket", hint: "handheld: four shades of green",
@@ -3564,13 +3568,13 @@ const STYLES = [
   { name: "Super", hint: "16-bit with blending — clean gradients, no dither",
     patch: { pixelate: 2, posterize: 12, dither: 0, alphaCut: 0, outline: 0,
              fps: 15, frameSize: 3, glow: 0.25, paletteLock: "" } },
-  { name: "Advanced", hint: "late handheld: more colour, still small",
+  { name: "Advanced", hint: "late handheld: more color, still small",
     patch: { pixelate: 2, posterize: 16, dither: 0.3, alphaCut: 0.35, outline: 0,
              fps: 20, frameSize: 3, glow: 0.2, paletteLock: "" } },
   { name: "32-bit", hint: "disc era: dithered gradients at low resolution",
     patch: { pixelate: 1, posterize: 16, dither: 0.6, alphaCut: 0, outline: 0,
              fps: 24, frameSize: 4, glow: 0.35, paletteLock: "" } },
-  { name: "Modern", hint: "no clamp at all — full colour, smooth, high frame rate",
+  { name: "Modern", hint: "no clamp at all — full color, smooth, high frame rate",
     patch: { pixelate: 1, posterize: 32, dither: 0, alphaCut: 0, outline: 0,
              fps: 30, frameSize: 5, glow: 0.5, paletteLock: "" } },
 ];
@@ -3886,7 +3890,7 @@ function presetMatches(name, q) {
   return presetQueryHit(name, q) > 0;
 }
 // One frame ~40% in (a burst has bloomed by then; effectThumb's rule), rendered alone: renderPrep simulates the whole
-// effect (Fit needs every frame's bounds) but only this one frame is rasterised. The picture is a PREVIEW only.
+// effect (Fit needs every frame's bounds) but only this one frame is rasterized. The picture is a PREVIEW only.
 function presetThumbURL(name) {
   if (presetThumbs.has(name)) return presetThumbs.get(name);
   let url = "";
@@ -4094,7 +4098,7 @@ document.getElementById("presetMode").addEventListener("click", (e) => {
   buildPresetStrip();
 });
 // THE CHIP ROW PAGES BY ARROWS TOO (CrunchyTile's chipPager; AJ there: a scrollbar "pops up to block" the chips). The row
-// stays one line with its overflow hidden; ‹ › step it by most of its width and grey out at either end, and they hide
+// stays one line with its overflow hidden; ‹ › step it by most of its width and gray out at either end, and they hide
 // when every chip fits. The wheel steps it as well.
 function chipPagerSync() {
   const row = document.getElementById("presetChips"), prev = document.getElementById("chipPrev"), next = document.getElementById("chipNext");
@@ -4721,7 +4725,7 @@ refCtl.combine.addEventListener("change", () => {
 
 // ---------- Export ----------
 // THE EXPORT CONTEXT (§18): what an export renders FROM — the state, its render, Fit, the reference and the
-// synthesised sound. The Export dialog uses the editor's own (liveExportCtx, the default everywhere below), so its bytes
+// synthesized sound. The Export dialog uses the editor's own (liveExportCtx, the default everywhere below), so its bytes
 // are exactly what they were. The planted Library renders a SAVED effect through the very same functions with a context
 // of its own (plantedCtx), so Update and Re-export write the bytes Export would, without loading the effect into the
 // editor. Only the reference compositing reads the global `ref` (drawRefFrame), and a planted context never has one.
@@ -4744,7 +4748,7 @@ function compositeRef(canvases, C) {
 }
 function outputCanvases(C) { C = C || liveExportCtx(); return C.r ? compositeRef(C.r.canvases, C) : []; }
 
-// Re-rasterise the SAME simulation at a different resolution. This is the payoff of splitting
+// Re-rasterize the SAME simulation at a different resolution. This is the payoff of splitting
 // simulate from rasterize: a 2× or 4× export is a re-draw, not a re-simulation, so the motion is
 // pixel-for-pixel the same effect rather than a similar one.
 function framesAtScale(mult, C) {
@@ -4820,7 +4824,7 @@ async function saveProject() {
       defaultPath: sanitize(effectLabel) + ".crunchyvfx",
       filters: [{ name: "CrunchyVFX project", extensions: ["crunchyvfx"] }],
     });
-    if (!path) return;                                   // cancelled
+    if (!path) return;                                   // canceled
     const bytes = new TextEncoder().encode(JSON.stringify(buildProject(), null, 2));
     await T.fs.writeFile(path, bytes);
     msg.textContent = "Saved project (" + userEffects.length + " saved effect" +
@@ -4842,7 +4846,7 @@ async function openProject() {
     msg.textContent = "Could not open the file picker: " + e.message;
     return;
   }
-  if (!path) return;                                     // cancelled
+  if (!path) return;                                     // canceled
   try {
     const bytes = await T.fs.readFile(path);
     loadProject(JSON.parse(new TextDecoder().decode(new Uint8Array(bytes))));
@@ -5072,7 +5076,7 @@ async function saveNative(T, blob, name) {
     const ext = (String(name).match(/\.([a-z0-9]+)$/i) || [, ""])[1].toLowerCase();
     const filter = SAVE_FILTERS[ext];
     const path = await T.dialog.save({ defaultPath: name, filters: filter ? [filter] : [] });
-    if (!path) return;                                                // user cancelled
+    if (!path) return;                                                // user canceled
     await T.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
   } catch (e) {
     console.warn("crunchyvfx: native save failed, falling back to browser download —", e);
@@ -5125,7 +5129,7 @@ function makeZip(files, when) {
 // a 128px explosion is mostly empty pixels. The subtlety is that frames must be cropped by ONE
 // shared box, not each to its own — per-frame crops would make the effect jitter as the sprite
 // hops around inside its cell. So: union bounding box across every frame, then a pivot telling the
-// engine where the original centre went, so a trimmed sprite still lines up with an untrimmed one.
+// engine where the original center went, so a trimmed sprite still lines up with an untrimmed one.
 function alphaBBoxAll(canvases) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const cv of canvases) {
@@ -5172,7 +5176,7 @@ function buildSheet(opts) {
   cv.height = opts.pot ? nextPot(rows * h) : rows * h;
   const g = cv.getContext("2d");
   for (let i = 0; i < n; i++) g.drawImage(frames[i], (i % cols) * w, Math.floor(i / cols) * h);
-  // Pivot: where the untrimmed frame's centre now sits inside a cell, 0..1. Set an engine's
+  // Pivot: where the untrimmed frame's center now sits inside a cell, 0..1. Set an engine's
   // sprite origin to this and a trimmed sheet drops in exactly where the untrimmed one was.
   const pivot = trim
     ? { x: (srcW / 2 - trim.x) / w, y: (srcH / 2 - trim.y) / h }
@@ -5185,7 +5189,7 @@ function buildSheet(opts) {
 // needs to know WHICH pixels emit. This is that channel as a second sheet — the same >threshold
 // mask the glow pass already computes, exported un-blurred so the engine blurs it itself.
 //
-// Alpha is preserved from the source so the mask lines up pixel-for-pixel with the colour sheet;
+// Alpha is preserved from the source so the mask lines up pixel-for-pixel with the color sheet;
 // non-emissive pixels go black rather than transparent, because most shaders multiply by this and
 // black is "no contribution" while transparent is ambiguous.
 function emissiveFrames(frames, st) {
@@ -5308,7 +5312,7 @@ function sidecarFor(kind, sh, name, fps, loop) {
 // drop-in way to use an effect. ONE implementation for the Export dialog, the batch and Variations packs, a pipeline's
 // folder and the planted Library (which adds only the linked CrunchySFX sound and the Impact frame it knows about):
 //   <base>.tscn  a Node2D (texture filter Nearest) holding an AnimatedSprite2D with the effect's SpriteFrames, offset
-//                so the NODE'S POSITION IS THE EMITTER (where the effect happens; the frame centre for most effects),
+//                so the NODE'S POSITION IS THE EMITTER (where the effect happens; the frame center for most effects),
 //                and, when the effect has a sound, an AudioStreamPlayer2D;
 //   <base>.gd    the same script for every effect: it PLAYS ON _ready (`autoplay`, deferred one step so a signal
 //                connected right after add_child is heard), emits `impact` on `impact_frame` (every time round for a
@@ -5412,14 +5416,14 @@ function impactFrameOf(r) {
   }
   return best;
 }
-// Where the emitter sits in the frame, in the frame's pixels: renderPrep's own transform (Fit's centring, or the
-// origin kept at its fraction of the frame), exactly as the frames were drawn. The frame centre if anything is missing.
+// Where the emitter sits in the frame, in the frame's pixels: renderPrep's own transform (Fit's centering, or the
+// origin kept at its fraction of the frame), exactly as the frames were drawn. The frame center if anything is missing.
 function effectOriginPx(C) {
   try {
     const p = renderPrep(C.st, { fit: C.fit, sim: C.r.sim, w: C.r.w, h: C.r.h });
     const x = C.st.originX * p.sim.fs * p.k + p.dx, y = C.st.originY * p.sim.fs * p.k + p.dy;
     if (isFinite(x) && isFinite(y)) return { x: x, y: y };
-  } catch (e) { /* no sim kept: centre */ }
+  } catch (e) { /* no sim kept: center */ }
   return { x: C.r.w / 2, y: C.r.h / 2 };
 }
 // What the scene needs to know, from the export's settings and context. `o.sceneSound`: the planted Library's say on
@@ -5558,7 +5562,7 @@ expModal.innerHTML =
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expTrim"> Trim transparent margins</label></div>' +
       '<div class="exp-row" data-only="sheet"><span></span><label class="exp-chk"><input type="checkbox" id="expPot"> Pad sheet to a power of two</label></div>' +
       '<div class="exp-row"><span></span><label class="exp-chk"><input type="checkbox" id="expEmis" title="A second sheet holding only the pixels that emit light, for engines that apply their own bloom"> Also export an emissive mask</label></div>' +
-      '<div class="exp-row" id="expSoundRow" hidden><span></span><label class="exp-chk"><input type="checkbox" id="expSound" checked title="The synthesised sound, written as a 16-bit stereo WAV beside the sheet"> Also export the sound (.wav)</label></div>' +
+      '<div class="exp-row" id="expSoundRow" hidden><span></span><label class="exp-chk"><input type="checkbox" id="expSound" checked title="The synthesized sound, written as a 16-bit stereo WAV beside the sheet"> Also export the sound (.wav)</label></div>' +
       '<div class="exp-row exp-pipes"><span>Pipelines</span><span class="exp-pipe-list" id="expPipes"></span></div>' +
       '<div class="exp-row"><span></span><span class="exp-pipe-btns">' +
         '<button id="expPipeSave" title="Save the settings above as a named pipeline you can re-run" data-icon="plus">Save these settings</button>' +
@@ -5633,7 +5637,7 @@ function refreshExpInfo() {
   // the Unity note is for someone choosing generic metadata (or none), not for a Godot, Aseprite or Phaser choice (§25)
   const unityNote = expModal.querySelector(".exp-note-row");
   if (unityNote) unityNote.hidden = fmt !== "sheet" || ["godot", "aseprite", "phaser"].indexOf(expMetaSel.value) >= 0;
-  // Only offered when there's actually a synthesised sound to write — an unticked box for a file
+  // Only offered when there's actually a synthesized sound to write — an unticked box for a file
   // that can't exist reads as a broken feature.
   expSoundRow.hidden = !synthSound;
   const scales = chosenScales();
@@ -5702,7 +5706,7 @@ function refreshExpInfo() {
     // §26: say it in plain words; the frame is the one the scene will use (the Impact frame set, else the brightest)
     const n = rendered.canvases.length, hit = Math.min(n - 1, soundFrame > 0 ? soundFrame : impactFrameOf(rendered));
     bits.push(loopFor(expPlay.value)
-      ? "<b>Godot 4: a ready scene.</b> Instance the <b>.tscn</b> and it plays and loops, signalling <b>impact</b> on frame " + hit +
+      ? "<b>Godot 4: a ready scene.</b> Instance the <b>.tscn</b> and it plays and loops, signaling <b>impact</b> on frame " + hit +
         " every time round, until you call <b>stop()</b> or free it."
       : "<b>Godot 4: a ready scene.</b> Instance the <b>.tscn</b> and it plays, signals its hit frame (<b>impact</b> on frame " + hit +
         ", counting from 0) and frees itself when done.");
@@ -5795,7 +5799,7 @@ async function buildExportFiles(onProgress, o) {
       }
       if (o.emissive) {
         // Built from the ALREADY-TRIMMED frames so the two sheets are pixel-aligned; a mask that
-        // doesn't line up with its colour sheet is worse than no mask.
+        // doesn't line up with its color sheet is worse than no mask.
         const em = buildSheet({ frames: emissiveFrames(sh.frames, C.st), layout: o.layout, pot: o.pot });
         const eb = await canvasBlob(em.cv);
         files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
@@ -5816,7 +5820,7 @@ async function buildExportFiles(onProgress, o) {
     // the stage and makes every later buildSheet() produce an empty sheet, with no error
     // anywhere. That is a silent, delayed failure, so the identity check matters.
     if (frames && frames !== C.r.canvases) for (const cv of frames) releaseCanvas(cv);
-    // Ship the synthesised sound beside the sprite. It's the same WAV CrunchySFX would write
+    // Ship the synthesized sound beside the sprite. It's the same WAV CrunchySFX would write
     // (same engine, same encoder), so what you drop into an engine is a matched pair rather
     // than a sheet you then have to go find audio for. Only the 1x pass writes it — the audio
     // doesn't change with the sprite's resolution.
@@ -5826,7 +5830,7 @@ async function buildExportFiles(onProgress, o) {
                                            { rate: C.synth.rate, depth: 16, channels: 2 });
         files.push({ name: base + ".wav", data: new Uint8Array(wav) });
       } catch (e) {
-        console.warn("crunchyvfx: could not encode the synthesised sound —", e);
+        console.warn("crunchyvfx: could not encode the synthesized sound —", e);
       }
     }
     if (onProgress) onProgress(mult);
@@ -5892,12 +5896,12 @@ expModal.querySelector("#expGo").addEventListener("click", async () => {
 });
 
 // ---------- Batch export ----------
-// One zip containing every effect, each as a sheet + sidecar, honouring the options above. This
+// One zip containing every effect, each as a sheet + sidecar, honoring the options above. This
 // is what turns the tool from "make an effect" into "make an asset pack" — and it's the reason
 // the library and the export options were worth building separately.
 //
 // Rendering 35 effects blocks the main thread for seconds, so it yields between each one: the
-// progress line actually updates instead of the window going grey and the OS offering to kill it.
+// progress line actually updates instead of the window going gray and the OS offering to kill it.
 // ---------- Export pipelines ----------
 // A pipeline is a NAMED bundle of export settings — format, layout, sidecar, trim, sizes — plus,
 // on desktop, the folder they go to. The point isn't saving clicks once; it's that a project has
@@ -6043,7 +6047,7 @@ async function batchExport(which, opts) {
 const REPACK_GROUPS = [
   ["Frame size", ["frameSize", "frameW", "frameH"]],
   ["Crunch", ["pixelate", "posterize", "dither", "alphaCut", "outline", "outlineTone", "paletteLock"]],
-  ["Colour", ["hue", "hueLife", "hueVar", "sat", "bright", "coreWhite", "blend", "ramp"]],
+  ["Color", ["hue", "hueLife", "hueVar", "sat", "bright", "coreWhite", "blend", "ramp"]],
   ["Timing", ["fps", "duration"]],
 ];
 const repackBox = expModal.querySelector("#expRepack");
@@ -6202,7 +6206,7 @@ gifModal.hidden = true;
 gifModal.innerHTML =
   '<div class="modal-box gif-box">' +
     '<div class="modal-head"><h2>Export GIF</h2>' +
-      '<span class="hint">Plays anywhere. Costs you colours and soft edges.</span>' +
+      '<span class="hint">Plays anywhere. Costs you colors and soft edges.</span>' +
       '<button id="gifClose" data-icon="close">Close</button></div>' +
     '<div class="gif-body">' +
       '<div class="gif-stats" id="gifStats"></div>' +
@@ -6278,7 +6282,7 @@ gifModal.querySelector("#gifClose").addEventListener("click", () => { gifModal.h
 gifModal.addEventListener("click", (e) => { if (e.target === gifModal) gifModal.hidden = true; });
 
 // One click to make the current patch GIF-shaped: hard alpha edges, and a frame rate the format
-// can actually represent. Deliberately does NOT touch colour — 255 colours is plenty for these
+// can actually represent. Deliberately does NOT touch color — 255 colors is plenty for these
 // effects, and posterizing is a look, not a fix.
 gifModal.querySelector("#gifPrep").addEventListener("click", () => {
   const changed = gifPrepPlan(), t = gifPrepTarget();
@@ -6400,7 +6404,7 @@ function mutateGenome(src, amount, opts) {
 
   const on = activeGroups(src);
   // A param sitting at zero on a default of zero is a dimension this effect DOES NOT USE — wind,
-  // radial and swirl on a preset built from gravity alone. Moving one adds a new behaviour rather
+  // radial and swirl on a preset built from gravity alone. Moving one adds a new behavior rather
   // than varying an existing one, which is the same mistake as switching on a new system, one
   // level down. Derived from the value, so it needs no list and cannot go stale.
   const used = [], rest = [];
@@ -6427,14 +6431,14 @@ function mutateGenome(src, amount, opts) {
     const p = pick(from);
     const k = p[0], span = p[3] - p[2], cur = g[k];
     const step = Math.min(span * amount, Math.max(Math.abs(cur), span * 0.02) * amount * 1.5);
-    // Snapped to the slider's own grid, so a child opens with values you could have dialled in by
+    // Snapped to the slider's own grid, so a child opens with values you could have dialed in by
     // hand — the old rounding produced `size 18.406` and `drag 0.656` on steps of 0.5 and 0.01.
     g[k] = snapToStep(cur + (Math.random() * 2 - 1) * step, p[2], p[3], p[4]);
   }
 
   // BREEDING IS ALLOWED TO DISCOVER; A VARIATION PACK IS NOT. The tour promises breed "finds
   // things you'd never reach by dragging sliders", and that has to stay true — so a bred child may
-  // gain ONE new system, at odds that leave most of the litter recognisable. Variations never do.
+  // gain ONE new system, at odds that leave most of the litter recognizable. Variations never do.
   if (opts.explore && Math.random() < 0.3) {
     const off = LAYER_GROUPS.filter((L) => !on.has(L.g));
     if (off.length) {
@@ -6463,7 +6467,7 @@ function fullGenome(patch) {
 }
 
 // ---------- Visibility guard ----------
-// The direct analogue of CrunchySFX's audiblePatch(). A wide mutation can trivially produce an
+// The direct analog of CrunchySFX's audiblePatch(). A wide mutation can trivially produce an
 // effect with opacity 0, a 2px size or a 1-frame lifetime — technically valid, completely
 // invisible. Generating nine of those and presenting them as choices wastes the user's time, so
 // candidates are rendered small, checked for actual pixels, and retried.
@@ -6874,7 +6878,7 @@ ihModal.querySelector("#ihClose").addEventListener("click", () => { ihModal.hidd
 ihModal.addEventListener("click", (e) => { if (e.target === ihModal) ihModal.hidden = true; });
 ihModal.querySelector("#ihClear").addEventListener("click", () => {
   // Only the export history — the sprites are files someone chose to bring in, and throwing those
-  // away from a button labelled "clear history" would be a nasty surprise.
+  // away from a button labeled "clear history" would be a nasty surprise.
   exportLog = [];
   saveExportLog();
   renderImportsHistory();
@@ -6887,9 +6891,9 @@ ihModal.querySelector("#ihClear").addEventListener("click", () => {
 // window, on a solid backdrop, looping forever, with an optional site tag. Two different jobs that
 // happen to share an encoder.
 
-// A transparent GIF carries only 1-bit alpha, so soft edges fringe hard against whatever colour the
+// A transparent GIF carries only 1-bit alpha, so soft edges fringe hard against whatever color the
 // chat client happens to use — and every effect here has soft edges. Compositing onto the app's own
-// dark stage colour makes that a deliberate look instead of an artefact, and matches the tool.
+// dark stage color makes that a deliberate look instead of an artifact, and matches the tool.
 const SHARE_GIF_BG = "#0b0910";
 
 // Frame count is the thing that actually blows up a GIF, so resolution gives way to it rather than
@@ -6905,7 +6909,7 @@ function buildShareGif(withTag) {
   if (!rendered) return null;
   const n = rendered.canvases.length;
   const size = shareGifSize(n);
-  // Re-rasterise rather than upscale: the simulation is reused, so this is the same motion drawn
+  // Re-rasterize rather than upscale: the simulation is reused, so this is the same motion drawn
   // at a higher resolution instead of a blurry enlargement of the preview.
   const big = renderFrames(state, { size: size, fit: fitOn, sim: rendered.sim }).canvases;
   const out = big.map((src) => {
@@ -7217,7 +7221,7 @@ foundryModal.querySelector("#fndGen").addEventListener("click", foundryRun);
 // ingredients, mixed so each of the nine carries every tag. It invents nothing outside the app: only VFX's shapes,
 // layer systems, palettes and params, and the same answers and seed give the same nine.
 //
-// TAGS ARE DERIVED, never kept per preset. WIZARD_TAGS says what a material LOOKS like (its colour along a particle's
+// TAGS ARE DERIVED, never kept per preset. WIZARD_TAGS says what a material LOOKS like (its color along a particle's
 // life, its shapes, its systems, the words in a name), and any effect is read against it (wizardTagHit): a preset, a
 // composition, or a preset added next year, with no list to update. The cards' pictures use it. WIZARD_TYPES maps each answer to "what's it for?" onto the
 // preset categories and words in a name (`sample` is only the card's picture).
@@ -7250,77 +7254,77 @@ const WIZARD_TYPES = [
     cats: ["Weather", "Atmosphere", "Ambient"], words: ["rain", "snow", "fog", "mist", "motes", "fireflies", "drift", "steam"],
     systems: ["Weather", "Haze", "Light shafts", "Droplets", "Bokeh"], moments: ["ambient"] },
   { key: "ui", sample: "Emoji Burst", name: "A UI or HUD flourish", note: "an emote, a pop, a damage number, a sparkle", noun: "flourish", loop: false,
-    cats: ["Emotes", "Symmetry & Stylise", "Camera & Light"], words: ["level", "victory", "target", "alert", "rally", "focus", "damage", "pop", "banner", "twinkle", "emote"],
+    cats: ["Emotes", "Symmetry & Stylize", "Camera & Light"], words: ["level", "victory", "target", "alert", "rally", "focus", "damage", "pop", "banner", "twinkle", "emote"],
     systems: ["Bubble", "Lines", "Zoom blur", "Kaleidoscope"], moments: ["ui"] },
 ];
 
 // 2. WHAT'S IT MADE OF? A material, as VFX can draw it. An effect carries a tag STRONGLY when its name says so (`words`),
-// it uses one of the tag's own shapes or systems (`shapes`, `systems`), or its COLOUR fits and it uses one of the tag's
-// likely shapes or systems (`maybe`); a colour or a likely piece alone is a WEAK carry. The colour is read where a
-// particle spends most of its life (40% in: its hue drifted by Hue shift, or the colour ramp's nearest stop), with its
+// it uses one of the tag's own shapes or systems (`shapes`, `systems`), or its COLOR fits and it uses one of the tag's
+// likely shapes or systems (`maybe`); a color or a likely piece alone is a WEAK carry. The color is read where a
+// particle spends most of its life (40% in: its hue drifted by Hue shift, or the color ramp's nearest stop), with its
 // saturation, Hot core (cw) and Blend (0 additive, 1 alpha, 2 screen). Membership, not ownership: an effect may be two.
 // `palettes`: the Palette buttons that paint this material (the composer's ingredients live in WIZARD_INGREDIENTS).
 const WIZARD_TAGS = [
   { key: "fire", name: "Fire", note: "flames, embers, heat",
-    colour: (h, s, cw, b) => (h <= 55 || h >= 345) && s >= 0.6 && b !== 1, palettes: ["Fire", "Ember"],
+    color: (h, s, cw, b) => (h <= 55 || h >= 345) && s >= 0.6 && b !== 1, palettes: ["Fire", "Ember"],
     words: ["fire", "flame", "flames", "ember", "embers", "lava", "molten", "torch", "campfire", "scorch", "solar", "burn", "heat", "inferno", "magma", "explosion", "boom", "bomb", "cannon", "meteor", "blaze"],
     shapes: ["flame"], systems: [], maybe: ["smoke", "boom", "bomb", "sun", "blob", "Shockwave", "Crackle", "Haze", "Burst", "Drip"] },
   { key: "ice", name: "Ice and frost", note: "shards, snowflakes, cold light",
-    colour: (h, s, cw) => h >= 165 && h <= 225 && cw >= 0.5, palettes: ["Ice", "Frost"],
+    color: (h, s, cw) => h >= 165 && h <= 225 && cw >= 0.5, palettes: ["Ice", "Frost"],
     words: ["ice", "icy", "frost", "freeze", "frozen", "snow", "icicle", "glacier", "cold", "blizzard", "chill"],
     shapes: ["snowflake"], systems: [], maybe: ["shard", "diamond", "gem", "hexagon", "Growth", "Shatter", "Fracture", "Kaleidoscope"] },
   { key: "lightning", name: "Lightning", note: "bolts, arcs, crackling charge",
-    colour: (h, s, cw, b) => cw >= 0.75 && h >= 180 && h <= 300 && b !== 1, palettes: ["Electric"],
+    color: (h, s, cw, b) => cw >= 0.75 && h >= 180 && h <= 300 && b !== 1, palettes: ["Electric"],
     words: ["lightning", "zap", "static", "tesla", "thunder", "shock", "electric", "volt", "overcharge"],
     shapes: ["bolt"], systems: ["Arc"], maybe: ["spark", "Crackle", "Chain", "Beam"] },
   { key: "arcane", name: "Arcane", note: "runes, portals, purple glow",
-    colour: (h, s) => h >= 250 && h <= 330 && s >= 0.5, palettes: ["Magic"],
+    color: (h, s) => h >= 250 && h <= 330 && s >= 0.5, palettes: ["Magic"],
     words: ["magic", "arcane", "rune", "summon", "portal", "teleport", "spell", "mana", "rift", "dimension", "potion", "seal", "ritual", "mystic", "sparkle", "wizard"],
     shapes: ["rune", "pentagram"], systems: ["Sigil", "Vortex", "Rift", "Tunnel"],
     maybe: ["star", "spiral", "crescent", "gem", "flask", "eye", "Orbit", "Aura", "Dissolve", "Attractor", "Swarm", "Kaleidoscope", "Arms", "Bokeh"] },
   { key: "nature", name: "Nature", note: "leaves, petals, spores, fireflies",
-    colour: (h, s, cw) => h >= 65 && h <= 160 && s >= 0.4 && cw <= 0.6, palettes: ["Nature"],
+    color: (h, s, cw) => h >= 65 && h <= 160 && s >= 0.4 && cw <= 0.6, palettes: ["Nature"],
     words: ["leaf", "leaves", "petal", "petals", "flower", "bloom", "garden", "spore", "vine", "vines", "nature", "fireflies", "firefly", "grass", "seed", "heal", "forest"],
     shapes: ["leaf", "flower", "clover", "sprout", "butterfly", "mushroom"], systems: [], maybe: ["feather", "bird", "Growth", "Swarm", "Tumble"] },
   { key: "poison", name: "Poison and slime", note: "toxic clouds, goo, acid",
-    colour: (h, s, cw) => h >= 70 && h <= 135 && s >= 0.65 && cw <= 0.45, palettes: ["Toxic"],
+    color: (h, s, cw) => h >= 70 && h <= 135 && s >= 0.65 && cw <= 0.45, palettes: ["Toxic"],
     words: ["poison", "poisoned", "toxic", "slime", "goo", "acid", "venom", "ooze", "sludge", "plague"],
     shapes: [], systems: ["Merge"], maybe: ["blob", "bubble", "skull", "puddle", "teardrop", "Drip", "Haze"] },
   { key: "water", name: "Water", note: "splashes, rain, ripples",
-    colour: (h, s, cw) => h >= 180 && h <= 230 && s >= 0.45 && cw <= 0.55, palettes: ["Water"],
+    color: (h, s, cw) => h >= 180 && h <= 230 && s >= 0.45 && cw <= 0.55, palettes: ["Water"],
     words: ["water", "rain", "splash", "ripple", "downpour", "sweat", "wave", "tide", "aqua", "ocean", "sea", "wet"],
     shapes: ["splash", "puddle", "wave"], systems: ["Droplets"], maybe: ["teardrop", "bubble", "Ripples", "Weather", "Drip"] },
   { key: "tech", name: "Tech and sci-fi", note: "glitches, scanners, lasers, gears",
-    colour: (h, s) => h >= 90 && h <= 240 && s >= 0.6, palettes: ["Electric"],
+    color: (h, s) => h >= 90 && h <= 240 && s >= 0.6, palettes: ["Electric"],
     words: ["laser", "glitch", "sonar", "radar", "nano", "signal", "broadcast", "tesla", "atom", "cog", "target", "scan", "cyber", "corrupt", "data", "robot", "tech", "digital", "hologram"],
     shapes: ["gear", "atom", "reticle", "cube", "hazard", "magnet", "casing", "boost"], systems: ["Glitch", "Scanlines", "Sweep"],
     maybe: ["pixel", "frame", "plus", "arrow", "hexagon", "Grid", "Chromatic", "Beam", "Lines", "Particle rings", "Web"] },
   { key: "dark", name: "Dark and shadow", note: "curses, ghosts, the void",
-    colour: (h, s, cw) => h >= 250 && h <= 315 && s >= 0.5 && cw <= 0.3, palettes: ["Void"],
+    color: (h, s, cw) => h >= 250 && h <= 315 && s >= 0.5 && cw <= 0.3, palettes: ["Void"],
     words: ["dark", "shadow", "void", "curse", "cursed", "soul", "drain", "ghost", "boo", "haunt", "death", "doom", "tentacle", "skull", "evil", "demon", "blood", "abyss"],
     shapes: ["skull", "ghost", "eye", "claw", "jaws", "bone", "web"], systems: ["Silhouette"],
     maybe: ["smoke", "spiral", "crescent", "blob", "Attractor", "Aura", "Rift", "Dissolve", "Chain", "Tunnel"] },
   { key: "holy", name: "Holy and light", note: "halos, rays, radiance, healing",
-    colour: (h, s, cw, b) => h >= 35 && h <= 65 && s <= 0.7 && cw >= 0.7 && b !== 1, palettes: ["Holy"],
+    color: (h, s, cw, b) => h >= 35 && h <= 65 && s <= 0.7 && cw >= 0.7 && b !== 1, palettes: ["Holy"],
     words: ["holy", "heal", "angel", "divine", "bless", "blessing", "glint", "radiant", "cathedral", "sun", "revive", "sacred"],
     shapes: ["crown", "wing"], systems: [], maybe: ["cross", "plus", "starburst", "star", "sun", "feather", "ring", "Light shafts", "Flare", "Streaks", "Twinkle", "Rim light", "Shockwave", "Bokeh"] },
   { key: "smoke", name: "Smoke and dust", note: "puffs, debris, ash, steam",
-    colour: (h, s, cw) => s <= 0.4 && cw <= 0.35, palettes: ["Smoke"],
+    color: (h, s, cw) => s <= 0.4 && cw <= 0.35, palettes: ["Smoke"],
     words: ["smoke", "dust", "steam", "ash", "puff", "rubble", "debris", "rock", "slam", "landing", "kick", "sand", "tornado", "cloud", "dirt", "mud", "stone"],
     shapes: ["cloud", "rock", "tornado"], systems: [], maybe: ["smoke", "specks", "pixel", "shard", "blob", "Ground", "Decal", "Haze", "Tumble", "Shockwave", "Weather"] },
   { key: "cute", name: "Cute and shiny", note: "hearts, coins, confetti, candy",
-    colour: (h, s) => (h >= 315 || h <= 10 || (h >= 40 && h <= 58)) && s >= 0.6, palettes: ["Candy", "Gold"],
+    color: (h, s) => (h >= 315 || h <= 10 || (h >= 40 && h <= 58)) && s >= 0.6, palettes: ["Candy", "Gold"],
     words: ["coin", "coins", "heart", "hearts", "confetti", "candy", "charm", "treasure", "gem", "crown", "love", "cute", "music", "party", "gift", "jackpot", "gold"],
     shapes: ["heart", "coin", "candy", "crown", "gem", "heartbreak", "note", "egg"], systems: [], maybe: ["star", "diamond", "flower", "starburst", "glyph", "butterfly", "Twinkle", "Tumble", "Bubble"] },
 ];
 const wizardTag = (key) => WIZARD_TAGS.find((t) => t.key === key) || null;
 const wizardType = (key) => WIZARD_TYPES.find((t) => t.key === key) || null;
 
-// How an effect looks to the tables above: its colour 40% through a particle's life, its shapes (both layers), its
+// How an effect looks to the tables above: its color 40% through a particle's life, its shapes (both layers), its
 // systems (LAYER_GROUPS, the same test the layer chips use) and the words of its name.
 function wizardColour(st) {
   let h = st.hue + st.hueLife * 0.4, s = st.sat;
-  if (st.ramp) {                                 // a colour ramp replaces Hue and Saturation: its stop nearest 40%
+  if (st.ramp) {                                 // a color ramp replaces Hue and Saturation: its stop nearest 40%
     let best = null;
     for (const stop of String(st.ramp).split("|")) {
       const v = stop.split(",").map(Number);
@@ -7341,7 +7345,7 @@ function wizardLook(st, name) {
 function wizardTagHit(L, t) {
   const has = (list) => list.some((x) => L.shapes.has(x) || L.systems.has(x));
   if (t.words.some((w) => L.words.indexOf(w) >= 0) || has(t.shapes) || has(t.systems)) return 2;
-  const c = t.colour(L.h, L.s, L.cw, L.blend), m = has(t.maybe);
+  const c = t.color(L.h, L.s, L.cw, L.blend), m = has(t.maybe);
   return c && m ? 2 : (c || m) ? 1 : 0;
 }
 // The tags an effect carries strongly: what the Wizard means by "a fire effect". No list per preset, so a new preset
@@ -7367,11 +7371,11 @@ function wizardPresetIs(name, type) {
 // have radar boops and snow flakes." So every result is a NEW effect, put together from VFX's own parts:
 //   * a SKELETON from the type: the motion and timing of one of that type's presets (its Emitter, Motion, Life, Glow,
 //     duration and fps, and only the structural layers the type is made of: a shockwave for an explosion, a beam for a
-//     projectile, a sigil for a spell). Its particle, colours, second layer and every other layer are NOT taken;
+//     projectile, a sigil for a spell). Its particle, colors, second layer and every other layer are NOT taken;
 //   * INGREDIENTS from the tags (WIZARD_INGREDIENTS): particle shapes, layer systems (each tuned as a preset that uses
 //     it tunes it, so a system arrives looking right) and palettes;
 //   * MIXED so every result carries every chosen tag: the LEAD tag gives the main particle and its palette, the next
-//     gives Layer B's particle and colour (or the far end of a colour ramp between the two palettes), and any further
+//     gives Layer B's particle and color (or the far end of a color ramp between the two palettes), and any further
 //     tag a layer system. The nine rotate which tag leads, which skeleton and which ingredients, and the seed.
 // Nothing outside the app: only SHAPES, LAYER_GROUPS, PALETTES and PARAMS. Deterministic: a seeded generator (no
 // Math.random), so the same answers and seed give the same nine; "More like these" is the next seed.
@@ -7555,7 +7559,7 @@ function wizardCompose(type, tagKeys, seed, slot, attempt) {
     emit2Blend: (pb.blend != null ? pb.blend : 0) + 1,
   });
   parts.push({ tag: bTag, part: bShape });
-  // two palettes: sometimes a colour ramp from the lead's to the second's (the systems keep the lead's hue)
+  // two palettes: sometimes a color ramp from the lead's to the second's (the systems keep the lead's hue)
   if (second && palB !== palA && rnd() < 0.5) {
     const pa = wizardPal(palA), h0 = pa.hue, h1 = h0 + (pa.hueLife || 0) * 0.5;
     // a hard hand-over late in life, not a blend: a ramp's hue between orange and blue would pass through every hue
@@ -7585,7 +7589,7 @@ function wizardCompose(type, tagKeys, seed, slot, attempt) {
 // life, counting the pixels that are both opaque and bright enough to see on the dark cell. It must COVER the frame
 // (mean and peak share of visible pixels), STAY through the middle of its life (not one early flash), and SPREAD
 // across it (the peak frame's lit box), not be a dot in the middle.
-// The same pass reads the colours (a hue histogram), so the lead tag's palette can be checked too.
+// The same pass reads the colors (a hue histogram), so the lead tag's palette can be checked too.
 const WIZARD_READ = { size: 48, mean: 0.05, peak: 0.07, sustain: 0.035, span: 0.4, lead: 0.3 };
 function wizardMeasure(g, era) {
   const S = WIZARD_READ.size, A = S * S;
@@ -7607,7 +7611,7 @@ function wizardMeasure(g, era) {
           n++;
           const x = p % S, y = (p / S) | 0;
           if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
-          if (mx - mn < mx * 0.25) { m.hist[12]++; continue; }   // near-grey or white
+          if (mx - mn < mx * 0.25) { m.hist[12]++; continue; }   // near-gray or white
           let h = mx === r ? ((gg - b) / (mx - mn)) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4;
           h = (h * 60 + 360) % 360;
           m.hist[Math.floor(h / 30) % 12]++;
@@ -7624,7 +7628,7 @@ function wizardMeasure(g, era) {
   return m;
 }
 const wizardReadable = (m) => m.mean >= WIZARD_READ.mean && m.peak >= WIZARD_READ.peak && m.sustain >= WIZARD_READ.sustain && m.span >= WIZARD_READ.span;
-// A palette's colour family: the histogram bins (30° each, 12 = grey/white) its particles pass through.
+// A palette's color family: the histogram bins (30° each, 12 = gray/white) its particles pass through.
 function wizardPalBins(palName) {
   const p = wizardPal(palName), bins = new Set();
   if (p.sat != null && p.sat < 0.35) { bins.add(12); return bins; }
@@ -7632,7 +7636,7 @@ function wizardPalBins(palName) {
   for (const u of [0, 0.25, 0.5, 0.75]) bins.add(Math.floor((((h0 + hl * u) % 360) + 360) % 360 / 30));
   return bins;
 }
-// How much of what is SEEN is in a tag's palette colours (0..1).
+// How much of what is SEEN is in a tag's palette colors (0..1).
 function wizardTagShare(m, key) {
   const bins = new Set();
   for (const pn of WIZARD_INGREDIENTS[key].palettes) for (const b of wizardPalBins(pn)) bins.add(b);
@@ -7642,12 +7646,12 @@ function wizardTagShare(m, key) {
   for (const b of bins) n += m.hist[b];
   return n / all;
 }
-// Does it read (and, with tags, show its lead's colour)? Kept for the tests' and the Breed grid's vocabulary.
+// Does it read (and, with tags, show its lead's color)? Kept for the tests' and the Breed grid's vocabulary.
 function wizardDraws(g, era) { return wizardReadable(wizardMeasure(g, era)); }
 // The types whose emitters must stay COMPACT: a burst that throws thin sparks across the frame is specks under Fit.
 const WIZARD_COMPACT = { hit: 1, explosion: 1, pickup: 1, spell: 1, ui: 1 };
 // A sparse composition, made readable (the measurement says which way): bigger and more particles; for a compact type,
-// less travel (speed, gravity, Layer B's speed) so Fit stops shrinking it; and, when the lead's colour is drowned,
+// less travel (speed, gravity, Layer B's speed) so Fit stops shrinking it; and, when the lead's color is drowned,
 // less white core and a quieter Layer B. Same particles, same skeleton, same tags.
 function wizardFatten(g, type, m, leadKey) {
   const o = Object.assign({}, g);
@@ -7730,7 +7734,7 @@ function wizardCandidates(answers, seed) {
       const c = wizardCompose(type, tags, seed, slot, attempt);
       const key = [c.donor, c.g.shape, c.g.emit2Shape, c.parts.map((p) => p.part).join("+")].join("|");
       if (seen.has(key) && attempt < 5) continue;
-      // with tags chosen (and an era that keeps colours), the LEAD tag's palette must be what is seen
+      // with tags chosen (and an era that keeps colors), the LEAD tag's palette must be what is seen
       const lk = tags.length && !era ? c.tags[0] : null;
       const good = (m) => wizardReadable(m) && (!lk || wizardTagShare(m, lk) >= WIZARD_READ.lead);
       let m = wizardMeasure(c.g, era);
@@ -7812,8 +7816,8 @@ function wizardSample(type, tag) {
   const names = Object.keys(PRESETS).filter((n) => !type || wizardPresetIs(n, type));
   if (!tag) return names[0] || "";
   const has = (n) => wizardTagsOf(PRESETS[n], n).indexOf(tag.key) >= 0;
-  // §25: a tag's picture is also IN the tag's colours ("Smoke and dust" showed a green poison cloud)
-  const looks = (n) => { const L = wizardLook(fullGenome(PRESETS[n]), n); return has(n) && tag.colour(L.h, L.s, L.cw, L.blend); };
+  // §25: a tag's picture is also IN the tag's colors ("Smoke and dust" showed a green poison cloud)
+  const looks = (n) => { const L = wizardLook(fullGenome(PRESETS[n]), n); return has(n) && tag.color(L.h, L.s, L.cw, L.blend); };
   const all = Object.keys(PRESETS);
   return names.find(looks) || all.find(looks) || names.find(has) || all.find(has) || "";
 }
@@ -7887,7 +7891,7 @@ function wizardDraw() {
       cv.className = "wiz-cpic";
       return cv;
     };
-    card("", "As drawn", "each effect's own size, colours and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 3; wizardDraw(); });
+    card("", "As drawn", "each effect's own size, colors and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 3; wizardDraw(); });
     for (const s of STYLES) {
       if (s.name === "Anything") continue;
       card(s.name, s.name, s.hint, a.era === s.name, eraPic(s), () => { a.era = s.name; wizard.step = 3; wizardDraw(); });
@@ -8115,7 +8119,7 @@ function renderUserCats() {
   }
 }
 
-// ---------- Drag to organise ----------
+// ---------- Drag to organize ----------
 // POINTER events, never HTML5 drag: native drag-and-drop is broken in the Tauri WebKitGTK webview,
 // so `dragstart`/`drop` would work in the browser and silently do nothing in the desktop build.
 // The pieces that make pointer-drag feel right: a ~6px threshold so a click is still a click, a
@@ -8191,7 +8195,7 @@ function ucOpenMenu(e, item, label) {
     b.addEventListener("click", () => { ucAddItem(cat.id, item); closeUcMenu(); });
     menu.appendChild(b);
   }
-  // Desktop-only, like the library it organises. Built per-menu, so it's gated here rather than
+  // Desktop-only, like the library it organizes. Built per-menu, so it's gated here rather than
   // by the data-desktop sweep at boot.
   if (isDesktop) {
     const nb = document.createElement("button");
@@ -8214,7 +8218,7 @@ addEventListener("scroll", closeUcMenu, true);
 // This is the one feature neither app could have alone, and it's why the two are one product.
 // It is explicitly a STARTING POINT, not a translation: there's no correct visual for a sound.
 // What it does is carry across the things that genuinely correspond — length, weight, brightness,
-// grit, repeats, direction — so the effect lands in the right neighbourhood and you tune from
+// grit, repeats, direction — so the effect lands in the right neighborhood and you tune from
 // there. The modal lists every mapping it applied so it's never a black box.
 //
 // CrunchySFX link format: ?s=<base64url> of { v:1, s:{param diff}, t:"name" }.
@@ -8327,7 +8331,7 @@ function matchSound(obj) {
   // Under Fit the bounding box across every frame sets the scale, so a fast, long-lived sound scales
   // its own particles into specks — 27% of matched sounds came out sub-pixel.
   //
-  // MEASURED, not modelled. The box depends on speed, radial, chained shots and drag together, and
+  // MEASURED, not modeled. The box depends on speed, radial, chained shots and drag together, and
   // `grow` (which defaults negative) shrinks particles below their nominal size on the way — a first
   // attempt estimated travel analytically and under-read the real box by 3.6x. So simulate the patch
   // once, look at what a particle would actually land as, and scale up if it would arrive invisible.
@@ -8363,7 +8367,7 @@ function matchSound(obj) {
 
   // The crunch stage maps one-for-one, which is the whole brand.
   const bits = d("bitcrush"), ds = d("downsample");
-  if (bits < 16) { p.posterize = Math.max(2, Math.round(bits * 2)); note("bitcrush " + bits + "-bit → " + p.posterize + " colour steps"); }
+  if (bits < 16) { p.posterize = Math.max(2, Math.round(bits * 2)); note("bitcrush " + bits + "-bit → " + p.posterize + " color steps"); }
   if (ds > 1) { p.pixelate = Math.max(1, Math.min(16, Math.round(ds / 3))); note("downsample " + ds + "× → pixelate " + p.pixelate + "px"); }
   if (bits < 12 || ds > 4) p.alphaCut = 0.5;
 
@@ -8377,7 +8381,7 @@ function matchSound(obj) {
   if (rep > 1) { p.shots = Math.min(8, rep); p.shotDelay = Math.max(0.02, Math.min(1, 1 / d("rate"))); note(rep + " shots → " + p.shots + " chained bursts"); }
   if (d("reverse")) { p.reverse = 1; note("reversed sound → reversed animation"); }
   if (d("vibDepth") > 0.05) { p.turb = clamp01(d("vibDepth") * 0.8); note("vibrato → turbulence"); }
-  if (d("ringMod") > 0.05) { p.hueVar = clamp01(d("ringMod") * 0.6); note("ring mod → colour scatter"); }
+  if (d("ringMod") > 0.05) { p.hueVar = clamp01(d("ringMod") * 0.6); note("ring mod → color scatter"); }
   if (d("limiter") > 0.1 || d("transient") > 0.2) { p.shake = clamp01(Math.max(d("limiter"), d("transient")) * 0.4); note("limiter/transient → shake"); }
   p.emitSpread = Math.round(120 + d("width") * 240);
 
@@ -8424,7 +8428,7 @@ function matchSound(obj) {
     p[k] = Math.max(row[2], Math.min(row[3], p[k]));
   }
 
-  // `sfx` is the raw sound patch, carried through so the caller can synthesise the actual audio
+  // `sfx` is the raw sound patch, carried through so the caller can synthesize the actual audio
   // rather than only the visual mapping derived from it.
   return { patch: p, notes, name: obj.t || "Matched effect", sfx: sfx };
 }
@@ -8503,7 +8507,7 @@ function applyMatch(result) {
   captureSoundHold(result.patch, result.name);
   applyPreset(result.patch, result.name);
   let extra = "";
-  // The link already carries the full patch, so synthesise it here rather than making anyone
+  // The link already carries the full patch, so synthesize it here rather than making anyone
   // round-trip a WAV through the other tab. Non-fatal: if the engine is missing or the patch
   // uses something it can't render, the visual match still stands on its own.
   if (result.sfx && synthAvailable()) {
@@ -8512,11 +8516,11 @@ function applyMatch(result) {
       if (s && loadSynthIntoPlayer(s)) {
         syncSoundUI();
         restartLoop(0);
-        extra = ", sound synthesised (" + (s.L.length / s.rate).toFixed(2) + "s)";
+        extra = ", sound synthesized (" + (s.L.length / s.rate).toFixed(2) + "s)";
       }
     } catch (e) {
-      console.warn("crunchyvfx: could not synthesise the matched sound —", e);
-      extra = " (sound could not be synthesised — see console)";
+      console.warn("crunchyvfx: could not synthesize the matched sound —", e);
+      extra = " (sound could not be synthesized — see console)";
     }
   }
   msg.textContent = "Matched “" + result.name + "” — " + result.notes.length +
@@ -8680,7 +8684,7 @@ const TOUR = [
   { target: "#foundry", title: "Foundry: invent originals",
     body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
   { target: "#breed,#variations", title: "Breed: evolve by eye",
-    body: "Breed makes nine children of the current effect; keep your favourites and breed again. It roams — a child can pick up a system the parent never had, which is how it finds things you'd never reach by dragging sliders. Variations stays put instead: it nudges what the effect already uses and exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
+    body: "Breed makes nine children of the current effect; keep your favorites and breed again. It roams — a child can pick up a system the parent never had, which is how it finds things you'd never reach by dragging sliders. Variations stays put instead: it nudges what the effect already uses and exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
 
   // Then the refining tools, coarse to fine.
   { target: "#macros", title: "Shape it in plain language",
@@ -8694,7 +8698,7 @@ const TOUR = [
   { target: "#layerBar", title: "Stack more systems",
     body: LAYER_GROUPS.length + " of them — shockwaves, lightning, ribbons, weather, lens flares. Click a chip to add one; each brings its own controls." },
   { target: "#matchBtn", title: "Match a sound",
-    body: "Paste a sound link from CrunchySFX (the suite's free sound maker; Crunchy suite in the header opens it) and the effect is built from the sound — same length, same punch — and the audio is synthesised right here, then exported beside the sheet." },
+    body: "Paste a sound link from CrunchySFX (the suite's free sound maker; Crunchy suite in the header opens it) and the effect is built from the sound — same length, same punch — and the audio is synthesized right here, then exported beside the sheet." },
 
   // And shipping it.
   { target: "#expOpen", title: "Export for your engine",
@@ -8736,7 +8740,7 @@ function tourUnionRect(els) {
   return L === Infinity ? null : { left: L, top: T, width: R - L, height: B - T, bottom: B, right: R };
 }
 
-// Below the target if it fits, above if not, centred as a last resort — so the card never covers
+// Below the target if it fits, above if not, centered as a last resort — so the card never covers
 // the thing it is pointing at.
 function tourPlaceCard(r) {
   const m = 12, cw = tourCard.offsetWidth, ch = tourCard.offsetHeight;
@@ -8863,7 +8867,7 @@ const TUTORIALS = [
     steps: [
       { target: "#layerBar", before: layerBOn, title: "Layer B is not a sub-emitter",
         body: "The sub-emitter makes children OF your particles — embers thrown off a spark. Layer B "
-          + "is a second, independent population: its own count, shape, direction, gravity, colour "
+          + "is a second, independent population: its own count, shape, direction, gravity, color "
           + "and lifetime. Fire and the smoke above it, in one effect." },
       { target: '[data-group="Layer B"]', before: layerBOn, title: "Give it its own job",
         body: "The trick is to make B do something A can't. Negative gravity so smoke rises while "
@@ -8881,7 +8885,7 @@ const TUTORIALS = [
     steps: [
       { target: "#rand", before: closeAll, title: "Start from an accident",
         body: "Randomize builds a whole effect from scratch, systems and all. It's the fastest way "
-          + "to find a look you'd never have dialled in — most rolls are junk, and that's fine, "
+          + "to find a look you'd never have dialed in — most rolls are junk, and that's fine, "
           + "because the good one costs a click." },
       { target: "#breed", before: closeAll, title: "Breed keeps what you liked",
         body: "Breed makes nine children of the current effect. Keep the ones you like and breed "
@@ -8903,7 +8907,7 @@ const TUTORIALS = [
       { target: "#matchBtn", before: closeAll, title: "A sound already describes an effect",
         body: "Paste a CrunchySFX link and the sound's own numbers become visual ones: its length "
           + "becomes the duration, its pitch the particle size, its noise the spread. You get a "
-          + "matching effect and the audio synthesised right here." },
+          + "matching effect and the audio synthesized right here." },
       { target: "#matchBtn", before: closeAll, title: "Or let it come to you",
         body: "CrunchySFX has a Send to CrunchyVFX button. That opens this app with the sound "
           + "already in the URL, so the effect is built the moment the page loads — no pasting." },
@@ -9211,7 +9215,7 @@ function plantThumb(r) {
 // Godot sheet comes with its READY SCENE (§26; the combined scene of SUITE-LINKS.md §4 and §19). The Library adds only
 // what it knows: the Impact frame, and the LINKED CrunchySFX WAV by its res:// path (a Replace in CrunchySFX reaches the
 // game with nothing re-exported); a link whose sound is gone is left out (the card says so), and with no link the
-// scene plays the effect's own synthesised <base>.wav, as an Export does.
+// scene plays the effect's own synthesized <base>.wav, as an Export does.
 async function exportFor(f, C) {
   let sceneSound;
   const l = plantLinks({ data: f })[0];
@@ -9584,7 +9588,7 @@ const library = libraryMount({
         if (projUpdates[a.slug]) badges.push({ hot: true, text: "update available", title: "This version of CrunchyVFX would export it differently: Re-export writes it again, in place" });
         const i = a.data.info || {};
         badges.push({ text: (i.frames ? i.frames + " fr · " + i.w + "×" + i.h + " · " + i.fps + " fps" : "effect"), title: expSummary(expOf(a.data)) + "\n" + resPath(a) });
-        if (a.data.sound) badges.push({ text: "♪ sound", title: "Its synthesised sound is exported beside it (" + a.data.sound.name + ")" });
+        if (a.data.sound) badges.push({ text: "♪ sound", title: "Its synthesized sound is exported beside it (" + a.data.sound.name + ")" });
         const ln = plantLinks(a)[0];
         if (ln) badges.push(projLinkStates[a.slug] === "missing"
           ? { hot: true, text: "linked sound missing", title: "“" + ln.name + "” is no longer in CrunchySFX's folder here: its next save leaves the sound out of the scene" }

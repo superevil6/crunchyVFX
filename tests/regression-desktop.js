@@ -207,7 +207,7 @@
     await press(document.getElementById("plantSave"));
     const d = sidecar("sparks"), ex = await exportNow("sparks");
     const names = ex.map(function (f) { return f.name; }).sort().join(",");
-    // the planted files are the Export dialog's, its ready scene (§26) among them, which plays the effect's own synthesised WAV
+    // the planted files are the Export dialog's, its ready scene (§26) among them, which plays the effect's own synthesized WAV
     const tscn = M.text(ROOT + "/sparks/sparks.tscn") || "";
     const r = d && JSON.stringify(d.files.slice().sort()) === JSON.stringify(ex.map(function (f) { return f.name; }).sort()) && /sparks\.tscn/.test(names) &&
       /path="sparks@1x\.tres"/.test(tscn) && /type="AudioStream" path="sparks\.wav"/.test(tscn) &&
@@ -623,7 +623,7 @@
     return ok(soundLink && soundLink.slug === "boom" && soundFrame === 3 && document.getElementById("sndFrame").value === "3" &&
               snd.buf && Math.abs(snd.buf.duration - 1) < 0.02, status());
   });
-  await t("link/a-synthesised-or-cleared-sound-drops-the-link", function () {
+  await t("link/a-synthesized-or-cleared-sound-drops-the-link", function () {
     synthesizePatch({}, "Own");
     const synthDrops = soundLink === null;
     soundLink = plantLinks(plantFind(project, "effect", "Fireball"))[0];

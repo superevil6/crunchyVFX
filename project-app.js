@@ -6,7 +6,7 @@
 // ONE KIND, an EFFECT: `crunchy/vfx/<slug>/` (Unity `Assets/Crunchy/VFX/<slug>/`) holding exactly what the Export
 // dialog writes for it as a sprite sheet: `<base>.png`, its metadata (a Godot 4 SpriteFrames `<base>.tres` in a Godot
 // project; the dialog's Generic / Aseprite / Phaser JSON elsewhere), and, when chosen, `<base>_emissive.png`, the
-// `@2x` sizes and the synthesised `<base>.wav` — beside `<slug>.crunchy`. The sidecar's fields (index.html's planted
+// `@2x` sizes and the synthesized `<base>.wav` — beside `<slug>.crunchy`. The sidecar's fields (index.html's planted
 // block writes them):
 //   s           the share string (encodePatch: the same ?e= a link carries): reopens the effect exactly
 //   exportName  the name it was FIRST planted under; `base` (its sanitize()d form) names every file and is what the .tres
@@ -15,7 +15,7 @@
 //               (always a sprite sheet; playback "auto" | "loop" | "once", absent = "auto", VFX-DESIGN §21); Update
 //               re-exports with them
 //   fit         Fit, as it was on (a render setting no share link carries)
-//   sound       (optional) { patch, name }: the synthesised sound written beside it (a CrunchySFX patch, as a diff from
+//   sound       (optional) { patch, name }: the synthesized sound written beside it (a CrunchySFX patch, as a diff from
 //               the engine's defaults), so Update can render the same WAV
 //   ref         (optional) the name of a reference image COMBINED into the export: a sidecar can't keep the image, so
 //               such an effect is never re-rendered behind the person's back

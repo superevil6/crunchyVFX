@@ -155,7 +155,7 @@
     if (!shown(a)) return ok(false, "no About link shown on the web");
     if (document.querySelector("section.about, footer.suitelinks")) return ok(false, "an About section or suite footer is still on the app page");
     const lic = document.querySelector("footer.license");
-    return ok(lic.contains(a) && a.hasAttribute("data-web"), "the link is not data-web inside the licence footer");
+    return ok(lic.contains(a) && a.hasAttribute("data-web"), "the link is not data-web inside the license footer");
   });
   await t("safety/no-page-errors", function () { return ok(!window.__pageErrors.length, window.__pageErrors.slice(0, 3).join(" | ")); });
 

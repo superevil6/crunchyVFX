@@ -133,7 +133,7 @@ must not be matched by `.assetsignore`** — re-run the verification below after
 ## Verifying it
 
 Unlike the siblings, this Worker has been **run against the real Cloudflare runtime locally** —
-`workerd`, via `npx wrangler dev` — so its behaviour isn't taken on faith:
+`workerd`, via `npx wrangler dev` — so its behavior isn't taken on faith:
 
 ```sh
 node tests/worker.test.mjs                    # the pure helpers + the search-engine pass (47 assertions)

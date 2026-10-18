@@ -10,7 +10,7 @@
 //   key        optional — the params this drawing reads, for the sprite cache key. Omit it
 //              and a slider can leave a stale sprite cached. Keeping it beside the drawing
 //              is the point of the record: the two can no longer drift apart.
-//   ownColour  optional — for shapes that arrive already coloured (the glyph, an imported
+//   ownColour  optional — for shapes that arrive already colored (the glyph, an imported
 //              PNG). Returns how far to tint them; everything else is a flat repaint.
 //   sized      optional — true for a pixel-exact drawing (the Icon, §28): draw() fills a canvas of the
 //              particle's own pixel size (R = size / 2) and vfx.js blits it unsmoothed.
@@ -32,12 +32,12 @@
 // CC-BY-4.0, OpenMoji CC-BY-SA-4.0, Fluent MIT, Noto Apache-2.0.
 //
 // Drawing them also sidesteps a technical problem: shapes here are white masks tinted in one
-// source-in pass, so a full-colour bitmap can only be pasted, never tinted — it would sit outside
+// source-in pass, so a full-color bitmap can only be pasted, never tinted — it would sit outside
 // hue, hue-shift, saturation, hot-core, the ramp and palette lock. `glyphTint` exists precisely
 // as that escape hatch. A drawn shape is ~15 lines, CC0 by construction, tints properly and
 // survives being crunched to 8px.
 //
-// Users can still bring their own art via the `image` shape; that licence is theirs and knowing.
+// Users can still bring their own art via the `image` shape; that license is theirs and knowing.
 // ============================================================================================
 //
 // APPEND ONLY. `shape` is stored as an index in every preset, share link and saved effect, so
@@ -76,7 +76,7 @@ function pathShape(name, ops) {
 }
 
 const SHAPE_DEFS = [
-  // ---- 0 glow — the workhorse: hot centre, soft falloff
+  // ---- 0 glow — the workhorse: hot center, soft falloff
   {
     name: "glow",
     draw(g, R, st, frame) {
@@ -255,7 +255,7 @@ const SHAPE_DEFS = [
       g.restore();
     },
   },
-  // ---- 11 cross — tapered spikes off a bright centre. The anime sparkle.
+  // ---- 11 cross — tapered spikes off a bright center. The anime sparkle.
   {
     name: "cross",
     key: (st) => st.crossArms + "," + st.crossThin,
@@ -389,8 +389,8 @@ const SHAPE_DEFS = [
     },
   },
   // ---- 18 glyph — any character or emoji as the particle. Covers charms (♥), emotes
-  // (! ? ★ ✦), damage numbers and full-colour emoji in one primitive, with no new asset
-  // pipeline. `glyphTint` at 0 keeps the glyph's own colours, which is what emoji need.
+  // (! ? ★ ✦), damage numbers and full-color emoji in one primitive, with no new asset
+  // pipeline. `glyphTint` at 0 keeps the glyph's own colors, which is what emoji need.
   {
     name: "glyph",
     key: (st) => st.glyph + "," + st.glyphTint,
@@ -402,7 +402,7 @@ const SHAPE_DEFS = [
       g.fillText(st.glyph || "★", R, R + SPRITE_PX * 0.03);
     },
   },
-  // ---- 19 flower — petals round a bright centre. Nature, spring, healing, charm pickups.
+  // ---- 19 flower — petals round a bright center. Nature, spring, healing, charm pickups.
   {
     name: "flower",
     key: (st) => st.flowerPetals + "," + st.flowerWidth + "," + st.flowerCore,
@@ -413,7 +413,7 @@ const SHAPE_DEFS = [
       for (let i = 0; i < petals; i++) {
         g.save();
         g.rotate((i / petals) * Math.PI * 2);
-        // Each petal is an ellipse pushed out from the centre, so they overlap into a rosette
+        // Each petal is an ellipse pushed out from the center, so they overlap into a rosette
         // rather than sitting as separate blobs.
         g.beginPath();
         g.ellipse(0, -reach * 0.5, wide, reach * 0.5, 0, 0, Math.PI * 2);
@@ -482,7 +482,7 @@ const SHAPE_DEFS = [
       g.restore();
     },
   },
-  // ---- 23 gear — teeth round a hub with a bored centre. Machines, steampunk, clockwork.
+  // ---- 23 gear — teeth round a hub with a bored center. Machines, steampunk, clockwork.
   {
     name: "gear",
     draw(g, R, st, frame) {
@@ -510,7 +510,7 @@ const SHAPE_DEFS = [
     draw(g, R, st, frame) {
       g.save(); g.translate(R, R);
       const hr = R * 0.4;                       // head radius
-      const hx = -R * 0.3, hy = R * 0.46;       // head centre
+      const hx = -R * 0.3, hy = R * 0.46;       // head center
       const stemX = hx + hr * 0.82, stemW = Math.max(1, R * 0.13);
       g.fillRect(stemX, -R * 0.88, stemW, hy + R * 0.88);
       // Flag: two curves back to the stem, so it fills as one solid shape.
@@ -1146,7 +1146,7 @@ const SHAPE_DEFS = [
       g.moveTo(-R * 0.9, R * 0.65);
       g.lineTo(-R * 0.9, -R * 0.72);
       g.lineTo(-R * 0.45, -R * 0.06);                                 // valley
-      g.lineTo(0, -R * 0.98);                                         // centre point
+      g.lineTo(0, -R * 0.98);                                         // center point
       g.lineTo(R * 0.45, -R * 0.06);
       g.lineTo(R * 0.9, -R * 0.72);
       g.lineTo(R * 0.9, R * 0.65);
@@ -1447,8 +1447,8 @@ const SHAPE_DEFS = [
       g.restore();
     },
   },
-  // ---- 77 web — snares, nets, spider hits. Anchored at a corner rather than centred: a web
-  // reads as something strung ACROSS a space, and a centred one just looks like a wheel.
+  // ---- 77 web — snares, nets, spider hits. Anchored at a corner rather than centered: a web
+  // reads as something strung ACROSS a space, and a centered one just looks like a wheel.
   {
     name: "web",
     draw(g, R, st, frame) {
@@ -1471,7 +1471,7 @@ const SHAPE_DEFS = [
   {
     name: "rift",
     draw(g, R, st, frame) {
-      // Every other vertex pulls hard back toward the centreline. Random widths alone came out
+      // Every other vertex pulls hard back toward the centerline. Random widths alone came out
       // smooth and read as `egg`; it is the alternation that makes an edge look torn.
       const N = 9;
       g.save(); g.translate(R, R);
@@ -1709,7 +1709,7 @@ const SHAPE_DEFS = [
     ["M",-0.235,-0.066],["L",-0.07,0.04],["L",0.008,-0.081],["L",-0.156,-0.187],["Z"],
     ["M",-0.008,0.081],["L",0.156,0.187],["L",0.235,0.066],["L",0.07,-0.04],["Z"]
   ]),
-  // ---- 92 paintbrush — painting, art tools, colour splats. A wedge, which is why it reads tiny.  (13 ops, 1 subpath)
+  // ---- 92 paintbrush — painting, art tools, color splats. A wedge, which is why it reads tiny.  (13 ops, 1 subpath)
   pathShape("paintbrush", [
     ["M",0.666,-0.9],["L",0.759,-0.828],["L",0.117,0.041],["L",0.183,0.092],["L",-0.054,0.396],
     ["L",0.038,0.468],["L",-0.277,0.9],["L",-0.759,0.523],["L",-0.417,0.113],["L",-0.324,0.185],
@@ -1897,7 +1897,7 @@ const SHAPE_DEFS = [
   // skulls, warning signs, button prompts and items CrunchyUI's icons are made of, as a particle. WHICH icon is the
   // patch's `icon` (a glyph NAME, a PATCH_EXTRAS string), not a slider. `sized`: vfx.js asks for this sprite AT THE
   // PARTICLE'S PIXEL SIZE and blits it unsmoothed, so a 12 px heart is the 12 px heart CrunchyUI would draw (glyphMask
-  // fills pixel centres, no antialiasing), not a 64 px drawing blurred down to a smudge. Coloured like every shape: a
+  // fills pixel centers, no antialiasing), not a 64 px drawing blurred down to a smudge. Colored like every shape: a
   // white mask, tinted flat by the tint pass (so hue, ramps, palettes and eras all reach it).
   {
     name: "icon",
@@ -1912,7 +1912,7 @@ const SHAPE_DEFS = [
       g.putImageData(img, 0, 0);
     },
     // AFTER the tint (vfx.js makeSprite): `iconFill` > 0 fills the icon's HOLES (a skull's eyes, a coin's band, the !
-    // on a warning sign) in a darker tone of the particle's own colour, so a flat icon gets the two-tone read of a
+    // on a warning sign) in a darker tone of the particle's own color, so a flat icon gets the two-tone read of a
     // game pickup. 0 (the default) leaves them see-through, as CrunchyUI's bare glyph is.
     after(g, R, st, hue, sat, lum) {
       const fill = Math.max(0, Math.min(1, st.iconFill || 0));

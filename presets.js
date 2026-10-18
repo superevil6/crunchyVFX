@@ -9,7 +9,7 @@ window.PRESETS = {
   // ---------- Explosions ----------
   // NOTE on the burst presets: a small emitRadius + a few frames of emitTime matter more than
   // they look. Spawning 200 additive sprites on one pixel clamps straight to white for the first
-  // few frames; spreading births over a small disc and a couple of frames keeps the colour.
+  // few frames; spreading births over a small disc and a couple of frames keeps the color.
   "Explosion": {
     shape: 0, emitter: 0, count: 220, emitRadius: 0.04, emitTime: 0.06,
     speed: 330, speedVar: 0.55, drag: 0.5,
@@ -86,7 +86,7 @@ window.PRESETS = {
   // dim — it lands and sits there. That is why `life` outlasts `duration`: nothing should die on
   // screen.
   //
-  // ONE COLOUR, NOT TWO. Layer B started as a contrasting second paint and read as confetti; it is
+  // ONE COLOR, NOT TWO. Layer B started as a contrasting second paint and read as confetti; it is
   // the SAME hue darker instead, which is what gives the mass depth rather than variety.
   //
   // LAYER B'S BRIGHTNESS IS NOT LAYER A'S. `emit2Bright` is written straight to the particle's
@@ -1084,7 +1084,7 @@ window.PRESETS = {
 
   // ---- Layer B (a second, fully independent population) ----
   // The point these two have to make is the one a sub-emitter can't: Layer B is NOT children of
-  // Layer A. It has its own count, timing, colour and gravity, so the two populations can pull in
+  // Layer A. It has its own count, timing, color and gravity, so the two populations can pull in
   // opposite directions — fire falling upward while its smoke keeps rising long after the fire is
   // out. Both presets lean on that: B outlives A and drifts the other way.
   "Campfire Smoke": {
@@ -1610,7 +1610,7 @@ window.PRESETS = {
     glow: 0.35, duration: 1.6, fps: 24, frameSize: 5, originY: 0.78,
   },
 
-  // ---- Symmetry & stylise (2026-07-30) ----
+  // ---- Symmetry & stylize (2026-07-30) ----
   // Five systems that restate an effect rather than adding to it: fold it, edge it, flatten it,
   // or draw the structure it implies.
   "Mandala Burst": {
@@ -2067,7 +2067,7 @@ window.PRESET_CATEGORIES = [
                   "Burning"]],
   ["Camera & Light", ["Warp Speed", "Punch In", "Star Filter", "Signal Lost",
                       "Dream Drift", "Muzzle Cone", "Searchbeam"]],
-  ["Symmetry & Stylise", ["Mandala Burst", "Snow Mandala", "Backlit Burst", "Hit Blank",
+  ["Symmetry & Stylize", ["Mandala Burst", "Snow Mandala", "Backlit Burst", "Hit Blank",
                           "Galaxy Spin", "Summon Grid"]],
   ["Atmosphere", ["Cathedral Light", "Rift Light", "Rain On Glass", "Glint Field",
                   "Sonar Motes", "Old Broadcast"]],

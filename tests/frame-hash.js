@@ -5,7 +5,7 @@
 //   FRAME  every built-in preset's rendered frames (the RGBA pixels of each canvas), with Fit on, and a third of them
 //          with Fit off too;
 //   EXPORT the exact bytes the Export dialog's buildExportFiles makes, for a spread of presets in every format,
-//          layout, metadata kind, trim, power-of-two, emissive mask, several sizes and a synthesised sound;
+//          layout, metadata kind, trim, power-of-two, emissive mask, several sizes and a synthesized sound;
 //   BATCH  the zip the batch export (My Effects and Everything) hands download().
 // Run it before a change and after: every line must match.
 //
@@ -80,7 +80,7 @@
       const out = await buildExportFiles();
       record("EXPORT", JSON.stringify(pick[i] + "|" + JSON.stringify(c)), files(out.files));
     }
-    // the same godot sheet with a synthesised sound beside it
+    // the same godot sheet with a synthesized sound beside it
     if (typeof synthesizePatch === "function" && synthAvailable()) {
       applyPreset(PRESETS[names[4]], names[4], true);
       synthesizePatch({}, "A sound");

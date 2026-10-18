@@ -78,7 +78,7 @@ My Game VFX/
 **Godot**, under `res://crunchyvfx/<slug>/`:
 - `<slug>.png` (the sheet), `<slug>.tres` (SpriteFrames), and `<slug>_emissive.png` / `<slug>.wav` if the
   effect has them;
-- **new:** `<slug>.tscn`, an AnimatedSprite2D using that SpriteFrames, set to autoplay and centred, so the
+- **new:** `<slug>.tscn`, an AnimatedSprite2D using that SpriteFrames, set to autoplay and centered, so the
   user drags one scene into a level. If the effect has a sound, an AudioStreamPlayer2D child plays it.
 - **Settings:** the pipeline settings for the Godot link (trim, layout, scale) live in the manifest. Default:
   the Godot sidecar, trimmed, 1×.

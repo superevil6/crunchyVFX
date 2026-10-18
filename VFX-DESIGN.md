@@ -269,17 +269,17 @@ engine.
 2. draw        — flash layer → shockwave layer → particles (+ trail streaks), with
                  blend mode, fit/scale transform, and shake offset applied here
 3. glow        — hand-rolled 3-pass box blur of the >glowThresh pixels, added back
-4. pixelate    — nearest-neighbour down + up
+4. pixelate    — nearest-neighbor down + up
 5. alphaCut    — hard alpha threshold
 6. posterize + dither  — quantize channels, optional 4×4 Bayer
-7. outline     — trace the alpha edge, fill with the outlineTone colour (must run last)
+7. outline     — trace the alpha edge, fill with the outlineTone color (must run last)
 ```
 
 **The `limiter` analog does not exist yet, and can't cheaply.** Canvas 2D clamps at 255 on every
 additive composite, so the core of a dense burst (15–20 sprites deep) flattens to white and
 loses its hue. Tried and reverted: draw at 1/N intensity to buy headroom in the 8-bit buffer,
 then expand with a Reinhard curve. It fails — at 1/25 intensity a single particle only occupies
-~5 bits, so expanding amplifies quantization and lifts the darks into grey mush. The measured
+~5 bits, so expanding amplifies quantization and lifts the darks into gray mush. The measured
 result was worse than no tone mapping at all.
 
 The principled fix is a **float accumulation buffer**: blit cached sprites into a `Float32Array`
@@ -333,7 +333,7 @@ This is the full-alpha, lossless path — the one to recommend by default.
 ### 4.3 GIF — universal, lossy, hand-rolled ✅ implemented in `gif.js`
 
 Hand-rolled GIF89a in the WAV/ZIP tradition: median-cut quantizer over sampled pixels of all
-frames (≤255 colours, index 0 reserved for transparent), LZW encoder, `NETSCAPE2.0` loop
+frames (≤255 colors, index 0 reserved for transparent), LZW encoder, `NETSCAPE2.0` loop
 extension, one global palette.
 
 Two honest caveats to surface **in the export dialog**, not just in a README:
@@ -376,7 +376,7 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    actually hurts, so the export dialog suggests a lower fps rather than silently truncating.
 2. **Second emitter layer** — **done (2026-07-29).** Shipped as **Layer B**: a fully independent
    second population (`emit2*`), not children of Layer A the way the sub-emitter is. Its own count,
-   shape, emitter, direction, timing, gravity, drag, colour and **blend** — the last of those is
+   shape, emitter, direction, timing, gravity, drag, color and **blend** — the last of those is
    what the feature actually turned on, because the headline case wants additive fire *and*
    alpha smoke in one effect, and a single global blend pushes dark smoke through `lighter` where
    it composites as a white blob. `emit2Delay` is what lets the smoke outlive the fire that caused
@@ -461,7 +461,7 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
    over unchanged — a selector test catches a renamed control and never a moved feature.
 2g. **Share as a posting GIF** — **done (2026-07-30).** Not a second export format; a different
    *job*. Export → GIF produces an asset: exact frame size, transparent, for an engine. This produces
-   a POST: 320/256/200px depending on frame count, composited onto the app's own dark stage colour,
+   a POST: 320/256/200px depending on frame count, composited onto the app's own dark stage color,
    looping forever, with an optional site tag.
 
    The reason is distribution, not features. Effects do not travel the way sounds do — a sound is its
@@ -496,7 +496,7 @@ Everything domain-specific diverges: `PARAMS`, `vfx.js`, presets/categories, pan
 
    Result: sub-pixel 43 → 0, blank 9 → 1, dead-tail 36 → 3 of 160. The clamp added earlier never
    fires on real input — no mapping leaves its range across the whole domain — so it stands purely
-   as defence against a hand-edited link.
+   as defense against a hand-edited link.
 
    Asserted with corners **and combinations**: single extreme inputs never produced a speck, and an
    assertion built only from corners passed with the fix disabled. It took several extremes at once.
@@ -546,7 +546,7 @@ and falls back), since the browser suites otherwise never reach it.
 Icons in `src-tauri/icons/` were rendered by the app itself — 8 tapered `lines` spokes around a
 white-hot `flash` core, ramp stop 0 set to the brand accent `#ff7a45`. Note that `drawLines`
 samples the ramp at the *layer's lifetime* position, not along the spoke, so with a long
-`lineLife` every spoke takes stop 0; that is why the icon's colour lives there.
+`lineLife` every spoke takes stop 0; that is why the icon's color lives there.
 
 Still outstanding for desktop: drag-out of a sheet into a file manager/engine (the
 `tauri-plugin-drag` dep and `drag:default` capability are already wired, matching CrunchySFX's
@@ -671,7 +671,7 @@ Two wrinkles it handles rather than punts:
 - **`reverse`** only flips the OUTPUT order, and every consumer is index-addressed (cell *i* of a
   sheet, `frame_007.png`), so it costs nothing — emit with a flipped index.
 - **`loopBlend`** dissolves the last *L* frames into the first *L*, so a head frame cannot be
-  finalised until its partner exists. The head is held (at most 35% of the sequence) and each head
+  finalized until its partner exists. The head is held (at most 35% of the sequence) and each head
   frame is emitted the moment its partner renders. This is the whole reason the saving is 2.7×
   rather than 9.5× on looping effects.
 
@@ -685,7 +685,7 @@ Running out of memory is a hard failure; taking longer is a soft one.
 **Still buffered, deliberately:** APNG (one container with an inter-frame dependency chain) and the
 emissive mask (built from the finished frames). The export dialog says so when either is selected.
 
-Still open: **half-res glow.** At 2048² bare rasterising is 438 ms while glow alone is 3877 ms —
+Still open: **half-res glow.** At 2048² bare rasterizing is 438 ms while glow alone is 3877 ms —
 roughly 9× everything else. Rendering the blur at half resolution is ~4× cheaper and would take a
 4K export from ~15 s to ~4 s. Deferred because it shifts the look of every preset slightly, so it
 belongs with the quality pass.
@@ -699,7 +699,7 @@ This is stricter than "use open source art", and deliberately so. The artwork is
 sprite sheet a user exports and **ships in their commercial game**, so any obligation attached to
 it propagates to *them*, not just to us:
 
-| licence | what it would cost a user shipping a game |
+| license | what it would cost a user shipping a game |
 |---|---|
 | CC0 | nothing — the only acceptable answer |
 | MIT / Apache-2.0 | keep a notice file; tolerable but still an obligation we imposed |
@@ -711,13 +711,13 @@ Fluent Emoji MIT, Noto Emoji Apache-2.0. Kenney's packs *are* genuinely CC0 but 
 not VFX primitives.
 
 There is also a technical reason drawing wins. Shapes are rendered as white masks and tinted in a
-single `source-in` pass, so a full-colour bitmap can only be pasted, never tinted — it would fall
-outside hue, hue-shift, saturation, hot core, the colour ramp and palette lock. `glyphTint` exists
+single `source-in` pass, so a full-color bitmap can only be pasted, never tinted — it would fall
+outside hue, hue-shift, saturation, hot core, the color ramp and palette lock. `glyphTint` exists
 solely as that escape hatch for system emoji. A drawn shape is roughly fifteen lines, tints
 correctly, and survives being crunched to 8px.
 
 Users who want specific third-party art can still supply it through the `image` shape — that
-licence is theirs, and knowingly taken on.
+license is theirs, and knowingly taken on.
 
 ## 13. Web vs desktop
 
@@ -735,12 +735,12 @@ Desktop-only today:
 | feature | why it's on that side |
 |---|---|
 | ★ My Effects library | persistence — on disk, not a browser store you can wipe by clearing cookies |
-| 📁 Custom categories | organises the library, so it follows it |
+| 📁 Custom categories | organizes the library, so it follows it |
 | 📦 Batch export | exists to render the library; meaningless without one |
 | 📂 Native save dialogs | only possible in the Tauri build |
 
 Free on the web, permanently: every shape, system and preset, every export format and size, GIF,
-share links, Randomize, Breed, Variations, Foundry, Match a sound and the synthesised WAV.
+share links, Randomize, Breed, Variations, Foundry, Match a sound and the synthesized WAV.
 
 **Mechanism.** `const isDesktop = !!window.__TAURI__`, and gated markup carries `data-desktop`; a
 sweep at the end of boot hides all of it on the web. Controls built at runtime (the "＋ New
@@ -849,7 +849,7 @@ suite's hosts.
 **Why.** A friend, on CrunchyBGM: "too round, and was obviously AI generated, make it more angular". AJ agreed and
 asked for one styling standard across the suite: chrome that belongs to pixel art. This follows crunchyTile's
 TILE-DESIGN.md §105 (Tile first), CONSOLIDATION-PLAN.md §9 (the direction and the six accents) and CrunchyBGM's
-BGM-DESIGN.md §614 (the closest worked example). Pass 1 of the consolidation: the LOOK only. No behaviour, storage
+BGM-DESIGN.md §614 (the closest worked example). Pass 1 of the consolidation: the LOOK only. No behavior, storage
 key, share link or export changed; `project.js` (§13's half-done desktop project) is untouched, as are the core's
 library/settings/desktop files, which are pass 2.
 
@@ -873,10 +873,10 @@ library/settings/desktop files, which are pass 2.
   the base's `--on-accent` (every `#201005`/`#17131f`/`#05202a` went). The neutrals (`--bg --panel --panel2 --line
   --ink --muted`) and `--accent2` were removed from `:root`: the base's apply (`--accent2` is the base's alias of the
   neutral `--info`; the uses were renamed to `--info`). Buttons, selects, sliders and checkboxes are the base's: VFX's
-  own button colours, hover, press and `.primary`, and its round accent slider thumb, are gone.
+  own button colors, hover, press and `.primary`, and its round accent slider thumb, are gone.
   - **106 `border-radius` declarations gone** (3 of them with the `suite-*` block); none is left. Nothing in VFX's
     chrome is round by meaning: the effect, the shapes, the ramp and every preview are drawn on canvases, which keep
-    whatever they draw. **Checkerboards are content** and kept their exact colours (the stage, the dock, the breed /
+    whatever they draw. **Checkerboards are content** and kept their exact colors (the stage, the dock, the breed /
     variation / foundry cells, My Effects thumbnails, the sprite editor).
   - **11 blurred shadows:** 9 floating things (menus, ghosts, the dock, the tour card and offer, the update banner)
     became the base's hard `--lift`; the switch knob's became a 1 px hard step. **Glows:** the switch's hover halo and
@@ -886,7 +886,7 @@ library/settings/desktop files, which are pass 2.
   - **The toggle switch** is square: a bordered slot with a square knob that slides over and turns the accent.
   - **Selects** are dark now (they were forced light against a GTK white-on-white popup): `background-color` and a
     pixel caret as a `background-image` set as longhands AFTER the base's `select { background }`, so WebKit keeps a
-    caret; the option list keeps explicit colours so the platform menu can never go light-on-light.
+    caret; the option list keeps explicit colors so the platform menu can never go light-on-light.
   - **Toggles that are ON** (Fit, Lock pixels, Hold sound, the aspect lock) are a pale `--info` fill with dark ink,
     not the accent fill, which would make every switched-on toggle look like the primary Pause. **The generators**
     (Randomize, Breed, Variations, Foundry, Match a sound, Reroll seed) keep their own family look, outlined in the
@@ -895,7 +895,7 @@ library/settings/desktop files, which are pass 2.
     chips, export pipelines) carries the step on the chip. Dialogs take the base's frame (2 px border, `--lift`);
     headings use `--head`. A few inputs needed `input.` on their selectors: the base's `input[type=number]` outranks a
     bare class, and turned the borderless slider values into boxes.
-- **Content colours did not move.** The old accent appeared in content in exactly one place, the ramp editor's
+- **Content colors did not move.** The old accent appeared in content in exactly one place, the ramp editor's
   selected stop, drawn in JS as a literal `#ff7a45`: it never read `--accent`, so it stays orange. Effects, presets,
   palettes and every exported pixel are untouched (the export never reads CSS).
 - **Pixel icons, not emoji**, in the whole toolbar, the stage controls, the Sound/Reference/My Effects heads, the
@@ -930,7 +930,7 @@ CrunchySFX's DESKTOP.md ("The planted Library"). The rule is unchanged (§13): t
 game, a Unity project or any folder. Each effect saved there is `crunchy/vfx/<slug>/` (Unity `Assets/Crunchy/VFX/<slug>/`):
 EXACTLY what the Export dialog writes for it as a sprite sheet — `buildExportFiles` itself, so the bytes are the
 button's (the desktop suite compares them) — beside `<slug>.crunchy` (`project-app.js` lists its fields): the share
-string `s` that reopens it (the `?e=` encoding), `exp` (the export settings), `fit`, the synthesised `sound` as a
+string `s` that reopens it (the `?e=` encoding), `exp` (the export settings), `fit`, the synthesized `sound` as a
 CrunchySFX patch, `info` and a 96 px `thumb` for the card.
 - **The metadata follows the engine.** In a Godot project the sheet always gets its Godot 4 SpriteFrames `.tres` (that is
   what planting there is for). In Unity the dialog's choice, never a `.tres` (Generic JSON instead); in a plain folder
@@ -1048,7 +1048,7 @@ jumpscare waiting to happen. Lets do impact frame."
 **What (desktop, planted; the web build and its exports are unchanged: all 278 frame and export hashes match):**
 - **"Sounds in this game"** (a select in the Sound panel's head): the sounds CrunchySFX planted here (crunchyCore
   `plantPeek`). Picking one LINKS it (`soundLink`, a plant.js 7 "reference" link): its WAV is read from the game folder
-  and heard in the preview; the row says "Boom (CrunchySFX)". A synthesised sound, a loaded file or ✕ drops the link.
+  and heard in the preview; the row says "Boom (CrunchySFX)". A synthesized sound, a loaded file or ✕ drops the link.
 - **Impact** (a frame number in the Sound panel, desktop only, `soundFrame`): the sound starts on that frame, in the
   planted scene when the game calls play() and in the preview too. 0 = with the first frame (the web's only value, a
   no-op there).
@@ -1057,7 +1057,7 @@ jumpscare waiting to happen. Lets do impact frame."
   the effect's SpriteFrames, and, when it has a sound, an AudioStreamPlayer2D) and `<base>.gd`. NOTHING PLAYS ON LOAD:
   `play()` starts the sprite from frame 0 and the sound on `sound_frame`; `stop()`; `finished` when a one-shot ends (a
   looping SpriteFrames loops, its sound again each time round). The sound is the LINKED WAV by its res:// path, else the
-  effect's own synthesised `<base>.wav`, else none. Proved in a real Godot: nothing on load, silent from frame 0, the
+  effect's own synthesized `<base>.wav`, else none. Proved in a real Godot: nothing on load, silent from frame 0, the
   sound exactly on frame 3, `finished` emitted.
 - **A Replace in CrunchySFX reaches the game with nothing re-exported** (the scene points at the file). If the sound is
   deleted there, the card says "linked sound missing" (hot), and the next save (Re-export shows) leaves it out.
@@ -1133,7 +1133,7 @@ Playback, and the planted combined scene, played in a running Godot (`--fixed-fp
 - **Fit is part of the effect.** `snapshotEffect()` (undo, A/B, My Effects, the project file) carries `fit`. A share
   string carries `fit: 0` only when Fit is off, so a fit-on string is unchanged. A planted sidecar keeps Fit in its own
   `fit` field and leaves it out of `s`, so planted `s` strings are unchanged. A patch without `fit` leaves Fit alone,
-  which was the old behaviour.
+  which was the old behavior.
 - **Copy and markup:** `<!DOCTYPE html>` and `<html lang="en">` (the page was in quirks mode; the layout screenshot is
   unchanged). The duplicate meta description is removed. The tour opens with the suite's mission line and counts
   `MACROS.length` sliders. The desktop pitch now says Save never overwrites (plant.js 5).
@@ -1159,7 +1159,7 @@ hashes; no render changed).
 | Export…, GIF, Share link, Drag out (desktop) | the toolbar | right under the preview (`#stageOut`), so Export is on the first screen at 1366 x 900 |
 | Imports & history, Save project, Open project (desktop) | the toolbar | the row under them (`#stageProj`, `data-desktop`) |
 | the status line `#msg` (and the desktop's `#plantMsg`) | the toolbar's end | under those buttons (`#stageStatus`, `aria-live`) |
-| Size, FPS, Zoom, Backdrop, Guides, Compare, Dock | a labelled column beside the stage | under it: Size and FPS rows, then the toggles as small segmented groups that wrap as whole groups |
+| Size, FPS, Zoom, Backdrop, Guides, Compare, Dock | a labeled column beside the stage | under it: Size and FPS rows, then the toggles as small segmented groups that wrap as whole groups |
 | the backdrop note | a hint line | the Backdrop group's tooltip |
 | the presets: search, 14 collapsible text sections | between the stage and the editor | **the effect strip** under the header |
 | My Effects and your categories (desktop) | above the preset list | the stage column, under Sound and Reference (`#wsMine`), so a picture can be dragged from the strip into a category |
@@ -1277,16 +1277,16 @@ that era at the era's own frame size, so a person sees what 8-bit or Pocket does
 | status | Status & HUD | aura, shield, poison, curse, stun | Magic | Aura, Orbit, Sigil | yes |
 | projectile | (none: Beam, Ribbon, Path trail or Smear makes a preset one) | bolt, laser, comet, trail, beam | (none) | Beam, Ribbon, Path trail, Smear | no |
 | atmosphere | Weather, Atmosphere, Ambient | rain, snow, fog, motes | Weather, Smoke | Weather, Haze, Light shafts, Droplets, Bokeh | yes |
-| ui | Emotes, Symmetry & Stylise, Camera & Light | level, target, alert, damage, pop | Pickup | Bubble, Lines, Zoom blur, Kaleidoscope | no |
+| ui | Emotes, Symmetry & Stylize, Camera & Light | level, target, alert, damage, pop | Pickup | Bubble, Lines, Zoom blur, Kaleidoscope | no |
 
 Membership, not ownership: a preset may be two types. 177 of the 189 presets are of at least one type; the 12 left are
 Structures oddities (Water Ripple, Sonar Ping, Glitch Out…), still reachable through the strip.
 
 **Tags are DERIVED, never listed per preset.** A tag describes what a material LOOKS like in VFX's own terms: words in a
-name, shapes and systems of its own (a snowflake is ice, the Merge system is slime), a COLOUR test, and shapes and
-systems it is likely to use (`maybe`). The colour is read where a particle spends most of its life: the hue 40% along
-Hue shift (or the colour ramp's nearest stop), with saturation, Hot core and Blend. An effect carries a tag STRONGLY by a
-word, an own shape or system, or the colour plus a likely piece; the colour or a likely piece alone is a WEAK carry.
+name, shapes and systems of its own (a snowflake is ice, the Merge system is slime), a COLOR test, and shapes and
+systems it is likely to use (`maybe`). The color is read where a particle spends most of its life: the hue 40% along
+Hue shift (or the color ramp's nearest stop), with saturation, Hot core and Blend. An effect carries a tag STRONGLY by a
+word, an own shape or system, or the color plus a likely piece; the color or a likely piece alone is a WEAK carry.
 `wizardTagsOf(patch, name)` is the strong set, so a preset added next year, or a roll, is tagged the moment it exists.
 Tagged presets now: fire 16, ice 12, lightning 8, arcane 30, nature 10, poison 5, water 8, tech 22, dark 10, holy 10,
 smoke 15, cute 20.
@@ -1300,11 +1300,11 @@ smoke 15, cute 20.
   and Randomize's (`rollRandomEffect`, the dice of `randomize()`, split out unchanged) that carry one of the type's
   systems, run under a seeded `Math.random` (`wizardSeeded`, mulberry32; the real one is put back however the roll ends).
   Same answers and seed, same nine. A roll may also be offered with one of a chosen tag's own PALETTES pressed
-  (`wizardPaint`: exactly the Palette button's write), which is how "an icy hit" finds Impact rolls in ice colours; a
+  (`wizardPaint`: exactly the Palette button's write), which is how "an icy hit" finds Impact rolls in ice colors; a
   roll so painted carries that tag strongly (`wizardCarry`). A preset is never repainted.
 - Ranked by the tags carried (a strong carry counts twice), then by whether the effect loops as the type does, then
-  order. Variety: never two that look alike (a preset: same particle, colour band and systems; a roll: same particle,
-  emitter and 60° colour band), one seed once, at most three of one particle (two among the rolls).
+  order. Variety: never two that look alike (a preset: same particle, color band and systems; a roll: same particle,
+  emitter and 60° color band), one seed once, at most three of one particle (two among the rolls).
 - Everything offered draws: the Breed grid's `genomePixels` bar, read IN the chosen era (8-bit at 64 px can crush a
   spark to nothing; such a preset or roll is not offered in it).
 - Rolls, looks and visibility are kept in a bounded cache (`wizardCache`): they are pure functions of their seed.
@@ -1346,7 +1346,7 @@ use it too).
 > **Superseded by §23.1's tests.**
 
 **Tests** (the sync suite, 592): the header order with the Wizard first; the dialog's role and label; the tour; every
-table names only real shapes, systems, palettes, categories and archetypes; every tag's palette is that tag's colour;
+table names only real shapes, systems, palettes, categories and archetypes; every tag's palette is that tag's color;
 thirteen telling presets carry their tag (Torch Flicker fire, Frost Nova ice … Coin Pickup cute) and Frost Nova is not
 fire; an effect nobody listed is tagged by what it is; every tag on at least three presets, every type at least five;
 **all 104 type × tag answers** give nine, all different, all real, at least four particles, at least seven of nine
@@ -1399,7 +1399,7 @@ Motion, Life and Glow rows, duration, fps, opacity and scale, and only the struc
 Impact, Lines, Slice, Smear…; a spell Flash, Shockwave, Sigil, Orbit, Attractor; a projectile Beam, Ribbon, Path trail,
 Trails, Smear, Arc, Flash; atmosphere Weather, Haze, Light shafts, Droplets, Bokeh, Twinkle, Swarm; UI Lines, Twinkle,
 Flash, Zoom blur, Kaleidoscope, Particle rings, Orbit; status Orbit, Aura, Sigil, Ripples, Attractor), with their
-layerDelay. Its particle, colours, Layer B and every other layer are dropped. The page's donors are put in an order of
+layerDelay. Its particle, colors, Layer B and every other layer are dropped. The page's donors are put in an order of
 the seed's and each slot takes the next, so the nine move nine different ways. Status and atmosphere results are made
 to loop (Seamless loop 0.7 / 0.8, emitting over the whole clip), so Playback's Auto loops them; the rest are one-shots.
 This was the Foundry's job in the brief; the type's own presets give better-tuned motion than the six archetypes, and
@@ -1410,9 +1410,9 @@ two of the eight types (projectile, status) have no archetype at all.
   knobs. A particle under 14 px grows to 14-20 px (a snowflake at 8 px is a dot), with fewer of them so the coverage
   stays the skeleton's; at most 220 particles and glow 0.45 so bright shapes don't wash out to white;
 - the next tag gives LAYER B: its particle (a different partner each time the lead particle comes round), moving with
-  the main particles, in that tag's palette colour. Alone, a tag gives Layer B another of its own particles;
+  the main particles, in that tag's palette color. Alone, a tag gives Layer B another of its own particles;
 - with two palettes, half the time the main particles also hand over from the lead's palette to the second's late in
-  life (a colour ramp with a hard step at 55%: a blended ramp between orange and blue passes through every hue);
+  life (a color ramp with a hard step at 55%: a blended ramp between orange and blue passes through every hue);
 - layer systems: one from the lead or the second tag (alternating), one from every further tag, at most three. A tag's
   most telling system (radar rings for tech, a sigil for arcane) comes every other time.
 So every result carries every chosen tag. With no tag, each slot picks its own one or two.
@@ -1453,11 +1453,11 @@ suite's peak memory is 11.4 GB (11.8 GB with the sweep; 11.2 GB before §23). Fr
 cargo build.
 
 **For AJ:** the ingredient table is the place to tune taste (which particles say "ice", which system says "radar");
-palettes like Electric (blue drifting to violet) and Steel (near-grey) set much of a result's mood, and may want a
-Wizard-only colour tweak if they read wrong; a few sparse skeletons (thin sparks that travel far) still make small
+palettes like Electric (blue drifting to violet) and Steel (near-gray) set much of a result's mood, and may want a
+Wizard-only color tweak if they read wrong; a few sparse skeletons (thin sparks that travel far) still make small
 pictures under Fit.
 
-### 23.2 Wizard tuning: every result reads, nine names, each tag's colour shows (2026-10-13)
+### 23.2 Wizard tuning: every result reads, nine names, each tag's color shows (2026-10-13)
 
 AJ on §23.1: "exactly what's expected", with three weak spots seen in the screenshots. None of this touches a preset or
 the renderer: the frame hash is byte-identical (278 lines).
@@ -1482,9 +1482,9 @@ then a synonym for the type (`WIZARD_NOUNS`: explosion, blast, burst, nova, deto
 invocation…; trail, bolt, shot, streak…), rotating the noun every three slots so a page mixes them. A part word that is
 the noun is skipped ("Ember blast blast"). The " 2" fallback in the grid is now a safety net that never fires.
 
-**Colour honesty.** Fire + Lightning read purple: Electric (blue to violet, additive, a white-hot core) drowned the warm
-results. The same measurement keeps a 12-bin hue histogram (plus grey/white). With tags chosen and an era that keeps
-colours, the LEAD tag's palette colours (`wizardPalBins`: the hues its palettes pass through; a pale palette is grey)
+**Color honesty.** Fire + Lightning read purple: Electric (blue to violet, additive, a white-hot core) drowned the warm
+results. The same measurement keeps a 12-bin hue histogram (plus gray/white). With tags chosen and an era that keeps
+colors, the LEAD tag's palette colors (`wizardPalBins`: the hues its palettes pass through; a pale palette is gray)
 must be at least 30% of what is seen (`wizardTagShare`); the repair for a drowned lead is a cooler core (Hot core ≤
 0.35), Layer B halved and quieter, no hand-over ramp. And palettes take TURNS instead of a random pick (a cute page was
 eight Gold results of nine; now Candy, Gold and Rainbow rotate; the second tag's palettes rotate too). Variety: a particle
@@ -1522,14 +1522,14 @@ byte-identical, `--css-build` 6. No new runtime file and no new storage key.
    cell. A hidden row keeps its value (state is untouched: it renders, saves and rides in share links as before). Every
    governed row sits BELOW the row that governs it, so nothing moves under the pointer during a drag. The stage's Fit hint
    became a one-line note in the Emitter panel, where Origin X/Y disappear. Considered and left out: hiding Hue/Hue
-   shift/Saturation under a colour ramp (Silhouette, Rim light, Bubble and the glints still read them).
+   shift/Saturation under a color ramp (Silhouette, Rim light, Bubble and the glints still read them).
 3. **Panel order.** Output (Duration), Master and Crunch head the panels, right after the heroes; then Emitter, Motion,
    Life, Color and the selected shapes' panels; then "Add a layer"; then the layers that are on. The panels flow in
    columns (`.panel-flow`, two blocks around the layer bar; `columns: 260px`, inline-block panels) instead of a grid,
    because a folded panel left a row-high hole beside a tall one. (One `column-span: all` version painted a ghost panel
    in WebKitGTK; two blocks avoid it.)
 4. **"Add a layer", grouped.** `LAYER_ABOUT` gives each of the 58 layers a kind and one line: Light (10), Particles (10),
-   Motion (6), Shapes & lines (22), Post & stylise (10) (`LAYER_KINDS`). Within a kind the LAYER_GROUPS order holds. The
+   Motion (6), Shapes & lines (22), Post & stylize (10) (`LAYER_KINDS`). Within a kind the LAYER_GROUPS order holds. The
    line is the chip's tooltip and shows under the chips while a chip is hovered or focused; a filter matches names, lines
    and kinds. The chip text is unchanged ("＋ Growth").
 5. **Tags on the effect strip.** A Categories | Tags switch picks which chips show; the tag chips are the Wizard's own
@@ -1582,7 +1582,7 @@ things. What changed, in the report's order of priority:
 4. **A filter the shown chip row cannot show stays in sight**: a tag chosen under Tags is a pill ("Fire ×") at the head
    of the Categories row, a category under Categories one at the head of the Tags row; one click drops it, and the counts
    are the whole set again.
-5. **The palette lock has a visible home**: "Game palette" in the toolbar and "Match my game's colours…" under the
+5. **The palette lock has a visible home**: "Game palette" in the toolbar and "Match my game's colors…" under the
    Palette swatches open Crunch, bring the lock into view and put the cursor in its paste box (`showPaletteLock`).
 6. **Prep for GIF says what it will change before it changes it** (`gifPrepPlan`: "FPS 15 → 10 (27 → 18 frames, same
    length in time)"), says what it changed, and is disabled when there is nothing to do. It still edits the effect (one
@@ -1592,14 +1592,14 @@ things. What changed, in the report's order of priority:
 8. **Hit Spark redrawn to read** (less speed, more drag, fatter sparks, a bigger flash; a MEANT frame-hash change, Hit
    Spark and the batch only), and "spark"/"hit" searches offer Critical Hit beside it.
 9. **Heat is intensity, not temperature**: its ends are "dim" … "white-hot" and its row says so on hover (an ice spell
-   can have a white-hot core; Hue is the colour). Wizard clipping: item 3.
+   can have a white-hot core; Hue is the color). Wizard clipping: item 3.
 10. **The Variations name is the loaded effect's** export name, and the dialog says which files the pack will write.
 11. **A locked palette with soft edges says so in one line and offers "Hard edges (Alpha cut 0.5)"**, never applied
    unasked (it changes the look).
 12. Low: tour titles lost their numbers (the counter counts; Tile and UI did the same); zip entries carry a real DOS date
    (the export's own time; zero read as 1980-00-00, unzipped as 2114); the Unity note shows only for generic or no
    metadata; the frame counter is one-based of the real count and says "paused"; Wizard names never repeat two words in
-   another order on a page; a tag card's picture is in the tag's colours (Smoke and dust showed a green poison cloud);
+   another order on a page; a tag card's picture is in the tag's colors (Smoke and dust showed a green poison cloud);
    Breed/Variations/Foundry cells say "Load" and "Keep", and loading one says so; Match a sound says what it needs and
    links CrunchySFX (the suite's own link, opened outside the desktop app); the first screen opens on one of
    `LAUNCH_EFFECTS` (strong ones), not any of 189; the loaded effect's strip card is a dark cell with a white label.
@@ -1618,7 +1618,7 @@ implementation (`godotSceneInfo` → `godotSceneFiles`, wrapped by `buildExportB
 calls `buildExportBundle` too and adds only what it knows: the linked CrunchySFX WAV (res://, or left out when gone) and
 the Impact frame. `buildExportFiles` stays the sheet + metadata, so the frame hash's EXPORT lines are what they were.
 - **The scene:** a Node2D (texture filter Nearest) with an AnimatedSprite2D (the SpriteFrames; at several sizes the @1x
-  one), offset so the NODE'S POSITION IS THE EMITTER (renderPrep's own transform; the frame centre for most effects,
+  one), offset so the NODE'S POSITION IS THE EMITTER (renderPrep's own transform; the frame center for most effects,
   Fit or not, trimmed or not: the AtlasTexture margin keeps the frame), and an AudioStreamPlayer2D when there is a sound
   (the export's own `<base>.wav`: the web's "Match a sound" with "Also export the sound"; the planted link). Written as
   Godot 4.7.2 writes it: `[gd_scene format=3]`, no load_steps, no uid, relative paths.
@@ -1636,7 +1636,7 @@ the Impact frame. `buildExportFiles` stays the sheet + metadata, so the frame ha
   `var fx = preload("res://hit_spark.tscn").instantiate(); fx.position = pos; add_child(fx)`, the signals, the options.
 - **The Export dialog** lists "Godot 4: ready scene (.tscn) + SpriteFrames" first (Generic JSON stays the default
   selection) and says: "Godot 4: a ready scene. Instance the .tscn and it plays, signals its hit frame (impact on frame N,
-  counting from 0) and frees itself when done", or for a loop "…plays and loops, signalling impact on frame N every time
+  counting from 0) and frees itself when done", or for a loop "…plays and loops, signaling impact on frame N every time
   round, until you call stop() or free it", with the spawn line.
 
 **Planted effects saved before** show "update available" (their `.gd`/`.tscn` differ); Re-export / Update all gives them
@@ -1690,7 +1690,7 @@ frames over time (`moments-sheet.png` in the round's scratch). Improved, names k
 |---|---|---|
 | Hit Spark | thin 1-px lines at 64 px; read late | one big starburst, whole on frame 0, shrinking out in five frames; ten short fat sparks as Layer B |
 | Critical Hit | sparse crosses | fatter crosses, less travel, impact lines, a bigger flash |
-| Muzzle Flash | a speck at the frame's edge (Fit fitted the forward sparks only) | slower, fatter sparks, a bigger flash, a small backward glow (Layer B) so Fit centres it |
+| Muzzle Flash | a speck at the frame's edge (Fit fitted the forward sparks only) | slower, fatter sparks, a bigger flash, a small backward glow (Layer B) so Fit centers it |
 | Blood Splat | specks (fast, far, tiny) | fewer, twice the size, less speed and gravity |
 | Coin Pickup | tiny stars | bigger stars, less travel, brighter flash |
 | Heal Rise, Level Up, Twinkle, Teleport Out, Hit Flash | small particles | bigger particles, less spread or speed |
@@ -1722,7 +1722,7 @@ and the Everything batch zip; 17 new lines for the new presets (293 in all). Asy
 plant 14, Godot 17, pull-core --check, the pre-commit hook, cargo build.
 
 **For AJ:** the moment table (membership, leads, words) is taste and cheap to retune; Hit Flash, Punch In and Hit Blank
-are close cousins (all kept: different colours); a projectile loop's seam is the engine's Seamless loop (the head is solid,
+are close cousins (all kept: different colors); a projectile loop's seam is the engine's Seamless loop (the head is solid,
 the trail's first frames are a half-strength blend); the Foundry's look-alike Explosion candidates (§25's open item) are
 untouched by this round.
 
@@ -1743,15 +1743,15 @@ scripts). Pure; no DOM.
 draws, and the core never reuses a name). An unknown name draws the default. Only the icon shape reads it, so the
 default moves nothing. **One PARAMS row**, `iconFill` ("Fill holes", group Icon, 0..1, default 0 = off): the icon's HOLES
 (the empty pixels the outside cannot reach: a skull's eyes, a coin's band, the ! of a warning sign) filled in a darker
-tone of the particle's own colour (lightness x (1 - 0.8 x fill)), the two-tone read of a game pickup. 0 leaves them
+tone of the particle's own color (lightness x (1 - 0.8 x fill)), the two-tone read of a game pickup. 0 leaves them
 see-through, as CrunchyUI's bare glyph is.
 
 **Pixel-exact at the particle's size.** Every other shape draws a 64 px master that vfx.js scales per particle; a 12 px
 heart scaled from 64 is a smudge. A shape record may now say `sized: true`: drawFrame asks for its sprite AT
 round(particle size) px (`getSprite(..., px)`, the size appended to the cache key only then) and blits it with smoothing
-off on whole pixels (a rotated one turns nearest-neighbour). The icon's draw is `glyphMask(name, n)` straight into the
+off on whole pixels (a rotated one turns nearest-neighbor). The icon's draw is `glyphMask(name, n)` straight into the
 sprite, so the particle is, pixel for pixel, the icon CrunchyUI draws at that size (tested at 9-40 px). Masks are cached
-by name and size (`iconMaskCache`, with their holes). The tint pass is unchanged (one flat tone from the effect's colour,
+by name and size (`iconMaskCache`, with their holes). The tint pass is unchanged (one flat tone from the effect's color,
 ramp or palette, like every shape); a record may also say `after(g, R, st, hue, sat, lum)`, run over the tinted sprite
 (the filled holes). Every other shape takes exactly the old path: the frame hash proves it.
 
@@ -1781,7 +1781,7 @@ an icon must stay WHITE it is Layer B, whose brightness holds.
 | Trophy Win | powerup | a gold trophy with sparkles |
 
 Fixed while judging: the coin bare (a ring: Fill holes), the skull at a random start angle (upside down), the bubble and
-the button letter on Main (they greyed: moved to Layer B), the trophy small at 64 (sparkles flew far, Fit shrank it).
+the button letter on Main (they grayed: moved to Layer B), the trophy small at 64 (sparkles flew far, Fit shrank it).
 Not made: "?" and "!" alone and a music note (the core has no bare ! or ? glyph; the note is VFX's own, `ported`, and
 Music Notes exists). Categories: Heart Heal → Magic; Coin Burst, Gem Pickup, Trophy Win → Pickups & Charm; Skull Puff →
 Impacts; Alert Pop, Talk Bubble, Prompt Pop → Emotes.
@@ -1792,11 +1792,11 @@ undefined"; the desktop suite's legacy/a-head-crunchyvfx-file-opens-as-it-did). 
 already tripped it; iconFill and icon would have too. A missing key now takes its default (neutral by rule); undo history
 always carries every key, so nothing else moves.
 
-**Not taken: items.js** (the CrunchyItems engine). Its items are full-colour shaded icons (three materials x six tones,
+**Not taken: items.js** (the CrunchyItems engine). Its items are full-color shaded icons (three materials x six tones,
 outlines, enchant motes), so as particles they would bypass hue, ramps and palettes (the `ownColour` escape hatch the
 glyph and image shapes use), at 8,000 lines loaded on every page. The glyphs already carry the item SILHOUETTES (sword,
 potion, coin, chest, gem, shield …) that a particle needs. Worth revisiting as an "Item" shape with a tint slider if AJ
-wants loot drops in their real colours.
+wants loot drops in their real colors.
 
 **Tests.** Sync suite 683 (+17): icon appended and glyphs.js loaded; in SHAPE_CATS and RANDOM_SHAPES; the offer excludes
 ported and hidden; an unknown name falls back; pixel-exact sprites at 9/13/16/24/40 px (hard alpha, = glyphMask); Fill
@@ -1827,7 +1827,7 @@ ugly", so the words moved to their own page the same day.
   one meta description (free, CC0, no generative AI) shared word for word by og:/twitter:; a `SoftwareApplication`
   JSON-LD before the stylesheets (one price-0 web offer, operatingSystem "Web" only while suite.js has no VFX store page,
   author superevil6, NO `license`: CC0 covers the OUTPUT, not the code); one `<a href="about.html" data-web>` at the end of
-  the licence footer's tool notice. `isDesktop` hides `[data-web]`. styles.css is unchanged.
+  the license footer's tool notice. `isDesktop` hides `[data-web]`. styles.css is unchanged.
 - **about.html (web only, served at /about, canonical `https://crunchyvfx.com/about`):** a static page (no script but the
   FAQPage JSON-LD), `crunchy-base.css` plus a small inline style in the tokens with VFX's violet accent. "Open CrunchyVFX"
   back to the app, h1 "Free CC0 pixel-art sprite VFX generator", four paragraphs, "Things you can make", five questions
@@ -1875,3 +1875,20 @@ context to sleep when idle.
   closed context is replaced. VFX never showed a "sound is blocked" warning, so there was nothing to reword. Sync
   suite rows `audio: …` and `update check: …`.
 
+
+## 31. American spelling, everywhere a person reads (2026-10-18)
+
+AJ: "no British spelling … wipe it out everywhere in all apps" (the suite rule). Labels (Center, Materialize, Color
+over lifetime), tooltips, hints, the layer kinds and blurbs (Post & stylize), the preset category Symmetry & Stylize,
+the tour, About, the flatpak metainfo, this document and the code comments now say color, gray, center, behavior,
+license, -ize and so on. Frames and export bytes did not move (`frame-hash.expected.txt` identical).
+
+- **Kept, on purpose:** search synonyms carry both spellings (the Teleport moment's `materialise`/`materialize`, the
+  star icon's `favorite`/`favourite`). A glyph's NAME is crunchyCore's identifier and rides in links and saved effects
+  as the `icon` extra, so `armour` keeps its name and the Icon picker SHOWS "armor" (`ICON_SHOWN`/`iconShown`; the
+  filter finds either). The internal `WIZARD_TAGS[*].colour` predicate is now `color` (never saved or exported).
+- **The row:** sync suite `copy: the text a person reads uses American spelling` scans every text node, title,
+  placeholder, alt, aria-label and optgroup, plus PARAMS labels and sections, preset names and categories, layer kinds
+  and blurbs, era hints and the tour, with the same word-boundary list as Tile's, SFX's and UI's rows.
+- `crunchysfx-synth.js` is generated (CrunchySFX's `tools/export-synth.py`, then `tools/pull-synth.py` here) and was not
+  hand-edited; its comments follow the next re-vendor. The crunchyCore copies follow the next pull.

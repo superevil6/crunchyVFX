@@ -1,6 +1,6 @@
 "use strict";
 // CrunchyVFX — APNG writer. The honest answer to everything GIF costs you: full 8-bit alpha,
-// full colour, and an EXACT frame rate.
+// full color, and an EXACT frame rate.
 //
 // There is no encoder here at all, which is the trick. The browser already writes a perfect PNG
 // for every frame via canvas.toBlob(); an APNG is just those PNGs' compressed image data re-filed

@@ -13,7 +13,7 @@ one). VFX-DESIGN §30. **AJ runs every step that tags, pushes, publishes or char
    build runs the workflow AS IT WAS at the tagged commit, so re-running the failed job alone changes nothing.)
 3. **Never ship a locally built binary.** A build on this box links CachyOS's glibc (needs GLIBC_2.39) and will not run
    on other distros or inside the Flatpak runtime. CI's ubuntu-22.04 build is the only one that ships. Don't
-   "modernise" that runner to `ubuntu-latest` either.
+   "modernize" that runner to `ubuntu-latest` either.
 4. **No AppImage.** The Flatpak (made from CI's .deb) is the Linux product: an AppImage's bundled GL blank-screens on new
    GPUs (`EGL_BAD_PARAMETER`) and its bundled GStreamer had no sound on rolling distros (SFX 1.2.1, 2026-10-16).
 5. **The version lives in five places** and they must agree with the tag: `src-tauri/tauri.conf.json`,

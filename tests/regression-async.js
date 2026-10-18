@@ -78,7 +78,7 @@
       sim = simulate(state);
       const atOnce = new Set();
       for (let i = 0; i < sim.counts[3]; i++) atOnce.add(sim.frames[3][i * P_STRIDE + P_FRAME]);
-      ok(atOnce.size > 1, "stagger desynchronises particles", atOnce.size + " cells at once");
+      ok(atOnce.size > 1, "stagger desynchronizes particles", atOnce.size + " cells at once");
       applyPreset(PRESETS["Explosion"], "Explosion");
       ok(state.imageSprite === "", "imageSprite resets between presets");
 
@@ -159,7 +159,7 @@
       // streamFrames() exists so a big export doesn't hold every frame as a live canvas at once.
       // It is only worth having if it is pixel-identical to renderFrames(), so compare them frame
       // by frame — including the two cases that make streaming hard: loopBlend (the last frames
-      // are dissolved into the first, so the head can't be finalised until the tail exists) and
+      // are dissolved into the first, so the head can't be finalized until the tail exists) and
       // reverse (the output order is flipped).
       {
         const hashCv = (cv) => {
@@ -267,7 +267,7 @@
         ok(m && m.sfx && m.sfx.freq === 660, "the raw sound patch is carried through the match");
         const s2 = m && synthesizePatch(m.sfx, m.name);
         ok(s2 && s2.L.length === Math.floor(0.3 * CrunchySynth.SR),
-           "the matched link synthesises at its own duration");
+           "the matched link synthesizes at its own duration");
 
         // …and it reaches the export: a sheet plus the WAV you actually heard, in one zip.
         synthesizePatch({ wave: 2, freq: 440, duration: 0.25, decay: 0.1 }, "Export Test");
@@ -287,7 +287,7 @@
             i += 30 + nlen + sz;
           }
         }
-        ok(names.some((n) => /\.wav$/.test(n)), "the synthesised sound ships beside the sheet",
+        ok(names.some((n) => /\.wav$/.test(n)), "the synthesized sound ships beside the sheet",
            names.join(", "));
 
         synthSound = null;   // leave the editor as we found it
@@ -412,9 +412,9 @@
              "the bytes written are the blob's, intact");
 
           mode = "cancel"; wrote = null;
-          download(new Blob([new Uint8Array([9])]), "cancelled.zip");
+          download(new Blob([new Uint8Array([9])]), "canceled.zip");
           await settle();
-          ok(wrote === null && clicked === 0, "cancelling the dialog writes nothing");
+          ok(wrote === null && clicked === 0, "canceling the dialog writes nothing");
 
           mode = "throw"; wrote = null;
           download(new Blob([new Uint8Array([9])]), "broken.png");
@@ -506,8 +506,8 @@
         ok(!bad.samey.length, "…varied (two or more particles, four or more particle pairs)", bad.samey.join(", ") || "clean");
         ok(!bad.draws.length, "…and every one READS in its era (§23.2: mean " + WIZARD_READ.mean + ", peak " + WIZARD_READ.peak + ", sustained " + WIZARD_READ.sustain + ", spread " + WIZARD_READ.span + " at " + WIZARD_READ.size + " px)", bad.draws.join(", ") || "clean");
         ok(!bad.names.length, "…nine different names on every page, none with a number on the end", bad.names.join(", ") || "clean");
-        // COLOUR HONESTY (§23.2): a warm tag mixed with a cool one shows BOTH colours across the nine (Fire + Lightning
-        // read purple when Electric drowned the fire): at least two results each where that tag's palette colours are
+        // COLOR HONESTY (§23.2): a warm tag mixed with a cool one shows BOTH colors across the nine (Fire + Lightning
+        // read purple when Electric drowned the fire): at least two results each where that tag's palette colors are
         // 30% or more of what is seen.
         const pairs = [["fire", "lightning"], ["fire", "ice"], ["fire", "water"], ["fire", "tech"], ["cute", "tech"], ["holy", "dark"], ["fire", "arcane"]];
         const pale = [];

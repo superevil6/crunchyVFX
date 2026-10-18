@@ -5,8 +5,8 @@
 // Its own file because it's pure and domain-agnostic: when the shared `core.js` sibling gets
 // extracted (see VFX-DESIGN.md §5) this moves across as-is, not by surgery.
 //
-// Three parts: a median-cut quantizer (24-bit truecolour → 255 colours + transparency), a
-// nearest-colour mapper with a 15-bit cache, and the LZW + block assembly.
+// Three parts: a median-cut quantizer (24-bit truecolor → 255 colors + transparency), a
+// nearest-color mapper with a 15-bit cache, and the LZW + block assembly.
 //
 // Known and deliberate limits of the format, surfaced in the export dialog rather than hidden:
 //   • ALPHA IS 1 BIT. There is no partial transparency in a GIF — a pixel is either fully opaque
@@ -80,7 +80,7 @@ function gifMedianCut(samples, maxColors) {
       const [range, sh] = spread(boxes[i]);
       if (range > bestRange) { bestRange = range; best = i; bestShift = sh; }
     }
-    if (best < 0 || bestRange === 0) break;      // every box is a single colour — done
+    if (best < 0 || bestRange === 0) break;      // every box is a single color — done
     const b = boxes[best], sh = bestShift;
     // subarray shares the buffer, so this sorts the box's range in place
     samples.subarray(b.lo, b.hi).sort((x, y) => ((x >> sh) & 255) - ((y >> sh) & 255));
@@ -100,9 +100,9 @@ function gifMedianCut(samples, maxColors) {
   });
 }
 
-// ---------- nearest-colour mapping ----------
+// ---------- nearest-color mapping ----------
 // A 15-bit (5:5:5) cache turns "255 distance checks per pixel" into "255 checks per DISTINCT
-// colour", which is the difference between a snappy export and a two-second freeze.
+// color", which is the difference between a snappy export and a two-second freeze.
 function gifMap(datas, palette, w, h) {
   const cache = new Int16Array(32768).fill(-1);
   const nCol = palette.length;
@@ -203,8 +203,8 @@ function encodeGif(canvases, fps, opts) {
   const buf = gifBuf();
   buf.s("GIF89a");
   buf.b16(w); buf.b16(h);
-  buf.b(0xF7);   // global colour table present, 8-bit colour, 256 entries
-  buf.b(0);      // background colour index
+  buf.b(0xF7);   // global color table present, 8-bit color, 256 entries
+  buf.b(0);      // background color index
   buf.b(0);      // pixel aspect ratio (0 = unspecified)
 
   buf.b(0); buf.b(0); buf.b(0);                                  // entry 0 = the transparent slot
@@ -222,11 +222,11 @@ function encodeGif(canvases, fps, opts) {
     // Graphic control extension. Disposal method 2 (restore to background) is mandatory here:
     // without it every frame composites onto the last and the transparent areas smear.
     buf.b(0x21); buf.b(0xF9); buf.b(0x04);
-    buf.b(0x09);                 // disposal 2 (bits 4-2) | transparent colour flag (bit 0)
+    buf.b(0x09);                 // disposal 2 (bits 4-2) | transparent color flag (bit 0)
     buf.b16(delay);
-    buf.b(0);                    // transparent colour index
+    buf.b(0);                    // transparent color index
     buf.b(0);
-    // image descriptor: full-frame, no local colour table, not interlaced
+    // image descriptor: full-frame, no local color table, not interlaced
     buf.b(0x2C); buf.b16(0); buf.b16(0); buf.b16(w); buf.b16(h); buf.b(0);
     gifLzw(buf, px, 8);
   }
