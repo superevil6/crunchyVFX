@@ -188,5 +188,31 @@ for (const f of ["/robots.txt", "/sitemap.xml", "/44b30b0415e1540c853a5d3826a598
   ok(".assetsignore publishes version.json", !pats.some((p) => rx(p).test("version.json")));
 }
 
+// THE WORDMARK (2026-10-21): the header logo is wordmark.png, drawn in code by crunchyCore's tools/make-wordmarks.mjs (CC0, no
+// bundled art; regenerated there, never here). Checked here because this is the suite's one Node runner (as for version.json
+// above): a real PNG, shown by index.html at EXACTLY 2x its size (read from the IHDR, so a regenerated wordmark with new
+// dimensions fails instead of being stretched), copied by src-tauri/build.rs, and published (not matched by .assetsignore).
+{
+  const { readFileSync, existsSync } = await import("node:fs");
+  const at = (p) => new URL("../" + p, import.meta.url);
+  const html = readFileSync(at("index.html"), "utf8");
+  const tag = html.match(/<img\s[^>]*src="wordmark\.png"[^>]*>/);
+  ok("index.html shows wordmark.png in the header", !!tag);
+  const buf = existsSync(at("wordmark.png")) ? readFileSync(at("wordmark.png")) : null;
+  const isPng = !!buf && buf.length > 24 && buf.toString("latin1", 1, 4) === "PNG" && buf.toString("latin1", 12, 16) === "IHDR";
+  ok("wordmark.png is a PNG", isPng);
+  if (tag && isPng) {
+    const w = buf.readUInt32BE(16), h = buf.readUInt32BE(20);
+    const tw = Number((tag[0].match(/\swidth="(\d+)"/) || [])[1]), th = Number((tag[0].match(/\sheight="(\d+)"/) || [])[1]);
+    ok(`the wordmark (${w}x${h}) is shown at exactly 2x`, tw === 2 * w && th === 2 * h, `${tw}x${th}, want ${2 * w}x${2 * h}`);
+  }
+  const rs = readFileSync(at("src-tauri/build.rs"), "utf8");
+  const n = Number((rs.match(/const FRONTEND: \[&str; (\d+)\]/) || [])[1]);
+  const listed = [...rs.matchAll(/^\s+"([^"]+)",/gm)].map((m) => m[1]);
+  ok("src-tauri/build.rs copies wordmark.png (and its array length is right)", listed.includes("wordmark.png") && n === listed.length, n + " vs " + listed.length);
+  const pats = readFileSync(at(".assetsignore"), "utf8").split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  ok(".assetsignore publishes wordmark.png", !pats.some((p) => p === "wordmark.png" || p === "*.png" || p === "/wordmark.png"));
+}
+
 console.log((fail ? "FAIL" : "PASS") + " · " + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

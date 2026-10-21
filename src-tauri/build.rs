@@ -5,9 +5,11 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 19] = [
+const FRONTEND: [&str; 20] = [
     "index.html",
     "favicon.png",
+    // The header logo (an <img> in index.html), drawn in code by crunchyCore tools/make-wordmarks.mjs.
+    "wordmark.png",
     "presets.js",
     // The shape roster — vfx.js reads SHAPE_DEFS out of it, so the app is blank without it.
     "shapes.js",

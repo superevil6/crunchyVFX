@@ -83,7 +83,7 @@
      and the stage on the right (the preview, its view controls, and every way out: Export, GIF, Share link, the desktop's
      project buttons), as in CrunchyTile and CrunchyUI (§22.1). The stage column sticks while the editor scrolls. -->
 <header>
-  <h1>crunchy<b>VFX</b></h1>
+  <h1 class="wm"><img src="wordmark.png" alt="" width="240" height="60" draggable="false"><span class="wm-text">crunchy<b>VFX</b></span></h1>
   <span class="tag">a from-scratch sprite VFX generator</span>
   <span class="spacer"></span>
   <div class="hdr-globals" id="hdrGlobals">
@@ -367,7 +367,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 9;   // must match --css-build in styles.css
+  const CSS_BUILD = 10;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 12, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 11, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },

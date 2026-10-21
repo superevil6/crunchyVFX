@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 9;
+    --css-build: 10;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -38,7 +38,6 @@
     margin: 0;
     letter-spacing: -0.5px;
   }
-  h1 b { color: var(--accent); }
   .tag { color: var(--muted); font-size: 13px; }
   main {
     display: grid;
@@ -1265,6 +1264,20 @@ header .spacer { flex: 1; }
 .hdr-globals { display: flex; align-items: center; gap: 8px; flex: none; }
 .hdr-globals > button { padding: 6px 11px; white-space: nowrap; }
 @media (max-width: 1180px) { header .tag { display: none; } }
+/* THE WORDMARK (css-build 10, 2026-10-21): the logo is wordmark.png, drawn in code by crunchyCore tools/make-wordmarks.mjs
+   (120x30, CC0; its sparks reach above and below the letters). Shown at EXACTLY 2x (240x60) on a wide window: 60 px is
+   taller than the 33.6 px button row, so it overhangs 14 px above and below instead of growing the header (only sparks
+   reach past the padding: the image's top rows are clear, and the lowest sparks cross the border onto the row below, drawn above
+   it by z-index). At 1180 px and below, where the tagline already gives way, it is shown at 1x (120x30): the one row
+   of globals would not fit beside 240 px, and once the header wraps (760 px) a 2x overhang would land on the buttons.
+   The h1's text stays, visually hidden, for search engines and screen readers (the img's alt is empty because the
+   h1 names it). */
+h1.wm { position: relative; z-index: 2; flex: none; }
+h1.wm img { image-rendering: pixelated; display: block; margin: -14px 0; }
+.wm-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+           clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 1180px) { h1.wm img { width: 120px; height: 30px; margin: 0; } }
+@media (max-width: 600px) { h1.wm img { margin: -1px 0; } }   /* 28 px row there: 1 px over, above and below */
 @media (max-width: 760px) {
   header { flex-wrap: wrap; row-gap: 6px; }
   header .spacer { display: none; }
