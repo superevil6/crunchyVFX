@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/glyphs.js @ 30f5311 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 8d1e38aba86b06a7bd98e62ce2ac35e13ea63e62d50b8d706446c22709db7743
+// GENERATED from crunchyCore/glyphs.js @ 049fc87 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 9ea3d09fee1b00cb03f5f28e71ebe51c3803745c04970468434827a9b1d74284
 "use strict";
 // Crunchy suite: GLYPHS. The icon DRAWINGS CrunchyUI's icon roster is made of (close, check, cog, sword, flame, the
 // button letters, START …), shared so any app can draw the same icon: CrunchyUI wraps them in its treatment (styles,
@@ -49,7 +49,7 @@
 // The long notes below are the drawings' own history, written while CrunchyUI authored them; a § number in them is
 // CrunchyUI's UI-DESIGN.md, and "the treatment", "pathOps", "ELEMENT_DEFS" and "the sheet" are CrunchyUI's.
 
-const GLYPHS_BUILD = 2;
+const GLYPHS_BUILD = 3;
 
 // CLOCKWISE, because screen y runs DOWN: `glyphRotPt` is the ordinary rotation matrix, and under a
 // flipped y a positive angle turns the way a clock does. Worth stating rather than leaving as an
@@ -94,6 +94,9 @@ const GLYPH_GRID = 64;
 // a def would change the share format and re-point every link written today. They stay registered,
 // buildable and swept.
 const GLYPH_SET_ASIDE = {
+  // AJ, 2026-10-22: "Jaws look pretty awkward in general, it might be worth it to kill it all together." Two toothed
+  // lips read as a bat or a pie at icon size. VFX keeps its own bite shape; the drawing stays for old links.
+  jaws: "awkward at icon size (AJ)",
   gear: "cog is the same shape and is parametric (teeth, hole)",
   plusbold: "plus, at a weight the icon treatment already controls",
   padlock: "lock, which also has an open/closed state",
@@ -124,6 +127,12 @@ const GLYPH_SET_ASIDE = {
 // Disjoint subpaths are fine and stay separate (three menu bars, a keyhole in a lock body); it is
 // only overlap that has to be resolved by the author. That is the same constructive discipline the
 // corners follow in elements.js, arriving from the other direction.
+
+// The unit normal of the segment p -> q (to its left in screen space, where y runs down).
+function glyphUnitNormal(p, q) {
+  const dx = q[0] - p[0], dy = q[1] - p[1], L = Math.sqrt(dx * dx + dy * dy) || 1;
+  return [dy / L, -dx / L];
+}
 
 function glyphPolySegs(pts) {
   const out = [["M", pts[0][0], pts[0][1]]];
@@ -245,14 +254,26 @@ const GLYPH_MARKS = [
     controls: [["weight", "Weight", 1, 3]],
     segs: function (rp) {
       // One outline, not two bars: the elbow is where two bars would punch a hole in themselves.
-      const t = 0.13 * rp.weight;
-      const a = [-0.72, 0.06], b = [-0.24, 0.56], c = [0.74, -0.54];
-      // inner and outer offsets of the elbow, walked as one loop
-      return glyphPolySegs([
-        [a[0], a[1] - t * 1.15], [b[0], b[1] - t * 1.15], [c[0] - t * 0.55, c[1] - t * 1.3],
-        [c[0] + t * 0.75, c[1] + t * 0.5], [b[0] + t * 0.15, b[1] + t * 1.25],
-        [a[0] + t * 0.2, a[1] + t * 1.2],
-      ]);
+      // REDRAWN (GLYPHS_BUILD 3, CrunchyUI's icon pass): the short arm was a stub that started at
+      // mid-height with a slanted, blunt end, so at 16 px the mark read as a lopsided V. Now a true
+      // two-stroke tick: the short arm runs from the left third down to the elbow, the long arm up to
+      // the top right, both at the same stroke as `close` (0.11 per weight, either side of the
+      // spine), mitered at the elbow, with SQUARE ends cut across each stroke.
+      const h = 0.11 * rp.weight;
+      const a = [-0.84, -0.08], b = [-0.32, 0.48], c = [0.84, -0.66];
+      const n1 = glyphUnitNormal(a, b), n2 = glyphUnitNormal(b, c);
+      // the miter at the elbow: along the bisector of the two normals, 1/cos(half the turn) long
+      const mx = n1[0] + n2[0], my = n1[1] + n2[1], md = mx * n1[0] + my * n1[1];
+      const m = [mx / md * h, my / md * h];
+      const pts = [
+        [a[0] + n1[0] * h, a[1] + n1[1] * h], [b[0] + m[0], b[1] + m[1]], [c[0] + n2[0] * h, c[1] + n2[1] * h],
+        [c[0] - n2[0] * h, c[1] - n2[1] * h], [b[0] - m[0], b[1] - m[1]], [a[0] - n1[0] * h, a[1] - n1[1] * h],
+      ];
+      // the heaviest weight's square ends reach past the box: shrink the whole mark to fit, never clip it
+      let r = 0;
+      pts.forEach(function (q) { r = Math.max(r, Math.abs(q[0]), Math.abs(q[1])); });
+      const k = r > 0.98 ? 0.98 / r : 1;
+      return glyphPolySegs(pts.map(function (q) { return [q[0] * k, q[1] * k]; }));
     },
   },
   {
@@ -458,9 +479,12 @@ const GLYPH_CAP_T = -0.58, GLYPH_CAP_B = 0.58;      // cap height: all 28 letter
 function glyphLetterA() {
   // Outer walks the two legs and the crossbar's top edge; the counter is a second loop, so the
   // triangle above the bar clears and the gap below it is simply outside the outline.
-  return glyphPolySegs([[0, GLYPH_CAP_T], [0.42, GLYPH_CAP_B], [0.25, GLYPH_CAP_B], [0.19, 0.18],
-                   [-0.19, 0.18], [-0.25, GLYPH_CAP_B], [-0.42, GLYPH_CAP_B]])
-    .concat(glyphPolySegs([[0, GLYPH_CAP_T + 0.24], [0.12, 0.02], [-0.12, 0.02]]));
+  // REDRAWN (GLYPHS_BUILD 3): the legs were 0.17 across on a slope, which is under 1.4 px at 16 and sampled
+  // into a dotted apex and two floating legs. Wider legs (0.20) and a FLAT apex as wide as a stem keep every
+  // row of the A inked at 16 px; the counter is smaller so the crossbar stays one solid row.
+  return glyphPolySegs([[-0.06, GLYPH_CAP_T], [0.06, GLYPH_CAP_T], [0.43, GLYPH_CAP_B], [0.23, GLYPH_CAP_B],
+                   [0.175, 0.24], [-0.175, 0.24], [-0.23, GLYPH_CAP_B], [-0.43, GLYPH_CAP_B]])
+    .concat(glyphPolySegs([[0, GLYPH_CAP_T + 0.30], [0.10, 0.06], [-0.10, 0.06]]));
 }
 
 // Bars that share edges. A stencil B rather than a bowled one: straight edges are exact at every
@@ -1240,10 +1264,13 @@ const GLYPH_SHAPES = [
         .concat(glyphBoxSegs(0.09, 0.38, 0.32, 0.15))       // teeth
         .concat(glyphBoxSegs(0.09, 0.66, 0.26, 0.15));
     } },
+  // AN UPRIGHT OVAL WITH A SLOT, 2026-10-22 (AJ: the coin "wasn't great"). The old ring around a boss read as a target
+  // or a radio button; the game coin (an oval turned a little toward you, its rim, a vertical slot) reads as money and
+  // as nothing else in the roster. A solid oval as bold as its neighbors, the slot cut through it (even-odd).
   { name: "coin", segs: function () {
-      return glyphCircleSegs(0, 0, 0.97).concat(glyphCircleSegs(0, 0, 0.7));
-    },
-    over: function () { return glyphCircleSegs(0, 0, 0.34); } },
+      const oval = function (rx, ry) { const p = []; for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20; p.push([Math.cos(a) * rx, Math.sin(a) * ry]); } return glyphPolySegs(p); };
+      return oval(0.72, 0.97).concat(glyphBoxSegs(-0.12, -0.5, 0.24, 1.0));   // the slot, cut
+    } },
   // THE JAW WAS A SEPARATE BOX OVERLAPPING THE CRANIUM, and the overlap canceled (§11.3): it bit a
   // notch out of the skull's underside and left the teeth floating below a gap. Cranium and jaw are
   // ONE outline now — an arc from where the jaw meets the circle, over the top, back down to the
@@ -1657,12 +1684,30 @@ const GLYPH_LATE = [
 
   // A GAUNTLET, NOT A FIVE-FINGER GLOVE. Four fingers at 30px is four gray pixels; the mitten
   // silhouette plus a thumb is what actually survives, and it is what every inventory draws.
+  // FINGERS, 2026-10-22 (AJ: "the thumb is big and makes it look more like an oven mitt"). A glove is told from a mitten
+  // by its fingers: four, the middle tallest, with gaps a pixel wide at 24 px, and a smaller thumb angled up from the
+  // side. One outline (fingers and palm can't be separate loops: even-odd would cut their overlap), the cuff apart.
   { name: "glove", segs: function () {
-      return [["M", -0.46, 0.88], ["L", -0.46, -0.20],
-              ["Q", -0.46, -0.88, 0.04, -0.88], ["Q", 0.44, -0.88, 0.46, -0.32],
-              ["L", 0.46, -0.06], ["Q", 0.88, -0.10, 0.88, 0.22],
-              ["Q", 0.88, 0.44, 0.56, 0.46], ["L", 0.46, 0.46], ["L", 0.46, 0.88], ["Z"]]
-        .concat(glyphBoxSegs(-0.46, 0.56, 0.92, 0.14));           // cuff, cut
+      const top = function (x0, x1, y) { const m = (x0 + x1) / 2; return [["L", x0, y + 0.1], ["Q", x0, y, m, y], ["Q", x1, y, x1, y + 0.1]]; };
+      const gap = -0.30;
+      return [["M", -0.62, 0.52]].concat(top(-0.62, -0.42, -0.58), [["L", -0.42, gap], ["L", -0.34, gap]],
+          top(-0.34, -0.14, -0.88), [["L", -0.14, gap], ["L", -0.06, gap]],
+          top(-0.06, 0.14, -0.80), [["L", 0.14, gap], ["L", 0.22, gap]],
+          top(0.22, 0.42, -0.52),
+          [["L", 0.42, -0.02], ["L", 0.62, -0.20], ["Q", 0.74, -0.28, 0.80, -0.16], ["Q", 0.84, -0.06, 0.74, 0.02],
+           ["L", 0.42, 0.32], ["L", 0.42, 0.52], ["Z"]])
+        .concat(glyphBoxSegs(-0.62, 0.60, 1.04, 0.26));           // cuff
+    } },
+  // ONE BAND FOR THE ARCH, 2026-10-22 (AJ: "an odd line through the middle"). VFX's port (GLYPH_PORTED, never edited
+  // here) closes its two half-discs at different heights (-0.054 and -0.026) and the sliver between fills as a line;
+  // this redraw replaces it in UI in place (same name, same slot). One outline: legs and arch, the poles cut.
+  { name: "magnet", segs: function () {
+      const p = [[-0.74, 0.76], [-0.74, -0.04]], q = [];
+      for (let i = 0; i <= 32; i++) { const a = Math.PI + Math.PI * i / 32; p.push([Math.cos(a) * 0.74, -0.04 + Math.sin(a) * 0.74]); }
+      p.push([0.74, 0.76], [0.42, 0.76], [0.42, -0.04]);
+      for (let i = 32; i >= 0; i--) { const a = Math.PI + Math.PI * i / 32; p.push([Math.cos(a) * 0.42, -0.04 + Math.sin(a) * 0.42]); }
+      p.push([-0.42, -0.04], [-0.42, 0.76]);
+      return glyphPolySegs(p).concat(glyphBoxSegs(-0.74, 0.48, 0.32, 0.09), glyphBoxSegs(0.42, 0.48, 0.32, 0.09));   // the poles, cut
     } },
 
   // Band and stone. The stone's base sits EXACTLY on the band's outer edge — through it and the
@@ -2240,14 +2285,16 @@ const GLYPH_LATE = [
   // A BREAKER. The curl is the read — a crest that overhangs its own base — so the barrel is a
   // HOLE in the wave rather than empty space beside it, which is the only way the overhang survives
   // at 30px. `wave` is the sine ribbon; this is the one that is about to land on you.
+  // A CURL, 2026-10-22 (AJ: "barely recognizable as a tidal wave"): it was a hill with a hook and a crescent hole. A
+  // wave is told by its LIP: the back rises, the crest rolls over to the right and its lip hangs down and in, leaving
+  // a hollow barrel OPEN to the right (a hole inside the shape read as a moon); the face runs out low to the right.
   { name: "tidalwave", segs: function () {
-      return [["M", -0.94, 0.78], ["Q", -0.94, -0.20, -0.30, -0.62],
-              ["Q", 0.30, -0.98, 0.86, -0.72], ["Q", 0.96, -0.66, 0.94, -0.52],
-              ["Q", 0.60, -0.72, 0.26, -0.52], ["Q", 0.72, -0.44, 0.80, 0.02],
-              ["Q", 0.88, 0.52, 0.60, 0.78], ["Z"]]
-        // The barrel. It sits wholly inside the crest, so it cannot reach an edge and split it.
-        .concat([["M", 0.20, -0.20], ["Q", 0.56, -0.10, 0.52, 0.26],
-                 ["Q", 0.48, 0.56, 0.16, 0.56], ["Q", 0.34, 0.16, 0.20, -0.20], ["Z"]]);
+      return [["M", -0.92, 0.80], ["Q", -0.72, 0.06, -0.30, -0.46],
+              ["Q", 0.08, -0.92, 0.54, -0.80], ["Q", 0.94, -0.66, 0.88, -0.24],     // the crest, rolling over
+              ["Q", 0.84, 0.04, 0.58, 0.06],                                        // the lip's tip, hanging in
+              ["Q", 0.70, -0.16, 0.58, -0.34], ["Q", 0.42, -0.52, 0.18, -0.38],     // under the lip
+              ["Q", -0.08, -0.18, 0.02, 0.22], ["Q", 0.10, 0.56, 0.94, 0.56],       // the barrel's back, the face
+              ["L", 0.94, 0.80], ["Z"]];
     } },
 
   // A FISSURE. It BRANCHES, and that is the whole separation from `bolt`: a zigzag with no forks is
@@ -2276,13 +2323,20 @@ const GLYPH_LATE = [
   // A RANGE, not a triangle. TWO peaks of unequal height with a valley between them, plus a snowcap
   // that is a cut following the summit — a single triangle scores against `triangle` and `shard`
   // and deserves to, because it IS one.
+  // FUJI, 2026-10-22 (AJ: "odd floating bits ... very sharp, looks kind of like broken glass. How about something more
+  // Fuji-esque?"). The old snowcap cut poked past the peaks' edges, and even-odd turned each overhang into a floating
+  // pixel. Now ONE broad cone, its flanks steepening toward a small crater, and a snowline that stays wholly INSIDE the
+  // cone (a cut that reaches an edge splits or speckles it): snow above, rock below, a zigzag where they meet.
   { name: "mountain", segs: function () {
       return glyphPolySegs([
-        [-0.96, 0.72], [-0.34, -0.66], [-0.06, -0.10], [0.16, -0.44],
-        [0.34, -0.16], [0.44, -0.30], [0.96, 0.72],
+        [-0.96, 0.72], [-0.62, 0.36], [-0.40, 0.00], [-0.18, -0.56],          // the left flank, steepening
+        [-0.08, -0.50], [0, -0.58], [0.08, -0.50],                             // the crater
+        [0.18, -0.56], [0.40, 0.00], [0.62, 0.36], [0.96, 0.72],
       ])
-        .concat(glyphPolySegs([[-0.34, -0.66], [-0.13, -0.20], [-0.24, -0.14],
-                          [-0.34, -0.30], [-0.44, -0.14], [-0.55, -0.20]]));   // snowcap, a cut
+        .concat((function () {                                              // the snowline: a zigzag cut of ONE
+          const top = [[-0.36, 0.04], [-0.22, 0.18], [-0.11, 0.06], [0, 0.18], [0.11, 0.06], [0.22, 0.18], [0.36, 0.04]];
+          return glyphPolySegs(top.concat(top.slice().reverse().map(function (p) { return [p[0], p[1] + 0.11]; })));
+        })());                                                              // width (a band of varying width read as glasses)
     } },
 
   // ── HARDWARE, SIGNAGE AND A BAND ──────────────────────────────────────────────────────────────
@@ -2507,16 +2561,19 @@ const GLYPH_LATE = [
               ["Q", -0.88, -0.54, -0.44, -0.62], ["Q", -0.16, -0.66, -0.04, -0.42], ["Z"]];
     } },
 
-  // A CELL. The charge bars stop well short of the casing on both sides — at full width they would
-  // slice the battery into four floating blocks, which is the `vial` rule in its plainest form.
-  { name: "battery", segs: function () {
-      return glyphPolySegs([
-        [-0.52, -0.72], [-0.20, -0.72], [-0.20, -0.92], [0.20, -0.92], [0.20, -0.72],
-        [0.52, -0.72], [0.52, 0.90], [-0.52, 0.90],
-      ])
-        .concat(glyphBoxSegs(-0.34, -0.48, 0.68, 0.16))
-        .concat(glyphBoxSegs(-0.34, -0.16, 0.68, 0.16))
-        .concat(glyphBoxSegs(-0.34, 0.16, 0.68, 0.16));
+  // A CELL, LYING DOWN, 2026-10-22 (AJ: "a battery icon is actually an obvious thing we're missing"; it was here, a
+  // solid block with dark stripes, and did not read as charge). Now the universal status-bar battery: an OUTLINE case,
+  // a terminal nub, and FILLED charge bars inside it, with a Charge knob (0-4 bars) so it can be a meter. The bars sit
+  // inside the case's hole with a margin, so they never touch the wall (touching would merge them into it).
+  { name: "battery", system: true, slots: { charge: 3 },   // a system mark (AJ: "up with the menu and system icons")
+    controls: [["charge", "Charge", 0, 4]],
+    segs: function (rp) {
+      const n = Math.max(0, Math.min(4, Math.round(rp && rp.charge != null ? rp.charge : 3)));
+      const out = glyphBoxSegs(-0.88, -0.46, 1.58, 0.92)                        // the case
+        .concat(glyphBoxSegs(-0.74, -0.32, 1.30, 0.64))                          // its hollow, a cut
+        .concat(glyphBoxSegs(0.70, -0.20, 0.20, 0.40));                          // the nub, abutting
+      for (let k = 0; k < n; k++) out.push.apply(out, glyphBoxSegs(-0.64 + k * 0.30, -0.22, 0.22, 0.44));
+      return out;
     } },
 
   // A TALL BOTTLE. Three bottles in the roster now and they are separated by PROPORTION, not by
@@ -2694,14 +2751,16 @@ const GLYPH_LATE = [
       // FORWARD of the frame's rear left a 6x13px wedge of BACKGROUND between them, so the slide
       // read as a separate bar resting on the frame rather than as one body. The two share a rear
       // edge; the beavertail is now expressed by the grip's rake below it, where it actually is.
+      // SIXTH, 2026-10-22 (AJ: "still very disproportionate"), with CrunchyItem's pistol as the reference for its
+      // proportions: a LONG, SLIM slide (1.84 wide, 0.38 tall), a small grip raked back under its rear, and a trigger
+      // guard that is a squared loop under the slide, not a round hole in a slab.
       return glyphPolySegs([
-        [-0.73, -0.73], [-0.63, -0.73], [-0.63, -0.85], [-0.49, -0.85], [-0.49, -0.73],
-        [0.78, -0.73], [0.78, -0.85], [0.89, -0.85], [0.89, -0.73],     // front and rear sights
-        [0.95, -0.73], [0.95, -0.33], [0.13, -0.33],                    // slide, muzzle right
-        [0.13, 0.46], [-0.30, 0.46],                                    // guard: front bar, floor
-        [-0.44, 0.90], [-0.95, 0.90], [-0.73, 0.02],                    // grip, raked back
-        [-0.73, -0.33],                                                 // frame rear, one edge
-      ]).concat(glyphOvalSegs(-0.24, 0.10, 0.22, 0.21));                     // the trigger gap, a cut
+        [-0.80, -0.62], [-0.74, -0.62], [-0.74, -0.72], [-0.62, -0.72], [-0.62, -0.62],     // rear sight
+        [0.80, -0.62], [0.80, -0.72], [0.90, -0.72], [0.90, -0.62], [0.94, -0.62],         // front sight
+        [0.94, -0.24], [0.14, -0.24],                                                      // the slide, muzzle right
+        [0.14, 0.06], [0.04, 0.16], [-0.30, 0.16],                                         // the guard's bow
+        [-0.44, 0.84], [-0.90, 0.84], [-0.72, -0.10], [-0.80, -0.24],                      // the grip, raked back
+      ]).concat(glyphPolySegs([[-0.22, -0.16], [0.06, -0.16], [0.06, 0.02], [-0.02, 0.08], [-0.22, 0.08]]));   // the guard's opening, a cut
     } },
 
   // A SCALLOP SHELL — and the reason it exists is a good one (maintainer's, 2026-08-17: "I think
@@ -2906,12 +2965,15 @@ const GLYPH_LATE = [
   // AND THE BAND IS A STEP OUT, NEVER A CUT. A horizontal slot across the strip would sever it —
   // the same rule the surfboard's stringer obeys from the other side. A binding that stands PROUD
   // of the body says the same thing and costs the outline nothing.
+  // A SLIP OF PAPER, 2026-10-22 (AJ: "Ofuda looks like Oden": a pointed stick with a crossbar, skewered food). An ofuda
+  // is a tall paper talisman written top to bottom: the slip, a header band, and a column of brush strokes, all cuts
+  // inside it that never cross (two crossing cuts fill back in where they meet).
   { name: "ofuda", segs: function () {
-      return glyphPolySegs([[0, -0.92], [0.58, -0.62], [0.58, -0.46], [0.28, -0.46],
-                       [0.28, 0.14], [0.40, 0.14], [0.40, 0.36], [0.28, 0.36],
-                       [0.28, 0.93], [-0.28, 0.93], [-0.28, 0.36], [-0.40, 0.36],
-                       [-0.40, 0.14], [-0.28, 0.14], [-0.28, -0.46], [-0.58, -0.46],
-                       [-0.58, -0.62]]);
+      return glyphBoxSegs(-0.42, -0.94, 0.84, 1.88)
+        .concat(glyphBoxSegs(-0.30, -0.70, 0.60, 0.09))                    // the header band
+        .concat(glyphBoxSegs(-0.05, -0.46, 0.10, 1.20))                    // the column's main stroke
+        .concat(glyphBoxSegs(-0.28, -0.32, 0.16, 0.08), glyphBoxSegs(0.12, -0.12, 0.16, 0.08),
+                glyphBoxSegs(-0.28, 0.12, 0.16, 0.08), glyphBoxSegs(0.12, 0.36, 0.16, 0.08));   // its side strokes
     } },
 
   // AN EAR OF CORN, and the kernels are NOT drawn — which took four attempts to accept. A grid of
@@ -2931,28 +2993,19 @@ const GLYPH_LATE = [
   // It suggests rows without becoming lumps; at 0.085 the cob is a pine cone. The sweep cannot see
   // it (24x24 downsampling swallows +/-1px, and the score is identical either way), so it is a
   // judgment made on the mask and recorded as one.
+  // A COB IN ITS HUSK, 2026-10-22 (AJ: "Corn looks like a cluster of crystals": three pointed spikes). Corn is told by
+  // a ROUNDED cob with a GRID of kernels and two husk leaves peeling away from its foot. Cob, leaves and kernels are
+  // separate loops that never touch: the kernels are cuts inside the cob, the leaves stand a gap outside it.
   { name: "corn", segs: function () {
-      // THE HUSKS REACH UP, and getting there cost five wrong drawings. Every version with the
-      // leaves BELOW the ear read as a rocket — a capsule over two symmetric fins is an
-      // overwhelming silhouette, and no amount of asymmetry, hanging, or blade width dislodged it.
-      // Real corn puts the husks ALONGSIDE the ear at roughly its own visual mass, so the glyph is
-      // three vertical parts sharing a base rather than a body with feet.
-      //
-      // AND THE KERNELS ARE NOT DRAWN. A grid of holes is the obvious identity and the cob is 12px
-      // wide at ship size, so the grid eats it — the glyph came back as a lattice, and tilting it
-      // made mush. Interior detail never separates an icon at this size; the outline does.
-      //
-      // ONE TRACED LOOP: down the cob's rail, up the husk's inner edge to its tip, down its outer
-      // edge, across the base, mirror. Separate subpaths would CANCEL where a husk crosses the cob
-      // (§11.3), and butting them to a tangent is not a join either (the `clover` lesson).
-      const cw = 0.30;
-      return glyphPolySegs([
-        [0, -0.97], [cw * 0.9, -0.55], [cw, -0.05], [cw * 0.93, 0.46],
-        [0.24, 0.60], [0.60, -0.46], [0.72, 0.04], [0.50, 0.80],
-        [0.13, 0.96], [-0.13, 0.96],
-        [-0.50, 0.80], [-0.72, 0.04], [-0.60, -0.46], [-0.24, 0.60],
-        [-cw * 0.93, 0.46], [-cw, -0.05], [-cw * 0.9, -0.55],
-      ]);
+      const cob = [];
+      for (let i = 0; i < 32; i++) { const a = i * Math.PI / 16; cob.push([Math.cos(a) * 0.30, -0.18 + Math.sin(a) * 0.70]); }
+      const kernels = [];
+      // ROWS, not a grid: at 15 px (a theme's corner ornament) a grid's two columns of holes became a pair of eyes
+      for (let r = 0; r < 4; r++) kernels.push(glyphBoxSegs(-0.17, -0.56 + r * 0.26, 0.34, 0.09));
+      const leaf = function (m) { return glyphPolySegs([[-0.03, 0.92], [-0.46, 0.64], [-0.68, 0.20], [-0.66, -0.26],
+                                                          [-0.48, 0.04], [-0.40, 0.36], [-0.22, 0.62], [-0.03, 0.76]]
+                                                         .map(function (p) { return [p[0] * m, p[1]]; })); };
+      return glyphPolySegs(cob).concat.apply(glyphPolySegs(cob), kernels).concat(leaf(1), leaf(-1));
     } },
 
   // ---- THE DESKTOP TRIO (maintainer's, 2026-08-21: "we should have some more of the basic icons
@@ -2972,12 +3025,13 @@ const GLYPH_LATE = [
   { name: "folder", system: true, segs: function () {
       // The tab is the entire identity. Everything else here is a rectangle, so the step up on the
       // LEFT of the top edge is what stops this being `stop` with a lid.
-      const t = 0.14;
-      return [["M", -0.84, -0.50], ["L", -0.22, -0.50], ["L", -0.08, -0.28], ["L", 0.84, -0.28],
-              ["L", 0.84, 0.60], ["L", -0.84, 0.60], ["Z"],
-              ["M", -0.84 + t, -0.50 + t], ["L", -0.22 - t * 0.2, -0.50 + t],
-              ["L", -0.08 - t * 0.2, -0.28 + t], ["L", 0.84 - t, -0.28 + t],
-              ["L", 0.84 - t, 0.60 - t], ["L", -0.84 + t, 0.60 - t], ["Z"]];
+      // TALLER, 2026-10-22 (AJ: "a bit short"): 1.48 of the box's 2 high (it was 1.1), the tab's step unchanged.
+      const t = 0.14, top = -0.72, lid = -0.48, bot = 0.76;
+      return [["M", -0.84, top], ["L", -0.22, top], ["L", -0.08, lid], ["L", 0.84, lid],
+              ["L", 0.84, bot], ["L", -0.84, bot], ["Z"],
+              ["M", -0.84 + t, top + t], ["L", -0.22 - t * 0.2, top + t],
+              ["L", -0.08 - t * 0.2, lid + t], ["L", 0.84 - t, lid + t],
+              ["L", 0.84 - t, bot - t], ["L", -0.84 + t, bot - t], ["Z"]];
     } },
 
   // ONE FLAT `segs` WITH EVEN-ODD PARITIES, not `segsAll` — `pathIconDef` reads `d.segs` and
@@ -3558,6 +3612,19 @@ const GLYPH_LATE = [
   { name: "fastforward", system: true, segs: function () { return glyphSeekSegs(false); } },
   { name: "rewind", system: true, segs: function () { return glyphSeekSegs(true); } },
 
+
+  // ── POWER, FROM IEC 60417 (AJ, 2026-10-22: "Power on and off are also oversights") ──────────────────────────────
+  // The international equipment symbols every device shares: 5009 the power button (a ring broken at the top, a bar
+  // through the gap) and 5010 on/off (a bar inside a ring). The bar never touches the ring, so neither cuts the other.
+  // 5007 on (a bar) and 5008 off (a ring) were drawn and dropped: alone they are a line and a circle (the bar's
+  // silhouette was `vial`'s, measured), which say "power" only beside a switch.
+  { name: "power", system: true, segs: function () {
+      return glyphArcBand(0, 0.08, 0.56, 0.78, -Math.PI / 2 + 0.62, 1.5 * Math.PI - 0.62)
+        .concat(glyphBoxSegs(-0.09, -0.92, 0.18, 0.88));
+    } },
+  { name: "powertoggle", system: true, segs: function () {
+      return glyphCircleSegs(0, 0, 0.84).concat(glyphCircleSegs(0, 0, 0.64), glyphBoxSegs(-0.14, -0.46, 0.28, 0.92));
+    } },
 ];
 
 // THE SAXOPHONE WAS REJECTED ONCE AND THE REJECTION WAS MEASURED AT THE WRONG SIZE (2026-08-26).
@@ -3860,7 +3927,7 @@ function glyphRoster() {
   // A drawn glyph: its main path, then whatever it draws back on top.
   const drawn = function (d, group, hidden) {
     return {
-      name: d.name, group: group, ported: false, hidden: !!hidden,
+      name: d.name, group: d.system ? "mark" : group, ported: false, hidden: !!hidden,   // a shape may file as a mark (battery)
       slots: d.slots || {}, knobs: d.controls || [],
       layers: function (rp) {
         const L = [d.segs(rp)];
