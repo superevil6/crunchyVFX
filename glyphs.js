@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/glyphs.js @ 36ba26a by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/glyphs.js @ 960fa5f by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 8d1e38aba86b06a7bd98e62ce2ac35e13ea63e62d50b8d706446c22709db7743
 "use strict";
 // Crunchy suite: GLYPHS. The icon DRAWINGS CrunchyUI's icon roster is made of (close, check, cog, sword, flame, the
