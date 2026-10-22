@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/glyphs.js @ 049fc87 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 9ea3d09fee1b00cb03f5f28e71ebe51c3803745c04970468434827a9b1d74284
+// GENERATED from crunchyCore/glyphs.js @ 0edc74b by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 cab51991feb9dfd9e0625fe1dba2edda036d97909b9dd574a75008023a0dc4df
 "use strict";
 // Crunchy suite: GLYPHS. The icon DRAWINGS CrunchyUI's icon roster is made of (close, check, cog, sword, flame, the
 // button letters, START …), shared so any app can draw the same icon: CrunchyUI wraps them in its treatment (styles,
@@ -49,7 +49,7 @@
 // The long notes below are the drawings' own history, written while CrunchyUI authored them; a § number in them is
 // CrunchyUI's UI-DESIGN.md, and "the treatment", "pathOps", "ELEMENT_DEFS" and "the sheet" are CrunchyUI's.
 
-const GLYPHS_BUILD = 3;
+const GLYPHS_BUILD = 4;
 
 // CLOCKWISE, because screen y runs DOWN: `glyphRotPt` is the ordinary rotation matrix, and under a
 // flipped y a positive angle turns the way a clock does. Worth stating rather than leaving as an
@@ -1548,6 +1548,76 @@ function glyphSeekSegs(back) {
   let P = [[-W, -H], [0, -yAt], [0, -H], [W, 0], [0, H], [0, yAt], [-W, H]];
   if (back) P = P.map(function (p) { return [-p[0], p[1]]; });
   return glyphPolySegs(P);
+}
+
+// ---- STROKES FOR THE EQUIPMENT SET (IEC 60417 / the status bar, 2026-10-22) ------------------------------------------
+// A line drawn as its TRUE OUTLINE: an open polyline of half-width h, mitered at every bend and butt-capped at both
+// ends, as ONE loop (so a bend never cancels itself). `glyphStrokeRing` is the same for a closed CONVEX polygon: an
+// outer loop and an inner one, so even-odd leaves exactly the stroke. Strokes that CROSS go in separate layers
+// (`over`, `more`), which union; within one layer they would cancel where they meet.
+// The offset corner at p1, as a LIST of points: the miter, or (where an acute corner's miter would run past twice
+// the half-width, on the OUTSIDE of the turn) a bevel of two. Without the limit Bluetooth's 50-degree points spiked
+// a fifth of the box past their vertex and out of it. The inside of a turn is always the true intersection.
+function glyphMiter(p0, p1, p2, h) {
+  const n0 = glyphUnitNormal(p0, p1), n1 = glyphUnitNormal(p1, p2);
+  const mx = n0[0] + n1[0], my = n0[1] + n1[1], d = (mx * n0[0] + my * n0[1]) || 1;
+  const q = [p1[0] + mx * h / d, p1[1] + my * h / d];
+  const ex = (p1[0] - p0[0]) / (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1) - (p2[0] - p1[0]) / (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1);
+  const ey = (p1[1] - p0[1]) / (Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1) - (p2[1] - p1[1]) / (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1);
+  const far = Math.hypot(q[0] - p1[0], q[1] - p1[1]) > 2 * Math.abs(h);
+  if (far && (q[0] - p1[0]) * ex + (q[1] - p1[1]) * ey > 0) {
+    return [[p1[0] + n0[0] * h, p1[1] + n0[1] * h], [p1[0] + n1[0] * h, p1[1] + n1[1] * h]];
+  }
+  return [q];
+}
+function glyphStrokeLine(pts, h) {
+  const L = [], R = [], n = pts.length;
+  for (let i = 0; i < n; i++) {
+    let a;
+    if (i === 0 || i === n - 1) {
+      const nn = i === 0 ? glyphUnitNormal(pts[0], pts[1]) : glyphUnitNormal(pts[n - 2], pts[n - 1]);
+      L.push([pts[i][0] + nn[0] * h, pts[i][1] + nn[1] * h]);
+      R.push([pts[i][0] - nn[0] * h, pts[i][1] - nn[1] * h]);
+    } else {
+      a = glyphMiter(pts[i - 1], pts[i], pts[i + 1], h); L.push.apply(L, a);
+      a = glyphMiter(pts[i - 1], pts[i], pts[i + 1], -h); R.push.apply(R, a.reverse());
+    }
+  }
+  return glyphPolySegs(L.concat(R.reverse()));
+}
+function glyphStrokeRing(pts, h) {
+  const n = pts.length, A = [], B = [];
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i + n - 1) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
+    A.push.apply(A, glyphMiter(p0, p1, p2, h)); B.push.apply(B, glyphMiter(p0, p1, p2, -h));
+  }
+  return glyphPolySegs(A).concat(glyphPolySegs(B));
+}
+// Points along a circle from a0 to a1 (radians, clockwise on screen), both ends included.
+function glyphArcPts(cx, cy, r, a0, a1, n) {
+  const out = [];
+  for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; out.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  return out;
+}
+// A box with round corners as one loop (radius rr), for the device bodies (camera, printer).
+function glyphRoundBoxSegs(x, y, w, h, rr) {
+  const P = [].concat(glyphArcPts(x + w - rr, y + rr, rr, -Math.PI / 2, 0, 6),
+                      glyphArcPts(x + w - rr, y + h - rr, rr, 0, Math.PI / 2, 6),
+                      glyphArcPts(x + rr, y + h - rr, rr, Math.PI / 2, Math.PI, 6),
+                      glyphArcPts(x + rr, y + rr, rr, Math.PI, 1.5 * Math.PI, 6));
+  return glyphPolySegs(P);
+}
+
+// Skip next / previous (see the equipment set in GLYPH_LATE): the play triangle with a bar butted to its point.
+function glyphSkipSegs(back) {
+  let P = [[-0.80, -0.80], [0.44, 0], [-0.80, 0.80]], B = [[0.52, -0.80], [0.80, -0.80], [0.80, 0.80], [0.52, 0.80]];
+  if (back) { P = P.map(function (p) { return [-p[0], p[1]]; }); B = B.map(function (p) { return [-p[0], p[1]]; }); }
+  return glyphPolySegs(P).concat(glyphPolySegs(B));
+}
+// The open tray under download / upload.
+function glyphTraySegs() {
+  return glyphPolySegs([[-0.94, 0.24], [-0.74, 0.24], [-0.74, 0.72], [0.74, 0.72], [0.74, 0.24], [0.94, 0.24],
+                        [0.94, 0.92], [-0.94, 0.92]]);
 }
 
 const GLYPH_LATE = [
@@ -3625,6 +3695,247 @@ const GLYPH_LATE = [
   { name: "powertoggle", system: true, segs: function () {
       return glyphCircleSegs(0, 0, 0.84).concat(glyphCircleSegs(0, 0, 0.64), glyphBoxSegs(-0.14, -0.46, 0.28, 0.92));
     } },
+
+  // ── THE EQUIPMENT SET: IEC 60417 / ISO 7000 AND THE STATUS BAR (AJ, 2026-10-22: "we might as well go the full mile") ─
+  // UI's kits are also desktop themes (the KDE pack), so the marks every OS and device panel shares: radios, transport,
+  // dialogs, devices. Each is `system: true`. What the roster ALREADY had was not redrawn: volume up/down/mute is
+  // `sound` (Level 0-3, 0 = the cross), settings is `cog`, sync is `refresh`, a link is `chain`, an account is `bust`,
+  // info and warning are `info` and `warn`. An IEC 60417 / ISO 7000 / ISO 7010 number is cited where the mark has one;
+  // Wi-Fi, Bluetooth and USB are their consortia's marks, the rest the convergent OS drawing.
+  //
+  // CROSSING STROKES GO IN SEPARATE LAYERS (`over`, `more`). Bluetooth's rune, shuffle's arrows, share's spokes and
+  // USB's trident all cross or meet; in one even-odd layer every meeting would punch a hole (§11.3), so each stroke is
+  // its own layer and the layers union. Cuts (help's ?, error's X, mail's flap, camera's lens) stay single loops wholly
+  // inside their shape.
+
+  // Wi-Fi: a dot and three bands fanned at +-45 degrees about it. The Wi-Fi Alliance's own mark is a wordmark; this is
+  // the status-bar drawing everyone converged on.
+  { name: "wifi", system: true, segs: function () {
+      const cy = 0.58, a0 = -Math.PI * 3 / 4, a1 = -Math.PI / 4;
+      return glyphCircleSegs(0, cy, 0.17)
+        .concat(glyphArcBand(0, cy, 0.37, 0.56, a0, a1))
+        .concat(glyphArcBand(0, cy, 0.75, 0.94, a0, a1))
+        .concat(glyphArcBand(0, cy, 1.13, 1.32, a0, a1));
+    } },
+
+  // Bluetooth's rune (the Hagall and Bjarkan bind-rune): a stem, two closed pennants to the right, two tails to the
+  // left. The pennants are stroked triangles (outline + hole) and the tails end inside their strokes at the waist.
+  { name: "bluetooth", system: true,
+    segs: function () {
+      const X = -0.08, H = 0.88, R = 0.54, h = 0.095;
+      return glyphStrokeRing([[X, -H], [X + R, -H / 2], [X, 0]], h);
+    },
+    over: function () {
+      const X = -0.08, H = 0.88, R = 0.54, h = 0.095;
+      return glyphStrokeRing([[X, 0], [X + R, H / 2], [X, H]], h);
+    },
+    more: function () {
+      const X = -0.08, H = 0.88, R = 0.54, h = 0.095, T = -0.54;
+      return [glyphStrokeLine([[T, -0.46], [X, 0]], h), glyphStrokeLine([[T, 0.46], [X, 0]], h)];
+    } },
+
+  // Cellular signal: four bars rising to the right. Strength 0-4 says how many are lit; an unlit bar keeps a stub at
+  // the baseline (an outline bar would be a hole too thin to survive 16 px), so 0 is still recognizably the meter.
+  { name: "signal", system: true, slots: { strength: 4 },
+    controls: [["strength", "Strength", 0, 4]],
+    segs: function (rp) {
+      const w = 0.30, g = 0.14, B = 0.92, x0 = -(4 * w + 3 * g) / 2;
+      let out = [];
+      for (let i = 0; i < 4; i++) {
+        const hgt = i < rp.strength ? 0.46 + i * 0.46 : 0.18;
+        out = out.concat(glyphBoxSegs(x0 + i * (w + g), B - hgt, w, hgt));
+      }
+      return out;
+    } },
+
+  // Eject: a triangle over a bar (the bar is clear of the triangle; IEC 60417 has an eject mark, number not cited here).
+  { name: "eject", system: true, segs: function () {
+      return glyphPolySegs([[0, -0.86], [0.88, 0.14], [-0.88, 0.14]])
+        .concat(glyphBoxSegs(-0.88, 0.40, 1.76, 0.34));
+    } },
+
+  // Skip next / previous: the play triangle butted against a bar (media-skip-forward / -backward). One function, the
+  // second mirrored, like fastforward/rewind.
+  { name: "skipnext", system: true, segs: function () { return glyphSkipSegs(false); } },
+  { name: "skipprev", system: true, segs: function () { return glyphSkipSegs(true); } },
+
+  // Repeat: two L-shaped arrows chasing each other round a rectangle, each one outline; the pair never touch.
+  { name: "repeat", system: true, segs: function () {
+      const A = [[-0.80, 0.08], [-0.80, -0.44], [0.38, -0.44], [0.38, -0.68], [0.90, -0.33], [0.38, 0.02],
+                 [0.38, -0.22], [-0.58, -0.22], [-0.58, 0.08]];
+      return glyphPolySegs(A).concat(glyphPolySegs(A.map(function (p) { return [-p[0], -p[1]]; })));
+    } },
+
+  // Shuffle: two crossing paths with their heads at the right. Each path is its own layer (they cross at the middle).
+  { name: "shuffle", system: true,
+    segs: function () { return glyphStrokeLine([[-0.92, -0.50], [-0.40, -0.50], [0.18, 0.50], [0.50, 0.50]], 0.10); },
+    over: function () { return glyphStrokeLine([[-0.92, 0.50], [-0.40, 0.50], [0.18, -0.50], [0.50, -0.50]], 0.10); },
+    more: function () {
+      return [glyphPolySegs([[0.46, -0.80], [0.94, -0.50], [0.46, -0.20]])
+                .concat(glyphPolySegs([[0.46, 0.20], [0.94, 0.50], [0.46, 0.80]]))];
+    } },
+
+  // Help: a question mark inside a RING. A solid disc with the ? cut (`info`'s construction) measured 0.874 against
+  // `info` itself: two discs with small holes are one silhouette. Ringed, the ? is solid (a third loop, inside the
+  // ring's hole, fills again) and the hook and neck are one loop.
+  { name: "help", system: true, segs: function () {
+      const cx = 0, cy = -0.25, ro = 0.36, ri = 0.15, e = 0.40;
+      const P = glyphArcPts(cx, cy, ro, Math.PI, 2 * Math.PI + e, 20)
+        .concat([[0.105, 0.08], [0.105, 0.27], [-0.105, 0.27], [-0.105, 0.03]])
+        .concat(glyphArcPts(cx, cy, ri, 2 * Math.PI + e, Math.PI, 14));
+      return glyphCircleSegs(0, 0, 0.94).concat(glyphCircleSegs(0, 0, 0.78), glyphPolySegs(P),
+                                                glyphCircleSegs(0, 0.50, 0.13));
+    } },
+
+  // Error: a disc with an X cut through it (dialog-error).
+  { name: "error", system: true, segs: function () {
+      return glyphCircleSegs(0, 0, 0.94).concat(glyphCrossSegs(0.54, 0.13, Math.PI / 4));
+    } },
+
+  // Prohibited / unavailable: the ISO 7010 P001 general prohibition sign (ISO 3864-1's ring and bar at 45 degrees).
+  // The ring is one layer and the bar another, so the bar may run into the ring without cancelling it.
+  { name: "forbidden", system: true,
+    segs: function () { return glyphCircleSegs(0, 0, 0.94).concat(glyphCircleSegs(0, 0, 0.72)); },
+    over: function () { const k = 0.74 * Math.SQRT1_2; return glyphBarSegs(-k, -k, k, k, 0.11); } },
+
+  // A notification bell: dome, flared rim, the knob on top (laid over) and a clapper clear below.
+  { name: "bell", system: true,
+    segs: function () {
+      return [["M", -0.84, 0.60], ["L", 0.84, 0.60], ["L", 0.84, 0.46], ["Q", 0.60, 0.36, 0.60, 0.02],
+              ["L", 0.60, -0.14], ["C", 0.60, -0.54, 0.34, -0.76, 0, -0.76],
+              ["C", -0.34, -0.76, -0.60, -0.54, -0.60, -0.14], ["L", -0.60, 0.02],
+              ["Q", -0.60, 0.36, -0.84, 0.46], ["Z"]]
+        .concat(glyphPolySegs(glyphArcPts(0, 0.72, 0.24, 0, Math.PI, 10)));
+    },
+    over: function () { return glyphBoxSegs(-0.10, -0.94, 0.20, 0.30); } },
+
+  // Download / upload: an arrow into (out of) an open tray. The arrow is one outline, and clear of the tray.
+  { name: "download", system: true, segs: function () {
+      return glyphPolySegs([[-0.14, -0.94], [0.14, -0.94], [0.14, -0.12], [0.50, -0.12], [0, 0.42],
+                            [-0.50, -0.12], [-0.14, -0.12]]).concat(glyphTraySegs());
+    } },
+  { name: "upload", system: true, segs: function () {
+      return glyphPolySegs([[0, -0.94], [0.50, -0.40], [0.14, -0.40], [0.14, 0.44], [-0.14, 0.44],
+                            [-0.14, -0.40], [-0.50, -0.40]]).concat(glyphTraySegs());
+    } },
+
+  // Share: three nodes joined by two spokes (the Android / freedesktop share mark). Spokes and nodes are separate
+  // layers: the spokes meet inside the left node and would cancel each other there.
+  { name: "share", system: true,
+    segs: function () { return glyphBarSegs(-0.52, 0, 0.56, -0.56, 0.08); },
+    over: function () { return glyphBarSegs(-0.52, 0, 0.56, 0.56, 0.08); },
+    more: function () {
+      return [glyphCircleSegs(0.56, -0.62, 0.30).concat(glyphCircleSegs(-0.60, 0, 0.30), glyphCircleSegs(0.56, 0.62, 0.30))];
+    } },
+
+  // A microphone: the capsule, the U-shaped holder clear around its foot, and the stand (laid over the U's bottom).
+  { name: "mic", system: true,
+    segs: function () {
+      const cap = [].concat(glyphArcPts(0, -0.64, 0.30, Math.PI, 2 * Math.PI, 10),
+                            glyphArcPts(0, -0.08, 0.30, 0, Math.PI, 10));
+      const R = 0.62, r = 0.46, cy = -0.08;
+      const U = [[R, -0.40]].concat(glyphArcPts(0, cy, R, 0, Math.PI, 18), [[-R, -0.40], [-r, -0.40]],
+                                    glyphArcPts(0, cy, r, Math.PI, 0, 14), [[r, -0.40]]);
+      return glyphPolySegs(cap).concat(glyphPolySegs(U));
+    },
+    over: function () {
+      return glyphBoxSegs(-0.09, 0.46, 0.18, 0.32).concat(glyphBoxSegs(-0.40, 0.78, 0.80, 0.16));
+    } },
+
+  // A camera: body with the viewfinder hump in one outline, the lens a ring (a hole with a disc inside it).
+  { name: "camera", system: true, segs: function () {
+      return [["M", -0.80, -0.50], ["L", -0.40, -0.50], ["L", -0.26, -0.74], ["L", 0.26, -0.74], ["L", 0.40, -0.50],
+              ["L", 0.80, -0.50], ["Q", 0.94, -0.50, 0.94, -0.36], ["L", 0.94, 0.62], ["Q", 0.94, 0.76, 0.80, 0.76],
+              ["L", -0.80, 0.76], ["Q", -0.94, 0.76, -0.94, 0.62], ["L", -0.94, -0.36],
+              ["Q", -0.94, -0.50, -0.80, -0.50], ["Z"]]
+        .concat(glyphCircleSegs(0, 0.10, 0.46), glyphCircleSegs(0, 0.10, 0.26));
+    } },
+
+  // A printer: the sheet waiting on top (laid under), the body with its output slot cut, and the printed sheet
+  // hanging below (its own layer, with a line of print cut into it).
+  { name: "print", system: true,
+    segs: function () {
+      return glyphRoundBoxSegs(-0.94, -0.46, 1.88, 0.92, 0.14).concat(glyphBoxSegs(-0.66, 0.10, 1.32, 0.14));
+    },
+    over: function () { return glyphBoxSegs(-0.54, -0.94, 1.08, 0.52); },
+    more: function () {
+      return [glyphBoxSegs(-0.54, 0.30, 1.08, 0.64).concat(glyphBoxSegs(-0.32, 0.62, 0.64, 0.12))];
+    } },
+
+  // A mains plug: two prongs on a squared head that tapers into the cord. Everything abuts edge to edge.
+  { name: "plug", system: true, segs: function () {
+      return glyphBoxSegs(-0.36, -0.94, 0.18, 0.36).concat(glyphBoxSegs(0.18, -0.94, 0.18, 0.36))
+        .concat(glyphPolySegs([[-0.64, -0.58], [0.64, -0.58], [0.64, -0.06], [0.30, 0.36], [-0.30, 0.36],
+                               [-0.64, -0.06]]))
+        .concat(glyphBoxSegs(-0.10, 0.36, 0.20, 0.58));
+    } },
+
+  // A network (wired LAN): one node over two, joined by a forked connector that abuts all three.
+  { name: "network", system: true, segs: function () {
+      return glyphBoxSegs(-0.34, -0.92, 0.68, 0.44)
+        .concat(glyphBoxSegs(-0.94, 0.46, 0.68, 0.46), glyphBoxSegs(0.26, 0.46, 0.68, 0.46))
+        .concat(glyphPolySegs([[-0.09, -0.48], [0.09, -0.48], [0.09, 0.04], [0.69, 0.04], [0.69, 0.46], [0.51, 0.46],
+                               [0.51, 0.20], [-0.51, 0.20], [-0.51, 0.46], [-0.69, 0.46], [-0.69, 0.04],
+                               [-0.09, 0.04]]));
+    } },
+
+  // USB's trident: a stem with an arrowhead, a branch ending in a circle, another in a square, a disc at the foot.
+  // Each branch is its own layer (they start inside the stem).
+  { name: "usb", system: true,
+    segs: function () {
+      return glyphPolySegs([[-0.09, 0.66], [-0.09, -0.56], [-0.28, -0.56], [0, -0.96], [0.28, -0.56], [0.09, -0.56],
+                            [0.09, 0.66]]);
+    },
+    over: function () { return glyphStrokeLine([[0, 0.40], [-0.50, 0.02], [-0.50, -0.20]], 0.09); },
+    more: function () {
+      return [glyphStrokeLine([[0, 0.18], [0.50, -0.18], [0.50, -0.38]], 0.09),
+              glyphCircleSegs(0, 0.74, 0.22).concat(glyphCircleSegs(-0.50, -0.32, 0.18),
+                                                     glyphBoxSegs(0.32, -0.66, 0.36, 0.34))];
+    } },
+
+  // Earth (ground): IEC 60417-5017. A stem onto three shortening bars; all abut.
+  { name: "ground", system: true, segs: function () {
+      return glyphBoxSegs(-0.10, -0.94, 0.20, 0.90)
+        .concat(glyphBoxSegs(-0.88, -0.04, 1.76, 0.22), glyphBoxSegs(-0.56, 0.34, 1.12, 0.22),
+                glyphBoxSegs(-0.24, 0.72, 0.48, 0.22));
+    } },
+
+  // Airplane mode: a plane seen from above, nose up, as one outline.
+  { name: "airplane", system: true, segs: function () {
+      const R = [[0.12, -0.78], [0.12, -0.30], [0.94, 0.16], [0.94, 0.34], [0.12, 0.10], [0.12, 0.58],
+                 [0.40, 0.78], [0.40, 0.92], [0, 0.82]];
+      const Lf = R.slice(0, -1).reverse().map(function (p) { return [-p[0], p[1]]; });
+      return [["M", 0, -0.96], ["Q", 0.12, -0.94, 0.12, -0.78]]
+        .concat(R.slice(1).map(function (p) { return ["L", p[0], p[1]]; }))
+        .concat(Lf.slice(0, -1).map(function (p) { return ["L", p[0], p[1]]; }))
+        .concat([["Q", -0.12, -0.94, 0, -0.96], ["Z"]]);
+    } },
+
+  // Headphones: the band (a half ring) and two cups laid over its ends.
+  { name: "headphones", system: true,
+    segs: function () { return glyphArcBand(0, 0.12, 0.70, 0.86, Math.PI, 2 * Math.PI); },
+    over: function () {
+      return glyphRoundBoxSegs(-0.94, 0.04, 0.40, 0.84, 0.10).concat(glyphRoundBoxSegs(0.54, 0.04, 0.40, 0.84, 0.10));
+    } },
+
+  // Mail: an envelope with its flap cut as a chevron wholly inside the body.
+  { name: "mail", system: true, segs: function () {
+      return glyphBoxSegs(-0.94, -0.66, 1.88, 1.32)
+        .concat(glyphStrokeLine([[-0.72, -0.48], [0, 0.10], [0.72, -0.48]], 0.08));
+    } },
+
+  // Brightness: a disc half full (the left half solid, a half-disc cut on the right) inside eight short rays. Not
+  // `sun` (a solid disc and pointed rays), which is weather.
+  { name: "brightness", system: true, segs: function () {
+      let out = glyphCircleSegs(0, 0, 0.46)
+        .concat(glyphPolySegs(glyphArcPts(0, 0, 0.29, -Math.PI / 2, Math.PI / 2, 12)));
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, c = Math.cos(a), s2 = Math.sin(a);
+        out = out.concat(glyphBarSegs(c * 0.62, s2 * 0.62, c * 0.94, s2 * 0.94, 0.09));
+      }
+      return out;
+    } },
+
 ];
 
 // THE SAXOPHONE WAS REJECTED ONCE AND THE REJECTION WAS MEASURED AT THE WRONG SIZE (2026-08-26).
@@ -3932,6 +4243,7 @@ function glyphRoster() {
       layers: function (rp) {
         const L = [d.segs(rp)];
         if (d.over) L.push(d.over(rp));
+        if (d.more) L.push.apply(L, d.more(rp));   // further layers (IEC set, 2026-10-22): strokes that cross
         return L;
       },
     };
