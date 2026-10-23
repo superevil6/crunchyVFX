@@ -371,9 +371,9 @@
   const CORE = [
     { file: "suite.js", want: 13, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 11, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
-    { file: "plant.js", want: 14, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
-    { file: "library.js", want: 4, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
-    { file: "settings.js", want: 3, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
+    { file: "plant.js", want: 15, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
+    { file: "library.js", want: 5, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
+    { file: "settings.js", want: 4, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
     { file: "desktop.js", want: 4, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
@@ -383,7 +383,7 @@
   const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
   const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
   // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
-  if (base !== "9") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 9");
+  if (base !== "10") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 10");
   if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
   if (!bad.length) return;
   console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
