@@ -1,6 +1,6 @@
 [package]
 name = "crunchyvfx"
-version = "1.0.0"
+version = "1.1.0"
 description = "CrunchyVFX — a from-scratch sprite VFX generator"
 authors = ["superevil6"]
 edition = "2021"
