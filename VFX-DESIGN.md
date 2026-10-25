@@ -1892,3 +1892,15 @@ license, -ize and so on. Frames and export bytes did not move (`frame-hash.expec
   and blurbs, era hints and the tour, with the same word-boundary list as Tile's, SFX's and UI's rows.
 - `crunchysfx-synth.js` is generated (CrunchySFX's `tools/export-synth.py`, then `tools/pull-synth.py` here) and was not
   hand-edited; its comments follow the next re-vendor. The crunchyCore copies follow the next pull.
+
+## 32. Game moments: "Game moment" on a Library card (2026-10-24, crunchyCore MOMENTS.md)
+
+A card's **Game moment** opens crunchyCore's moment modal (`moments-ui.js`) with this effect in the Effect slot: add a
+CrunchySFX sound and a CrunchyShader hit look planted in the same game, a shake, a hit stop and delays, and Save plants
+`crunchy/moments/<slug>/<slug>.tscn` (a CrunchyMoment node: `$Hit.play_at($Enemy)`), the node's script once, and suite
+links to every piece. VFX now pulls `shader.js` (the real hit-look preview), `moments.js` and `moments-ui.js` from the
+core (no name clashes, checked), registered in index.html's DEPS and build.rs. Godot only (hidden on a Unity project).
+The desktop suite's `moments/` rows prove it (59/59); `safety/nothing-written-outside-crunchy-vfx` allows exactly
+crunchy/moments/ (the suite's, by design). `tests/run-ff.mjs` takes `UNMASK=1` to show file:// script errors in full.
+**Open, found on the way (NOT caused by this):** the frame hash differs from `frame-hash.expected.txt` for "Coin Burst"
+and "Prompt Pop" (and so the pack and the total) with or without the new scripts loaded: look before the next release.

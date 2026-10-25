@@ -24,7 +24,7 @@ const b = spawnSync("python3", [join(here, "build.py"), suite], { encoding: "utf
 if (b.status !== 0) { console.error(b.stdout + b.stderr); process.exit(2); }
 const prof = mkdtempSync(join(tmpdir(), "vfx-ff-"));
 writeFileSync(join(prof, "user.js"), 'user_pref("browser.dom.window.dump.enabled", true);\n' +
-  'user_pref("devtools.console.stdout.content", true);\n');
+  'user_pref("devtools.console.stdout.content", true);\n' + (process.env.UNMASK ? 'user_pref("security.fileuri.strict_origin_policy", false);\n' : ""));
 const ff = spawn("firefox", ["--headless", "--profile", prof, "--window-size=1400,900", "file://" + join(here, "run-" + suite + ".html")],
   { stdio: ["ignore", "pipe", "pipe"] });
 const lines = [];

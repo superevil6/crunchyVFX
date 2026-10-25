@@ -354,6 +354,9 @@
 <script src="project-app.js"></script>
 <script src="plant.js"></script>
 <script src="library.js"></script>
+<script src="shader.js"></script>
+<script src="moments.js"></script>
+<script src="moments-ui.js"></script>
 <script src="settings.js"></script>
 <script src="desktop.js"></script>
 <!-- Feedback (VFX-DESIGN §20; crunchyCore, GENERATED like the files above; CrunchyTile TILE-DESIGN §118). -->
@@ -377,6 +380,10 @@
     { file: "desktop.js", want: 4, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
+    // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
+    { file: "shader.js", want: 45, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
+    { file: "moments.js", want: 1, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
+    { file: "moments-ui.js", want: 1, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
@@ -9656,6 +9663,13 @@ const library = libraryMount({
     { label: "Re-export", title: "This version of CrunchyVFX would render it differently: re-export it from its saved settings, in place",
       when: (it) => !!projUpdates[it.asset.slug],
       run: (it) => projDo(async function () { await projUpdateOne(it.asset); projAfter(); projStatus("Re-exported " + it.name + " in place."); }) },
+    // GAME MOMENT (crunchyCore MOMENTS.md, AJ 2026-10-24): this effect with a sound, a hit look, a shake and a hit stop,
+    // as ONE Godot node (`$Hit.play_at($Enemy)`), made in the core's modal from what this game holds.
+    { label: "Game moment", title: "Make a game moment from this effect: add a sound, a hit look on the target, a screen shake and a hit stop, saved as one Godot node",
+      when: () => !!project && project.engine !== "unity",
+      run: (it) => momentOpen({ P: project, from: { slot: "effect", suite: "vfx", slug: it.asset.slug }, name: "Hit",
+        openApp: (key) => { const t = CRUNCHY_SUITE.find((x) => x.id === key); if (t && (t.web || t.desktop)) window.__TAURI__.opener.openUrl(t.web || t.desktop); },
+        onSaved: (a) => projStatus("Saved the game moment " + a.name + " (crunchy/moments/" + a.slug + "/). In your game: $" + a.name.replace(/[^A-Za-z0-9_]/g, "") + ".play_at($Enemy)") }) },
     { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",
       run: (it) => projDo(async function () {
         if (it.asset.data.ref) throw new Error(it.name + " has a reference image combined in, which a sidecar can't keep: open it, load the image, and save it under a new name.");

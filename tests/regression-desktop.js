@@ -276,7 +276,66 @@
     const c = card("Explosion");
     const lit = c.querySelector("canvas").getContext("2d").getImageData(0, 0, 96, 96).data.some(function (v, i) { return i % 4 === 3 && v > 0; });
     const acts = Array.from(c.querySelectorAll(".lib-acts button")).map(function (b) { return b.textContent; }).join(",");
-    return ok(lit && /fps/.test(c.textContent) && acts === "Rename,Replace,Duplicate,Delete" && card("Sparks") && /♪ sound/.test(card("Sparks").textContent), acts);
+    return ok(lit && /fps/.test(c.textContent) && acts === "Rename,Replace,Game moment,Duplicate,Delete" && card("Sparks") && /♪ sound/.test(card("Sparks").textContent), acts);
+  });
+  // GAME MOMENTS (crunchyCore MOMENTS.md step 2): a card's "Game moment" opens the core's modal with this effect in its
+  // slot; another app's planted sound and hit look (put on the disk as CrunchySFX and CrunchyShader would) appear after
+  // "Look again"; Save plants crunchy/moments/<slug>/<slug>.tscn with res:// paths to all three, the node's script once
+  // as a support file, and suite links; a second "Hit" never overwrites the first; deleting the effect is stopped by the
+  // removal guard, which names the moment's scene.
+  const momWav = function () {
+    const n = 2205, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer), w = function (o, t) { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 44100, true); v.setUint32(28, 88200, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(i / 8) * 6000), true);
+    return b;
+  };
+  const momSide = function (dir, slug, d) { M.put(dir + "/" + slug + "/" + slug + ".crunchy", JSON.stringify(Object.assign({ format: "crunchy-asset", version: 1, appVersion: "", hash: "2:1111111111111111", created: "2026-10-24T00:00:00.000Z", modified: "2026-10-24T00:00:00.000Z" }, d))); };
+  await t("moments/a-card-opens-the-modal-and-save-plants-the-moment", async function () {
+    momSide(GODOT + "/crunchy/sfx", "boom", { app: "crunchysfx", suite: "sfx", kind: "sound", name: "Boom", s: "x", wav: "boom.wav", files: ["boom.wav"] });
+    M.put(GODOT + "/crunchy/sfx/boom/boom.wav", momWav());
+    momSide(GODOT + "/crunchy/shader", "hit-flash", { app: "crunchyshader", suite: "shader", kind: "effect", name: "Hit flash", e: "hitflash", p: {}, files: ["hitflash.gdshader", "hitflash.tres"] });
+    M.put(GODOT + "/crunchy/shader/hit-flash/hitflash.gdshader", "shader_type canvas_item;\n");
+    M.put(GODOT + "/crunchy/shader/hit-flash/hitflash.tres", "[gd_resource type=\"ShaderMaterial\" format=3]\n");
+    cardButton("Explosion", "Game moment").click();
+    const ov = function () { return document.querySelector(".mom-overlay"); };
+    await wait(function () { return ov() && ov().querySelector("select[data-slot=effect]") && ov().querySelector("select[data-slot=sound]").options.length > 1; });
+    const sel = function (slot) { return ov().querySelector("select[data-slot=" + slot + "]"); };
+    const fx0 = sel("effect").value;
+    const pick = function (slot, v) { const s2 = sel(slot); s2.value = v; s2.dispatchEvent(new Event("change")); };
+    pick("sound", "sfx/boom"); pick("look", "shader/hit-flash");
+    const btn = function (text) { return Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === text; }); };
+    btn("Save to my game").click();
+    const scene = GODOT + "/crunchy/moments/hit/hit.tscn";
+    await wait(function () { return !!M.text(scene); });
+    const tscn = M.text(scene) || "", side2 = JSON.parse(M.text(GODOT + "/crunchy/moments/hit/hit.crunchy") || "null");
+    const script = M.text(GODOT + "/crunchy/moments/scripts/crunchy_moment.gd") || "";
+    const fxFile = (sidecar("explosion").files.find(function (f) { return /\.tscn$/.test(f); }) || "");
+    const want = ['path="res://crunchy/vfx/explosion/' + fxFile + '"', 'path="res://crunchy/sfx/boom/boom.wav"', 'path="res://crunchy/shader/hit-flash/hitflash.tres"',
+                  'path="res://crunchy/moments/scripts/crunchy_moment.gd"'];
+    const said = Array.from(ov().querySelectorAll(".mom-say")).map(function (e) { return e.textContent; }).join(" | ");
+    // a SECOND moment named Hit: a new modal, the same name, saves as "Hit 2"
+    btn("Cancel").click();
+    cardButton("Explosion", "Game moment").click();
+    await wait(function () { return ov() && sel("sound") && sel("sound").options.length > 1; });
+    Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Save to my game"; }).click();
+    await wait(function () { return !!M.text(GODOT + "/crunchy/moments/hit-2/hit-2.tscn"); });
+    const second = !!M.text(GODOT + "/crunchy/moments/hit-2/hit-2.tscn") && M.text(scene) === tscn;
+    Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Cancel"; }).click();
+    return ok(fx0 === "vfx/explosion" && fxFile && want.every(function (w) { return tscn.indexOf(w) >= 0; }) && /class_name CrunchyMoment/.test(script) &&
+              side2 && side2.app === "crunchymoments" && side2.kind === "moment" && side2.links.length === 3 && side2.links.every(function (l) { return l.mode === "reference"; }) &&
+              /play_at/.test(said) && !/Couldn't read|No effect/.test(said) && second && !ov(),
+      "effect " + fx0 + " · " + want.filter(function (w) { return tscn.indexOf(w) < 0; }).join(" ") + " · links " + (side2 && side2.links.length) + " · " + said + " · second " + second);
+  });
+  await t("moments/deleting-a-piece-a-moment-uses-is-stopped-and-names-it", async function () {
+    library.refresh();
+    await wait(function () { return !!cardButton("Explosion", "Delete"); });
+    await twice("Explosion", "Delete");
+    await wait(function () { return /hit\.tscn|moments/.test(status()) || !!document.querySelector(".lib-ask"); });
+    const ask = document.querySelector(".lib-ask"), text = (ask ? ask.textContent : "") + " " + status();
+    if (ask) { const no = ask.querySelector("[data-act=no]"); if (no) no.click(); }
+    await settle();
+    return ok(/the game moment “Hit”/.test(text) && !!M.text(ROOT + "/explosion/explosion.crunchy"), text.slice(0, 200));
   });
   await t("update/a-changed-export-is-marked-and-update-all-fixes-it", async function () {
     const d = sidecar("explosion"), png = M.bytes(ROOT + "/explosion/explosion.png");
@@ -664,7 +723,8 @@
     return ok(held && !sidecar(a.slug) && !card(a.name), msg());
   });
   await t("safety/nothing-written-outside-crunchy-vfx", function () {
-    const allowed = [ROOT + "/", UNITY + "/Assets/Crunchy/VFX/", PLAIN + "/crunchy/vfx/", "/home/aj/old.crunchyvfx"];
+    // (+ crunchy/moments/: a GAME MOMENT is the suite's, not VFX's, and lives there by design: crunchyCore MOMENTS.md)
+    const allowed = [ROOT + "/", GODOT + "/crunchy/moments/", UNITY + "/Assets/Crunchy/VFX/", PLAIN + "/crunchy/vfx/", "/home/aj/old.crunchyvfx"];
     const bad = writes().map(function (l) { return l.replace(/^(w|rm|rmdir) /, ""); })
       .filter(function (p) { return !allowed.some(function (a) { return p.indexOf(a) === 0 || p === a.replace(/\/$/, ""); }); });
     return ok(!bad.length, bad.slice(0, 4).join(" "));
