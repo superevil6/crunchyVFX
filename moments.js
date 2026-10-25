@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/moments.js @ 093dad2 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 693a761ada763b90a0eafbcd39a68175cc3de0f6efc356e2c119dcf0f21da4b6
+// GENERATED from crunchyCore/moments.js @ b392977 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 ca524b9716df00d5b6fd8e2708421374b4ba9ddedf4d5051feb2f17e910b787a
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
 // CrunchySFX sound, a CrunchyShader hit look, a screen shake and a beat of hit stop into ONE Godot node:
@@ -15,7 +15,7 @@
 // played through: frame_override 0 -> last, or progress 0 -> 100 -> 0) and gets its own material back.
 // Pure: strings only.
 
-const MOMENT_BUILD = 1;
+const MOMENT_BUILD = 2;   // 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
 
 const MOMENT_GD = [
   "class_name CrunchyMoment",
@@ -241,7 +241,7 @@ const MOMENT_TEMPLATES = {
   heal: { label: "Heal", shake_px: 0, shake_seconds: 0.1, hit_stop_frames: 0, look_seconds: 0.5 },
   explosion: { label: "Explosion", shake_px: 8, shake_seconds: 0.45, hit_stop_frames: 6, look_seconds: 0.3 },
 };
-const MOMENT_DEFAULTS = { template: "hit", effect: null, sound: null, look: null, look_state: "", on_impact: true,
+const MOMENT_DEFAULTS = { template: "hit", effect: null, sound: null, look: null, sound_link: "", look_link: "", look_state: "", on_impact: true,
   sound_delay: 0, look_delay: 0, shake_delay: 0, stop_delay: 0, shake_px: 3, shake_seconds: 0.15, hit_stop_frames: 4, look_seconds: 0.2 };
 // A moment's settings, every field present and in range (a hand-edited sidecar never reaches the scene as nonsense)
 function momentClean(m) {
@@ -249,6 +249,10 @@ function momentClean(m) {
   o.template = MOMENT_TEMPLATES[o.template] ? o.template : "hit";
   for (const k of ["effect", "sound", "look"]) o[k] = o[k] && typeof o[k].suite === "string" && typeof o[k].slug === "string" ? { suite: o[k].suite, slug: o[k].slug } : null;
   o.look_state = typeof o.look_state === "string" ? o.look_state.replace(/[^\w -]/g, "").slice(0, 40) : "";
+  // a SHARE LINK in a slot (step 3): kept as given (a web address, bounded), and only while that slot has no planted piece
+  for (const k of ["sound_link", "look_link"]) o[k] = typeof o[k] === "string" && /^https?:\/\//.test(o[k].trim()) ? o[k].trim().slice(0, 6000) : "";
+  if (o.sound) o.sound_link = "";
+  if (o.look) o.look_link = "";
   o.on_impact = o.on_impact !== false;
   for (const k of ["sound_delay", "look_delay", "shake_delay", "stop_delay"]) o[k] = n(o[k], 0, 5, 0);
   o.shake_px = n(o.shake_px, 0, 32, 3); o.shake_seconds = n(o.shake_seconds, 0, 3, 0.15);
@@ -286,33 +290,54 @@ function momentFrames(tres) {
   return { regions: regions, fps: sp ? +sp[1] : 12, loop: !!(lp && lp[1] === "true") };
 }
 function momentImpactFrame(tscn) { const m = /impact_frame = (\d+)/.exec(tscn || ""); return m ? +m[1] : 0; }
-// THE TARGET on the stage when you bring no sprite of your own: a little horned imp, 24 x 24, drawn here.
-const MOMENT_TARGET = [
-  "........................", ".....#............#.....", ".....##..........##.....", "......##........##......",
-  "......###......###......", ".......##########.......", "......############......", ".....##############.....",
-  ".....###oo####oo###.....", ".....##owo####owo##.....", ".....###oo####oo###.....", ".....##############.....",
-  "......####mmmm####......", "......###m####m###......", ".......##########.......", "......############......",
-  ".....####.####.####.....", "....####..####..####....", "....###...####...###....", ".........######.........",
-  "........###..###........", "........##....##........", ".......###....###.......", "......####....####......"];
-const MOMENT_TARGET_COLORS = { "#": [180, 72, 90], o: [250, 236, 180], w: [30, 22, 34], m: [90, 30, 50] };
-function momentTargetImage() {
-  const h = MOMENT_TARGET.length, w = MOMENT_TARGET[0].length, rgba = new Uint8ClampedArray(w * h * 4);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const c = MOMENT_TARGET_COLORS[MOMENT_TARGET[y][x]];
-    if (c) rgba.set([c[0], c[1], c[2], 255], (y * w + x) * 4);
-  }
-  return { w: w, h: h, rgba: rgba };
+// THE TARGET on the stage when you bring no sprite of your own: the suite's hero (crunchyCore hero.js, CrunchyCharacter's
+// default character drawn by its own engine; AJ, 2026-10-25: "that guy should be uniquely ours"). The app loads hero.js.
+function momentTargetImage() { return crunchyHeroImage(); }
+// ---- STEP 3: SHARE LINKS in the slots (AJ, 2026-10-25: "Make one in…" opens the free web app, where there is no Library:
+// paste its share link here) --------------------------------------------------------------------------------------------
+// A CrunchyShader link (?e=<effect>&p=<settings>&n=<name>) is rendered by this file's own shader engine: the moment's
+// look is printed into ITS folder. A combo (&c=) needs CrunchyShader's own code, so it is refused, saying so. A
+// CrunchySFX link is the HOST APP's to render (momentOpen's `linkSound`: CrunchyVFX carries the synth); the WAV it makes
+// is written into the moment's folder the same way. The moment keeps the link (m.sound_link / m.look_link) so it reopens.
+function momentShaderLink(url) {
+  const s = String(url || "").trim(), qi = s.indexOf("?");
+  if (qi < 0) return { error: "That isn't a CrunchyShader link: copy it with Share link in CrunchyShader." };
+  let q;
+  try { q = new URLSearchParams(s.slice(qi + 1)); } catch (e) { return { error: "That isn't a CrunchyShader link." }; }
+  const e = q.get("e");
+  if (!e) return { error: "That isn't a CrunchyShader link (there is no effect in it)." };
+  if (q.get("c")) return { error: "That link is a combo, and a combo can't be rendered outside CrunchyShader yet: save it into this game from CrunchyShader, or link one effect." };
+  if (typeof SHADER_DEFS === "undefined" || !SHADER_DEFS[e]) return { error: "This app doesn't know the effect “" + e + "”: it was made in a newer CrunchyShader. Update this app, or save it into this game from CrunchyShader." };
+  if ((SHADER_DEFS[e].kind || "sprite") === "screen") return { error: "“" + e + "” is a screen effect: a hit look needs one that works on a sprite." };
+  let p = {};
+  try { p = JSON.parse(q.get("p") || "{}") || {}; } catch (err) { p = {}; }
+  return { e: e, p: typeof p === "object" && !Array.isArray(p) ? p : {}, name: (q.get("n") || e).slice(0, 60) };
+}
+// A linked look's Godot files, to sit in the moment's folder `dir` (res://…/): its .gdshader and its material
+function momentLookFiles(L, dir) {
+  const f = shaderGodotFiles(L.e, shaderParams(shaderDef(L.e), L.p), dir, "unused.png");
+  return [{ path: f[0].name, data: f[0].data }, { path: f[1].name, data: f[1].data }];
 }
 // SAVE: plant the moment (and the node's script, once). P: the app's own handle on the game; name; m: the settings;
-// pieces: momentPieces(P). Returns the planted asset.
-async function momentSave(P, name, m, pieces) {
+// pieces: momentPieces(P); linked (step 3, optional): { sound: { name, wav: bytes } } from the host's linkSound.
+// Returns the planted asset.
+async function momentSave(P, name, m, pieces, linked) {
   if (P.engine === "unity") throw new Error(MOMENT_GODOT_ONLY);
   const M = await plantOpenAs(P, MOMENT_APP), mc = momentClean(m), find = (slot) => mc[slot] && (pieces[slot] || []).find((p) => p.suite === mc[slot].suite && p.slug === mc[slot].slug);
   const fx = find("effect"), snd = find("sound"), look = find("look");
   await plantSupport(M, [{ path: MOMENT_SCRIPT_REL, data: MOMENT_GD }]);
-  const slug = await plantSlugFor(M, "moment", name), file = slug + ".tscn";
+  const slug = await plantSlugFor(M, "moment", name), file = slug + ".tscn", dirRes = "res://" + plantJoin(M.rel, slug) + "/", extra = [];
+  // pieces from LINKS, written into the moment's own folder (they are the moment's: Delete takes them with it)
+  let sndRes = snd ? snd.res : "", lookRes = look ? look.res : "";
+  if (!snd && mc.sound_link && linked && linked.sound && linked.sound.wav) { extra.push({ path: slug + "_sound.wav", data: linked.sound.wav }); sndRes = dirRes + slug + "_sound.wav"; }
+  if (!look && mc.look_link) {
+    const L = momentShaderLink(mc.look_link);
+    if (L.error) throw new Error("Hit look: " + L.error);
+    const lf = momentLookFiles(L, dirRes);
+    extra.push.apply(extra, lf); lookRes = dirRes + lf[1].path;
+  }
   const scene = momentScene(Object.assign({}, mc, { name: name, script: "res://" + plantJoin(M.rel, MOMENT_SCRIPT_REL),
-    sound: snd ? snd.res : "", effect: fx ? fx.res : "", look: look ? look.res : "" }));
+    sound: sndRes, effect: fx ? fx.res : "", look: lookRes }));
   const links = [fx, snd, look].filter(Boolean).map((p) => plantLinkOf({ suite: p.suite, slug: p.slug, kind: p.d.kind, name: p.name, files: p.files, hash: p.hash }, p.file, "reference"));
-  return plantPut(M, { kind: "moment", name: name, fields: { m: mc, links: links, s: "" }, files: [{ path: file, data: scene }], appVersion: String(MOMENT_BUILD) });
+  return plantPut(M, { kind: "moment", name: name, fields: { m: mc, links: links, s: "" }, files: [{ path: file, data: scene }].concat(extra), appVersion: String(MOMENT_BUILD) });
 }

@@ -382,15 +382,15 @@
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
     // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
     { file: "shader.js", want: 45, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
-    { file: "moments.js", want: 1, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
-    { file: "moments-ui.js", want: 1, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
+    { file: "moments.js", want: 2, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
+    { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
   const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
   const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
   // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
-  if (base !== "12") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 12");
+  if (base !== "13") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 13");
   if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
   if (!bad.length) return;
   console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
