@@ -348,13 +348,39 @@
     const dir = GODOT + "/crunchy/moments/linked/";
     await wait(function () { return !!M.text(dir + "linked.tscn"); });
     const tscn = M.text(dir + "linked.tscn") || "", tres = M.text(dir + "hitflash.tres") || "", side3 = JSON.parse(M.text(dir + "linked.crunchy") || "null");
-    const wav = M.bytes(dir + "linked_sound.wav");
+    const wav = M.bytes(dir + "linked_sound.wav"), readme = M.text(dir + "README.txt") || "";
     Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Cancel"; }).click();
     return ok(refused && shown && wav && wav.length > 1000 && String.fromCharCode(wav[0], wav[1], wav[2], wav[3]) === "RIFF" &&
               tscn.indexOf('path="res://crunchy/moments/linked/linked_sound.wav"') >= 0 && tscn.indexOf('path="res://crunchy/moments/linked/hitflash.tres"') >= 0 &&
               tres.indexOf('path="res://crunchy/moments/linked/hitflash.gdshader"') >= 0 && !!M.text(dir + "hitflash.gdshader") &&
-              side3 && side3.m.sound_link === sfx && side3.m.look_link === shd && side3.files.indexOf("linked_sound.wav") >= 0,
+              side3 && side3.m.sound_link === sfx && side3.m.look_link === shd && side3.files.indexOf("linked_sound.wav") >= 0 &&
+              // moments.js 3: a README for THIS moment (its node, its parts, what the target needs) and a PascalCase node
+              readme.indexOf("$Linked.play_at(enemy)") >= 0 && /Zap \(from a share link\)/.test(readme) && /Camera2D/.test(readme) &&
+              side3.files.indexOf("README.txt") >= 0 && tscn.indexOf('[node name="Linked"') >= 0,
       "refused " + refused + " · shown " + shown + " · wav " + (wav && wav.length) + " · " + tscn.split("\n").filter(function (l) { return /ext_resource/.test(l); }).join(" | "));
+  });
+  // AJ, 2026-10-25: "a tab for effects and exported game moments ... so the user can go back and tweak their game moment"
+  await t("moments/the-library-has-a-game-moments-tab-whose-cards-reopen-and-delete-them", async function () {
+    library.refresh();
+    await wait(function () { return !!lib().querySelector('.lib-tab[data-tab="moments"]'); });
+    const tabs = Array.from(lib().querySelectorAll(".lib-tab")).map(function (b) { return b.textContent; }).join(" | ");
+    lib().querySelector('.lib-tab[data-tab="moments"]').click();
+    await wait(function () { return !!card("Linked"); });
+    const onlyMoments = !card("Explosion") && !!card("Hit") && !!card("Linked");
+    const badges = Array.from(card("Linked").querySelectorAll(".lib-badge")).map(function (b) { return b.textContent; }).join(" ");
+    const noEffectButtons = !cardButton("Linked", "Replace") && !cardButton("Linked", "Duplicate") && !cardButton("Linked", "Game moment");
+    cardButton("Linked", "Edit").click();
+    const ov = function () { return document.querySelector(".mom-overlay"); };
+    await wait(function () { return ov() && ov().querySelector('select[data-slot="look"]') && ov().querySelector('select[data-slot="look"]').value === "link"; });
+    const reopened = !!ov() && /Game moment: Linked/.test(ov().querySelector(".set-title").textContent) && ov().querySelector('select[data-slot="sound"]').value === "link";
+    Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Cancel"; }).click();
+    await twice("Linked", "Delete");
+    await settle(); await wait(function () { return !card("Linked"); });
+    const gone = !card("Linked") && !M.text(GODOT + "/crunchy/moments/linked/linked.tscn") && !!M.text(GODOT + "/crunchy/moments/scripts/crunchy_moment.gd");
+    lib().querySelector('.lib-tab[data-tab="effects"]').click();
+    await wait(function () { return !!card("Explosion"); });
+    return ok(/Effects/.test(tabs) && /Game moments/.test(tabs) && onlyMoments && /Explosion/.test(badges) && /hit look/.test(badges) && noEffectButtons && reopened && gone && !!card("Explosion"),
+      tabs + " · only " + onlyMoments + " · " + badges + " · reopened " + reopened + " · gone " + gone + " · " + status());
   });
   await t("moments/deleting-a-piece-a-moment-uses-is-stopped-and-names-it", async function () {
     library.refresh();

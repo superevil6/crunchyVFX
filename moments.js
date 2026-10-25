@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/moments.js @ b392977 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 ca524b9716df00d5b6fd8e2708421374b4ba9ddedf4d5051feb2f17e910b787a
+// GENERATED from crunchyCore/moments.js @ ff8395e by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 ca7401f758f7d3bd30d1a2331b9a82bb912a6d7ee7d52b9a2c565ca87d7c128e
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
 // CrunchySFX sound, a CrunchyShader hit look, a screen shake and a beat of hit stop into ONE Godot node:
@@ -15,7 +15,7 @@
 // played through: frame_override 0 -> last, or progress 0 -> 100 -> 0) and gets its own material back.
 // Pure: strings only.
 
-const MOMENT_BUILD = 2;   // 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
+const MOMENT_BUILD = 3;   // 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
 
 const MOMENT_GD = [
   "class_name CrunchyMoment",
@@ -51,6 +51,8 @@ const MOMENT_GD = [
   "@export var stop_delay := 0.0",
   "## How long an effect that does not free itself is kept (seconds).",
   "@export var effect_lifetime := 1.5",
+  "## Aim at the middle of the target's sprite (characters usually have their origin at their feet). Off: at its position.",
+  "@export var at_center := true",
   "",
   "var _running := 0",
   "",
@@ -65,7 +67,7 @@ const MOMENT_GD = [
   "\t\t\thost = get_tree().root",
   "\t\thost.add_child(fx)",
   "\t\tif fx is Node2D and target is Node2D:",
-  "\t\t\tfx.global_position = target.global_position",
+  "\t\t\tfx.global_position = _aim(target)",
   "\t\t_hold()",
   "\t\tif fx.has_signal(\"finished\"):",
   "\t\t\tfx.finished.connect(_done, CONNECT_ONE_SHOT)",
@@ -127,20 +129,44 @@ const MOMENT_GD = [
   "\tp.stream = sound",
   "\tadd_child(p)",
   "\tif p is AudioStreamPlayer2D:",
-  "\t\tp.global_position = target.global_position",
+  "\t\tp.global_position = _aim(target)",
   "\tp.play()",
   "\tvar n := sound.get_length() if sound.get_length() > 0.0 else 2.0",
   "\tawait get_tree().create_timer(n + 0.1, true, false, true).timeout",
   "\tp.queue_free()",
   "",
-  "# The target's sprite: the target itself if it draws, else its first CanvasItem child.",
+  "# Where the moment hits: the middle of the target's sprite as drawn (its frame, offset and centering), else its position.",
+  "func _aim(target: Node2D) -> Vector2:",
+  "\tif at_center:",
+  "\t\tvar s := _sprite_of(target)",
+  "\t\tif s is Sprite2D or s is AnimatedSprite2D:",
+  "\t\t\tvar r: Rect2 = (s.get_rect() if s.texture else Rect2()) if s is Sprite2D else _anim_rect(s)",
+  "\t\t\tif r.size != Vector2.ZERO:",
+  "\t\t\t\treturn s.to_global(r.get_center())",
+  "\treturn target.global_position",
+  "",
+  "func _anim_rect(s: AnimatedSprite2D) -> Rect2:",
+  "\tif s.sprite_frames == null or not s.sprite_frames.has_animation(s.animation):",
+  "\t\treturn Rect2()",
+  "\tvar tex := s.sprite_frames.get_frame_texture(s.animation, s.frame)",
+  "\tif tex == null:",
+  "\t\treturn Rect2()",
+  "\tvar size := tex.get_size()",
+  "\tvar at := s.offset - (size / 2.0 if s.centered else Vector2.ZERO)",
+  "\treturn Rect2(at, size)",
+  "",
+  "# The target's sprite: the target if it IS a sprite, else its first Sprite2D / AnimatedSprite2D child, else the target",
+  "# when it draws itself (not a body). (Build 3: a Node2D root with a sprite child wore the look on the root, which draws",
+  "# nothing, so it never showed.)",
   "func _sprite_of(target: Node) -> CanvasItem:",
-  "\tif target is CanvasItem and not (target is CollisionObject2D):",
+  "\tif target is Sprite2D or target is AnimatedSprite2D:",
   "\t\treturn target",
   "\tif target:",
   "\t\tfor c in target.get_children():",
   "\t\t\tif c is Sprite2D or c is AnimatedSprite2D:",
   "\t\t\t\treturn c",
+  "\tif target is CanvasItem and not (target is CollisionObject2D):",
+  "\t\treturn target",
   "\treturn null",
   "",
   "func _look(target: Node) -> void:",
@@ -207,7 +233,7 @@ function momentScene(o) {
   const num = (v, d) => (typeof v === "number" && isFinite(v) ? v : d);
   const fl = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));
   const L = ["[gd_scene load_steps=" + (ext.length + 1) + " format=3]", ""].concat(ext, ["",
-    "[node name=\"" + String(o.name || "Moment").replace(/[^A-Za-z0-9_]/g, "") + "\" type=\"Node\"]",
+    "[node name=\"" + momentNodeName(o.name) + "\" type=\"Node\"]",
     "script = ExtResource(\"" + ids.script + "\")"]);
   if (ids.sound) L.push("sound = ExtResource(\"" + ids.sound + "\")");
   if (ids.effect) L.push("effect = ExtResource(\"" + ids.effect + "\")");
@@ -321,6 +347,66 @@ function momentLookFiles(L, dir) {
 // SAVE: plant the moment (and the node's script, once). P: the app's own handle on the game; name; m: the settings;
 // pieces: momentPieces(P); linked (step 3, optional): { sound: { name, wav: bytes } } from the host's linkSound.
 // Returns the planted asset.
+// The scene's root node: the name in PascalCase, so the game says $FireHit (build 3; "Fire hit" was "Firehit").
+function momentNodeName(name) {
+  const n = String(name || "").split(/[^A-Za-z0-9]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join("");
+  return /^[A-Za-z]/.test(n) ? n : "Moment" + n;
+}
+// THE README beside every saved moment (AJ, 2026-10-25, after planting one into a test game: "include a readme ... so the
+// user isn't confused"): what THIS moment holds, the one line that plays it, and what the target and the scene need for
+// each part to show (a Camera2D for the shake, a sprite for the hit look). Plain text; Godot lists .txt files.
+//   o: { name, slug, res (the .tscn's res:// path), effect, sound, look (what fills each part, in words, or ""), m }
+function momentReadme(o) {
+  const node = momentNodeName(o.name), m = o.m || {}, L = [];
+  const part = (label, what, extra) => L.push("  " + (label + "          ").slice(0, 10) + (what || "none") + (what && extra ? "  " + extra : ""));
+  L.push(o.name + ": a game moment from the Crunchy suite, for Godot 4", "",
+    "One node that plays a whole hit: the effect at the target, its sound, the target's hit look, a screen shake and a",
+    "hit stop, all from one line of code.", "",
+    "WHAT IS IN IT", "");
+  part("Effect", o.effect, "(spawned at the target; plays and frees itself)");
+  part("Sound", o.sound, "(played at the target)");
+  part("Hit look", o.look, "(the target's sprite wears it for " + (m.look_seconds != null ? m.look_seconds : 0.2) + " s)");
+  part("Shake", m.shake_px > 0 && m.shake_seconds > 0 ? m.shake_px + " px for " + m.shake_seconds + " s" : "");
+  part("Hit stop", m.hit_stop_frames > 0 ? m.hit_stop_frames + " frames" : "");
+  L.push("", "USE IT (two steps)", "",
+    "1. Put the moment in your scene: drag " + o.slug + ".tscn from the FileSystem dock into your level (anywhere: as a child",
+    "   of the level or the player). Or in code:",
+    "",
+    "       var hit = preload(\"" + o.res + "\").instantiate()",
+    "       add_child(hit)",
+    "",
+    "2. Play it when something gets hit, giving it WHAT was hit:",
+    "",
+    "       $" + node + ".play_at(enemy)        # enemy: the Node2D that was hit (the body, or its sprite)",
+    "",
+    "   The node stays in the scene: call play_at as often as you like, on any target.",
+    "",
+    "WHAT THE TARGET AND THE SCENE NEED (when a part doesn't show, it is one of these)", "",
+    "  - The TARGET is a Node2D. The effect and the sound happen at the middle of its sprite, so a character whose",
+    "    origin is at its feet is hit in the body (untick At Center in the Inspector to use its position). A body",
+    "    (CharacterBody2D, Area2D ...) is fine: give the body itself.",
+    "  - The HIT LOOK goes on the target if it is a Sprite2D or AnimatedSprite2D, else on its first such child. Its own",
+    "    material comes back afterward.",
+    "  - The SHAKE moves the current Camera2D (its offset, put back after). No Camera2D in the scene: no shake.",
+    "  - The HIT STOP freezes the whole game (Engine.time_scale = 0) for a moment, then puts it back. Your own",
+    "    slow-motion stays as it was.",
+    "",
+    "WHEN IT IS OVER", "",
+    "  $" + node + ".finished.connect(func(): print(\"done\"))     # every part has finished",
+    "",
+    "CHANGE IT", "",
+    "  Select the node: every part and timing is in the Inspector (Parts, Feel, Timing), and any Godot asset works,",
+    "  Crunchy or not. Or reopen it from the Library in CrunchyVFX (Game moment) and Save again: this folder is rewritten.",
+    "",
+    "FILES", "",
+    "  " + o.slug + ".tscn        the moment (a CrunchyMoment node)",
+    "  " + o.slug + ".crunchy     what the Crunchy apps read back (leave it)",
+    "  ../scripts/crunchy_moment.gd   the script every moment shares",
+    "  The other files here are the parts a share link made (a sound, a shader). A Library piece stays in its own folder.",
+    "",
+    "Made with the Crunchy suite (superevil6). CC0: yours for any purpose, no credit needed.", "");
+  return L.join("\n");
+}
 async function momentSave(P, name, m, pieces, linked) {
   if (P.engine === "unity") throw new Error(MOMENT_GODOT_ONLY);
   const M = await plantOpenAs(P, MOMENT_APP), mc = momentClean(m), find = (slot) => mc[slot] && (pieces[slot] || []).find((p) => p.suite === mc[slot].suite && p.slug === mc[slot].slug);
@@ -338,6 +424,9 @@ async function momentSave(P, name, m, pieces, linked) {
   }
   const scene = momentScene(Object.assign({}, mc, { name: name, script: "res://" + plantJoin(M.rel, MOMENT_SCRIPT_REL),
     sound: sndRes, effect: fx ? fx.res : "", look: lookRes }));
+  const said = (piece, slot) => piece ? piece.name + " (from your Library)" : linked && linked[slot] && mc[slot + "_link"] ? linked[slot].name + " (from a share link)" : "";
+  const lookSaid = look ? look.name + " (from your Library)" : mc.look_link ? momentShaderLink(mc.look_link).name + " (from a share link)" : mc.look_state ? "the target's \"" + mc.look_state + "\" state" : "";
+  extra.push({ path: "README.txt", data: momentReadme({ name: name, slug: slug, res: dirRes + file, effect: said(fx, "effect"), sound: said(snd, "sound"), look: lookSaid, m: mc }) });
   const links = [fx, snd, look].filter(Boolean).map((p) => plantLinkOf({ suite: p.suite, slug: p.slug, kind: p.d.kind, name: p.name, files: p.files, hash: p.hash }, p.file, "reference"));
   return plantPut(M, { kind: "moment", name: name, fields: { m: mc, links: links, s: "" }, files: [{ path: file, data: scene }].concat(extra), appVersion: String(MOMENT_BUILD) });
 }

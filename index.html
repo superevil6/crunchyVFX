@@ -375,15 +375,15 @@
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
     { file: "plant.js", want: 16, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
-    { file: "library.js", want: 6, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
+    { file: "library.js", want: 7, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
     { file: "settings.js", want: 4, got: () => (typeof SETTINGS_BUILD === "undefined" ? 0 : SETTINGS_BUILD) },
     { file: "desktop.js", want: 4, got: () => (typeof DESKTOP_BUILD === "undefined" ? 0 : DESKTOP_BUILD) },
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
     // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
     { file: "shader.js", want: 45, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
-    { file: "hero.js", want: 1, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
-    { file: "moments.js", want: 2, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
+    { file: "hero.js", want: 2, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
+    { file: "moments.js", want: 3, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
@@ -9436,6 +9436,7 @@ async function projOpen(dir) {
   Object.keys(projUpdates).forEach((k) => { delete projUpdates[k]; });
   plantThumbs.clear();
   projSuite = [];
+  projMoments = null;
   projOpened = "";
   projAfter();
   const n = projFromBrowser().length;
@@ -9466,6 +9467,7 @@ async function projOpenRecent(dir) {
 function projClose() {
   project = null;
   projSuite = [];
+  projMoments = null;
   projOpened = "";
   projCheckRun++;
   projAfter();
@@ -9687,6 +9689,45 @@ function projBarSync() {
                              : "Save the current effect to your library (stored in this browser)";
 }
 
+// ---- GAME MOMENTS in the Library (AJ, 2026-10-25: "a tab for effects and exported game moments ... so the user can go
+// back and tweak their game moment"): the moments planted in this game (crunchyCore moments.js, their own app), read
+// beside the suite view; a card's Edit reopens the moment's modal on it, and its Save updates it in place.
+var projMoments = null;                      // plantOpenAs(project, MOMENT_APP): { assets, ... }, or null (none read yet / Unity)
+function projMomentsRefresh() {
+  if (!project || project.engine === "unity") { projMoments = null; return Promise.resolve(); }
+  const P = project;
+  return plantOpenAs(P, MOMENT_APP).then((M) => { if (project === P) { projMoments = M; library.refresh(); } }).catch(() => { projMoments = null; });
+}
+function momentOpts(more) {
+  return Object.assign({ P: project,
+    // a CrunchySFX share link (from the free website) as a WAV: VFX already carries the synth (Match a sound uses it)
+    linkSound: momentLinkSound,
+    openApp: (key) => { const t = CRUNCHY_SUITE.find((x) => x.id === key); if (t && (t.web || t.desktop)) window.__TAURI__.opener.openUrl(t.web || t.desktop); },
+    onSaved: (a) => {
+      projStatus("Saved the game moment " + a.name + " (crunchy/moments/" + a.slug + "/, with a README). In your game: $" + momentNodeName(a.name) + ".play_at(enemy)");
+      projMomentsRefresh();
+    } }, more);
+}
+// what fills each part of a planted moment, for its card
+function momentParts(a) {
+  const m = (a.data && a.data.m) || {}, out = [];
+  const fx = m.effect && project ? project.assets.find((x) => x.slug === m.effect.slug) : null;
+  if (m.effect) out.push({ text: fx ? fx.name : m.effect.slug, title: "Effect: " + (fx ? fx.name : m.effect.slug + " (not in this game's CrunchyVFX folder now)"), hot: !fx });
+  if (m.sound || m.sound_link) out.push({ text: "♪ sound", title: m.sound ? "Sound from CrunchySFX: " + m.sound.slug : "Sound from a CrunchySFX share link" });
+  if (m.look || m.look_link || m.look_state) out.push({ text: "hit look", title: m.look ? "Hit look from CrunchyShader: " + m.look.slug : m.look_link ? "Hit look from a CrunchyShader share link" : "The target's “" + m.look_state + "” state" });
+  if (m.shake_px > 0 && m.shake_seconds > 0) out.push({ text: "shake " + m.shake_px + " px", title: "Screen shake: " + m.shake_px + " px for " + m.shake_seconds + " s" });
+  if (m.hit_stop_frames > 0) out.push({ text: "stop " + m.hit_stop_frames + " fr", title: "Hit stop: " + m.hit_stop_frames + " frames" });
+  return out;
+}
+function momentThumbHero(cv) {                 // a moment without an effect (or whose effect has no picture): the suite's hero
+  const h = crunchyHeroImage("64"), c = document.createElement("canvas");
+  c.width = h.w; c.height = h.h;
+  c.getContext("2d").putImageData(new ImageData(h.rgba, h.w, h.h), 0, 0);
+  const g = cv.getContext("2d"), k = Math.floor(Math.min(80 / h.w, 80 / h.h)) || 1;
+  g.clearRect(0, 0, 96, 96); g.imageSmoothingEnabled = false;
+  g.drawImage(c, (96 - h.w * k) >> 1, (96 - h.h * k) >> 1, h.w * k, h.h * k);
+}
+
 // ---- the Library: a panel docked on the right ----
 const plantThumbs = new Map();               // slug → a loaded <img> of the sidecar's picture
 const libDock = isDesktop ? document.createElement("div") : null;
@@ -9708,7 +9749,16 @@ const library = libraryMount({
     "lands in crunchy/vfx/ inside it: the sprite sheet the Export dialog would give (in a Godot project with its SpriteFrames .tres), " +
     "ready for the engine, with a small .crunchy file beside it that reopens the effect exactly. Replace on a card updates it in " +
     "place, so your game's references keep working. Your browser's My Effects stay where they are; “Plant my effects” copies them in.",
-  emptyHint: "Nothing planted yet. Press Save above (or Save current in My Effects, Ctrl+S) to plant the effect in the editor, or “Plant my effects”.",
+  emptyHint: (tab) => tab === "moments"
+    ? "No game moments in this game yet. On an effect's card, press Game moment: add a sound, a hit look, a shake and a hit stop, and Save."
+    : "Nothing planted yet. Press Save above (or Save current in My Effects, Ctrl+S) to plant the effect in the editor, or “Plant my effects”.",
+  // TABS (library.js 4): your effects, and the game moments made from them (Godot games only: moments are Godot nodes)
+  tabs: function () {
+    if (!project || project.engine === "unity") return [];
+    return [{ key: "effects", label: "Effects", count: project.assets.length, title: "The effects planted in this game" },
+            { key: "moments", label: "Game moments", count: projMoments ? projMoments.assets.length : null,
+              title: "Game moments made from them: open one to change its sound, hit look, shake or hit stop" }];
+  },
   project: () => (project ? { name: project.name, dir: plantJoin(project.dir, project.rel) } : null),
   start: [
     { label: "Plant in a folder…", title: "Pick your game's folder (Godot or Unity), or any folder", run: () => projDo(projPlantPick) },
@@ -9730,7 +9780,7 @@ const library = libraryMount({
   },
   // the filter chips: the My Effects categories effects were filed under when they were planted
   kinds: function () {
-    if (!project) return [];
+    if (!project || library.tab() === "moments") return [];
     const seen = {}, out = [];
     project.assets.forEach((a) => { const c = effectGroup(a); if (!seen[c]) { seen[c] = true; out.push({ key: c, label: c }); } });
     return out.length > 1 ? out.sort((x, y) => (x.key === "Effects") - (y.key === "Effects") || x.key.localeCompare(y.key)) : [];
@@ -9750,12 +9800,21 @@ const library = libraryMount({
           : { text: "♪ " + ln.name, title: "Linked from CrunchySFX: " + plantLinkPath(project, ln) + " (the Godot scene plays it on frame " + (a.data.soundFrame | 0) + ")" });
         if (a.data.ref) badges.push({ text: "ref", title: "Made with the reference image " + a.data.ref + " combined in (not kept: load it again before saving)" });
         const at = new Date(a.data.modified || 0), when = isNaN(at) || !a.data.modified ? "" : at.toLocaleDateString();
-        return { id: a.slug, name: a.name, kind: effectGroup(a), group: effectGroup(a), meta: (a.data.base || a.slug) + ".png" + (when ? " · " + when : ""), badges: badges, asset: a };
-      });
+        return { id: a.slug, tab: "effects", name: a.name, kind: effectGroup(a), group: effectGroup(a), meta: (a.data.base || a.slug) + ".png" + (when ? " · " + when : ""), badges: badges, asset: a };
+      }).concat((projMoments ? projMoments.assets : []).map(function (a) {
+        const at = new Date(a.data.modified || 0), when = isNaN(at) || !a.data.modified ? "" : at.toLocaleDateString();
+        return { id: "moment:" + a.slug, tab: "moments", moment: true, name: a.name, kind: "moment", group: "Game moments",
+                 meta: "$" + momentNodeName(a.name) + ".play_at(enemy)" + (when ? " · " + when : ""), badges: momentParts(a), asset: a };
+      }));
   },
   thumb: function (it, cv) {
-    const url = it.asset.data.thumb;
     cv.width = 96; cv.height = 96;
+    if (it.moment) {
+      const m = it.asset.data.m || {}, fx = m.effect ? project.assets.find((x) => x.slug === m.effect.slug) : null;
+      if (!fx || typeof fx.data.thumb !== "string") { momentThumbHero(cv); return; }
+      it = { asset: fx };
+    }
+    const url = it.asset.data.thumb;
     const paint = (img) => {
       const g = cv.getContext("2d"), k = Math.min(96 / img.naturalWidth, 96 / img.naturalHeight);
       const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
@@ -9771,10 +9830,15 @@ const library = libraryMount({
     img.src = url;
     plantThumbs.set(it.asset.slug, img);
   },
-  open: (it) => projOpenAsset(it.asset),
+  open: (it) => (it.moment ? momentOpen(momentOpts({ existing: it.asset })) : projOpenAsset(it.asset)),
   // THE NAME ONLY: the folder, every file's name and its bytes all stay, so nothing in the game moves
   rename: function (it, name) {
     const a = it.asset;
+    if (it.moment) return projDo(async function () {        // the name only, as for an effect: its node keeps its name until Edit saves it
+      await plantRename(projMoments, a, name);
+      projAfter();
+      projStatus("Renamed the game moment to " + a.name + ". Its files keep their paths (crunchy/moments/" + a.slug + "/); open it and Save to rename its node too.");
+    });
     return projDo(async function () {
       const box = document.getElementById("plantName"), was = a.name;
       await plantRename(project, a, name);
@@ -9798,6 +9862,7 @@ const library = libraryMount({
     // have loaded in the editor"): the editor's effect into THIS card, same name, same files, so the game gets it.
     // Two clicks, like Delete.
     { label: "Replace", confirm: true, title: "Put the effect in the editor into this card: same name and same files, so your game gets the new effect",
+      when: (it) => !it.moment,
       run: (it) => projDo(async function () {
         if (!rendered || !chosenScales().length) throw new Error("Nothing to save from the editor yet.");
         const C = editorCtx(), f = editorFields(it.asset.name);
@@ -9809,18 +9874,19 @@ const library = libraryMount({
       }) },
     // RE-EXPORT: only where this version of CrunchyVFX would render the saved effect differently ("update available")
     { label: "Re-export", title: "This version of CrunchyVFX would render it differently: re-export it from its saved settings, in place",
-      when: (it) => !!projUpdates[it.asset.slug],
+      when: (it) => !it.moment && !!projUpdates[it.asset.slug],
       run: (it) => projDo(async function () { await projUpdateOne(it.asset); projAfter(); projStatus("Re-exported " + it.name + " in place."); }) },
     // GAME MOMENT (crunchyCore MOMENTS.md, AJ 2026-10-24): this effect with a sound, a hit look, a shake and a hit stop,
     // as ONE Godot node (`$Hit.play_at($Enemy)`), made in the core's modal from what this game holds.
     { label: "Game moment", title: "Make a game moment from this effect: add a sound, a hit look on the target, a screen shake and a hit stop, saved as one Godot node",
-      when: () => !!project && project.engine !== "unity",
-      run: (it) => momentOpen({ P: project, from: { slot: "effect", suite: "vfx", slug: it.asset.slug }, name: "Hit",
-        // a CrunchySFX share link (from the free website) as a WAV: VFX already carries the synth (Match a sound uses it)
-        linkSound: momentLinkSound,
-        openApp: (key) => { const t = CRUNCHY_SUITE.find((x) => x.id === key); if (t && (t.web || t.desktop)) window.__TAURI__.opener.openUrl(t.web || t.desktop); },
-        onSaved: (a) => projStatus("Saved the game moment " + a.name + " (crunchy/moments/" + a.slug + "/). In your game: $" + a.name.replace(/[^A-Za-z0-9_]/g, "") + ".play_at($Enemy)") }) },
+      when: (it) => !it.moment && !!project && project.engine !== "unity",
+      run: (it) => momentOpen(momentOpts({ from: { slot: "effect", suite: "vfx", slug: it.asset.slug }, name: "Hit" })) },
+    // A GAME MOMENT'S CARD: Edit reopens its modal (Save there updates it in place); Delete takes its folder
+    { label: "Edit", title: "Open this game moment: change its effect, sound, hit look, shake or hit stop, and Save to update it in place",
+      when: (it) => !!it.moment,
+      run: (it) => momentOpen(momentOpts({ existing: it.asset })) },
     { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",
+      when: (it) => !it.moment,
       run: (it) => projDo(async function () {
         if (it.asset.data.ref) throw new Error(it.name + " has a reference image combined in, which a sidecar can't keep: open it, load the image, and save it under a new name.");
         let name = it.name + " copy", n = 2;
@@ -9830,6 +9896,15 @@ const library = libraryMount({
       }) },
     { label: "Delete", confirm: true, title: "Delete it from the planted folder: the files it exported and its .crunchy (nothing else)",
       run: (it) => projDo(async function () {
+        if (it.moment) {                                          // a game moment: its folder (the script it shares stays)
+          const used = await plantUsersOf(projMoments, it.asset.slug, it.asset.data.files), key = "delete/moment:" + it.asset.slug;
+          if (used.length && projUsedArmed !== key) { projUsedArmed = key; throw new Error(plantUsedMessage(used, "delete")); }
+          projUsedArmed = "";
+          await plantDelete(projMoments, it.asset);
+          await projMomentsRefresh();
+          projAfter(); projStatus("Deleted the game moment " + it.name + " and its files.");
+          return;
+        }
         const used = await plantUsersOf(project, it.asset.slug, it.asset.data.files), key = "delete/" + it.asset.slug;
         if (used.length && projUsedArmed !== key) { projUsedArmed = key; throw new Error(plantUsedMessage(used, "delete")); }
         projUsedArmed = "";
@@ -9845,6 +9920,7 @@ function effectGroup(a) { const c = a.data.categories; return Array.isArray(c) &
 function projRefreshSuite() {
   if (!project) { projSuite = []; return Promise.resolve(); }
   const P = project;
+  projMomentsRefresh();
   return plantSuiteView(P).then((v) => { if (project === P) { projSuite = v; library.refresh(); } }).catch(() => { projSuite = []; });
 }
 function libraryShow() { if (!library.isOpen()) { library.open(); projRefreshSuite(); } }

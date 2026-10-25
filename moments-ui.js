@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/moments-ui.js @ b392977 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/moments-ui.js @ ff8395e by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 aedadb6431117d744735f9cf56cfcf9cc7bb07269a0c3cc458589ee241f81b96
 "use strict";
 // crunchyCore — THE GAME MOMENT MODAL (MOMENTS.md step 2; AJ 2026-10-24: "we'd need a modal ... the library panel is
