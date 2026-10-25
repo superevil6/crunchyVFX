@@ -272,7 +272,7 @@ more particles.
   sticks); the generators head the editor; Export, GIF, Share link and the desktop's project buttons sit under the
   preview. Presentation only: frame hash unchanged.
 - **Round 1b (§22.1)**: the generators in their own row under the header; editor LEFT, stage RIGHT (Tile/UI); a NEW
-  effect (Randomize, Foundry, Match) starts at 192 px (`START_FRAME_SIZE`) while the PARAMS default stays 128, so
+  effect (Randomize, Match) starts at 192 px (`START_FRAME_SIZE`) while the PARAMS default stays 128, so
   presets and old links don't move; the three shape pickers are pictures (sprite over name), palettes show swatches.
 - **The planted Library (§18, 2026-10-11)**: the suite's desktop Library planted in the game (`crunchy/vfx/<slug>/`, each
   effect's Export-dialog sheet + metadata beside a `.crunchy` sidecar), the core's Settings and desktop gate, zips with

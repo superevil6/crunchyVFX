@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 11;
+    --css-build: 12;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -181,7 +181,7 @@
   .icon-btn { padding: 9px 12px; }
   /* An icon with no label beside it sits centered, without the gap the base leaves before a label. */
   .icon-btn .pxi, .pxonly .pxi { margin-right: 0; }
-  /* The generators (Randomize, Breed, Variations, Foundry, Match, Reroll): outlined in the accent, so the
+  /* The generators (Randomize, Breed, Variations, Match, Reroll): outlined in the accent, so the
      "make me something" row reads as one family beside the plain tools. Was the shared cyan. */
   button.accent2 { border-color: var(--accent); color: var(--accent); }
   button.accent2:hover { border-color: var(--ink); }
@@ -498,29 +498,8 @@
   .tour-offer-msg { font-size: 13.5px; color: var(--ink); }
   .tour-offer-go { padding: 7px 13px; font-size: 13px; }
   .tour-offer-x { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 8px; }
-  /* Foundry modal (curate original presets from procedural candidates) */
-  .foundry-gen { display: flex; align-items: center; gap: 10px; padding: 12px 18px 0; flex-wrap: wrap; }
-  .fnd-typel { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-  .fnd-typel select { width: auto; padding: 7px 24px 7px 8px; font-size: 12px; }
-  .fnd-styles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 18px 0; }
-  .fnd-slabel { font-size: 12px; color: var(--muted); margin-right: 2px; }
-  .fnd-style { cursor: pointer; }
-  .fnd-style input { position: absolute; opacity: 0; width: 0; height: 0; }
-  .fnd-style span { display: inline-block; padding: 4px 11px; font-size: 12px; border: 1px solid var(--line);
- color: var(--muted); background: var(--panel2); transition: border-color 0.1s, color 0.1s; }
-  .fnd-style:hover span { border-color: var(--info); color: var(--ink); }
-  .fnd-style input:checked + span { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-  .fnd-style input:focus-visible + span { outline: 1px solid var(--accent); outline-offset: 1px; }
   button[disabled] { opacity: 0.55; cursor: default; }
   button[disabled]:hover { background: var(--accent); }
-  .breed-cell-bar .fnd-keepbtn { padding: 2px 9px; font-size: 12px; }
-  .breed-cell-bar .fnd-editbtn { flex: 1; padding: 4px 10px; font-size: 12px; font-weight: 600;
-    background: var(--accent); color: var(--on-accent); border-color: transparent; }
-  .breed-cell-bar .fnd-editbtn:hover { background: var(--accent); }
-  .foundry-keep { padding: 4px 18px 0; border-top: 1px solid var(--line); margin-top: 4px; }
-  .foundry-keep-head { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 8px; }
-  .foundry-keep-head > span:first-child { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; }
-  .fnd-keep-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
   @media (max-width: 920px) {
     body { padding-right: 0; }
     #history {
@@ -775,7 +754,7 @@
   .ref-toggles input { accent-color: var(--accent); cursor: pointer; margin: 0; }
   .ref-toggles button { padding: 2px 8px; font-size: 12px; margin-left: auto; }
 
-  /* ---- Breed / Variations / Foundry grids ---------------------------------- */
+  /* ---- Breed / Variations grids ---------------------------------- */
   /* Square, playing thumbnails — the inherited `.breed-cell canvas` 62px letterbox is for an
      oscilloscope, not a sprite. */
   .breed-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1215,7 +1194,7 @@
 /* Dialogs: the base's frame (2 px border, the hard lift), like the suite dialog beside them. */
 .modal-box { border: 2px solid var(--line2); box-shadow: var(--lift); }
 /* Headings in the base's heading face: section heads, dialog titles, the tour. */
-.modal-head h2, .tour-title, .mp-head > span:first-child, .ref-head > span, .engine-title, .ih-title, .foundry-keep-head > span:first-child {
+.modal-head h2, .tour-title, .mp-head > span:first-child, .ref-head > span, .engine-title, .ih-title {
   font-family: var(--head);
 }
 .modal-head h2, .tour-title { text-transform: uppercase; letter-spacing: .03em; }

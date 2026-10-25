@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 23] = [
+const FRONTEND: [&str; 24] = [
     "index.html",
     "favicon.png",
     // The header logo (an <img> in index.html), drawn in code by crunchyCore tools/make-wordmarks.mjs.
@@ -28,6 +28,7 @@ const FRONTEND: [&str; 23] = [
     "library.js",
     // GAME MOMENTS (crunchyCore MOMENTS.md), GENERATED: the shader engine, the moment's pure half and its modal.
     "shader.js",
+    "hero.js",
     "moments.js",
     "moments-ui.js",
     "settings.js",

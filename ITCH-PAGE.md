@@ -58,8 +58,8 @@ is drawn by hand-written code. **No generative AI, no samples, no bundled art.**
 - **58 layer systems** to stack on top: shockwaves, rings, trails, rune circles, beams, lightning and more.
 - **The Wizard:** answer three questions (what it's for, what it's made of, which era) and pick from nine new effects,
   all playing.
-- **Randomize, Breed and the Foundry:** roll a fresh effect, breed nine children of one you like (and breed again), or
-  let the Foundry invent candidates from a kind and an art style.
+- **Randomize, Breed and Variations:** roll a fresh effect, breed nine children of one you like (and breed again), or
+  make a pack of eight siblings of one effect so repeated hits never look like a loop.
 - **Era styles:** one click crunches an effect down to an older look (Woodgrain, Micro, 8-bit, Pocket, Mega, Super,
   Advanced, 32-bit, Modern). **Game palette** locks an effect to your game's own colors (paste hex codes or load a
   `.hex`/`.gpl` file).
@@ -78,7 +78,7 @@ sweat drops, stun stars and emoji bursts sit right beside the explosions.
 
 ### Free on the web, and what the desktop adds
 
-**The web version is free and stays free:** every effect, shape, layer, preset, the Wizard, Breed, the Foundry, Match a
+**The web version is free and stays free:** every effect, shape, layer, preset, the Wizard, Breed, Variations, Match a
 sound, every export format and size, GIF and share links. Nothing is watermarked or size-capped. **The $6 desktop app
 sells workflow, never effects:**
 

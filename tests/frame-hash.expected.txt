@@ -46,7 +46,7 @@ VFX FRAME "Water Ripple" d92c810d33f2ce4c
 VFX FRAME "nofit:Water Ripple" bfa03fc043f71bf3
 VFX FRAME "Sonar Ping" 5330fad726ced926
 VFX FRAME "Glitch Out" 210ffd4a79af5ec3
-VFX FRAME "Slash" 99b43ab56f29e672
+VFX FRAME "Slash" 36a120b3ec10a5d8
 VFX FRAME "nofit:Slash" 3b56cb531e170224
 VFX FRAME "Critical Hit" dd5300056aad8d00
 VFX FRAME "Ground Slam" 2a30fc2389d80184
@@ -265,23 +265,23 @@ VFX FRAME "Crit Burst" 51f512611e3c6236
 VFX FRAME "Heal Pulse" 86a84bbfecce534e
 VFX FRAME "nofit:Heal Pulse" 6eca3eaea03b053d
 VFX FRAME "Burning" 65ee487185b8eb50
-VFX FRAME "Twin Slash" 5e1c2fa6782c2fc7
+VFX FRAME "Twin Slash" fafad30f2dcc09e4
 VFX FRAME "Heart Heal" 9455afd0196e682d
 VFX FRAME "nofit:Heart Heal" ff58ff6cc92e31c5
-VFX FRAME "Coin Burst" 151f9cc281cec569
+VFX FRAME "Coin Burst" 9579aba638cc06e1
 VFX FRAME "Gem Pickup" 453790ba634435cd
 VFX FRAME "Skull Puff" 2a42ba09237a81ea
 VFX FRAME "nofit:Skull Puff" ca18503bf17d87c2
 VFX FRAME "Alert Pop" 5c830742712d914f
 VFX FRAME "Talk Bubble" 31f5c26df06cb898
-VFX FRAME "Prompt Pop" 4047e9e73c711bde
-VFX FRAME "nofit:Prompt Pop" 0d28dfc374f1ebc4
+VFX FRAME "Prompt Pop" 14e232bcbc1a108b
+VFX FRAME "nofit:Prompt Pop" f4f1108707eb20d2
 VFX FRAME "Trophy Win" dd9f9d6be6cedfa4
 VFX EXPORT "Explosion|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 53d045de124567bf
 VFX EXPORT "Magic Sparkle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" f9494da6cde5b4b7
 VFX EXPORT "Frost Growth|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 03cf428dba03821a
 VFX EXPORT "Teleport Out|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" f8f77f1614af0be5
-VFX EXPORT "Slash|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" e5cde85f69e3570a
+VFX EXPORT "Slash|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" ee9e9ce9993a914e
 VFX EXPORT "Twinkle|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" cefee271690247b8
 VFX EXPORT "Rune Circle|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" a2934c9dd895f31a
 VFX EXPORT "Slash Gash|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 670b479021c0274b
@@ -300,9 +300,9 @@ VFX EXPORT "Backlit Burst|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"ge
 VFX EXPORT "Old Broadcast|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 0934d97b9b5b77de
 VFX EXPORT "Fireball|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 1c4db6f26d753907
 VFX EXPORT "Heal Pulse|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" 5ed0ca5b613ce018
-VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 21e911c7e2fae494
+VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" eb35008107e31524
 VFX EXPORT "sound:Hit Spark" 8a6e12898e771aee
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" 921c82cf7410fe12
-VFX FRAMEHASH a2f4c4e72fac8bb6 over 306
+VFX BATCH "crunchyvfx-pack.zip" f3795229d7289800
+VFX FRAMEHASH 1f591c9eb230a807 over 306
 VFX END PASS 306 hashes

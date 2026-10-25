@@ -103,7 +103,6 @@
     <button id="rand" class="accent2" data-icon="dice" title="A whole new effect from scratch: systems, shapes and colors">Randomize</button>
     <button id="breed" class="accent2" title="Nine children of this effect — keep the ones you like and breed again" data-icon="breed">Breed</button>
     <button id="variations" class="accent2" title="A family of near-identical effects (hit_01…hit_08), exported as one pack" data-icon="package">Variations</button>
-    <button id="foundry" class="accent2" title="Generate original effects procedurally by type and art style" data-icon="hammer">Foundry</button>
     <button id="matchBtn" class="accent2" title="Paste a CrunchySFX link and derive a matching visual effect" data-icon="speaker">Match a sound</button>
     <button id="reroll" class="accent2" title="Same look, different arrangement" data-icon="refresh">Reroll seed</button>
   </div>
@@ -355,6 +354,7 @@
 <script src="plant.js"></script>
 <script src="library.js"></script>
 <script src="shader.js"></script>
+<script src="hero.js"></script>
 <script src="moments.js"></script>
 <script src="moments-ui.js"></script>
 <script src="settings.js"></script>
@@ -370,7 +370,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 11;   // must match --css-build in styles.css
+  const CSS_BUILD = 12;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -382,6 +382,7 @@
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
     // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
     { file: "shader.js", want: 45, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
+    { file: "hero.js", want: 1, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
     { file: "moments.js", want: 2, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
   ];
@@ -2833,10 +2834,15 @@ function layerPageShow() {
   row.querySelector(".layer-next").disabled = layerPage >= n - 1;
   row.querySelector(".tbarpage").textContent = (layerPage + 1) + " / " + n;
 }
+// JUST THE LAYER (AJ, 2026-10-25: every picture "has a 'burst' effect as part of them ... which dilutes what the effect
+// is at a glance"): the base and base + layer are rendered with Fit OFF, so both share one framing, and the picture keeps
+// only the pixels the layer CHANGED. A layer that stands alone (Bubble, Beam, Sigil) shows alone; one that rides the
+// particles (Trails, Web) shows what it adds; a post effect (Chromatic, Glitch) shows the burst as it changes it. A layer
+// that changes nothing keeps the whole picture.
 function layerFramesOf(fn) {
   return withState(LAYER_BASE, () => {
     if (fn) fn();
-    const r = renderFrames(state, { size: LTHUMB, fit: true }), out = [];
+    const r = renderFrames(state, { size: LTHUMB, fit: false }), out = [];
     for (const cv of r.canvases) {
       const c = document.createElement("canvas"); c.width = LTHUMB; c.height = LTHUMB;
       c.getContext("2d").drawImage(cv, 0, 0, LTHUMB, LTHUMB); out.push(c);
@@ -2849,16 +2855,52 @@ function layerThumb(L) {
   let t = null;
   try {
     if (!layerBaseFrames) layerBaseFrames = layerFramesOf(null);
-    const frames = layerFramesOf(() => L.on());
-    let best = 0, most = -1;
-    frames.forEach((c, i) => {
-      const b = layerBaseFrames[Math.min(i, layerBaseFrames.length - 1)], d1 = c.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data;
+    const full = layerFramesOf(() => L.on());
+    let best = 0, most = -1, any = 0;
+    const frames = full.map((c, i) => {
+      const b = layerBaseFrames[Math.min(i, layerBaseFrames.length - 1)], g1 = c.getContext("2d"), id = g1.getImageData(0, 0, LTHUMB, LTHUMB), d1 = id.data;
       const d0 = b.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data;
       let diff = 0;
-      for (let k = 0; k < d1.length; k += 4) diff += Math.abs(d1[k] - d0[k]) + Math.abs(d1[k + 1] - d0[k + 1]) + Math.abs(d1[k + 2] - d0[k + 2]) + Math.abs(d1[k + 3] - d0[k + 3]);
+      for (let k = 0; k < d1.length; k += 4) {
+        const dk = Math.abs(d1[k] - d0[k]) + Math.abs(d1[k + 1] - d0[k + 1]) + Math.abs(d1[k + 2] - d0[k + 2]) + Math.abs(d1[k + 3] - d0[k + 3]);
+        diff += dk;
+        if (dk < 24) d1[k + 3] = 0;                          // unchanged by the layer: the base's own pixel, left out
+      }
       if (diff > most) { most = diff; best = i; }
+      any += diff;
+      const m = document.createElement("canvas"); m.width = LTHUMB; m.height = LTHUMB; m.getContext("2d").putImageData(id, 0, 0);
+      return m;
     });
-    t = { frames: frames, best: best };
+    // ZOOMED TO THE LAYER: with Fit off a small layer (Bubble, Impact) was a speck. One square around the layer's pixels
+    // over EVERY frame (so it plays steady), a little margin, enlarged to the cell with crisp pixels.
+    let pick = any > 0 ? frames : full, x0 = LTHUMB, y0 = LTHUMB, x1 = -1, y1 = -1;
+    for (const c of pick) {
+      const d = c.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data;
+      for (let y = 0; y < LTHUMB; y++) for (let x = 0; x < LTHUMB; x++) if (d[(y * LTHUMB + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 >= 0) {
+      const side = Math.min(LTHUMB, Math.max(14, Math.ceil(Math.max(x1 - x0 + 1, y1 - y0 + 1) * 1.15)));
+      const cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2;
+      const sx = Math.max(0, Math.min(LTHUMB - side, Math.round(cx - side / 2))), sy = Math.max(0, Math.min(LTHUMB - side, Math.round(cy - side / 2)));
+      if (side < LTHUMB) pick = pick.map((c) => {
+        const z = document.createElement("canvas"); z.width = LTHUMB; z.height = LTHUMB;
+        const zg = z.getContext("2d"); zg.imageSmoothingEnabled = false; zg.drawImage(c, sx, sy, side, side, 0, 0, LTHUMB, LTHUMB);
+        return z;
+      });
+    }
+    // A FAINT layer (Shockwave, Zoom blur, Lines: drawn at low opacity) is brought up so its strongest pixel is opaque:
+    // a preview has to read at 60 px (only faint pictures change; the effect itself does not)
+    let amax = 0;
+    for (const c of pick) { const d = c.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data; for (let k = 3; k < d.length; k += 4) if (d[k] > amax) amax = d[k]; }
+    if (amax > 0 && amax < 170) {
+      const f = 255 / amax;
+      pick = pick.map((c) => {
+        const g = c.getContext("2d"), id = g.getImageData(0, 0, LTHUMB, LTHUMB), d = id.data;
+        for (let k = 0; k < d.length; k += 4) { d[k + 3] = Math.min(255, d[k + 3] * f); d[k] = Math.min(255, d[k] * 1.25); d[k + 1] = Math.min(255, d[k + 1] * 1.25); d[k + 2] = Math.min(255, d[k + 2] * 1.25); }
+        g.putImageData(id, 0, 0); return c;
+      });
+    }
+    t = { frames: pick, best: best };
   } catch (e) { t = null; }                  // a layer that will not render must not take the strip down
   layerThumbs.set(L.g, t);
   return t;
@@ -3763,7 +3805,7 @@ const STYLES = [
              fps: 30, frameSize: 5, glow: 0.5, paletteLock: "" } },
 ];
 
-// Era-style buttons. Same STYLES table the Foundry uses — one source of truth, so a style can't
+// Era-style buttons. Same STYLES table the Wizard uses — one source of truth, so a style can't
 // mean two different things in two places.
 {
   const grid = document.getElementById("styleGrid");
@@ -4606,7 +4648,7 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
                        76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88,
                        89, 90, 91, 92, 93, 94, 95, 96, 97];
 // THE STARTING FRAME SIZE (§22.1, AJ 2026-10-13: "the preview pane is much larger now… the default effect size should
-// bump up too"). What a NEW effect starts at: Randomize, the Foundry and Match a sound. It is NOT the frameSize PARAMS
+// bump up too"). What a NEW effect starts at: Randomize and Match a sound. It is NOT the frameSize PARAMS
 // default, which stays 128 (index 4): that default is what every preset and share link without a frameSize key MEANS
 // (applyPreset resets to defaults, links are diffs against them), so moving it would silently re-size ~24 presets and
 // every old link. 192 is what 158 of the 189 presets are authored at, so a roll and a preset now look alike, and it is
@@ -6496,7 +6538,7 @@ gifModal.querySelector("#gifGo").addEventListener("click", () => {
 });
 
 // ============================================================================================
-// Patch codec — the shared basis for share links, breeding, variations and the foundry.
+// Patch codec — the shared basis for share links, breeding and variations.
 // A patch is a DIFF from the PARAMS defaults, so it stays small and, more importantly, stays
 // forward-compatible: a link made today still loads after new params are added, because
 // anything absent falls back to its default.
@@ -6535,7 +6577,7 @@ function decodePatch(str) {
   } catch (e) { return null; }
 }
 
-// ---------- Genome operations (breed / variations / foundry all use these) ----------
+// ---------- Genome operations (breed / variations use these) ----------
 // Params breeding must not touch. Half of them are derivable: every categorical param (a shape, an
 // emitter, a blend, a frame size) picks WHAT the effect is, and nudging an index by "0.4 of the
 // range" doesn't give you a sibling, it gives you an unrelated effect. Deriving that half from
@@ -7305,96 +7347,12 @@ varModal.querySelector("#varExport").addEventListener("click", async () => {
   }
 });
 
-// ---------- Foundry ----------
-// Breeding explores AROUND an effect you already have. The foundry starts from nothing: pick a
-// kind of effect and an art style, and it invents candidates. Keep what you like.
-const ARCHETYPES = [
-  { name: "Explosion", shapes: [0, 5, 6], emitters: [0, 3],
-    base: { count: 200, speed: 320, drag: 0.5, gravity: 140, life: 0.5, size: 20, grow: -0.6,
-            fadeOut: 0.6, hue: 30, hueLife: -34, coreWhite: 0.6, emitRadius: 0.05, emitTime: 0.05,
-            flash: 0.8, flashSize: 0.36, wave: 0.4, glow: 0.4, duration: 0.8 } },
-  { name: "Impact",    shapes: [1, 4, 6, 11], emitters: [0, 1],
-    base: { count: 30, speed: 480, drag: 0.72, life: 0.22, size: 13, grow: -0.8, fadeOut: 0.6,
-            hue: 45, hueLife: -20, coreWhite: 0.85, flash: 0.7, flashSize: 0.3, glow: 0.4, duration: 0.35, fps: 30 } },
-  { name: "Magic",     shapes: [3, 11, 17, 0], emitters: [2, 3, 5],
-    base: { count: 70, speed: 80, drag: 0.45, gravity: -60, swirl: 140, spin: 160, emitRadius: 0.18,
-            emitTime: 0.6, life: 0.9, size: 14, grow: -0.4, fadeIn: 0.2, fadeOut: 0.55,
-            hue: 285, hueLife: 45, coreWhite: 0.7, glow: 0.5, duration: 1.2 } },
-  { name: "Smoke",     shapes: [5, 15], emitters: [1, 3],
-    base: { count: 30, speed: 60, drag: 0.6, gravity: -80, turb: 0.3, life: 1.4, size: 34, grow: 0.8,
-            fadeIn: 0.2, fadeOut: 0.7, sat: 0.15, bright: 0.75, coreWhite: 0, blend: 1, opacity: 0.5,
-            duration: 1.6, fps: 20 } },
-  { name: "Pickup",    shapes: [3, 10, 12, 11], emitters: [0, 2],
-    base: { count: 16, speed: 200, drag: 0.5, gravity: 420, spin: 300, life: 0.7, size: 13,
-            grow: -0.3, fadeOut: 0.4, hue: 46, sat: 1, coreWhite: 0.55, flash: 0.5, glow: 0.4, duration: 0.8 } },
-  { name: "Weather",   shapes: [16, 14, 0], emitters: [4, 6],
-    base: { count: 60, emitRadius: 0.5, emitAngle: 190, emitSpread: 25, emitTime: 1, originY: 0.02,
-            speed: 240, gravity: 220, life: 1.4, size: 11, fadeIn: 0.08, fadeOut: 0.2,
-            hue: 200, sat: 0.5, blend: 1, opacity: 0.7, duration: 1.5, loopBlend: 0.9 } },
-];
-const archByName = (n) => ARCHETYPES.find((a) => a.name === n) || ARCHETYPES[0];
+// ---------- (the Foundry, removed 2026-10-25) ----------
+// AJ: "the Wizard can honestly do way more". The Foundry (6 kinds x an art style, candidates mutated from a kind's base)
+// was a narrower, unguided copy of what the Wizard does: its nine are COMPOSED (wizardCompose), "More like these" gives
+// nine fresh ones for the same answers, and the era is its third question. Only what the Wizard and the Era buttons use
+// stays: the era style by name.
 const styleByName = (n) => STYLES.find((s) => s.name === n) || STYLES[0];
-
-function foundryGenerate(typeName, styleName) {
-  const a = archByName(typeName);
-  // a new effect: the starting frame size (§22.1), unless the chosen style sets its own (the era styles do)
-  const g = fullGenome(Object.assign({ frameSize: START_FRAME_SIZE }, a.base));
-  // shape/emitter are in BREED_SKIP (mutating them changes WHAT the effect is), so pick them here
-  g.shape = pick(a.shapes);
-  g.emitter = pick(a.emitters);
-  g.hue = Math.floor(Math.random() * 360);
-  const m = mutateGenome(g, 0.4);     // wider than breeding — these are meant to be their own thing
-  m.shape = g.shape; m.emitter = g.emitter; m.hue = g.hue;
-  Object.assign(m, styleByName(styleName).patch);
-  m.seed = 1 + Math.floor(Math.random() * 9999);
-  if (m.shape === 18) m.glyph = pick(GLYPH_PICKS);
-  return m;
-}
-
-const foundryModal = document.createElement("div");
-foundryModal.className = "modal";
-foundryModal.hidden = true;
-foundryModal.innerHTML =
-  '<div class="modal-box">' +
-    '<div class="modal-head"><h2 data-icon="hammer">Foundry</h2>' +
-      '<span class="hint">Invent effects from scratch. Keep the good ones.</span>' +
-      '<button id="fndClose" data-icon="close">Close</button></div>' +
-    '<div class="var-opts">' +
-      '<label>Type <select id="fndType"></select></label>' +
-      '<label>Style <select id="fndStyle"></select></label>' +
-      '<button id="fndGen" class="primary" data-icon="hammer">Generate 8</button>' +
-    '</div>' +
-    '<div class="breed-grid" id="fndGrid"></div>' +
-    '<div class="modal-foot"><span class="hint" id="fndMsg">Pick a type and hit Generate.</span></div>' +
-  '</div>';
-document.body.appendChild(foundryModal);
-const fndGrid = foundryModal.querySelector("#fndGrid");
-const fndMsg = foundryModal.querySelector("#fndMsg");
-const fndType = foundryModal.querySelector("#fndType");
-const fndStyle = foundryModal.querySelector("#fndStyle");
-for (const a of ARCHETYPES) { const o = document.createElement("option"); o.textContent = a.name; fndType.appendChild(o); }
-for (const s of STYLES) { const o = document.createElement("option"); o.textContent = s.name; fndStyle.appendChild(o); }
-
-function foundryRun() {
-  clearMinis(fndGrid);
-  fndGrid.innerHTML = "";
-  const made = Array.from({ length: 8 }, () => visibleGenome(() => foundryGenerate(fndType.value, fndStyle.value), 14));
-  made.forEach((gnome, i) => {
-    fndGrid.appendChild(makeGridCell(gnome, "", [
-      ["✎", "Load into the editor", () => { applyPreset(gnome, fndType.value + " " + (i + 1)); foundryModal.hidden = true; }],
-      ["★", "Save to My Effects", () => {
-        userEffects.unshift({ id: ++upSeq, name: fndType.value + " " + (i + 1), state: fullGenome(gnome) });
-        saveUserEffects(); renderMyEffects();
-        fndMsg.textContent = "Saved to My Effects";
-      }],
-    ], 72));
-  });
-  fndMsg.textContent = "8 " + fndType.value.toLowerCase() + " candidates — ✎ loads one, ★ keeps it";
-}
-document.getElementById("foundry").addEventListener("click", () => { foundryRun(); foundryModal.hidden = false; });
-foundryModal.querySelector("#fndClose").addEventListener("click", () => { foundryModal.hidden = true; clearMinis(fndGrid); });
-foundryModal.addEventListener("click", (e) => { if (e.target === foundryModal) { foundryModal.hidden = true; clearMinis(fndGrid); } });
-foundryModal.querySelector("#fndGen").addEventListener("click", foundryRun);
 
 // ---------- The Wizard (§23) ----------
 // CrunchyTile's Wizard (TILE-DESIGN §86), in VFX's words: three questions a game developer can answer without knowing
@@ -8446,6 +8404,20 @@ function decodeSfxLink(text) {
   } catch (e) { return null; }
 }
 
+// GAME MOMENTS, step 3: a CrunchySFX link pasted into a moment's Sound slot becomes a WAV, rendered here by the vendored
+// synth exactly as CrunchySFX renders it (the link's own normalize setting), named by the link's title.
+function momentLinkSound(url) {
+  const obj = decodeSfxLink(url);
+  if (!obj) return { error: "That isn't a CrunchySFX link: copy it with Share in CrunchySFX." };
+  if (!synthAvailable()) return { error: "This build has no sound engine to render the link with." };
+  // a setting this synth does not know means a NEWER CrunchySFX made the link: say so rather than sound different quietly
+  const known = new Set(Object.keys(CrunchySynth.DEFAULTS).concat(["customWave", "customWaveB", "speechText", "riff"]));
+  const unknown = Object.keys(obj.s).filter((k) => !known.has(k));
+  const full = Object.assign({}, CrunchySynth.DEFAULTS, obj.s), r = CrunchySynth.render(full, { normalize: obj.n !== 0 });
+  const wav = new Uint8Array(CrunchySynth.encodeWav(r.L, r.R, { rate: CrunchySynth.SR, depth: 16, channels: 2, title: obj.t || "Sound" }));
+  return { name: obj.t || "Sound from a link", wav: wav,
+           note: unknown.length ? "It was made with a newer CrunchySFX (" + unknown.slice(0, 3).join(", ") + "), so it may sound a little different here: save it into this game from CrunchySFX for the exact sound." : "" };
+}
 function matchSound(obj) {
   const sfx = obj.s;
   const d = (k) => (k in sfx ? sfx[k] : SFX_DEFAULTS[k]);
@@ -8862,15 +8834,13 @@ const TOUR = [
           "Everything is drawn in code on your machine: no generative AI, no samples, nothing uploaded. New here? Start with the Wizard. Here's the 30-second version." },
   // §23: the Wizard is where someone with no effect in mind starts (CrunchyTile's tour says the same of its own)
   { target: "#wizardBtn", title: "Start here: the Wizard",
-    body: "Three questions: what the effect is for, what it's made of, and which era it should look like. Then nine finished effects, all playing, picked from the ready-made ones and the Foundry's and Randomize's own rolls. Click one to load it; Ctrl+Z undoes it." },
+    body: "Three questions: what the effect is for, what it's made of, and which era it should look like. Then nine finished effects, all playing, made for your answers from the ready-made ones and new ones composed on the spot. Click one to load it; Ctrl+Z undoes it." },
 
   // Three ways to get a starting point, in order of how much you already have in mind.
   { target: "#presetbar", title: "Start from an effect",
     // Counts are interpolated, not typed: every one of them was already stale (118 effects, 88
     // shapes, 42 systems) because nothing connected the copy to the thing it counts.
     body: Object.keys(PRESETS).length + " ready-made effects in the strip along the top. Click a picture to load it (hover to watch it play), page with the arrows, search by name or by what it is for, or pick a moment from the chips (a hit, a death, a pickup, a projectile…; Techniques and Tags group them other ways). Everything after this is tweaking what you loaded." },
-  { target: "#foundry", title: "Foundry: invent originals",
-    body: "Nothing in mind? Pick a kind of effect and an art style, and the Foundry invents candidates from scratch. Keep the ones you like." },
   { target: "#breed,#variations", title: "Breed: evolve by eye",
     body: "Breed makes nine children of the current effect; keep your favorites and breed again. It roams — a child can pick up a system the parent never had, which is how it finds things you'd never reach by dragging sliders. Variations stays put instead: it nudges what the effect already uses and exports a whole family — hit_01…hit_08 — so repeated hits don't read as a loop." },
 
@@ -9069,7 +9039,7 @@ const TUTORIALS = [
   },
   {
     id: "invent", name: "Invent, don't tweak",
-    blurb: "Randomize, Breed, Variations and the Foundry.",
+    blurb: "Randomize, Breed and Variations.",
     steps: [
       { target: "#rand", before: closeAll, title: "Start from an accident",
         body: "Randomize builds a whole effect from scratch, systems and all. It's the fastest way "
@@ -9083,9 +9053,6 @@ const TUTORIALS = [
         body: "Deliberately tamer than Breed: it only nudges what this effect already uses, so a "
           + "pack stays recognisably one effect. It exports the whole family — hit_01 … hit_08 — "
           + "so repeated hits in your game don't read as a loop. One effect, eight siblings." },
-      { target: "#foundry", before: closeAll, title: "The Foundry starts from an idea",
-        body: "Pick a kind of effect and an art style and it invents candidates from nothing. Use it "
-          + "when you know what you want but not what it should look like." },
     ],
   },
   {
@@ -9849,6 +9816,8 @@ const library = libraryMount({
     { label: "Game moment", title: "Make a game moment from this effect: add a sound, a hit look on the target, a screen shake and a hit stop, saved as one Godot node",
       when: () => !!project && project.engine !== "unity",
       run: (it) => momentOpen({ P: project, from: { slot: "effect", suite: "vfx", slug: it.asset.slug }, name: "Hit",
+        // a CrunchySFX share link (from the free website) as a WAV: VFX already carries the synth (Match a sound uses it)
+        linkSound: momentLinkSound,
         openApp: (key) => { const t = CRUNCHY_SUITE.find((x) => x.id === key); if (t && (t.web || t.desktop)) window.__TAURI__.opener.openUrl(t.web || t.desktop); },
         onSaved: (a) => projStatus("Saved the game moment " + a.name + " (crunchy/moments/" + a.slug + "/). In your game: $" + a.name.replace(/[^A-Za-z0-9_]/g, "") + ".play_at($Enemy)") }) },
     { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",

@@ -327,6 +327,35 @@
               /play_at/.test(said) && !/Couldn't read|No effect/.test(said) && second && !ov(),
       "effect " + fx0 + " · " + want.filter(function (w) { return tscn.indexOf(w) < 0; }).join(" ") + " · links " + (side2 && side2.links.length) + " · " + said + " · second " + second);
   });
+  // STEP 3 (AJ, 2026-10-25: "Make one in…" opens the free web app, which has no Library): a CrunchySFX link and a
+  // CrunchyShader link pasted into the slots are rendered here and written INTO the moment's own folder; the scene points
+  // at them; the moment keeps both links; a paste that is not a link is refused and changes nothing.
+  await t("moments/share-links-from-the-web-apps-render-into-the-moment", async function () {
+    const sfx = "https://crunchysfx.com/?s=" + btoa(JSON.stringify({ v: 1, s: { duration: 0.25 }, t: "Zap" })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const shd = "https://crunchyshader.com/?e=hitflash&n=Bright%20flash";
+    cardButton("Explosion", "Game moment").click();
+    const ov = function () { return document.querySelector(".mom-overlay"); };
+    await wait(function () { return ov() && ov().querySelector('[data-link="sound"]'); });
+    const paste = async function (slot, v) { const li = ov().querySelector('[data-link="' + slot + '"]'); li.value = v; ov().querySelector('[data-use="' + slot + '"]').click(); await settle(); await wait(function () { return true; }, 60); };
+    await paste("sound", "not a link at all");
+    const refused = /Sound: /.test(ov().querySelector(".mom-say:last-child").textContent) && ov().querySelector('select[data-slot="sound"]').value !== "link";
+    await paste("sound", sfx);
+    await paste("look", shd);
+    const snd = ov().querySelector('select[data-slot="sound"]'), lk = ov().querySelector('select[data-slot="look"]');
+    const shown = snd.value === "link" && /Zap/.test(snd.selectedOptions[0].textContent) && lk.value === "link" && /Bright flash/.test(lk.selectedOptions[0].textContent);
+    const nm = ov().querySelector(".mom-top input[type=text]"); nm.value = "Linked"; nm.dispatchEvent(new Event("input"));
+    Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Save to my game"; }).click();
+    const dir = GODOT + "/crunchy/moments/linked/";
+    await wait(function () { return !!M.text(dir + "linked.tscn"); });
+    const tscn = M.text(dir + "linked.tscn") || "", tres = M.text(dir + "hitflash.tres") || "", side3 = JSON.parse(M.text(dir + "linked.crunchy") || "null");
+    const wav = M.bytes(dir + "linked_sound.wav");
+    Array.from(ov().querySelectorAll("button")).find(function (b) { return b.textContent === "Cancel"; }).click();
+    return ok(refused && shown && wav && wav.length > 1000 && String.fromCharCode(wav[0], wav[1], wav[2], wav[3]) === "RIFF" &&
+              tscn.indexOf('path="res://crunchy/moments/linked/linked_sound.wav"') >= 0 && tscn.indexOf('path="res://crunchy/moments/linked/hitflash.tres"') >= 0 &&
+              tres.indexOf('path="res://crunchy/moments/linked/hitflash.gdshader"') >= 0 && !!M.text(dir + "hitflash.gdshader") &&
+              side3 && side3.m.sound_link === sfx && side3.m.look_link === shd && side3.files.indexOf("linked_sound.wav") >= 0,
+      "refused " + refused + " · shown " + shown + " · wav " + (wav && wav.length) + " · " + tscn.split("\n").filter(function (l) { return /ext_resource/.test(l); }).join(" | "));
+  });
   await t("moments/deleting-a-piece-a-moment-uses-is-stopped-and-names-it", async function () {
     library.refresh();
     await wait(function () { return !!cardButton("Explosion", "Delete"); });

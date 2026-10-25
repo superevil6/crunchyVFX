@@ -1,5 +1,5 @@
 {
   "version": "1.0.0",
   "url": "https://sevi66.itch.io/crunchyvfx",
-  "notes": "The first desktop release: plant effects straight into your game, ready-to-play Godot scenes, and effects for every game moment."
+  "notes": "New: game moments (an effect, a sound, a hit look, shake and hit stop as one Godot node), a picture strip of layers, centered slashes, Quick shape sliders that come back to where they were. The Foundry is folded into the Wizard."
 }

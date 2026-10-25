@@ -77,5 +77,5 @@ page (VFX-DESIGN §29): add the desktop's operating systems and offer when the l
 
 - **Bundle a .deb built on ubuntu-22.04** (CI's). The manifest (`flatpak/com.crunchyvfx.app.yml`) has the commands for a
   hand build; a local .deb builds a Flatpak that will not RUN (glibc).
-- The Flatpak runtime (GNOME 46) brokers the host's GPU drivers and PipeWire, which is why it works where the AppImage
+- The Flatpak runtime (GNOME 50 since 1.1.0; 46 is end of life) brokers the host's GPU drivers and PipeWire, which is why it works where the AppImage
   did not.

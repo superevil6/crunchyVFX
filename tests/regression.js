@@ -137,9 +137,10 @@
     seedBreedGrid();
     ok(breedGenomes.length === 9 && breedGrid.children.length === 9, "breed grid builds 9 cells");
     ok(sameSnapshot(breedGenomes[0], snapshotState()), "cell 1 is the current effect");
-    const made = Array.from({ length: 8 }, () => foundryGenerate("Impact", "8-bit"));
-    ok(made.every((m) => archByName("Impact").shapes.indexOf(m.shape) >= 0), "foundry respects its archetype");
-    ok(made.every((m) => m.pixelate === 3 && m.fps === 12), "the 8-bit style clamps the look");
+    // (the Foundry was removed 2026-10-25; the era style it applied is checked on its own)
+    const eight = Object.assign({}, snapshotState());
+    styleInto(eight, styleByName("8-bit"));
+    ok(eight.pixelate === 3 && eight.fps === 12, "the 8-bit style clamps the look");
     // every era style must be a complete overlay: one that omits paletteLock would leave the
     // previous style's palette locked on, so switching Pocket -> Super would still look green.
     const missing = STYLES.filter((st2) => st2.name !== "Anything" && !("paletteLock" in st2.patch));
@@ -1051,7 +1052,7 @@
       const stray = Array.from(hdr.querySelectorAll("button")).filter((b) => !b.closest("#hdrGlobals")).map((b) => b.id || b.textContent);
       ok(stray.length === 0, "…and the header holds nothing else", stray.join(", "));
       ok(hdr.offsetHeight > 0 && hdr.offsetHeight < 64, "the header is one row", hdr.offsetHeight + " px");
-      const gens = ["rand", "breed", "variations", "foundry", "matchBtn", "reroll", "undoBtn", "redoBtn", "fitBtn", "lockBtn", "holdBtn", "timeBtn"];
+      const gens = ["rand", "breed", "variations", "matchBtn", "reroll", "undoBtn", "redoBtn", "fitBtn", "lockBtn", "holdBtn", "timeBtn"];
       const genBar = document.getElementById("genbar");
       const lostGen = gens.filter((id) => !document.getElementById(id) || !genBar.contains(document.getElementById(id)));
       // §22.1: their own full-width row between the header and the strip (CrunchyUI's toolbar row)
@@ -1206,7 +1207,7 @@
          Array.from(document.querySelectorAll("#paletteGrid button")).every((b, i) => b.textContent === PALETTES[i][0]),
          "every palette shows a swatch, and its text is still its name");
 
-      // §22.1: THE STARTING FRAME SIZE. A new effect (Randomize, the Foundry, Match a sound) starts at 192; the PARAMS
+      // §22.1: THE STARTING FRAME SIZE. A new effect (Randomize, Match a sound) starts at 192; the PARAMS
       // default (what a preset or a link WITHOUT frameSize means) stays 128, so no preset and no old link moves.
       {
         const lockWas = pixelLock, lockValsWas = lockedValues, snapS = snapshotState(), labelS = effectLabel;
@@ -1215,9 +1216,6 @@
            "a new effect starts at 192 px; the default a preset inherits is still 128 px");
         randomize();
         ok(state.frameSize === START_FRAME_SIZE, "Randomize starts at the starting size", SIZES[state.frameSize]);
-        ok(foundryGenerate(ARCHETYPES[0].name, "Anything").frameSize === START_FRAME_SIZE &&
-           foundryGenerate(ARCHETYPES[0].name, "8-bit").frameSize === SIZES.indexOf("64"),
-           "the Foundry starts there too, unless its style sets a size");
         ok(matchSound({ v: 1, s: {}, t: "x" }).patch.frameSize === START_FRAME_SIZE, "…and so does Match a sound");
         const inherit = Object.keys(PRESETS).filter((n) => !("frameSize" in PRESETS[n]));
         applyPreset(PRESETS[inherit[0]], inherit[0]);
@@ -3480,7 +3478,7 @@
     userCats = []; renderUserCats();
 
     // ---------------------------------------------------------------- the Wizard (§23)
-    // Three questions, then nine finished effects, all playing. It invents nothing (presets, Foundry and Randomize rolls
+    // Three questions, then nine finished effects, all playing. It invents nothing (presets and Randomize rolls
     // under a seeded Math.random), tags are DERIVED from what an effect is, an era applies exactly as its button does, a
     // click is one undo step, and what the Wizard shows is what a click loads (Lock pixels included).
     {

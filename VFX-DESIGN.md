@@ -1945,3 +1945,34 @@ All brings them back. Suite 698/698. styles.css --css-build 11 (and its want).
   thing in the editor (above Quick shape); the active layers' panels keep their place after the panels every effect has,
   under "Layers in this effect" (`layersHead`, hidden with none on); adding a layer scrolls its new panel into view. The
   §24 order rows now say exactly that. 698/698.
+- **Just the layer (same day, AJ: every picture "has a 'burst' effect as part of them ... which dilutes what the effect
+  is at a glance"):** base and base + layer are rendered with Fit OFF (one shared framing) and a picture keeps only the
+  pixels the layer CHANGED: a layer that stands alone (Bubble, Beam, Sigil, Tunnel) shows alone, one riding the particles
+  (Trails, Web, Particle rings) shows what it adds, a post effect (Chromatic, Glitch) shows the burst as it changes it;
+  a layer that changes nothing keeps the whole picture. Each picture is then ZOOMED to the layer's own pixels (one
+  square over every frame, so it plays steady; crisp) and a faint one brought up to full opacity. Seen for all 59.
+
+## 35. The Foundry removed (2026-10-25, AJ: "the Wizard can honestly do way more ... less clutter is a good thing")
+
+The Foundry (6 kinds x an art style, candidates mutated from a kind's base) was a narrower, unguided copy of the Wizard:
+the Wizard's nine are COMPOSED for its answers (wizardCompose), "More like these" gives nine fresh ones, and the era is
+its third question. Gone: the toolbar button, its dialog and generator (ARCHETYPES, foundryGenerate), its tour step,
+the "Invent, don't tweak" tutorial's step, the `.foundry-*` / `.fnd-*` styles (--css-build 12), and its mentions on the
+itch page text, ITCH-DESCRIPTION.html, the Flatpak metainfo and CLAUDE.md. Kept: `styleByName` (the Wizard and the
+Era buttons use it). The toolbar is Randomize · Breed · Variations · Match a sound · Reroll seed. Rows: the two that
+drove the Foundry removed, "the 8-bit style clamps the look" kept on its own (styleInto); 696/696, desktop 59/59, web 13/13.
+The itch page itself (on itch.io) still says "Foundry" until AJ pastes the new text.
+- **The frame hash re-recorded (2026-10-25, for 1.1.0):** every moved line accounted for: Slash and Twin Slash (§33's
+  crescent centering, intended), Coin Burst and Prompt Pop (they draw the suite's icons, the "coin" and "btn-a" glyphs;
+  crunchyCore glyphs.js went build 1 → 4 since the hash was last recorded, a redraw in the core), Slash's sheet export,
+  Prompt Pop's frames export, and the pack and total that sum them. Nothing else moved.
+
+## 36. Game moments take share links (2026-10-25, AJ: "Make one in…" sends people to the web version, "where they don't have library access")
+
+Before 1.1.0 ships: the moment's Sound and Hit look slots take a pasted share link (crunchyCore moments-ui.js 2). A
+CrunchyShader link is rendered by the core's shader engine; a CrunchySFX link by VFX's vendored synth
+(`momentLinkSound`: decodeSfxLink → CrunchySynth.render with the link's normalize → encodeWav, named by its title; a
+link carrying settings this synth (SFX 1.1.0) does not know gets a note: "made with a newer CrunchySFX ... may sound a
+little different here"). Save writes the WAV / shader + material INTO crunchy/moments/<slug>/ (the moment's own files)
+and the scene points at them; the moment keeps both links. Row `moments/share-links-from-the-web-apps-render-into-the-
+moment` (a non-link refused; both links shown, saved, pointed at, kept). 696 / desktop 60 / web 13; core 312, moments-godot 11.

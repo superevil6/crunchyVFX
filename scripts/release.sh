@@ -167,7 +167,9 @@ $( [[ -n "$BUMP" ]] && echo "  1. commit the version bump" || echo "  1. (nothin
                               ubuntu-22.04   → .deb→Flatpak  → sevi66/crunchyvfx:linux-flatpak
 
 EOF
-read -r -p "Proceed? [y/N] " reply
+# Drop anything typed during the long checks (CrunchyShader 1.0.0: a stray Enter answered "no" at once), then ask the terminal
+while read -r -t 0.2 -n 10000 _ </dev/tty 2>/dev/null; do :; done
+read -r -p "Proceed? [y/N] " reply </dev/tty
 if [[ ! "$reply" =~ ^[Yy]$ ]]; then
   [[ -n "$BUMP" ]] && git checkout -- "${FILES[@]}"
   die "aborted${BUMP:+: version bump reverted}"

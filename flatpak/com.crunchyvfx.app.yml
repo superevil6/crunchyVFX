@@ -34,7 +34,8 @@
 
 id: com.crunchyvfx.app
 runtime: org.gnome.Platform
-runtime-version: '46'          # GNOME 46 ships the webkit2gtk-4.1 that Tauri v2 links against
+runtime-version: '50'          # GNOME 50 still ships the webkit2gtk-4.1 that Tauri v2 links against (46 is end of
+                                # life, and its Mesa cannot compile for RDNA 4; CrunchyShader 1.0.1 found it)
 sdk: org.gnome.Sdk
 command: crunchyvfx
 
