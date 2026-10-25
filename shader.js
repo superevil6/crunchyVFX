@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ ff8395e by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 e624efef7372bba3bb4e6f6204cf1908d3ec8899ea0afee5d46ae6eae388b1aa
+// GENERATED from crunchyCore/shader.js @ 4154ee5 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 14279f1c74c283aa068b6d20a3812daf64720134adc6b4c9ad031cbec16d82b2
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -94,7 +94,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 45;
+const SHADER_BUILD = 46;
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -14361,3 +14361,177 @@ SHADER_DEFS.jeweled.variants = [{ amount: 100, setting: "#d0d8e0" }, { amount: 3
 SHADER_DEFS.fractured.variants = [{ amount: 100, seed: 3 }, { amount: 30 }];
 SHADER_DEFS.ironclad.variants = [{ amount: 100, plate: 4 }, { amount: 40, plate: 10, ramp: ["#fff8e0", "#e0c080", "#a07a40", "#5a4020", "#201408"] }];
 SHADER_DEFS.plasmatic.variants = [{ amount: 100, seed: 2 }, { amount: 35, ramp: ["#fff8e0", "#ffc040", "#ff6020", "#c01040", "#300410"] }];
+
+// Crunchy suite: SHADER roster, batch "power-ups" (build 46) (AJ, 2026-10-25, after CrunchyVFX 1.1.0 shipped: "1. Shrinking and
+// Growing, 2. Not laser scan, but an actual laser weapon."). Two effects, merged from wip/shader-powerups.js.
+//   shrinkgrow  the sprite itself grows or shrinks, pixel-crisp: smoothly, a pulse, or the platformer power-up flicker
+//   laserbeam   a laser weapon fired from a muzzle point: a charge, the beam shooting out, held, flaring, then gone
+// Private helpers are `shaderPu*`.
+
+SHADER_EFFECTS.push("shrinkgrow", "laserbeam");
+
+// sizes in thousandths: `from` 1000 (as drawn) toward `to` by e / 1000 of the way (e = 0 is exactly 1000)
+function shaderPuToward(S, to, e) { return S.add(1000, S.div(S.mul(S.sub(to, 1000), e), 1000)); }
+// is (u, v) inside a band `t` px thick along v = 0? t = 1 is the row v = 0; an even t adds the row above
+function shaderPuBand(S, v, t) { return S.and(S.gt(t, 0), S.ge(v, S.neg(S.div(t, 2))), S.le(v, S.div(S.sub(t, 1), 2))); }
+
+// SHRINK & GROW: frame 0 is the sprite as drawn; over `span` frames it grows (or shrinks) by `change` % (shrinking to
+// the inverse: 100 % is double, or half), or swells and settles back, or steps between its own size, halfway and the
+// new size a few times before it settles: the platformer mushroom (power up) or the hit that shrinks you (power down).
+// It holds the new size to the end of the loop: a game plays it once (frame_override, or restart the clock). Whole
+// pixels, nearest (shaderFunStretch, Jelly's), about the feet (bottom middle) or the middle. It never grows past its
+// pad (16 px over the top, 8 at each side and below: the contract's most is 16): the size is capped where the grown box
+// fills it, so a 32 px sprite can grow by half and a taller one by less (the 64 px hero, boxed in the app's 8 px of
+// room, by about a quarter).
+SHADER_DEFS.shrinkgrow = {
+  label: "Shrink & grow", title: "the sprite grows or shrinks, smoothly, in a pulse, or with the platformer power-up flicker",
+  group: "Sprite FX", kind: "sprite", frames: 24, fps: 12, pad: [16, 8, 8, 8], still0: true,
+  tags: ["grow", "shrink", "size", "scale", "power up", "power down", "mushroom", "platformer", "big", "small", "pulse", "silly"],
+  params: {
+    mode: { type: "int", min: 0, max: 4, def: 3, label: "How it changes",
+      choices: ["grows", "shrinks", "pulses", "powers up (flickers bigger)", "powers down (flickers smaller)"] },
+    change: { type: "int", min: 10, max: 100, def: 40, label: "Size change (%, as far as the pad allows)" },
+    anchor: { type: "int", min: 0, max: 1, def: 0, label: "Grows from", choices: ["the feet", "the middle"] },
+    span: { type: "int", min: 4, max: 24, def: 12, label: "Change takes (frames)" },
+  },
+  fragment: function (S) {
+    const PT = 16, PR = 8, PB = 8, PL = 8;
+    const B = S.sub(S.h, PB), H = S.max(S.sub(B, PT), 1), R = S.sub(S.w, PR), W = S.max(S.sub(R, PL), 1);
+    const mode = S.p("mode"), T = S.p("span"), f = S.frame;
+    // the bigger size, capped so the grown box still fits the pad (the same cap about the feet or the middle: 16 px of
+    // room over the top, or 8 above and 8 below)
+    const fit = S.min(S.div(S.mul(S.add(H, PT), 1000), H), S.div(S.mul(S.add(W, PL + PR), 1000), W));
+    const big = S.min(S.add(1000, S.mul(S.p("change"), 10)), fit), small = S.div(1000000, big);
+    // how far along, 0..1000: eased out for grow and shrink, a half sine for the pulse, the flicker's three steps
+    const p = S.min(S.div(S.mul(f, 1000), T), 1000), q = S.sub(1000, p);
+    const ease = S.sub(1000, S.div(S.mul(q, q), 1000));
+    const pulse = S.sel(S.lt(f, T), shaderMotionSin(S, S.div(S.mul(f, 180), T)), 0);
+    const step = S.table([0, 1, 0, 1, 0, 1, 2, 1, 2, 1, 2, 2], S.div(S.mul(f, 12), T));
+    const e = S.pick([[S.eq(mode, 2), pulse], [S.ge(mode, 3), S.mul(step, 500)]], ease);
+    const shrinks = S.or(S.eq(mode, 1), S.eq(mode, 4));
+    const s = shaderPuToward(S, S.sel(shrinks, small, big), e);
+    const nH = S.div(S.mul(H, s), 1000), nW = S.div(S.mul(W, s), 1000);
+    const ay = S.sel(S.eq(S.p("anchor"), 1), S.add(B, PT), S.mul(B, 2));
+    return S.texAt(shaderFunStretch(S, S.x, S.add(R, PL), W, nW), shaderFunStretch(S, S.y, ay, H, nH));
+  },
+  variants: [{ mode: 0, change: 100, anchor: 1 }, { mode: 2, span: 20 }, { mode: 4, change: 80, span: 6 }],
+};
+
+// LASER BEAM: a weapon going off. Frame 0 is the picture as it is. For `charge` frames light gathers at the muzzle (a
+// growing, flickering ball, sparks drawn in from three rings), lighting what is round it; then the beam shoots out to
+// `reach` px in three frames, a white-hot core inside the beam color, a dithered dark glow round it, its width flickering
+// and bulges running out along it; a flare and sparks where it ends. From frame 24 it thins, breaks up and is gone by
+// frame 30. The muzzle is a point (`across`, `down`, as % of the sprite as drawn, or of the screen inside a 16 px
+// border); the beam fires right, left, up or down.
+// BOTH kinds, and why: a laser is long, but a sprite effect may change only pixels within its pad's reach of the sprite,
+// and a pad is at most 16 px (the contract). So on a SPRITE it is a short blast (about 13 px off the hand, its flare
+// within the 16); on the SCREEN it runs its full length, to 7 px short of the edge, from wherever the game puts the
+// muzzle (it sets `across` and `down` from the shooter's place: Godot's screen scene or overlay).
+SHADER_DEFS.laserbeam = {
+  label: "Laser beam", title: "a laser weapon firing: a charge at the muzzle, a white-hot beam shooting out, a flare where it ends, then gone",
+  group: "Sprite FX", kind: "both", palette: "free", frames: 32, fps: 16, pad: [16, 16, 16, 16], still0: true,
+  tags: ["laser", "beam", "weapon", "shoot", "fire", "blaster", "gun", "sci-fi", "charge", "attack", "ray", "zap"],
+  params: {
+    beam: { type: "colour", def: "#ff2a48", label: "Beam" },
+    width: { type: "int", min: 2, max: 8, def: 4, label: "Beam width (px)" },
+    reach: { type: "int", min: 8, max: 320, def: 320, label: "Beam length (px, cut at the edge)" },
+    dir: { type: "int", min: 0, max: 3, def: 0, label: "Fires", choices: ["right", "left", "up", "down"] },
+    charge: { type: "int", min: 1, max: 12, def: 6, label: "Charge (frames)" },
+    across: { type: "int", min: 0, max: 100, def: 77, label: "Muzzle across (%)" },
+    down: { type: "int", min: 0, max: 100, def: 66, label: "Muzzle down (%)" },
+  },
+  fragment: function (S) {
+    const P = 16;
+    const c = S.tex(0, 0), f = S.frame, col = S.p("beam");
+    const white = S.rgba(255, 255, 255, 255), hot = shaderPaintMix(S, col, white, 55), dark = shaderPaintMix(S, col, S.rgba(0, 0, 0, 255), 50);
+    // the muzzle, in the box (the image less a 16 px border: a sprite's pad); u along the beam, v across it
+    const BW = S.max(S.sub(S.w, 2 * P), 1), BH = S.max(S.sub(S.h, 2 * P), 1);
+    const mx = S.add(P, S.div(S.mul(S.p("across"), S.sub(BW, 1)), 100)), my = S.add(P, S.div(S.mul(S.p("down"), S.sub(BH, 1)), 100));
+    const dx = S.sub(S.x, mx), dy = S.sub(S.y, my), dir = S.p("dir"), upright = S.ge(dir, 2);
+    const u = S.pick([[S.eq(dir, 1), S.neg(dx)], [S.eq(dir, 2), S.neg(dy)], [S.eq(dir, 3), dy]], dx), v = S.sel(upright, dx, dy);
+    const ad = S.max(S.abs(dx), S.abs(dy)), d2 = S.add(S.mul(dx, dx), S.mul(dy, dy));
+    // the most it may reach: 7 px short of the image's edge (4 the contract's margin, 3 the flare)
+    const edge = S.pick([[S.eq(dir, 1), mx], [S.eq(dir, 2), my], [S.eq(dir, 3), S.sub(S.sub(S.h, 1), my)]], S.sub(S.sub(S.w, 1), mx));
+    // ON A SPRITE (a padded sprite's corner is clear; a screen is opaque) the contract keeps every change within the pad's
+    // 16 px of the sprite, so the beam is a blast: it ends 13 px past the last of the sprite on its line in the first 9 px
+    // (the hand it leaves), and nothing is drawn unless the line 0-15 px back from it (sampled every 3 px) meets the
+    // sprite: a check that can only cut, never let through, a pixel too far out
+    const ux = S.pick([[S.eq(dir, 1), -1], [upright, 0]], 1), uy = S.pick([[S.eq(dir, 2), -1], [S.eq(dir, 3), 1]], 0);
+    const onLine = function (w) { return S.solid(S.texAt(S.add(mx, S.mul(ux, w)), S.add(my, S.mul(uy, w)))); };
+    const sprite = S.eq(S.a(S.texAt(0, 0)), 0);
+    let last = S.i(-1);
+    for (let i = 0; i <= 8; i++) last = S.sel(onLine(i), i, last);
+    let near = S.not(sprite);
+    for (let d = 0; d <= 15; d += 3) near = S.or(near, onLine(S.sub(u, d)));
+    // the timeline: charge from frame 1, fire at F0, full length 3 frames later, fade from 24, gone by 30
+    const C = S.p("charge"), F0 = S.add(C, 1);
+    const L = S.max(S.min(S.min(S.p("reach"), S.sub(edge, 7)), S.sel(sprite, S.add(last, 13), 9999)), 0);
+    const charging = S.and(S.ge(f, 1), S.lt(f, F0)), firing = S.and(S.ge(f, F0), S.lt(f, 24));
+    const fading = S.and(S.ge(f, 24), S.lt(f, 30)), k = S.sub(f, 24);
+    const ext = S.sub(f, F0), reach = S.sel(S.lt(ext, 3), S.div(S.mul(L, S.add(ext, 1)), 3), L);
+    const odd = S.mod(f, 2);
+
+    // CHARGE: a ball growing to 4 px, flickering a pixel; sparks drawn in from 7, 5, 3 px out, the set turned 45 degrees
+    // each time round
+    const lvl = S.div(S.mul(S.sub(f, 1), 100), S.max(C, 1));
+    const r = S.add(S.add(1, S.div(S.mul(lvl, 3), 100)), odd), rIn = S.sub(r, 2);
+    const ball = S.and(charging, S.le(d2, S.mul(r, r))), ballIn = S.and(charging, S.le(d2, S.mul(rIn, rIn)), S.ge(rIn, 0));
+    const halo = S.and(charging, S.le(d2, S.mul(S.add(r, 1), S.add(r, 1))), S.lt(shaderWxBayer(S, 1), 8));
+    const ck = S.sub(f, 1), dist = S.sub(7, S.mul(S.mod(ck, 3), 2)), diag = S.eq(S.mod(S.div(ck, 3), 2), 1), dd = S.div(S.mul(dist, 7), 10);
+    const onAxis = S.or(S.and(S.eq(S.abs(dx), dist), S.eq(dy, 0)), S.and(S.eq(S.abs(dy), dist), S.eq(dx, 0)));
+    const onDiag = S.and(S.eq(S.abs(dx), dd), S.eq(S.abs(dy), dd));
+    const mote = S.and(charging, S.gt(C, 1), S.sel(diag, onDiag, onAxis));
+
+    // THE BEAM: its width flickers by a pixel and bulges run out along it (3 px a frame, 8 px apart: whole periods a
+    // loop); while fading it thins a pixel a frame and breaks up through a dither
+    const flick = S.table([0, 1, 0, -1, 1, 0, -1, 0], S.mod(f, 8));
+    const bulge = S.sel(S.lt(S.mod(S.sub(u, S.mul(f, 3)), 8), 2), 1, 0);
+    const t = S.sel(fading, S.sub(S.p("width"), k), S.add(S.add(S.p("width"), flick), bulge));
+    const along = S.and(S.ge(u, 0), S.le(u, reach), S.or(firing, fading));
+    const keep = S.or(firing, S.ge(shaderWxBayer(S, 2), S.mul(k, 3)));
+    const tCore = S.sel(S.and(fading, S.ge(k, 2)), 0, S.max(1, S.div(t, 2)));
+    const tHot = S.min(S.add(tCore, 2), S.sub(t, 2));
+    const core = S.and(along, keep, shaderPuBand(S, v, tCore));
+    const inner = S.and(along, keep, shaderPuBand(S, v, tHot));
+    const body = S.and(along, keep, shaderPuBand(S, v, t));
+    const glow = S.and(along, keep, shaderPuBand(S, v, S.add(t, 2)), S.lt(shaderWxBayer(S, 1, f), 8));
+
+    // the muzzle flash while it fires: a ball of 2 px (3 on odd frames, 4 the first frame), white inside
+    const fr = S.add(S.add(2, odd), S.sel(S.eq(f, F0), 1, 0));
+    const flash = S.and(firing, S.le(d2, S.mul(fr, fr))), flashIn = S.and(firing, S.le(d2, S.mul(S.sub(fr, 2), S.sub(fr, 2))));
+
+    // THE END: while it shoots out, a bright head; once at full length a flare (a diamond with a cross through it,
+    // never more than 3 px past the end) and six sparks thrown back from it, each on its own beat, cooling as they fly
+    const tu = S.sub(u, reach), atu = S.abs(tu), av = S.abs(v);
+    const head = S.and(firing, S.lt(ext, 3), S.le(tu, 1), S.le(S.add(atu, av), S.add(S.div(t, 2), 1)));
+    const full = S.and(firing, S.ge(ext, 3));
+    const rr = S.add(2, S.sel(S.eq(flick, 1), 1, 0));
+    const fcore = S.and(full, S.le(S.add(atu, av), rr));
+    const farm = S.and(full, S.or(S.and(S.eq(v, 0), S.le(tu, 3), S.ge(tu, S.neg(S.add(rr, 3)))), S.and(S.eq(tu, 0), S.le(av, S.add(rr, 3)))));
+    let spark = S.i(-1);
+    for (let i = 0; i < 6; i++) {
+      const age = S.mod(S.add(f, i * 5), 6), back = [3, 2, 4, 1, 3, 2][i], side = [-2, 2, -1, 1, -3, 3][i];
+      const at = S.and(S.eq(tu, S.neg(S.div(S.mul(age, back), 2))), S.eq(v, S.div(S.mul(age, side), 2)), S.ge(age, 1));
+      spark = S.sel(S.and(full, at), age, spark);
+    }
+
+    // fading: the end and the muzzle smolder a few pixels for two frames
+    const ember = S.and(fading, S.lt(k, 3), S.or(S.le(S.add(atu, av), S.sub(2, k)), S.le(ad, S.sub(2, k))));
+
+    // light: what is drawn there (the shooter, or the scene) lit near the muzzle while it charges and fires, and along
+    // the beam
+    const lit = S.and(S.solid(c), S.or(S.and(S.or(charging, firing), S.le(ad, 5)),
+      S.and(firing, S.ge(u, 0), S.le(u, reach), shaderPuBand(S, v, S.add(t, 6)))));
+    const draw = function (b) { return S.and(near, b); };
+    return S.pick([
+      [draw(S.or(ballIn, flashIn, fcore, S.and(head, S.le(S.add(atu, av), S.div(t, 2))))), white],
+      [draw(S.or(core, S.eq(spark, 1))), white],
+      [draw(S.or(inner, ball, flash, head, farm, S.and(S.ge(spark, 1), S.le(spark, 2)), mote)), hot],
+      [draw(S.or(body, S.ge(spark, 3), ember)), col],
+      [draw(S.or(glow, halo)), dark],
+      [lit, shaderPaintMix(S, c, col, 25)],
+    ], c);
+  },
+  variants: [{ dir: 1, across: 20, width: 7, reach: 60, beam: "#40e0ff" }, { dir: 2, across: 50, down: 0, charge: 1, width: 2 },
+    { dir: 3, across: 30, down: 40, charge: 12, reach: 24, beam: "#60ff40" }],
+};
