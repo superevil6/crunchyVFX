@@ -884,7 +884,9 @@
       for (const m of MACROS) {
         for (const v of [0, 0.25, 0.75, 1]) {
           applyMacro(m, v);
-          const got = clamp01(m.from());
+          // (2026-10-25: macros are RELATIVE to the effect at their first touch, so the slider shows where you put it,
+          // not one setting read back: what it shows is the slider's own value after updateMacros)
+          const got = clamp01(+macroInputs[m.id].value);
           // Loose: several macros round to ints (pixelate 1..8 is especially coarse), so exact
           // equality would be testing the rounding rather than the inversion.
           if (Math.abs(got - v) > 0.06) bad.push(m.name + " " + v + "→" + got.toFixed(3));
@@ -910,6 +912,24 @@
       ok(Math.abs(state.hue - lo) > 180, "its ends are different colors, not both red",
          lo + "° → " + state.hue + "°");
       applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+    // RELATIVE MACROS (AJ, 2026-10-25, on Twin Slash: "clicking anywhere spawns many slashes, and clicking back to where
+    // it supposedly was doesn't return it"): a 2-particle preset stays a handful as Violence rises, and the knob put
+    // back where it started gives the preset back exactly, every setting the macro moved.
+    {
+      applyPreset(PRESETS["Twin Slash"], "Twin Slash");
+      const vio = MACROS.find((m) => m.name === "Violence"), start = JSON.stringify(state), v0 = +macroInputs[vio.id].value;
+      applyMacro(vio, Math.min(1, v0 + 0.3));
+      const more = state.count;
+      applyMacro(vio, 1);
+      const most = state.count;
+      applyMacro(vio, v0);
+      ok(more >= 2 && more <= 10 && most <= 40, "Violence on Twin Slash: a few more slashes, not hundreds", "count " + more + " then " + most);
+      ok(JSON.stringify(state) === start, "…and the knob put back where it was gives Twin Slash back exactly");
+      applyPreset(PRESETS["Explosion"], "Explosion");
+      const ex = JSON.stringify(state), soft = MACROS.find((m) => m.name === "Softness"), s0 = +macroInputs[soft.id].value;
+      applyMacro(soft, 0.9); applyMacro(soft, 0.1); applyMacro(soft, s0);
+      ok(JSON.stringify(state) === ex, "every relative macro returns the effect exactly (Softness on Explosion)");
     }
 
     // ---------------------------------------------------------------- project files
@@ -1283,12 +1303,13 @@
         ok(JSON.stringify(core.slice(0, 7)) === JSON.stringify(["Output", "Master", "Crunch", "Emitter", "Motion", "Life", "Color"]),
            "§24: Duration (Output), Master and Crunch head the panels, then the particles", core.slice(0, 7).join(", "));
         const kidsP = [...panels.children];
-        ok(kidsP[0] === panelsCore && kidsP[1] === layerBar && kidsP[2] === panelsLayers &&
+        // (AJ, 2026-10-25: "Add a layer" HEADS THE EDITOR: what goes into the effect is picked first; the layers' panels
+        // keep their place after the panels every effect has, under "Layers in this effect")
+        ok(kidsP[0] === panelsCore && kidsP[1] === layersHead && kidsP[2] === panelsLayers &&
            LAYER_GROUPS.every((L) => !pOf(L.g) || panelsLayers.contains(pOf(L.g))) && [...panelsCore.children].every((p) => !LAYER_GROUPS.some((L) => L.g === p.dataset.group)),
-           "…then \"Add a layer\", heading every layer panel (and no layer before it)");
-        ok(document.getElementById("styleSection").compareDocumentPosition(pOf("Output")) & Node.DOCUMENT_POSITION_FOLLOWING &&
-           pOf("Output").compareDocumentPosition(layerBar) & Node.DOCUMENT_POSITION_FOLLOWING,
-           "…right after the heroes (Quick shape, particle shape, Palette, Era style), not after every layer");
+           "…then \"Layers in this effect\", heading every layer panel (and no layer before it)");
+        ok(layerBar.parentElement.firstElementChild === layerBar && layerBar.compareDocumentPosition(document.getElementById("macros")) & Node.DOCUMENT_POSITION_FOLLOWING,
+           "…and \"Add a layer\" is the first thing in the editor, above Quick shape");
         // GROUPED CHIPS
         applyPreset(PRESETS["Explosion"], "Explosion");
         const names = LAYER_GROUPS.map((L) => L.g);
@@ -1314,6 +1335,24 @@
         ok(fl2.length > 0 && JSON.stringify(fl2.slice().sort()) === JSON.stringify(want2.slice().sort()) && document.activeElement !== null,
            "…the filter matches names and lines (\"ring\": " + fl2.join(", ") + ")");
         lf.value = ""; lf.dispatchEvent(new Event("input"));
+        // THE LAYER STRIP (2026-10-25): every off layer is a picture cell; a layer's picture is NOT the plain base (it
+        // shows the layer); the kind chips narrow the strip to one kind and All brings every off layer back.
+        {
+          const cells = [...layerBar.querySelectorAll(".layer-chip")];
+          cells.forEach((c) => { if (!c.classList.contains("drawn")) layerCellPaint(c); });
+          const lit = (cv) => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data.some((v, i) => i % 4 === 3 && v > 0);
+          const bare = cells.filter((c) => !c.querySelector("canvas") || !lit(c.querySelector("canvas"))).map((c) => c.dataset.layer);
+          ok(cells.length && !bare.length, "the layer strip: every off layer has a picture", bare.join(", ") || cells.length + " pictures");
+          const sig = (cv) => Array.from(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data).join(",");
+          const t = layerThumb(LAYER_GROUPS.find((L) => L.g === "Weather"));
+          ok(t && t.frames.length > 1 && sig(t.frames[t.best]) !== sig(layerBaseFrames[Math.min(t.best, layerBaseFrames.length - 1)]),
+             "…a layer's picture shows the layer (Weather differs from the plain base at its chosen frame)");
+          layerBar.querySelector('.layer-kindchips [data-kind="Light"]').click();
+          const lights = [...layerBar.querySelectorAll(".layer-chip")].map((c) => c.dataset.layer);
+          ok(lights.length && lights.every((g) => LAYER_ABOUT[g][0] === "Light"), "…the Light chip shows only Light layers", lights.join(", "));
+          layerBar.querySelector('.layer-kindchips [data-kind=""]').click();
+          ok(layerBar.querySelectorAll(".layer-chip").length === cells.length, "…and All brings every off layer back");
+        }
         // TAG CHIPS on the effect strip: the Wizard's own tags and derivation
         ok(presetTagSrc && presetTagSrc.tags === WIZARD_TAGS && presetTagSrc.of === wizardTagsOf && shown(document.getElementById("presetMode")),
            "§24: the strip's Tags are the Wizard's tags (one source of truth), behind a Categories | Tags switch");

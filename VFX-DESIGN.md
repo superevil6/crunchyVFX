@@ -1904,3 +1904,44 @@ The desktop suite's `moments/` rows prove it (59/59); `safety/nothing-written-ou
 crunchy/moments/ (the suite's, by design). `tests/run-ff.mjs` takes `UNMASK=1` to show file:// script errors in full.
 **Open, found on the way (NOT caused by this):** the frame hash differs from `frame-hash.expected.txt` for "Coin Burst"
 and "Prompt Pop" (and so the pack and the total) with or without the new scripts loaded: look before the next release.
+
+## 33. Crescents centered; the Quick shape knobs relative (2026-10-25, AJ)
+
+**Crescents off center** (AJ: Twin Slash "very off center"). Fit centers the bounding box of every frame, and measured
+each particle as a full circle round it; a crescent's pixels are an ARC a radius off its particle (shapes.js draws it at
+the top of its circle), so the box centered empty space and the slashes hugged one side. A shape may now say where its
+pixels are (`SHAPE_DEFS[i].extent(st)`: unit points before the particle's turn; the crescent's outer and inner arc) and
+simulate() measures those, turned with the particle, when a layer wears that one shape alone. Measured by the arc's own
+centroid against Fit's center: Twin Slash 28% → 14% off, Slash 32% → 17% (and both now fill the frame: no room kept
+for the empty part of a circle); seen side by side with a crosshair. The frame hash moves for exactly Slash and Twin
+Slash (the only crescent presets) and Slash's sheet export; planted crescent effects show "update available".
+`frame-hash.expected.txt` is NOT regenerated: its totals would also swallow §32's unexplained Coin Burst / Prompt Pop drift.
+
+**Relative Quick shape knobs** (AJ: Violence on Twin Slash "clicking anywhere spawns many slashes, and clicking back ...
+doesn't return it"). A macro's to(v) set ABSOLUTE values (Violence: 20-600 particles) and from() read one back, so a
+2-slash preset became 20+ on any touch with no way back. Now, like Busyness, a macro remembers the effect and the
+slider's own position at its first touch (until syncUI: a preset, an undo) and moves each setting RELATIVE to where to()
+puts it there: scaled when both are above zero, else shifted; snapped into the setting's range; at the starting position
+exactly the effect again. Hue stays absolute (`absolute: true`: an angle). Twin Slash: Violence +0.3 → 8 slashes, the far
+end 19, back → the preset byte for byte. Rows in regression.js; the round-trip row reads the slider. Suites: 694/694,
+desktop 59/59, web 13/13. (The "randomize never produces an empty effect" row is FLAKY: random rolls, failed 1 in 3.)
+
+## 34. The layer strip (2026-10-25, AJ: "a strip ... with preview images so the user knows what they're clicking")
+
+"Add a layer" was a wall of 50+ word-chips ("Arc", "Sigil", "Rift" mean nothing until tried). It stays where it was
+(above the layer panels, where they are tuned), but each off layer is now a PICTURE CELL along one scrolling strip, each
+kind a run with its name upright, and kind chips (All + the kinds with an off layer) narrow it; the filter and the
+one-line description under the strip stay. A cell's picture is that layer switched on over ONE plain base (the default
+burst with 40 particles, `LAYER_BASE`), at the frame where it differs MOST from the base alone (so Flash shows its pop,
+Decal its mark); pointing at a cell plays it. Pictures render lazily (a 10 ms queue) and are cached for the session
+(the base never changes). The cells keep the `.layer-chip` / `data-layer` / `.layer-kind` hooks, so §24's rows hold;
+four new rows: every cell has a picture, a layer's picture is not the base (Weather), a kind chip shows only that kind,
+All brings them back. Suite 698/698. styles.css --css-build 11 (and its want).
+- **Paged, and first (same day, AJ):** "chevron arrows on the sides for more consistency ... the scroll bar kind of hides"
+  → the strip PAGES like the Effects strip (`.pbar-row` with ‹ › and "n / m", the wheel pages, how many fit is MEASURED:
+  `layerPaginate`, a run's upright name counted where it starts a page; re-paged on a width change), painting the shown
+  page and the next. And "this should be the very top box under the preset strip, since if someone is making one from
+  scratch, they should be able to pick right away what kind of effect engines go into it" → `#layerBar` is the FIRST
+  thing in the editor (above Quick shape); the active layers' panels keep their place after the panels every effect has,
+  under "Layers in this effect" (`layersHead`, hidden with none on); adding a layer scrolls its new panel into view. The
+  §24 order rows now say exactly that. 698/698.

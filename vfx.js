@@ -328,6 +328,11 @@ function simulate(st) {
   const counts = new Int32Array(nFrames);
   const scratch = new Float32Array((total + 2 * shots) * P_STRIDE);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  // A shape that knows where its pixels are (SHAPE_DEFS[i].extent: the crescent's arc sits a radius off its particle) is
+  // measured there, turned with the particle, rather than as a full circle round it; only when a layer wears that one
+  // shape alone (a mix keeps the circle). So Fit centers what you SEE.
+  const extentOf = (primary, mix) => { const set = shapeSet(primary, mix), d = set.length === 1 && SHAPE_DEFS[set[0]]; return d && d.extent ? d.extent(st) : null; };
+  const extA = extentOf(st.shape, st.shapeMix), extB = extentOf(st.emit2Shape || 0, st.emit2ShapeMix);
 
   const ramp = parseRamp(st.ramp);
   // The imported sprite can be one member of a mixed set rather than the primary shape, so ask the
@@ -403,11 +408,19 @@ function simulate(st) {
         scratch[o + P_VX] = vx[g]; scratch[o + P_VY] = vy[g];
         n++;
         if (scratch[o + P_ALPHA] > 0.02) {
-          const r = size * 0.5;
-          if (px[g] - r < bx0) bx0 = px[g] - r;
-          if (px[g] + r > bx1) bx1 = px[g] + r;
-          if (py[g] - r < by0) by0 = py[g] - r;
-          if (py[g] + r > by1) by1 = py[g] + r;
+          const r = size * 0.5, ext = bLayer ? extB : extA;
+          if (ext) {
+            const c = Math.cos(pang[g]), s = Math.sin(pang[g]);
+            for (const q of ext) {
+              const qx = px[g] + (q[0] * c - q[1] * s) * r, qy = py[g] + (q[0] * s + q[1] * c) * r;
+              if (qx < bx0) bx0 = qx; if (qx > bx1) bx1 = qx; if (qy < by0) by0 = qy; if (qy > by1) by1 = qy;
+            }
+          } else {
+            if (px[g] - r < bx0) bx0 = px[g] - r;
+            if (px[g] + r > bx1) bx1 = px[g] + r;
+            if (py[g] - r < by0) by0 = py[g] - r;
+            if (py[g] + r > by1) by1 = py[g] + r;
+          }
         }
       }
       // the two extra layers are analytic — no integration, just "what does it look like at t"

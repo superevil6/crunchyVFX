@@ -293,6 +293,7 @@
   </div>
 </section>
   <section class="ws-editor">
+    <div class="layerbar" id="layerBar"></div>
     <div class="macro" id="macros">
       <div class="macro-title">Quick shape — plain-language sliders that move the real controls for you</div>
     </div>
@@ -317,7 +318,6 @@
       </div>
       <div class="engine-cat-btns" id="styleGrid"></div>
     </div>
-    <div class="layerbar" id="layerBar"></div>
     <main id="panels"></main>
   </section>
 </div>
@@ -370,7 +370,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 10;   // must match --css-build in styles.css
+  const CSS_BUILD = 11;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -2789,7 +2789,93 @@ const LAYER_ABOUT = {
   "Warp":           ["Post & stylize", "A ring of bent air traveling outward"],
   "Haze":           ["Post & stylize", "Heat shimmer: the picture wobbles"],
 };
-let layerFilter = "";
+let layerFilter = "", layerKind = "";
+// THE LAYER STRIP (AJ, 2026-10-25: "a strip ... with preview images so the user knows what they're clicking"): each off
+// layer is a picture cell (still a .layer-chip, grouped in .layer-kind runs) along ONE scrolling strip, with kind chips
+// to narrow it. The picture is that layer switched on over ONE plain base (the default burst, fewer particles: a layer
+// reads on it), at the frame where it differs MOST from the base alone, so a flash at the start or a decal at the end is
+// caught; pointing at a cell plays it. Rendered lazily through a small queue and kept (the base never changes).
+const LTHUMB = 60, LAYER_BASE = { count: 40 };
+const layerThumbs = new Map();                 // layer name -> { frames: [canvas], best } (null once it failed)
+let layerQueue = [], layerTimer = 0, layerBaseFrames = null, layerPlay = null;
+// PAGED like the Effects strip (AJ: "chevron arrows on the sides for more consistency ... the scroll bar kind of hides"):
+// ‹ › and "n / m", the wheel pages, and how many fit is MEASURED (a kind's upright name counts where its run starts a page).
+let layerPage = 0, layerPageFor = "";
+const LCELL_W = 82, LNAME_W = 26;           // a cell (78 + 4 gap); a run's upright name (+ its 4 px margin)
+function layerPaginate(strip) {
+  const width = strip.clientWidth || 600, pages = [[]];
+  let used = 0;
+  for (const grp of strip.querySelectorAll(".layer-kind")) {
+    let first = true;
+    for (const c of grp.querySelectorAll(".layer-chip")) {
+      const w = LCELL_W + (first ? LNAME_W : 0);
+      if (pages[pages.length - 1].length && used + w > width) { pages.push([]); used = 0; first = true; }
+      used += LCELL_W + (first ? LNAME_W : 0);
+      pages[pages.length - 1].push(c);
+      first = false;
+    }
+  }
+  return pages;
+}
+function layerPageShow() {
+  const strip = layerChips.querySelector(".layer-strip");
+  if (!strip) return;
+  const pages = layerPaginate(strip), n = pages.length;
+  layerPage = Math.max(0, Math.min(n - 1, layerPage));
+  pages.forEach((pg, i) => { for (const c of pg) c.hidden = i !== layerPage; });
+  for (const grp of strip.querySelectorAll(".layer-kind")) grp.hidden = ![...grp.querySelectorAll(".layer-chip")].some((c) => !c.hidden);
+  // this page's pictures first, then the next page's, so paging forward lands on pictures already painted
+  layerQueue = [];
+  for (const i of [layerPage, layerPage + 1]) if (pages[i]) for (const c of pages[i]) if (!c.classList.contains("drawn")) layerQueue.push(c);
+  if (layerQueue.length && !layerTimer) layerTimer = setTimeout(pumpLayerThumbs, 0);
+  const row = strip.parentElement;
+  row.querySelector(".layer-prev").disabled = layerPage === 0;
+  row.querySelector(".layer-next").disabled = layerPage >= n - 1;
+  row.querySelector(".tbarpage").textContent = (layerPage + 1) + " / " + n;
+}
+function layerFramesOf(fn) {
+  return withState(LAYER_BASE, () => {
+    if (fn) fn();
+    const r = renderFrames(state, { size: LTHUMB, fit: true }), out = [];
+    for (const cv of r.canvases) {
+      const c = document.createElement("canvas"); c.width = LTHUMB; c.height = LTHUMB;
+      c.getContext("2d").drawImage(cv, 0, 0, LTHUMB, LTHUMB); out.push(c);
+    }
+    return out;
+  });
+}
+function layerThumb(L) {
+  if (layerThumbs.has(L.g)) return layerThumbs.get(L.g);
+  let t = null;
+  try {
+    if (!layerBaseFrames) layerBaseFrames = layerFramesOf(null);
+    const frames = layerFramesOf(() => L.on());
+    let best = 0, most = -1;
+    frames.forEach((c, i) => {
+      const b = layerBaseFrames[Math.min(i, layerBaseFrames.length - 1)], d1 = c.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data;
+      const d0 = b.getContext("2d").getImageData(0, 0, LTHUMB, LTHUMB).data;
+      let diff = 0;
+      for (let k = 0; k < d1.length; k += 4) diff += Math.abs(d1[k] - d0[k]) + Math.abs(d1[k + 1] - d0[k + 1]) + Math.abs(d1[k + 2] - d0[k + 2]) + Math.abs(d1[k + 3] - d0[k + 3]);
+      if (diff > most) { most = diff; best = i; }
+    });
+    t = { frames: frames, best: best };
+  } catch (e) { t = null; }                  // a layer that will not render must not take the strip down
+  layerThumbs.set(L.g, t);
+  return t;
+}
+function layerCellPaint(cell) {
+  const L = LAYER_GROUPS.find((x) => x.g === cell.dataset.layer), cv = cell.querySelector("canvas");
+  if (!L || !cv) return;
+  const t = layerThumb(L);
+  if (t) cv.getContext("2d").drawImage(t.frames[t.best], 0, 0);
+  cell.classList.add("drawn");
+}
+function pumpLayerThumbs() {
+  layerTimer = 0;
+  const cell = layerQueue.shift();
+  if (cell && cell.isConnected && !cell.classList.contains("drawn")) layerCellPaint(cell);
+  if (layerQueue.length) layerTimer = setTimeout(pumpLayerThumbs, 10);
+}
 // Built once (the filter keeps its focus while the chips under it are rebuilt).
 const layerHead = document.createElement("div");
 layerHead.className = "layerbar-head";
@@ -2804,6 +2890,8 @@ layerAbout.id = "layerAbout";
 layerAbout.setAttribute("aria-live", "polite");
 layerBar.appendChild(layerHead); layerBar.appendChild(layerChips); layerBar.appendChild(layerAbout);
 layerHead.querySelector("#layerFilter").addEventListener("input", (e) => { layerFilter = e.target.value; updateLayerPanels(); });
+// a width change changes how many cells fit (the bar narrows with the window or the docked Library): re-page
+if (typeof ResizeObserver !== "undefined") { let lrz = 0; new ResizeObserver(() => { clearTimeout(lrz); lrz = setTimeout(layerPageShow, 80); }).observe(layerChips); }
 const LAYER_ABOUT_IDLE = "Point at a layer to see what it does.";
 function updateLayerPanels() {
   layerChips.textContent = "";
@@ -2816,11 +2904,43 @@ function updateLayerPanels() {
     if (!active) off.push(L);
   }
   layerBar.hidden = !off.length;
+  if (layersHead) layersHead.hidden = !LAYER_GROUPS.some((L) => L.is() && panels.querySelector('[data-group="' + L.g + '"]'));
   if (!off.length) return;
   const q = layerFilter.trim().toLowerCase();
   const about = (L) => (LAYER_ABOUT[L.g] || ["Shapes & lines", ""]);
+  // the kind chips: All, then every kind that has an off layer
+  const kc = document.createElement("div");
+  kc.className = "layer-kindchips";
+  for (const k of [""].concat(LAYER_KINDS.filter((k) => off.some((L) => about(L)[0] === k)))) {
+    const c = document.createElement("button");
+    c.type = "button"; c.className = "chip" + (k === layerKind ? " on" : ""); c.textContent = k || "All"; c.dataset.kind = k;
+    c.addEventListener("click", () => { layerKind = k; updateLayerPanels(); });
+    kc.appendChild(c);
+  }
+  layerChips.appendChild(kc);
+  // the strip between ‹ and ›, with the page count: the Effects strip's row (.pbar-row, .pgbtn, .tbarpage)
+  const row = document.createElement("div"), prev = document.createElement("button"), next = document.createElement("button"), pageEl = document.createElement("span");
+  row.className = "pbar-row layer-row";
+  prev.type = next.type = "button"; prev.className = "pgbtn layer-prev"; next.className = "pgbtn layer-next";
+  prev.textContent = "‹"; next.textContent = "›"; prev.title = prev.ariaLabel = "Earlier layers"; next.title = next.ariaLabel = "Later layers";
+  pageEl.className = "tbarpage";
+  const strip = document.createElement("div");
+  strip.className = "layer-strip";
+  row.append(prev, strip, next, pageEl);
+  layerChips.appendChild(row);
+  prev.addEventListener("click", () => { layerPage--; layerPageShow(); });
+  next.addEventListener("click", () => { layerPage++; layerPageShow(); });
+  strip.addEventListener("wheel", (e) => {
+    const d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+    if (!d) return;
+    e.preventDefault(); layerPage += d > 0 ? 1 : -1; layerPageShow();
+  }, { passive: false });
+  const pageKey = layerKind + "|" + q;
+  if (pageKey !== layerPageFor) { layerPage = 0; layerPageFor = pageKey; }
+  layerQueue = [];
   let shown = 0;
   for (const kind of LAYER_KINDS) {
+    if (layerKind && kind !== layerKind) continue;
     const list = off.filter((L) => about(L)[0] === kind &&
       (!q || L.g.toLowerCase().indexOf(q) >= 0 || about(L)[1].toLowerCase().indexOf(q) >= 0 || kind.toLowerCase().indexOf(q) >= 0));
     if (!list.length) continue;
@@ -2839,12 +2959,28 @@ function updateLayerPanels() {
     for (const L of list) {
       const b = document.createElement("button");
       b.className = "layer-chip";
-      b.textContent = "＋ " + L.g;
       b.dataset.layer = L.g;
+      const pic = document.createElement("canvas"), nm = document.createElement("span");
+      pic.width = LTHUMB; pic.height = LTHUMB; pic.setAttribute("aria-hidden", "true");
+      nm.className = "layer-chip-name"; nm.textContent = "＋ " + L.g;
+      b.append(pic, nm);
+      if (layerThumbs.has(L.g)) layerCellPaint(b);
       const line = about(L)[1];
       b.title = line + ". Click to turn on " + L.g + " and show its controls.";
-      const say = () => { layerAbout.textContent = L.g + ": " + line + "."; };
-      const idle = () => { layerAbout.textContent = LAYER_ABOUT_IDLE; };
+      // pointing at a cell says what it does and PLAYS it (its frames, looping, until the pointer leaves)
+      const say = () => {
+        layerAbout.textContent = L.g + ": " + line + ".";
+        const t = layerThumb(L);
+        if (!t) return;
+        if (layerPlay) clearInterval(layerPlay.id);
+        let f = 0;
+        const g = pic.getContext("2d");
+        layerPlay = { id: setInterval(() => { g.clearRect(0, 0, LTHUMB, LTHUMB); g.drawImage(t.frames[f], 0, 0); f = (f + 1) % t.frames.length; }, 1000 / 24), b: b };
+      };
+      const idle = () => {
+        layerAbout.textContent = LAYER_ABOUT_IDLE;
+        if (layerPlay && layerPlay.b === b) { clearInterval(layerPlay.id); layerPlay = null; const t = layerThumbs.get(L.g); if (t) { const g = pic.getContext("2d"); g.clearRect(0, 0, LTHUMB, LTHUMB); g.drawImage(t.frames[t.best], 0, 0); } }
+      };
       b.addEventListener("pointerenter", say); b.addEventListener("focus", say);
       b.addEventListener("pointerleave", idle); b.addEventListener("blur", idle);
       b.addEventListener("click", () => {
@@ -2853,13 +2989,17 @@ function updateLayerPanels() {
         rerender();
         commitHistory();
         msg.textContent = L.g + " on";
+        // the strip is at the top now and the layer's panel lower down: bring the new panel into view to tune it
+        const np = panels.querySelector('[data-group="' + L.g + '"]');
+        if (np && np.scrollIntoView) np.scrollIntoView({ block: "nearest", behavior: "smooth" });
       });
       row.appendChild(b);
       shown++;
     }
-    layerChips.appendChild(grp);
+    strip.appendChild(grp);
   }
-  if (!shown) layerChips.appendChild(Object.assign(document.createElement("span"), { className: "hint", textContent: "No layer matches “" + layerFilter.trim() + "”." }));
+  layerPageShow();
+  if (!shown) strip.appendChild(Object.assign(document.createElement("span"), { className: "hint", textContent: "No layer matches “" + layerFilter.trim() + "”." }));
   if (!layerAbout.textContent) layerAbout.textContent = LAYER_ABOUT_IDLE;
 }
 
@@ -2915,6 +3055,7 @@ function syncUI() {
   // baseline is stale. applyMacro deliberately calls syncParamInputs instead of syncUI, which is
   // what keeps a drag from resetting itself mid-stroke.
   busyReset();
+  macroReset();
   syncParamInputs();
   if (window.syncFrameRow) window.syncFrameRow();
   if (glyphInput) glyphInput.value = state.glyph;
@@ -3464,7 +3605,7 @@ const MACROS = [
   // Stops at 330° rather than 360° on purpose. Hue wraps, so a full-range slider would put red at
   // BOTH ends — which reads as a broken control ("I dragged it all the way and ended up back
   // where I started"). 0→330 spans red through violet once, with every hue represented.
-  { name: "Hue", id: "mHue", left: "red", right: "violet",
+  { name: "Hue", absolute: true, id: "mHue", left: "red", right: "violet",
     to(v) {
       state.hue = Math.round(lerpN(0, 330, v));
     },
@@ -3524,10 +3665,46 @@ for (const m of MACROS) {
   input.addEventListener("change", () => commitHistory());
 }
 
+// RELATIVE MACROS (AJ, 2026-10-25, on Twin Slash: "clicking anywhere spawns many slashes, and clicking back to where it
+// supposedly was doesn't return it"). Each macro's to(v) sets ABSOLUTE values (Violence: 20-600 particles), and from()
+// reads ONE of them back, so a 2-slash preset sat on the knob at "gentle" and any touch made it 20+, with no way back.
+// Now, like Busyness, a macro remembers the effect as it was at its first touch (since the last whole-effect change:
+// syncUI resets it) and the knob's position then (v0). Every setting the macro moves goes where to() would take it
+// RELATIVE to where to() puts it at v0: scaled (base × A(v)/A(v0)) when both are above zero, else shifted
+// (base + A(v) − A(v0)); then snapped into the setting's own range. At v0 every setting is exactly the effect's again.
+var macroBase = {};                                   // var: syncUI (above) may run before this line (VFX CLAUDE.md: TDZ kills the script)
+function macroReset() { macroBase = {}; }
+const PARAM_ROW = {};
+for (const p of PARAMS) PARAM_ROW[p[0]] = p;
+function macroRelative(m, v) {
+  if (!macroBase[m.id]) {
+    // v0 is where the SLIDER shows it (its own step rounds m.from()), so putting the knob back there restores exactly
+    const el = macroInputs[m.id], base = Object.assign({}, state), v0 = clamp01(el ? +el.value : m.from());
+    m.to(v0);
+    const at0 = Object.assign({}, state);
+    Object.assign(state, base);
+    macroBase[m.id] = { base: base, v0: v0, at0: at0 };
+  }
+  const B = macroBase[m.id];
+  Object.assign(state, B.base);
+  m.to(v);
+  const at = Object.assign({}, state);
+  Object.assign(state, B.base);
+  for (const k of Object.keys(at)) {
+    if (at[k] === B.at0[k] && at[k] === B.base[k]) continue;
+    const b = B.base[k], a0 = B.at0[k], a = at[k], row = PARAM_ROW[k];
+    if (typeof b !== "number" || typeof a !== "number" || typeof a0 !== "number" || !row) { state[k] = a; continue; }
+    if (a === a0) { state[k] = b; continue; }                         // not moved by the knob from where it started
+    const want = b > 0 && a0 > 0 && a >= 0 ? b * a / a0 : b + (a - a0);
+    state[k] = snapToStep(want, row[2], row[3], row[4]);
+  }
+  B.v = v;
+}
 function applyMacro(m, v) {
   const before = {};
   for (const k of LOCK_KEYS) before[k] = state[k];
-  m.to(clamp01(v));
+  // Busyness was relative already; Hue stays absolute (an angle round the wheel: "scaling" it means nothing)
+  if (m.id === "mBusy" || m.absolute) m.to(clamp01(v)); else macroRelative(m, clamp01(v));
   for (const k of LOCK_KEYS) if (state[k] !== before[k]) noteLockEdit(k);
   syncParamInputs();     // the real sliders have to visibly move, or the macro feels like magic
   updateMacros();
@@ -3535,7 +3712,7 @@ function applyMacro(m, v) {
 function updateMacros() {
   for (const m of MACROS) {
     const el = macroInputs[m.id];
-    if (el) el.value = clamp01(m.from());
+    if (el) el.value = clamp01(macroBase[m.id] && macroBase[m.id].v != null ? macroBase[m.id].v : m.from());
   }
 }
 
@@ -8640,6 +8817,8 @@ const PANEL_PARTICLES = ["Emitter", "Motion", "Life", "Color"];
 const panelsCore = document.createElement("div"), panelsLayers = document.createElement("div");
 panelsCore.className = "panel-flow"; panelsCore.id = "panelsCore";
 panelsLayers.className = "panel-flow"; panelsLayers.id = "panelsLayers";
+var layersHead = document.createElement("div");      // var: updateLayerPanels (above) runs before this line (TDZ)
+layersHead.className = "layers-head"; layersHead.id = "layersHead"; layersHead.textContent = "Layers in this effect";
 function orderPanels() {
   const all = [...panels.querySelectorAll(".panel[data-group]")];
   const layer = (el) => LAYER_GROUPS.some((L) => L.g === el.dataset.group);
@@ -8647,7 +8826,9 @@ function orderPanels() {
     : PANEL_PARTICLES.indexOf(el.dataset.group) >= 0 ? 10 + PANEL_PARTICLES.indexOf(el.dataset.group)
     : layer(el) ? 40 : 20;
   const sorted = all.map((el, i) => ({ el, i, b: band(el) })).sort((a, b) => a.b - b.b || a.i - b.i);
-  panels.appendChild(panelsCore); panels.appendChild(layerBar); panels.appendChild(panelsLayers);
+  // (AJ, 2026-10-25: the layer strip heads the whole editor now, "what goes into it" first; the layers' own panels keep
+  // their place after the panels every effect has, under their own heading)
+  panels.appendChild(panelsCore); panels.appendChild(layersHead); panels.appendChild(panelsLayers);
   for (const x of sorted) (x.b === 40 ? panelsLayers : panelsCore).appendChild(x.el);
 }
 orderPanels();

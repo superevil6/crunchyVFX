@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 10;
+    --css-build: 11;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1412,7 +1412,7 @@ main#panels { display: block; }
 .panel-flow > .panel { break-inside: avoid; -webkit-column-break-inside: avoid; display: inline-block; vertical-align: top; width: 100%; margin: 0 0 14px; }
 .panel-flow > .panel[hidden] { display: none; }
 .panel-flow:empty { display: none; }
-#panels > .layerbar { margin: 0 0 14px; }
+.ws-editor > .layerbar { margin: 0 0 14px; }
 .panel > h2.collapse-head::before { margin-right: 0; }
 .panel > h2.collapse-head { justify-content: flex-start; }
 .panel > h2.collapse-head .layer-remove { margin-left: auto; }
@@ -1423,13 +1423,26 @@ main#panels { display: block; }
 .row[hidden], .waverow[hidden], .switch-row[hidden], .panel-note[hidden], .layerbar[hidden], .pbar-mode[hidden] { display: none; }
 .panel-note { margin: 10px 0 0; font-size: 11px; }
 /* the "Add a layer" bar sits in the panel grid, full width, heading the layers */
-#panels > .layerbar { display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+.ws-editor > .layerbar { display: flex; flex-direction: column; align-items: stretch; gap: 6px;
   background: var(--panel); border: 1px solid var(--line); padding: 12px 16px; }
 .layerbar-head { display: flex; align-items: center; gap: 10px; }
 .layer-filter { flex: 0 1 240px; min-width: 0; }
-.layer-kinds { display: flex; flex-direction: column; gap: 5px; }
-.layer-kind { display: flex; align-items: flex-start; gap: 8px; }
-.layer-kind-name { flex: none; width: 96px; padding-top: 4px; font-size: 11px; color: var(--muted); }
+.layer-kinds { display: flex; flex-direction: column; gap: 6px; }
+/* the layer STRIP (2026-10-25): kind chips, then one scrolling row of picture cells, each kind a run with its name upright */
+.layer-kindchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.layer-row { align-items: stretch; }
+.layers-head { margin: 4px 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.layers-head[hidden] { display: none; }
+.layer-strip { flex: 1; min-width: 0; display: flex; gap: 0; overflow: hidden; }
+.layer-kind[hidden], .layerbar .layer-chip[hidden] { display: none; }
+.layer-kind { display: flex; align-items: stretch; gap: 4px; flex: none; margin-right: 4px; }
+.layer-kind-name { flex: none; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; padding: 0 2px;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); border-left: 1px solid var(--line); }
+.layer-kind-chips { display: flex; gap: 4px; }
+.layerbar .layer-chip { flex: none; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px 2px 3px; border-style: solid; }
+.layerbar .layer-chip canvas { width: 60px; height: 60px; background: var(--bg); image-rendering: pixelated; }
+.layer-chip-name { font-size: 11px; line-height: 1.2; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 74px; }
 .layer-kind-chips { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; }
 .layer-chip { padding: 3px 9px; }
 .layer-chip:focus-visible { color: var(--accent); border-color: var(--accent); border-style: solid; }

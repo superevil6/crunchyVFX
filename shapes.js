@@ -288,6 +288,14 @@ const SHAPE_DEFS = [
   {
     name: "crescent",
     key: (st) => st.crescentArc + "," + st.crescentThick + "," + (st.crescentTaper || 0),
+    // WHERE ITS PIXELS ARE (2026-10-25, AJ: Twin Slash "very off center"): an arc at the top of its circle, so its pixels
+    // sit a radius away from the particle. Fit measured a full circle round every particle and centered THAT, leaving the
+    // slashes hugging one side. Points along the arc's outer and inner edge, in units of R, before the particle's turn.
+    extent(st) {
+      const arc = st.crescentArc * Math.PI * 2, a0 = -Math.PI / 2 - arc / 2, inner = Math.max(0, 1 - st.crescentThick), pts = [];
+      for (let i = 0; i <= 8; i++) { const a = a0 + arc * i / 8; pts.push([Math.cos(a), Math.sin(a)], [inner * Math.cos(a), inner * Math.sin(a)]); }
+      return pts;
+    },
     draw(g, R, st, frame) {
       const th = Math.max(1, R * st.crescentThick), arc = st.crescentArc * Math.PI * 2;
       const taper = Math.max(0, Math.min(1, st.crescentTaper || 0));
