@@ -393,12 +393,12 @@
     // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
     { file: "shader.js", want: 46, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
     { file: "hero.js", want: 2, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
-    { file: "moments.js", want: 3, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
+    { file: "moments.js", want: 4, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
     // SHARED PALETTES AND COLOR SETS (crunchyCore PALETTES.md, §37): the model, the editor window, the suite's color sets
     { file: "palette.js", want: 2, got: () => (typeof PALETTE_BUILD === "undefined" ? 0 : PALETTE_BUILD) },
     { file: "palette-ui.js", want: 2, got: () => (typeof PALETTE_UI_BUILD === "undefined" ? 0 : PALETTE_UI_BUILD) },
-    { file: "colorsets.js", want: 1, got: () => (typeof COLORSETS_BUILD === "undefined" ? 0 : COLORSETS_BUILD) },
+    { file: "colorsets.js", want: 2, got: () => (typeof COLORSETS_BUILD === "undefined" ? 0 : COLORSETS_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();

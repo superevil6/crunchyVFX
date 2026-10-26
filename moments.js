@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/moments.js @ d44feaf by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 ca7401f758f7d3bd30d1a2331b9a82bb912a6d7ee7d52b9a2c565ca87d7c128e
+// GENERATED from crunchyCore/moments.js @ 2d1c3ee by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 819b5e411511ed019b0bff6d924ab5beb77c5f33bebefefc0ac21113dff80638
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
 // CrunchySFX sound, a CrunchyShader hit look, a screen shake and a beat of hit stop into ONE Godot node:
@@ -15,7 +15,7 @@
 // played through: frame_override 0 -> last, or progress 0 -> 100 -> 0) and gets its own material back.
 // Pure: strings only.
 
-const MOMENT_BUILD = 3;   // 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
+const MOMENT_BUILD = 4;   // 4: overlapping moments (rapid hits) hand back the ORIGINAL look, camera offset and time scale, never an earlier hit's (AJ: the fire look stayed on Skelly); 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
 
 const MOMENT_GD = [
   "class_name CrunchyMoment",
@@ -169,6 +169,26 @@ const MOMENT_GD = [
   "\t\treturn target",
   "\treturn null",
   "",
+  "# OVERLAPPING MOMENTS (a second hit before the first is over, build 4): each part hands back what was there BEFORE the",
+  "# first one began (the sprite's own material, the camera's offset, the game's time scale), never an earlier hit's look,",
+  "# shake or freeze. The first to start remembers it on the object; the last to end puts it back.",
+  "func _borrow(o: Object, key: String, now: Variant) -> void:",
+  "\tvar n := int(o.get_meta(key + \"_n\", 0))",
+  "\tif n == 0:",
+  "\t\to.set_meta(key + \"_base\", now)",
+  "\to.set_meta(key + \"_n\", n + 1)",
+  "",
+  "# [the remembered value] when this was the last overlapping part to end, else [] (an earlier one is still running).",
+  "func _give_back(o: Object, key: String) -> Array:",
+  "\tvar n := int(o.get_meta(key + \"_n\", 1)) - 1",
+  "\tif n > 0:",
+  "\t\to.set_meta(key + \"_n\", n)",
+  "\t\treturn []",
+  "\tvar base: Variant = o.get_meta(key + \"_base\", null)",
+  "\to.remove_meta(key + \"_n\")",
+  "\to.remove_meta(key + \"_base\")",
+  "\treturn [base]",
+  "",
   "func _look(target: Node) -> void:",
   "\tvar s := _sprite_of(target)",
   "\tif s == null:",
@@ -180,9 +200,10 @@ const MOMENT_GD = [
   "\t\treturn",
   "\tif look_material == null:",
   "\t\treturn",
-  "\tvar was := s.material",
+  "\t_borrow(s, \"crunchy_look\", s.material)",
   "\tvar m: ShaderMaterial = look_material.duplicate()",
   "\ts.material = m",
+  "\ts.set_meta(\"crunchy_look_now\", m)",
   "\tvar names := []",
   "\tif m.shader:",
   "\t\tfor u in m.shader.get_shader_uniform_list():",
@@ -198,26 +219,40 @@ const MOMENT_GD = [
   "\telse:",
   "\t\ttw.tween_interval(look_seconds)",
   "\tawait tw.finished",
-  "\tif is_instance_valid(s) and s.material == m:",
-  "\t\ts.material = was",
+  "\tif not is_instance_valid(s):",
+  "\t\treturn",
+  "\tvar back := _give_back(s, \"crunchy_look\")",
+  "\tif back.size():",
+  "\t\t# the last look to end: the sprite gets its own material back, unless the game changed it meanwhile",
+  "\t\tif s.material == s.get_meta(\"crunchy_look_now\", null):",
+  "\t\t\ts.material = back[0]",
+  "\t\ts.remove_meta(\"crunchy_look_now\")",
   "",
   "func _shake() -> void:",
   "\tvar cam := get_viewport().get_camera_2d()",
   "\tif cam == null:",
   "\t\treturn",
-  "\tvar base := cam.offset",
+  "\t_borrow(cam, \"crunchy_shake\", cam.offset)",
+  "\tvar base: Vector2 = cam.get_meta(\"crunchy_shake_base\")",
   "\tvar t0 := Time.get_ticks_msec()",
   "\twhile Time.get_ticks_msec() - t0 < shake_seconds * 1000.0:",
   "\t\tvar k := 1.0 - float(Time.get_ticks_msec() - t0) / (shake_seconds * 1000.0)",
   "\t\tcam.offset = base + Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).round() * shake_px * k",
   "\t\tawait get_tree().process_frame",
-  "\tcam.offset = base",
+  "\tif not is_instance_valid(cam):",
+  "\t\treturn",
+  "\tvar back := _give_back(cam, \"crunchy_shake\")",
+  "\tif back.size():",
+  "\t\tcam.offset = back[0]",
   "",
   "func _stop() -> void:",
-  "\tvar was := Engine.time_scale",
+  "\tvar r := get_tree().root",
+  "\t_borrow(r, \"crunchy_stop\", Engine.time_scale)",
   "\tEngine.time_scale = 0.0",
   "\tawait get_tree().create_timer(float(hit_stop_frames) / 60.0, true, false, true).timeout",
-  "\tEngine.time_scale = was",
+  "\tvar back := _give_back(r, \"crunchy_stop\")",
+  "\tif back.size():",
+  "\t\tEngine.time_scale = back[0]",
   ""].join("\n");
 
 // A moment's scene: one CrunchyMoment node with its fields filled. o: { name, script (res:// of crunchy_moment.gd),
