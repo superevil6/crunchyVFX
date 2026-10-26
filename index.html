@@ -395,7 +395,7 @@
     { file: "moments.js", want: 3, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
     // SHARED PALETTES AND COLOR SETS (crunchyCore PALETTES.md, §37): the model, the editor window, the suite's color sets
-    { file: "palette.js", want: 1, got: () => (typeof PALETTE_BUILD === "undefined" ? 0 : PALETTE_BUILD) },
+    { file: "palette.js", want: 2, got: () => (typeof PALETTE_BUILD === "undefined" ? 0 : PALETTE_BUILD) },
     { file: "palette-ui.js", want: 2, got: () => (typeof PALETTE_UI_BUILD === "undefined" ? 0 : PALETTE_UI_BUILD) },
     { file: "colorsets.js", want: 1, got: () => (typeof COLORSETS_BUILD === "undefined" ? 0 : COLORSETS_BUILD) },
   ];

@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/palette.js @ f97934f by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 9da591df35f80db57071d99d0877476238e7efdb7b666233f80d5d8e8663e909
+// GENERATED from crunchyCore/palette.js @ d44feaf by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 f1ee7ed724204a504a8e6811e690d3e9dec1ae1741fc9e59b227ee5c2dfe1a72
 "use strict";
 // crunchyCore — SHARED PALETTES (PALETTES.md, AJ 2026-10-25: palettes are "used darn near everywhere"). One palette model
 // for the whole suite, its file formats, and the planted palette kind, so a palette made in one app follows the person
@@ -31,7 +31,7 @@
 // 2026-10) grown to .pal and CSS-style pastes; paletteFromPixels is CrunchyTile's rampFromPixels + medianCut (tile.js,
 // TILE-DESIGN §18), byte for byte in what it picks. The apps keep their copies until they switch (PALETTES.md step 2).
 
-const PALETTE_BUILD = 1;
+const PALETTE_BUILD = 2;   // 2: the GAME PALETTE (paletteGame / paletteSetGame: one planted palette marked the game's)
 
 const PALETTE_MAX = 256;               // colors in one palette, every ramp together (the .gpl / indexed-PNG ceiling)
 const PALETTE_RAMPS_MAX = 64;          // ramps in one palette
@@ -572,8 +572,10 @@ function palettePlanted(a) { const r = paletteDecode(a && a.data && a.data.s); r
 async function paletteSave(P, name, pal) {
   const M = await plantOpenAs(P, PALETTE_APP), p = paletteClean(Object.assign({}, pal, { name: name })), kind = PALETTE_KIND_OF[p.kind];
   if (!paletteCount(p)) throw new Error("A " + (p.kind === "set" ? "color set" : "palette") + " needs at least one color.");
-  const slug = await plantSlugFor(M, kind, p.name);
-  return plantPut(M, { kind: kind, name: p.name, fields: { s: paletteEncode(p), pal: p }, files: paletteFiles(slug, p, P.engine), appVersion: String(PALETTE_BUILD) });
+  const slug = await plantSlugFor(M, kind, p.name), was = M.assets.find(function (a) { return a.slug === slug; });
+  const fields = { s: paletteEncode(p), pal: p };
+  if (paletteIsGame(was)) fields.game = true;                     // editing the game palette keeps it the game's (build 2)
+  return plantPut(M, { kind: kind, name: p.name, fields: fields, files: paletteFiles(slug, p, P.engine), appVersion: String(PALETTE_BUILD) });
 }
 // Every palette AND set planted in this game: [{ slug, kind ("palette" | "colorset"), name, palette, asset }], by name.
 // Damaged ones are left out.
@@ -600,4 +602,30 @@ async function paletteSets(P) {
     });
   });
   return out;
+}
+
+// ---- THE GAME PALETTE (PALETTES.md step 4; AJ, 2026-10-26) ----------------------------------------------------------------
+// One planted palette (or color set) can be marked THE GAME'S: `game: true` in its own sidecar, so every app planted in
+// the game finds it with nothing else to keep in step. Only the sidecar is rewritten (its files, and so its hash, stay);
+// marking one clears the mark from every other, so at most one is ever the game's. Each app then lists it FIRST and offers
+// "Use the game palette": on for NEW designs in that game, never flipped on for existing ones (PALETTES.md, Decided 1).
+function paletteIsGame(a) { return !!(a && a.data && a.data.game === true); }
+// The game's palette: { slug, kind, name, palette, asset }, or null. Two marked (two apps racing) reads as the first by name.
+async function paletteGame(P) {
+  const all = await paletteList(P);
+  return all.find(function (x) { return paletteIsGame(x.asset); }) || null;
+}
+// Mark the planted palette or set `slug` as the game's (null: no game palette). → the game palette now, or null.
+async function paletteSetGame(P, slug) {
+  const M = await plantOpenAs(P, PALETTE_APP);
+  if (slug != null && !M.assets.some(function (a) { return a.slug === slug; })) throw new Error("There is no palette “" + slug + "” planted in this game.");
+  for (const a of M.assets) {
+    const want = a.slug === slug;
+    if (paletteIsGame(a) === want) continue;
+    a.data = Object.assign({}, a.data, { modified: new Date().toISOString() });
+    if (want) a.data.game = true; else delete a.data.game;
+    const sf = plantSidecarFile(a.slug, a.data);
+    await P.fs.writeTextFile(plantJoin(plantAssetDir(M, a), sf.path), sf.data);
+  }
+  return paletteGame(P);
 }
