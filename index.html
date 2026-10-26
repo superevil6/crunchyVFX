@@ -4569,23 +4569,31 @@ function presetMatches(name, q) {
 }
 // One frame ~40% in (a burst has bloomed by then; effectThumb's rule), rendered alone: renderPrep simulates the whole
 // effect (Fit needs every frame's bounds) but only this one frame is rasterized. The picture is a PREVIEW only.
+// §38: with "Use the game palette" on, a picture is drawn IN the game palette, as a click will load it (gameLockInto), and
+// cached by the lock's colors (presetThumbKey): the switch, a palette edit or another app's edit draws them again. Off
+// (or no game palette) the key is the name alone and the picture is exactly what it always was.
+function presetThumbKey(name) { const k = gamePalThumbKey(); return k ? name + "|" + k : name; }
+function presetThumbOf(st) {
+  return withState(st, () => {
+    const prep = renderPrep(state, { size: PTHUMB, fit: true });
+    const at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+    return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null).toDataURL("image/png");
+  });
+}
 function presetThumbURL(name) {
-  if (presetThumbs.has(name)) return presetThumbs.get(name);
+  const key = presetThumbKey(name);
+  if (presetThumbs.has(key)) return presetThumbs.get(key);
   let url = "";
-  try {
-    url = withState(PRESETS[name], () => {
-      const prep = renderPrep(state, { size: PTHUMB, fit: true });
-      const at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
-      return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null).toDataURL("image/png");
-    });
-  } catch (e) { /* a broken preset shouldn't take the strip down */ }
-  presetThumbs.set(name, url);
+  try { const st = Object.assign({}, PRESETS[name]); gameLockInto(st); url = presetThumbOf(st); }
+  catch (e) { /* a broken preset shouldn't take the strip down */ }
+  presetThumbs.set(key, url);
   return url;
 }
 function presetThumbWant(cell) {
   const img = cell.querySelector("img");
   if (!img || img.getAttribute("src")) return;
-  if (presetThumbs.has(cell.dataset.name)) { const u = presetThumbs.get(cell.dataset.name); if (u) img.src = u; return; }
+  const key = presetThumbKey(cell.dataset.name);
+  if (presetThumbs.has(key)) { const u = presetThumbs.get(key); if (u) img.src = u; return; }
   if (thumbQueue.indexOf(cell) < 0) thumbQueue.push(cell);
 }
 function pumpPresetThumbs() {
@@ -7425,6 +7433,7 @@ document.getElementById("palMatchLink").addEventListener("click", () => openLock
 // §38: the game palette's switch (shown only while the planted game has one): new effects only, never the one on screen
 document.getElementById("gamePalOn").addEventListener("change", (e) => {
   gamePalSetOn(e.target.checked);
+  gamePalThumbsSync();                       // the strip's pictures are of NEW effects, so they follow the switch
   msg.textContent = e.target.checked ? "New effects are locked to the game's palette (" + (gamePalNow() || {}).name + "). The effect on screen is as it was."
                                      : "New effects keep their own colors. Effects already locked to the game's palette keep it.";
 });
@@ -8362,6 +8371,7 @@ function wizardLabel(c) { return c.name; }
 function wizardState(c, answers) {
   const st = presetOutcome(wizardPatch(c), false);
   if (answers.era) styleInto(st, styleByName(answers.era));
+  gameLockInto(st);                          // §38: in the game palette when the switch is on, as wizardLoad's gameLockNew makes it
   return st;
 }
 // Does Lock pixels change what these results would otherwise be? (Then the Wizard says so.)
@@ -10260,17 +10270,38 @@ function gamePalSetOn(on) {
 // A NEW effect is being made (its state is written, the editor not yet synced): lock it to the game palette when the
 // switch is on. → true when it did.
 function gameLockNew() {
-  if (!gamePalOn()) return false;
-  state.paletteLock = lockOf(projGamePal.palette).join(",");
-  state.lockFrom = gamePalId();
+  if (!gameLockInto(state)) return false;
   clearSpriteCache();
   return true;
+}
+// the same lock written into any state (a strip picture's, a Wizard result's): → that state, or null with the switch off
+function gameLockInto(st) {
+  if (!gamePalOn()) return null;
+  st.paletteLock = lockOf(projGamePal.palette).join(",");
+  st.lockFrom = gamePalId();
+  return st;
+}
+// what a picture of a NEW effect depends on: the lock's colors with the switch on, else "" (the strip's own pictures)
+function gamePalThumbKey() { return gamePalOn() ? lockOf(projGamePal.palette).join(",") : ""; }
+// the switch or the game palette changed (a toggle, a star, an edit here or by another app, seen on the re-read): the
+// strip's pictures follow it. Each key's pictures stay cached, so turning it back shows them at once.
+var gamePalStripKey = "";
+function gamePalThumbsSync() {
+  const k = gamePalThumbKey();
+  if (k === gamePalStripKey) return;
+  gamePalStripKey = k;
+  const host = document.getElementById("presets");
+  if (!host) return;
+  for (const img of host.querySelectorAll(".pcell img")) img.removeAttribute("src");
+  thumbQueue = [];
+  presetPageShow();
 }
 function syncGamePalUI() {
   const row = document.getElementById("gamePalRow");
   if (!row) return;
   const g = gamePalNow();
   row.hidden = !g;
+  gamePalThumbsSync();
   if (!g) return;
   row.querySelector("input").checked = gamePalOn();
   row.querySelector(".game-pal-name").textContent = g.name;

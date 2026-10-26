@@ -2068,7 +2068,14 @@ On, a NEW effect is locked to the palette's flat set with `lockFrom` its id (`ga
 Randomize, a Wizard pick, a Breed or Variations child loaded, Match a sound (`applyPreset`'s new `fresh`). Moods and color
 sets still color the effect under the lock. A link, a planted effect, My Effects, undo and A/B never pass `fresh`, and the
 switch changes nothing on screen when turned either way. With no game palette (and always on the web) `gameLockNew` returns
-at once. The Wizard's nine and the strip's pictures are drawn without the lock; a click loads them locked.
+at once. ~~The Wizard's nine and the strip's pictures are drawn without the lock; a click loads them locked.~~ **Superseded
+(2026-10-26, follow-up):** what you see is what you get. The strip's pictures and the Wizard's nine are drawn WITH the lock
+(`gameLockInto`, the write `gameLockNew` makes, on any state; `wizardState` takes it, so a result's picture and its click
+are one state). Strip pictures are cached by name + the lock's colors (`presetThumbKey`, `gamePalThumbKey`), and
+`gamePalThumbsSync` redraws the strip when that key moves: the switch, a star, an edit here or another app's (seen on the
+re-read, via `syncGamePalUI`). Off, or no game palette, the key is the name alone and a picture is HEAD's byte for byte.
+Row: desktop `game-palette/strip-and-wizard-pictures-are-what-a-click-loads` (negative: switch off, every picture equals
+HEAD's procedure inline, and the Wizard's result is unlocked). Desktop 73; main 698; frame hash unchanged (306).
 
 Rows: desktop `game-palette/the-star-set-here-and-seen-set-by-another-app`, `…/listed-first-in-every-picker`,
 `…/the-switch-on-locks-every-new-effect-as-a-reference`, `…/the-switch-off-and-existing-effects-untouched`,

@@ -1047,6 +1047,39 @@
     return ok(offStays && plain && same0 && rollPlain && backOn && link && planted && mine,
       "offStays " + offStays + " · plain " + plain + " · same " + same0 + " · roll " + rollPlain + " · backOn " + backOn + " · link " + link + " · planted " + planted + " · mine " + mine);
   });
+  await t("game-palette/strip-and-wizard-pictures-are-what-a-click-loads", async function () {
+    // ON: a strip picture is drawn in the game palette, and the effect its click loads draws that very picture
+    const box = gameRow().querySelector("input"), want = lockOf(MOON).join(",");
+    const N = "Explosion", headThumb = function (name) {   // HEAD's presetThumbURL, verbatim, uncached
+      return withState(PRESETS[name], function () {
+        const prep = renderPrep(state, { size: PTHUMB, fit: true }), at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+        return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null).toDataURL("image/png");
+      });
+    };
+    const on = box.checked && gamePalOn(), tOn = presetThumbURL(N);
+    presetCell(N).click();
+    const sameOn = state.paletteLock === want && presetThumbOf(snapshotState()) === tOn && tOn !== headThumb(N);
+    // the strip itself follows: a shown cell's picture is the key's picture
+    const shownCell = Array.from(document.querySelectorAll("#presets .pcell")).find(function (c) { return !c.hidden; });
+    await wait(function () { const i = shownCell && shownCell.querySelector("img"); return i && i.getAttribute("src"); });
+    const stripOn = !!shownCell && shownCell.querySelector("img").getAttribute("src") === presetThumbURL(shownCell.dataset.name);
+    // the Wizard's nine: a result's picture is drawn from the state its click loads
+    wizard.answers = { type: WIZARD_TYPES[0].key, tags: [], era: "" };
+    const c = wizardCandidates(wizard.answers, 1)[0], wst = wizardState(c, wizard.answers);
+    const still = wizardStill(wst).toDataURL();
+    wizardLoad(c);
+    const wizOn = wst.paletteLock === want && state.paletteLock === want && wizardStill(snapshotState()).toDataURL() === still;
+    // NEGATIVE, OFF: every picture is HEAD's again (the strip redrawn), and the Wizard's result is unlocked
+    box.click();
+    const names = Object.keys(PRESETS).slice(0, 6).concat([N]);
+    const headSame = !gamePalOn() && names.every(function (n) { return presetThumbURL(n) === headThumb(n); }) && presetThumbURL(N) !== tOn;
+    await wait(function () { const i = shownCell.querySelector("img"); return i && i.getAttribute("src") === presetThumbURL(shownCell.dataset.name); });
+    const stripOff = shownCell.querySelector("img").getAttribute("src") === headThumb(shownCell.dataset.name);
+    const wst2 = wizardState(c, wizard.answers), wizOff = wst2.lockFrom === "" && wizardStill(wst2).toDataURL() !== still;
+    box.click();
+    return ok(on && sameOn && stripOn && wizOn && headSame && stripOff && wizOff && gamePalOn(),
+      "on " + on + " · sameOn " + sameOn + " · stripOn " + stripOn + " · wizOn " + wizOn + " · headSame " + headSame + " · stripOff " + stripOff + " · wizOff " + wizOff);
+  });
   await t("game-palette/a-set-edit-flows-into-effects-made-from-it-and-update-all-takes-it", async function () {
     const save = async function (name) { document.getElementById("plantName").value = name; projSave(); await settle(); return plantFind(project, "effect", name); };
     // made FROM the planted set (colored), FROM the planted palette (locked), and one from plain colors (no id at all)
