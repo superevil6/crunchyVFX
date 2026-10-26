@@ -55,7 +55,7 @@ SUITES = {
     "hash": ("frame-hash.js", []),                                                   # every preset's frames + export bytes
     "fixtures": ("make-fixtures.js", []),                                            # run ONCE on the build being protected
     "web": ("regression-web.js", ["fixtures/head.js", "seed-head.js"]),              # the web build over HEAD's saved state
-    "desktop": ("regression-desktop.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),
+    "desktop": ("regression-desktop.js", ["tauri-mock.js", "fixtures/head.js", "fixtures/locked-links.js", "seed-head.js"]),
     "godot": ("godot-plant.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),   # tests/godot-check.mjs runs it
     "scene": ("godot-scene.js", []),                                                 # tests/godot-scene.mjs runs it (§26, the web build)
     "show": ("show-desktop.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),   # a look, for wkshot.py

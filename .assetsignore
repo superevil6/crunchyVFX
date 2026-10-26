@@ -5,9 +5,10 @@
 # design document, the working notes, the test suite, the Tauri and Flatpak sources — on every path
 # a crawler can find. Same file, same reason, as CrunchyBGM's.
 #
-# The published set is deliberately small: index.html, the fifteen sibling scripts (suite.js 2026-10-09, crunchy-icons.js
+# The published set is deliberately small: index.html, the twenty-two sibling scripts (suite.js 2026-10-09, crunchy-icons.js
 # 2026-10-11; project.js left and project-app.js, plant.js, library.js, settings.js, desktop.js joined with VFX-DESIGN §18;
-# feedback.js with §20; glyphs.js with §28), the two stylesheets (crunchy-base.css, styles.css), and the
+# feedback.js with §20; glyphs.js with §28; shader.js, hero.js, moments.js, moments-ui.js with §32; palette.js,
+# palette-ui.js, colorsets.js with §37), the two stylesheets (crunchy-base.css, styles.css), and the
 # four images (favicon, apple-touch-icon, og, and wordmark: the header logo, drawn in code by crunchyCore), plus about.html (the web's About page, served at /about),
 # robots.txt, sitemap.xml and the IndexNow key <32 hex>.txt for search engines (VFX-DESIGN §29; tests/seo.test.mjs checks none is matched),
 # and version.json, what the desktop app's update check reads (§30; tests/worker.test.mjs checks it is not matched). If you add a file the APP loads at runtime, it must

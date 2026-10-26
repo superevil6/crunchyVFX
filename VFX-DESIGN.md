@@ -1976,3 +1976,56 @@ link carrying settings this synth (SFX 1.1.0) does not know gets a note: "made w
 little different here"). Save writes the WAV / shader + material INTO crunchy/moments/<slug>/ (the moment's own files)
 and the scene points at them; the moment keeps both links. Row `moments/share-links-from-the-web-apps-render-into-the-
 moment` (a non-link refused; both links shown, saved, pointed at, kept). 696 / desktop 60 / web 13; core 312, moments-godot 11.
+
+## 37. Shared palettes and color sets (2026-10-25, crunchyCore PALETTES.md step 2b)
+
+AJ: "being able to consolidate those across the apps and have your own may be a bigger lever than the actual palettes …
+being able to add to those and actually have them consistent across each app would be beneficial." VFX pulls
+crunchyCore's `palette.js` (the model, the planted kind), `palette-ui.js` (the suite's palette window) and `colorsets.js`
+(237 named sets, light → dark, append-only ids like `theme:fire`): all four registrations, wants palette 1 / palette-ui
+1 / colorsets 1, `--css-build` 13.
+
+**Color sets.** Under the 18 mood buttons (untouched) a "Color sets…" row opens a picker: your own sets first (planted
+in the game, `paletteSets(project)`: every planted set and every ramp of every planted palette; on the web, or with no
+folder planted, kept in this browser under a NEW key `crunchyvfx.palettes.v1` as palette.js share strings), then the
+suite's sets by `COLORSET_GROUPS`, with a search; "New color set…" opens `paletteOpen({ kind: "set" })`. A pick colors the
+effect through the EXISTING ramp mode (`rampOfColors`): two stops per color, a band each, the lightest as a particle is
+born and the darkest as it fades. STEPS, not blends: sampleRamp between two stops of one color is that color, so no
+point of a life gives a color the set doesn't list (palette.js's rule: never invent a color). The stops are each color's
+exact HSL (hue to 2 decimals, saturation and light to 4), which vfx.js's `hslParts` turns back into the very same hex
+(all 237 sets tested; 200 000 random colors measured). A pick also sets Hue var 0, Brightness 1 and the NORMAL blend
+(additive piles a set's colors into white where particles overlap). The renderer itself is unchanged, so its sprite
+cache still rounds a particle's color to 24 hues × 5 × 6 steps and soft edges and a glow still mix: the pixel-exact
+route is the picker's "Lock every pixel to the set too" (the palette lock with the set's colors). The set's id rides in
+a new PATCH_EXTRAS `colorSet` ("" by default, read by nothing that draws), so the picker can mark it; the colors ride in
+`ramp` (link, sidecar, undo). A link from someone else's set shows as "This effect's set", with Keep. A mood after a set
+takes the set's ramp away (only when `colorSet` is set; a ramp drawn by hand is never touched, and editing the ramp
+clears `colorSet`).
+
+**The lock opens the palette window.** "Match my game's colors…" and the toolbar's "Game palette" (and "Palette
+window…" in the Crunch box) open `paletteOpen` on the lock as it stands: a planted palette that IS the lock opens as
+itself (Save updates it in place), a kept or starter palette as itself, any other lock grouped by `paletteFromColors`.
+Its preview is the effect rendered once without lock or color steps, then snapped by VFX's own rule (dither bias, then
+2/4/1). Save locks the effect (`paletteLock` still holds plain colors) and, without a folder, keeps the palette in the
+browser. The Crunch box's Load and paste read through the core's `paletteParse` (JASC .pal and CSS pastes now too, and a
+pasted "p1." string); vfx.js's quantize is as it was.
+
+**Nothing bundled unless CC0 (AJ, 2026-10-25).** VFX's five built-in lock palettes are gone: the box offers the core's
+`PALETTE_STARTERS` (our own CC0 palettes and hardware palettes), then yours. Sweetie 16 and Fantasy 16 were their
+makers' designs; makers' palettes stay importable (Load, paste, the window), as the person's own files. No preset named
+them. A lock stores colors, so every effect and link locked to any of the five renders byte for byte
+(`tests/fixtures/locked-links.js`, made once on HEAD 04c23ea). `BUILTIN_PALETTES` is removed; the regression's
+16-color lock check keeps its colors inline.
+
+**The Library's Palettes tab** (every engine; Unity has no moments tab but has this one): cards for planted palettes and
+color sets (swatches as the picture; badges "palette" / "color set", and "locks / colors this effect"), Lock the effect /
+Color the effect, Edit (the window, Save in place), Rename (the sidecar, then saved again in place so the .gpl and the
+share string carry the name), Delete (through plant.js's removal guard: a scene using its .tres stops the first press).
+The tab's commands are New palette…, New color set… and Close. Everything lives in crunchy/palettes/ (the suite's
+kind), so a palette or set saved here shows in every Crunchy app planted in the same game. No new Tauri permission: the
+code calls only exists / read / write / mkdir / readDir / remove, all granted.
+
+Rows: desktop `palettes/a-built-in-set-colors-the-effect-with-exactly-its-colors`, `…/a-set-saved-from-the-window-is-
+planted-and-listed-with-edit-rename-delete`, `…/a-palette-from-the-shared-window-locks-the-effect`, `…/old-locked-links-
+render-byte-for-byte` (each with a negative); web `palettes/a-web-color-set-is-kept-in-the-browser-and-rides-in-the-
+share-link`. Frame hash unchanged (1f591c9eb230a807 over 306). Main 697 / async 77 / desktop 65 / web 14.

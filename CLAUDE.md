@@ -79,7 +79,7 @@ keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `bor
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
 
-**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js` and `glyphs.js` are GENERATED from crunchyCore too** (§18, §20, §28), with the stamp
+**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js`, `glyphs.js` (and the game moment's and palette's files: `shader.js`, `hero.js`, `moments*.js`, `palette.js`, `palette-ui.js`, `colorsets.js`) are GENERATED from crunchyCore too** (§18, §20, §28, §32, §37), with the stamp
 guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
 before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
 with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the
@@ -223,6 +223,10 @@ more particles.
 
 ## Status
 
+- **Shared palettes and color sets (§37, 2026-10-25, crunchyCore PALETTES.md 2b)**: `palette.js`, `palette-ui.js`,
+  `colorsets.js` GENERATED from crunchyCore. "Color sets…" under the moods (the suite's 237 + your own; a pick is the
+  ramp in steps, `colorSet` PATCH_EXTRA); the lock opens the suite's palette window; the Library's Palettes tab. The
+  lock offers only the core's CC0 starters now (AJ: Sweetie 16 / Fantasy 16 removed; old locks keep their colors).
 - **Release machinery for 1.0.0 (§30, 2026-10-16)**: version 1.0.0 in all five places; `scripts/release.sh` (SFX's, with
   VFX's checks; `--dry` writes nothing); RELEASE.md; `.gitattributes` (LF everywhere: Tile v1.0.0's CRLF core-copy
   failure); no AppImage (the Flatpak is the Linux product; the workflow is Tile's shape, with a wiring step); the

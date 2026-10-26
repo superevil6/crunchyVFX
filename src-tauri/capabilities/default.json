@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Core defaults plus export (Save dialog + write), drag-out (native drag of a temp sheet PNG into the OS / an engine), and the planted Library (VFX-DESIGN §18: read, list, write and remove its own files inside crunchy/vfx/ in the chosen folder). The feedback dialog (feedback.js) opens a mailto: link in the person's own mail app.",
+  "description": "Core defaults plus export (Save dialog + write), drag-out (native drag of a temp sheet PNG into the OS / an engine), and the planted Library (VFX-DESIGN §18: read, list, write and remove its own files inside crunchy/vfx/ in the chosen folder; the suite's own crunchy/moments/ and, VFX-DESIGN §37, crunchy/palettes/ beside it). The feedback dialog (feedback.js) opens a mailto: link in the person's own mail app.",
   "windows": [
     "*"
   ],

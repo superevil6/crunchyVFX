@@ -106,7 +106,7 @@
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
-                  orbitShapes: "3,10", icon: "coin" }, "extras");
+                  orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire" }, "extras");   // colorSet: §37
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -352,7 +352,9 @@
     ok(lit(renderFrames(state, { size: 128 }).canvases[2]) === 0, "no text = no empty box");
 
     // ---------------------------------------------------------------- palette
-    const P16 = BUILTIN_PALETTES["Sweetie 16"];
+    // §37 (AJ, 2026-10-25, "nothing bundled unless CC0"): the app no longer OFFERS BUILTIN_PALETTES; this is the lock
+    // engine's own check on a 16-color lock, its colors written here as any person's imported palette would be
+    const P16 = "1a1c2c,5d275d,b13e53,ef7d57,ffcd75,a7f070,38b764,257179,29366f,3b5dc9,41a6f6,73eff7,f4f4f4,94b0c2,566c86,333c57";
     ok(parsePalette(P16).length === 16, "palette parses");
     ok(parsePalette("") === null && parsePalette("zzz") === null, "bad palette = off, not a crash");
     ok(parsePaletteFile("1a1c2c\n5d275d").length === 2, "Lospec .hex parses");
@@ -1984,7 +1986,8 @@
       const hits = [];
       const check = (where, text) => { if (text && BAD.test(text)) hits.push(where + ': "' + text + '"'); };
       for (const s of STYLES) { check("style name", s.name); check("style hint", s.hint); }
-      for (const name in BUILTIN_PALETTES) check("palette", name);
+      for (const s of PALETTE_STARTERS) check("palette", s.name);   // §37: the lock offers the core's starters now (AJ, 2026-10-25)
+      for (const s of COLORSETS) check("color set", s[1]);
       for (const t of TOUR) { check("tour title", t.title); check("tour body", t.body); }
       for (const n of Object.keys(PRESETS)) check("preset", n);
       for (const n of SHAPES) check("shape", n);
@@ -3707,10 +3710,12 @@
       gifModal.hidden = true;
       // 5 / 11. the palette lock has a visible home; a locked palette with soft edges offers hard edges, in one line
       ok(!!document.getElementById("palLockBtn") && !!document.getElementById("palMatchLink"), "the palette lock has a toolbar button and a line under Palette");
-      const crunch = panels.querySelector('[data-group="Crunch"]');
-      crunch.classList.add("collapsed");
+      // §37: Game palette and "Match my game's colors…" open crunchyCore's palette window (no folder planted: on the
+      // starter, its Save keeps it in this browser and locks the effect)
       document.getElementById("palLockBtn").click();
-      ok(!crunch.classList.contains("collapsed") && document.activeElement === palPasteEl, "Game palette opens Crunch and puts the cursor in the paste box");
+      ok(!!document.querySelector(".pal-overlay") && /Palette/.test(document.querySelector(".pal-overlay .set-title").textContent),
+         "Game palette opens the palette window");
+      document.querySelectorAll(".pal-overlay").forEach((e) => e.remove());
       setPalette(["1a1c2c", "5d275d", "b13e53", "ef7d57"], "test");
       state.alphaCut = 0; syncPaletteUI();
       const hard = document.getElementById("palHard");
@@ -3728,7 +3733,7 @@
       ok(LAUNCH_EFFECTS.every((n) => PRESETS[n]), "every launch effect exists");
       pixelLock = lockWas; updateLockBtn();
       restoreEdit(snap25); effectLabel = label25;
-      palPasteEl.blur(); window.scrollTo(0, 0);   // Game palette scrolled the page: the result box is fixed to the top
+      window.scrollTo(0, 0);
     }
     // ---------------------------------------------------------------- §28: the Icon particle (crunchyCore glyphs.js)
     {

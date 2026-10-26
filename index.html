@@ -115,7 +115,7 @@
     <button id="holdBtn" hidden title="Keep the matched sound's length and intensity when you load a preset, so you can change the LOOK without losing what the sound gave you" data-icon="speaker">Hold sound</button>
     <span class="gensep" aria-hidden="true"></span>
     <button id="timeBtn" title="When each layer starts — stage a flash, then the burst, then the smoke" data-icon="clock">Timing</button>
-    <button id="palLockBtn" title="Match my game's colors: lock the effect to your game's palette (paste hex codes, load a .hex/.gpl file, or pick one)" data-icon="shade">Game palette</button>
+    <button id="palLockBtn" title="Match my game's colors: the palette window (open a .hex/.gpl file, paste hex codes, pick a starter, or make your own); its Save locks the effect" data-icon="shade">Game palette</button>
   </div>
 </div>
 <!-- THE EFFECT STRIP (§22): every preset as a picture, PAGED by arrows (never a sideways scrollbar), the page counted.
@@ -309,7 +309,11 @@
     <div class="engine" id="paletteSection">
       <div class="engine-title"><span>Palette</span></div>
       <div class="engine-cat-btns" id="paletteGrid"></div>
-      <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colors (Crunch panel, Palette lock)">Match my game's colors…</button>
+      <div class="cset-row" id="csetRow">
+        <button type="button" id="csetBtn" data-icon="layers" title="Color the effect with a color set: the suite's named sets (the same in every Crunchy app) or your own">Color sets…</button>
+        <span class="cset-now" id="csetNow"></span>
+      </div>
+      <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colors: the palette window (open a file, paste, pick a starter, or make your own)">Match my game's colors…</button>
     </div>
     <div class="engine" id="styleSection">
       <div class="engine-title"><span>Era style</span>
@@ -357,6 +361,11 @@
 <script src="hero.js"></script>
 <script src="moments.js"></script>
 <script src="moments-ui.js"></script>
+<!-- SHARED PALETTES AND COLOR SETS (crunchyCore PALETTES.md, VFX-DESIGN §37), GENERATED: the palette model and its planted
+     kind (pure), the suite's editor window (DOM only inside its functions), and the suite's named color sets (pure). -->
+<script src="palette.js"></script>
+<script src="palette-ui.js"></script>
+<script src="colorsets.js"></script>
 <script src="settings.js"></script>
 <script src="desktop.js"></script>
 <!-- Feedback (VFX-DESIGN §20; crunchyCore, GENERATED like the files above; CrunchyTile TILE-DESIGN §118). -->
@@ -370,7 +379,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 12;   // must match --css-build in styles.css
+  const CSS_BUILD = 13;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -385,6 +394,10 @@
     { file: "hero.js", want: 2, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
     { file: "moments.js", want: 3, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },
+    // SHARED PALETTES AND COLOR SETS (crunchyCore PALETTES.md, §37): the model, the editor window, the suite's color sets
+    { file: "palette.js", want: 1, got: () => (typeof PALETTE_BUILD === "undefined" ? 0 : PALETTE_BUILD) },
+    { file: "palette-ui.js", want: 2, got: () => (typeof PALETTE_UI_BUILD === "undefined" ? 0 : PALETTE_UI_BUILD) },
+    { file: "colorsets.js", want: 1, got: () => (typeof COLORSETS_BUILD === "undefined" ? 0 : COLORSETS_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
@@ -1022,7 +1035,11 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        orbitShapes: "",
                        // §28: WHICH suite icon the "icon" shape draws, by glyph NAME (crunchyCore glyphs.js).
                        // Read only by that shape, so the default changes no existing effect.
-                       icon: ICON_DEFAULT };
+                       icon: ICON_DEFAULT,
+                       // §37: the COLOR SET the ramp was made from, by its stable id ("theme:fire", a planted
+                       // "set:<slug>", a browser-kept "mine:…"). The colors themselves ride in `ramp`; this only
+                       // lets the picker show which set it is. Read by nothing that draws: "" changes no effect.
+                       colorSet: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -1824,19 +1841,100 @@ const ICON_PICKS = ["heart", "coin", "skull", "star", "warn", "speech", "flame",
   }
 }
 
+// ---------- Shared palettes and color sets: the data (§37, crunchyCore PALETTES.md, palette.js, colorsets.js) ----------
+// A COLOR SET is a few colors, light to dark (the suite's 237 in colorsets.js, the same in every Crunchy app, or your own).
+// VFX draws one through its existing color RAMP (Color over lifetime): each color a BAND of the particle's life, the
+// lightest as it is born, the darkest as it fades, in hard steps. Steps, not blends, because a set is a strict list
+// (palette.js's rule: never invent a color): sampleRamp between two stops of one color gives that color, so every
+// particle's own color IS one of the set's. The stops are the colors' exact HSL (two decimals of hue, four of
+// saturation and light), which vfx.js's hslParts turns back into the very same hex, every one of the 16.7 million
+// (measured on 200 000 random colors, and tested on every built-in set). Nothing here runs unless a set is picked: an
+// effect without `colorSet` never meets this code, so no existing effect, link or frame moves.
+//
+// YOUR OWN palettes and sets: on the desktop, planted in the game (crunchy/palettes/, palette.js paletteSave: every
+// Crunchy app planted there lists them); on the web, or with no folder planted, kept in this browser under a NEW key of
+// their own (CrunchyVFX's older keys are never reshaped), as palette.js share strings, which check themselves on read.
+// Function declarations and `var`s only: the Crunch panel's lock box (built just below) calls into them at load.
+function myPalKey() { return "crunchyvfx.palettes.v1"; }
+function myPalLoad() {
+  try {
+    const a = JSON.parse(localStorage.getItem(myPalKey()) || "[]");
+    return Array.isArray(a) ? a.map(function (s) { return paletteDecode(s); }).filter(function (r) { return !r.error; }).map(function (r) { return r.palette; }) : [];
+  } catch (e) { return []; }
+}
+function myPalStore(list) {
+  try { localStorage.setItem(myPalKey(), JSON.stringify(list.map(paletteEncode))); return true; }
+  catch (e) { msg.textContent = "Couldn't keep it in this browser (storage full or blocked)."; return false; }
+}
+// Keep a palette or set in this browser: the same kind and name REPLACES it (that is its Save), `was` (an edit's old
+// name) goes when the name changed. → the kept palette, or null.
+function myPalKeep(p, was) {
+  const c = paletteClean(p), same = function (x, n) { return x.kind === c.kind && x.name.toLowerCase() === String(n).toLowerCase(); };
+  let list = myPalLoad();
+  if (was && was.toLowerCase() !== c.name.toLowerCase()) list = list.filter(function (x) { return !same(x, was); });
+  const i = list.findIndex(function (x) { return same(x, c.name); });
+  if (i >= 0) list[i] = c; else list.push(c);
+  return myPalStore(list) ? c : null;
+}
+function myPalForget(kind, name) { myPalStore(myPalLoad().filter(function (x) { return !(x.kind === kind && x.name === name); })); }
+// Every set this browser keeps: its sets, then every ramp of its palettes ("<palette> · <ramp>"), ids like
+// palette.js paletteSets' but "mine:": "mine:<set>", "mine:<palette>/<ramp>".
+function myPalSets() {
+  const out = [];
+  myPalLoad().forEach(function (p) {
+    if (p.kind === "set") { out.push({ id: "mine:" + plantSlug(p.name), name: p.name, colors: p.ramps[0].colors.slice(), from: "set", mine: p }); return; }
+    const used = {};
+    p.ramps.forEach(function (r) {
+      let k = plantSlug(r.name), n = 2;
+      while (used[k]) k = plantSlug(r.name) + "-" + n++;
+      used[k] = 1;
+      out.push({ id: "mine:" + plantSlug(p.name) + "/" + k, name: p.name + " · " + r.name, colors: r.colors.slice(), from: "palette", mine: p });
+    });
+  });
+  return out;
+}
+// "#rrggbb" → [hue in degrees, saturation, light], the exact inverse of vfx.js's hslParts.
+function csetHsl(hex) {
+  const c = paletteRgb(hex), r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  if (!d) return [0, 0, l];
+  const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+// A set's colors → the `ramp` string: two stops per color, a band each, light (born) to dark (fading). "" for none.
+function rampOfColors(colors) {
+  const list = (colors || []).map(paletteHexOf).filter(Boolean), n = list.length, stops = [];
+  list.forEach(function (c, i) {
+    const v = csetHsl(c), at = function (p) { return [+p.toFixed(4), +v[0].toFixed(2), +v[1].toFixed(4), +v[2].toFixed(4), 1].join(","); };
+    stops.push(at(i / n), at((i + 1) / n));
+  });
+  return stops.join("|");
+}
+// The other way: the colors of a ramp rampOfColors wrote (a set's), or null for any other ramp (one drawn by hand).
+function colorsOfRamp(str) {
+  const st = String(str || "").split("|").map(function (s) { return s.split(",").map(Number); });
+  if (!st.length || st.length % 2 || st.some(function (n) { return n.length !== 5 || !n.every(Number.isFinite) || n[4] !== 1; })) return null;
+  const out = [], n = st.length / 2, hex = function (v) { return paletteHexOf(hslParts(v[1], v[2], v[3])); };
+  for (let i = 0; i < n; i++) {
+    const a = st[2 * i], b = st[2 * i + 1];
+    if (a[1] !== b[1] || a[2] !== b[2] || a[3] !== b[3] || a[0] !== +(i / n).toFixed(4) || b[0] !== +((i + 1) / n).toFixed(4)) return null;
+    out.push(hex(a));
+  }
+  return out;
+}
+// The lock's colors (bare hex, comma-joined, as `paletteLock` always held them) from a palette or a list.
+function lockOf(pal) { return paletteFlat(pal).map(function (h) { return h.slice(1); }); }
+
 // ---------- Palette lock ----------
 // Load a .hex (Lospec), .gpl (GIMP/Aseprite) or .txt (paint.net) palette — or pull one out of the
 // effect itself — and every pixel snaps to it. This is what makes the output belong to someone's
 // game rather than merely resemble it.
-const BUILTIN_PALETTES = {
-  "Sweetie 16": "1a1c2c,5d275d,b13e53,ef7d57,ffcd75,a7f070,38b764,257179,29366f,3b5dc9,41a6f6,73eff7,f4f4f4,94b0c2,566c86,333c57",
-  // Named for what they look like, not the hardware or product they came from — the era buttons
-  // hold to the same rule. Color values themselves carry no license; the names would.
-  "Fantasy 16": "000000,1d2b53,7e2553,008751,ab5236,5f574f,c2c3c7,fff1e8,ff004d,ffa300,ffec27,00e436,29adff,83769c,ff77a8,ffccaa",
-  "Handheld Green": "0f380f,306230,8bac0f,9bbc0f",
-  "CGA": "000000,55ffff,ff55ff,ffffff",
-  "Grayscale 8": "000000,242424,484848,6d6d6d,919191,b6b6b6,dadada,ffffff",
-};
+// §37 (AJ, 2026-10-25, "nothing bundled unless CC0"): the five built-in palettes this box offered are gone. The shared
+// starters are crunchyCore's PALETTE_STARTERS (our own CC0 palettes and hardware palettes); Sweetie 16 and Fantasy 16
+// were their makers' designs, not CC0, and are not offered; Handheld Green, CGA and Grayscale 8 have their starters.
+// A lock stores its COLORS, so every effect and link locked to any of them renders exactly as before, and any maker's
+// palette still comes in through Load, a paste or the palette window (that is the person's own file, not ours).
 // Lospec .hex = bare 6-hex per line · GIMP .gpl = "R G B name" after a header · paint.net .txt =
 // AARRGGBB with ";" comments. One parser handles all three plus anything pasted.
 function parsePaletteFile(text) {
@@ -1882,7 +1980,7 @@ function syncPaletteUI() {
     palSwatches.appendChild(s);
   }
   if (!cols.length) {
-    palInfo.textContent = "No palette locked. Load one, paste hex codes, or pull one out of the effect.";
+    palInfo.textContent = "No palette locked. Pick a starter or yours, load one, paste hex codes, pull one out of the effect, or open the palette window.";
     return;
   }
   // Exactness depends on alpha: see the KNOWN LIMIT note in vfx.js. Rather than let someone
@@ -1910,20 +2008,8 @@ function syncPaletteUI() {
   }
 }
 // §25: THE PALETTE LOCK HAS A VISIBLE HOME (it lived only inside the folded Crunch panel): the toolbar's "Game palette"
-// and a line under the Palette swatches open Crunch, bring the lock into view and put the cursor in its paste box.
-function showPaletteLock() {
-  const panel = panels.querySelector('[data-group="Crunch"]'), box = panel && panel.querySelector(".pal-box");
-  if (!box) return;
-  if (panel.classList.contains("collapsed")) {
-    panel.classList.remove("collapsed");
-    foldState["p:Crunch"] = false; saveFolds();
-    const h = panel.querySelector("h2");
-    if (h) h.setAttribute("aria-expanded", "true");
-  }
-  box.scrollIntoView({ block: "center" });
-  box.classList.remove("pal-flash"); void box.offsetWidth; box.classList.add("pal-flash");
-  if (palPasteEl) palPasteEl.focus({ preventScroll: true });
-}
+// and a line under the Palette swatches. §37: both open crunchyCore's palette window now (openLockWindow), whose Save
+// locks the effect; the Crunch panel's box keeps the quick ways (starters, yours, Load, Take, paste, Clear).
 // ---------- Frame size (W x H with an aspect lock) ----------
 // Lives in the stage controls, next to Zoom and Backdrop, rather than down in the Output panel:
 // it changes what you are looking at, so it belongs where you are looking. Labeled "Size"
@@ -2005,7 +2091,8 @@ function ratioLabel(w, h) {
       '<div class="pal-info" id="palInfo"></div>' +
       '<div class="pal-btns" id="palBuiltins"></div>' +
       '<div class="pal-btns">' +
-        '<button id="palLoad" title="Lospec .hex, GIMP/Aseprite .gpl, or paint.net .txt" data-icon="upload">Load</button>' +
+        '<button id="palWindow" data-icon="edit" title="The palette window: make, edit or import a palette (every Crunchy app shares it), and lock the effect to it">Palette window…</button>' +
+        '<button id="palLoad" title="Lospec .hex, GIMP/Aseprite/Krita .gpl, JASC .pal or paint.net .txt" data-icon="upload">Load</button>' +
         '<button id="palGrab8">Take 8</button><button id="palGrab16">Take 16</button>' +
         '<button id="palClear" data-icon="close">Clear</button>' +
       '</div>' +
@@ -2016,19 +2103,16 @@ function ratioLabel(w, h) {
     palInfo = box.querySelector("#palInfo");
     palPasteEl = box.querySelector("#palPaste");
     const palFile = box.querySelector("#palFile");
-    for (const name in BUILTIN_PALETTES) {
-      const b = document.createElement("button");
-      b.textContent = name;
-      b.addEventListener("click", () => setPalette(BUILTIN_PALETTES[name].split(","), name));
-      box.querySelector("#palBuiltins").appendChild(b);
-    }
+    palLockRowRender();        // §37: the starters (crunchyCore PALETTE_STARTERS, CC0), then your own
+    box.querySelector("#palWindow").addEventListener("click", () => openLockWindow());
     box.querySelector("#palLoad").addEventListener("click", () => palFile.click());
     palFile.addEventListener("change", async () => {
       const f = palFile.files && palFile.files[0];
       if (!f) return;
-      const cols = parsePaletteFile(await f.text());
-      if (cols.length) setPalette(cols, f.name);
-      else msg.textContent = "No colors found in " + f.name;
+      // §37: crunchyCore's paletteParse (this app's parsePaletteFile, moved there and grown to JASC .pal and CSS pastes)
+      const r = paletteParse(await f.text());
+      if (r.error) msg.textContent = f.name + ": " + r.error;
+      else setPalette(r.colors.map((h) => h.slice(1)), f.name);
       palFile.value = "";
     });
     // Pull a palette out of the effect itself, using the GIF encoder's median-cut quantizer.
@@ -2043,9 +2127,10 @@ function ratioLabel(w, h) {
     box.querySelector("#palGrab16").addEventListener("click", () => grab(16));
     box.querySelector("#palClear").addEventListener("click", () => setPalette([], "cleared"));
     palPasteEl.addEventListener("change", () => {
-      const cols = parsePaletteFile(palPasteEl.value);
-      if (cols.length) { setPalette(cols, "Pasted"); palPasteEl.value = ""; }
-      else msg.textContent = "Couldn't find any hex colors in that";
+      const t = palPasteEl.value.trim(), d = /^p\d+\./.test(t) ? paletteDecode(t) : null;   // a Crunchy palette string too
+      const r = d ? (d.error ? d : { colors: paletteFlat(d.palette) }) : paletteParse(t);
+      if (!r.error) { setPalette(r.colors.map((h) => h.slice(1)), d ? d.palette.name : "Pasted"); palPasteEl.value = ""; }
+      else msg.textContent = r.error;
     });
     syncPaletteUI();
   }
@@ -2194,6 +2279,7 @@ function rampFromClassic() {
       });
     }
     function commitRamp(replay) {
+      state.colorSet = "";                             // §37: drawn by hand now, no longer a color set's ramp
       rampStops.sort((a, b) => a.p - b.p);
       state.ramp = rampStops.length >= 2 ? rampToString() : "";
       drawRamp();
@@ -2274,6 +2360,7 @@ function rampFromClassic() {
       presetsEl.appendChild(b);
     }
     toggle.addEventListener("click", () => {
+      state.colorSet = "";
       if (state.ramp) { state.ramp = ""; rampStops = []; }
       else { rampStops = rampFromClassic(); rampSel = 0; }
       window.syncRampUI();
@@ -3104,6 +3191,7 @@ function syncUI() {
   if (window.syncIconPicker) window.syncIconPicker();
   if (bubbleInput) bubbleInput.value = state.bubbleText;
   syncPaletteUI();
+  if (window.syncColorSetUI) window.syncColorSetUI();
   if (window.syncCustomSprite) window.syncCustomSprite();
   if (window.syncRampUI) window.syncRampUI();
   if (window.syncBShape) window.syncBShape();
@@ -3533,6 +3621,9 @@ for (const [name, patch] of PALETTES) {
   b.appendChild(sw);
   b.appendChild(document.createTextNode(name));
   b.addEventListener("click", () => {
+    // §37: a COLOR SET's ramp gives way to a mood (that ramp was the set's, not one drawn by hand in Color over
+    // lifetime, which a mood never touched and still doesn't), so a mood after a set colors the effect as it always did.
+    if (state.colorSet) { state.ramp = ""; state.colorSet = ""; }
     // SCOPED to whichever population the switcher above has selected. Until that switcher existed
     // every palette wrote Layer A keys only, so on the eight presets that run a second population
     // a palette click recolored half the picture and silently left the rest — which is exactly
@@ -3552,6 +3643,277 @@ for (const [name, patch] of PALETTES) {
   });
   paletteGrid.appendChild(b);
 }
+
+// ---------- Color sets, and the palette window for the lock (§37, crunchyCore PALETTES.md) ----------
+// THE COLOR SETS ROW under the moods: "Color sets…" opens a picker of your own sets (planted in the game on the
+// desktop, kept in this browser on the web) and the suite's 237 built-in ones (colorsets.js: the same names and colors
+// in every Crunchy app), grouped and searchable. A pick colors the effect with exactly that set (rampOfColors, above),
+// hueVar 0 and Brightness 1 so nothing shifts a particle off the set's colors, and, if asked, locks every pixel to them
+// too (the pixel-exact route: the sprite cache still rounds a particle's color to its 24 hues × 5 × 6 steps, soft
+// edges mix and a glow blooms, exactly as they do for any ramp). A pick also sets Hue var 0, Brightness 1 and the
+// normal blend (additive piles the colors up into white). The mood buttons are untouched; a mood picked
+// after a set takes the set's ramp away and colors the effect as it always did.
+// THE LOCK'S WINDOW: "Match my game's colors…" and the toolbar's "Game palette" open crunchyCore's palette window
+// (palette-ui.js) on the lock as it stands (as itself when it is a planted or kept palette, so Save updates it in
+// place); its Save locks the effect (paletteLock still holds plain colors, so every old link keeps its exact colors,
+// and vfx.js's own 2/4/1 quantize is unchanged).
+var csetPlanted = [];        // paletteSets(project): the planted sets, then every ramp of every planted palette
+var csetLockToo = false;     // the picker's "lock every pixel to the set too", for this session
+var csetDlg = null;
+// the set the effect is colored with now: its record when its colors still are the ramp, else (a set from a link,
+// one deleted since) the colors the ramp holds, named for what it is
+function csetCurrent() {
+  if (!state.colorSet || !state.ramp) return null;
+  const id = state.colorSet, b = colorSet(id);
+  const all = (b ? [b] : []).concat(csetPlanted, myPalSets());
+  const hit = all.find((x) => x.id === id && rampOfColors(x.colors) === state.ramp);
+  if (hit) return hit;
+  const cols = colorsOfRamp(state.ramp);
+  return cols ? { id: id, name: "This effect's set", colors: cols, orphan: true } : null;
+}
+function csetSwatch(colors, cls) {
+  const sw = document.createElement("span");
+  sw.className = cls || "cset-sw"; sw.setAttribute("aria-hidden", "true");
+  for (const c of colors) { const i = document.createElement("i"); i.style.background = c; sw.appendChild(i); }
+  return sw;
+}
+window.syncColorSetUI = function () {
+  const now = document.getElementById("csetNow");
+  if (!now) return;
+  const c = csetCurrent();
+  now.textContent = "";
+  if (c) { now.appendChild(csetSwatch(c.colors)); now.appendChild(document.createTextNode(c.name)); now.title = c.name + ": " + c.colors.join(" ") + " (light to dark over each particle's life)"; }
+  else { now.textContent = state.ramp ? "Your own ramp (Color over lifetime)" : ""; now.title = ""; }
+  if (csetDlg) csetDlg.querySelectorAll(".cset-item").forEach((b) => { const on = !!c && b.dataset.id === c.id; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+};
+function applyColorSet(set, lockToo) {
+  state.ramp = rampOfColors(set.colors);
+  state.colorSet = set.id;
+  // nothing shifts a particle off the set's colors: no hue jitter, full brightness, and NORMAL blending (an additive
+  // blend piles a set's colors up into white where particles overlap: a set is meant to be seen as its colors). A
+  // mood button sets its own blend again.
+  state.hueVar = 0; state.bright = 1; state.blend = 1; state.emit2Blend = 0;
+  if (lockToo) state.paletteLock = set.colors.map((h) => h.slice(1)).join(",");
+  syncUI(); rerender(); commitHistory();
+  msg.textContent = "Colored with " + set.name + ": its " + set.colors.length + " colors, light to dark over each particle's life" +
+    (lockToo ? ", and every pixel locked to them" : "") + ". Ctrl+Z undoes it; a mood button goes back to moods.";
+}
+// the effect in a set or palette, for the palette window's preview: the busiest of a few frames at 96 px
+function csetBusiest(r) {
+  let best = null, most = -1;
+  for (let f = 0; f < r.canvases.length; f += Math.max(1, Math.floor(r.canvases.length / 8))) {
+    const cv = r.canvases[f], d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+    let n = 0;
+    for (let i = 3; i < d.data.length; i += 4) n += d.data[i];
+    if (n > most) { most = n; best = d; }
+  }
+  return best;
+}
+function csetPreviewFn() {
+  let key = "", img = null;
+  return function (pal) {
+    const cols = paletteFlat(pal), k = cols.join();
+    if (!cols.length) return null;
+    if (k !== key) {
+      key = k;
+      try { img = withState(Object.assign(snapshotState(), { ramp: rampOfColors(cols), colorSet: "", hueVar: 0, bright: 1 }), () => csetBusiest(renderFrames(state, { size: 96, fit: true }))); }
+      catch (e) { img = null; }
+      clearSpriteCache();
+    }
+    return img;
+  };
+}
+// the effect snapped to a palette as the LOCK does it (vfx.js: dither bias, then the 2/4/1 nearest), from one frame
+// rendered without a lock or color steps, once, when the window opens
+function lockPreviewFn() {
+  let base = null;
+  try { base = withState(Object.assign(snapshotState(), { paletteLock: "", posterize: 32 }), () => csetBusiest(renderFrames(state, { size: 96, fit: true }))); }
+  catch (e) { base = null; }
+  clearSpriteCache();
+  return function (pal) {
+    const cols = paletteFlat(pal).map(paletteRgb);
+    if (!base || !cols.length) return null;
+    const d = new Uint8ClampedArray(base.data), w = base.width, dith = state.dither;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      let r = d[i], g = d[i + 1], b = d[i + 2];
+      if (dith > 0) {
+        const p = i >> 2, bias = (BAYER4[(((p / w) | 0) & 3) * 4 + ((p % w) & 3)] / 16 - 0.5) * 40 * dith;
+        r = Math.max(0, Math.min(255, r + bias)); g = Math.max(0, Math.min(255, g + bias)); b = Math.max(0, Math.min(255, b + bias));
+      }
+      let bd = Infinity, bi = 0;
+      for (let c = 0; c < cols.length; c++) { const q = cols[c], x = (r - q[0]) * (r - q[0]) * 2 + (g - q[1]) * (g - q[1]) * 4 + (b - q[2]) * (b - q[2]); if (x < bd) { bd = x; bi = c; } }
+      d[i] = cols[bi][0]; d[i + 1] = cols[bi][1]; d[i + 2] = cols[bi][2];
+    }
+    return new ImageData(d, w, base.height);
+  };
+}
+// THE LOCK'S ROW in the Crunch panel: the starters we may ship (crunchyCore PALETTE_STARTERS: our own, CC0, and hardware
+// palettes; AJ 2026-10-25: nothing bundled unless CC0), then your own palettes.
+function palLockRowRender() {
+  const row = document.getElementById("palBuiltins");
+  if (!row) return;
+  row.textContent = "";
+  const lab = (t) => { const s = document.createElement("span"); s.className = "pal-grp"; s.textContent = t; row.appendChild(s); };
+  const add = (label, cols, title) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = label; b.title = title + " · " + cols.length + " colors";
+    b.addEventListener("click", () => setPalette(cols, label));
+    row.appendChild(b);
+  };
+  lab("Starters");
+  PALETTE_STARTERS.forEach((s) => add(s.name, lockOf(s), s.credit === PALETTE_OURS ? "The Crunchy suite's own (CC0)" : "A " + PALETTE_HARDWARE));
+  const mine = (project && projPalettes ? projPalettes.filter((x) => x.palette.kind === "palette").map((x) => x.palette) : [])
+    .concat(myPalLoad().filter((p) => p.kind === "palette"));
+  if (mine.length) {
+    lab(project ? "Yours" : "Yours (this browser)");
+    mine.forEach((p) => add(p.name, lockOf(p), project && projPalettes && projPalettes.some((x) => x.palette === p) ? "Planted in your game (crunchy/palettes/)" : "Kept in this browser"));
+  }
+}
+async function openLockWindow() {
+  if (project) await projPalettesRefresh();
+  const cur = state.paletteLock ? state.paletteLock.split(",").map((h) => paletteHexOf(h)).filter(Boolean) : [];
+  const same = (p) => { const f = paletteFlat(p); return cur.length > 0 && f.length === cur.length && f.every((h) => cur.indexOf(h) >= 0); };
+  const planted = project && projPalettes ? projPalettes.find((x) => x.palette.kind === "palette" && same(x.palette)) : null;
+  const kept = planted ? null : myPalLoad().find((p) => p.kind === "palette" && same(p));
+  const starter = planted || kept ? null : PALETTE_STARTERS.find((s) => same(s));
+  const o = { P: project || null, preview: lockPreviewFn(), name: kept ? kept.name : "My game",
+    onSaved: function (p, asset) {
+      if (!asset && !myPalKeep(p, kept && kept.name)) return;
+      if (p.kind === "set") msg.textContent = "Saved the color set " + p.name + ": Color sets… under Palette lists it.";
+      else setPalette(lockOf(p), p.name);
+      afterPaletteSaved();
+    } };
+  if (planted) o.existing = planted.asset;
+  else if (kept) o.palette = kept;
+  else if (starter) o.palette = paletteStarter(starter.name);
+  else if (cur.length) o.palette = paletteFromColors(cur, "My game");
+  return paletteOpen(o);
+}
+function afterPaletteSaved() {
+  if (project) return projPalettesRefresh();
+  palLockRowRender(); window.syncColorSetUI(); if (csetDlg) csetRender();
+  return Promise.resolve();
+}
+// open the window on one of YOUR sets: a planted one (or the palette whose ramp it is) as itself, a kept one by name
+function csetEdit(item) {
+  const asset = item.slug && projPalettes ? (projPalettes.find((x) => x.asset.slug === item.slug) || {}).asset : null;
+  const o = { P: project || null, preview: csetPreviewFn(),
+    onSaved: function (p, a) {
+      if (!a && !myPalKeep(p, item.mine && item.mine.name)) return;
+      afterPaletteSaved().then(() => { if (p.kind === "set" && state.colorSet === item.id) applyColorSet({ id: a ? "set:" + a.slug : "mine:" + plantSlug(p.name), name: p.name, colors: p.ramps[0].colors }, false); });
+    } };
+  if (asset) o.existing = asset; else if (item.mine) o.palette = item.mine; else return;
+  if (csetDlg) csetClose();
+  paletteOpen(o);
+}
+function csetNew(colors) {
+  if (csetDlg) csetClose();
+  paletteOpen({ P: project || null, kind: "set", preview: csetPreviewFn(),
+    palette: colors ? { kind: "set", name: "", ramps: [{ name: "", colors: colors }] } : undefined,
+    onSaved: function (p, a) {
+      if (!a && !myPalKeep(p)) return;
+      afterPaletteSaved().then(() => { if (p.kind === "set") applyColorSet({ id: a ? "set:" + a.slug : "mine:" + plantSlug(p.name), name: p.name, colors: p.ramps[0].colors }, false); });
+    } });
+}
+// THE PICKER
+function csetClose() { if (csetDlg) { csetDlg.remove(); csetDlg = null; } }
+function csetOpen() {
+  csetClose();
+  const root = document.createElement("div"), panel = document.createElement("div");
+  root.className = "set-overlay cset-overlay"; panel.className = "set-panel cset-panel";
+  root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", "Color sets");
+  panel.innerHTML =
+    '<div class="cset-head"><h2 class="set-title">Color sets</h2><button type="button" class="set-close" title="Close">×</button></div>' +
+    '<p class="setsub">A color set is a few colors, light to dark. Picking one colors the effect with exactly those colors, in ' +
+      'steps over each particle\'s life: the lightest as it is born, the darkest as it fades. The suite\'s sets have the same ' +
+      'names and colors in every Crunchy app.</p>' +
+    '<div class="cset-tools"><input type="search" class="cset-q" placeholder="Search: fire, steel, slate…" aria-label="Search the color sets" autocomplete="off" spellcheck="false">' +
+      '<label class="cset-lock" title="Also snap every pixel to the set (the Crunch panel\'s palette lock): exactly its colors, nothing in between"><input type="checkbox"> Lock every pixel to the set too</label>' +
+      '<button type="button" class="cset-new" data-icon="plus" title="Make a color set of your own in the palette window' + (project ? ": it is planted in your game, and every Crunchy app planted there lists it" : ": it is kept in this browser") + '">New color set…</button></div>' +
+    '<div class="cset-body"></div>';
+  root.appendChild(panel);
+  document.body.appendChild(root);
+  csetDlg = root;
+  const q = panel.querySelector(".cset-q"), lock = panel.querySelector(".cset-lock input");
+  lock.checked = csetLockToo;
+  lock.addEventListener("change", () => { csetLockToo = lock.checked; });
+  q.addEventListener("input", csetRender);
+  panel.querySelector(".set-close").addEventListener("click", csetClose);
+  panel.querySelector(".cset-new").addEventListener("click", () => csetNew());
+  root.addEventListener("click", (e) => { if (e.target === root) csetClose(); });
+  root.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); csetClose(); } });
+  iconsIn(panel);
+  csetRender();
+  q.focus();
+  if (project) projPalettesRefresh().then(() => { if (csetDlg === root) csetRender(); });
+}
+function csetRender() {
+  if (!csetDlg) return;
+  const body = csetDlg.querySelector(".cset-body"), q = csetDlg.querySelector(".cset-q").value.trim().toLowerCase();
+  const keep = body.scrollTop;
+  body.textContent = "";
+  const cur = csetCurrent();
+  const hit = (x, group) => !q || x.name.toLowerCase().indexOf(q) >= 0 || String(group || "").toLowerCase().indexOf(q) >= 0 || x.id.toLowerCase().indexOf(q) >= 0;
+  let shown = 0;
+  const section = (title, note, items, opts) => {
+    opts = opts || {};
+    const list = items.filter((x) => hit(x, title));
+    if (!list.length && !opts.always) return;
+    const sec = document.createElement("section"), h = document.createElement("h3");
+    sec.className = "cset-sec" + (opts.tools ? " cset-mine" : "");
+    h.textContent = title + (list.length ? " · " + list.length : "");
+    sec.appendChild(h);
+    if (note) { const p = document.createElement("p"); p.className = "cset-note"; p.textContent = note; sec.appendChild(p); }
+    const grid = document.createElement("div");
+    grid.className = "cset-grid";
+    list.forEach((x) => {
+      const cell = document.createElement("div"), b = document.createElement("button");
+      cell.className = "cset-cell";
+      b.type = "button"; b.className = "cset-item" + (cur && cur.id === x.id ? " on" : "");
+      b.dataset.id = x.id; b.setAttribute("aria-pressed", cur && cur.id === x.id ? "true" : "false");
+      b.title = x.name + (x.group ? " (" + x.group + ")" : "") + ": " + x.colors.length + " colors, light to dark · " + x.colors.join(" ");
+      b.appendChild(csetSwatch(x.colors));
+      const nm = document.createElement("span"); nm.className = "cset-name"; nm.textContent = x.name; b.appendChild(nm);
+      b.addEventListener("click", () => { applyColorSet(x, csetLockToo); csetClose(); });
+      cell.appendChild(b);
+      (opts.tools ? opts.tools(x) : []).forEach((t) => cell.appendChild(t));
+      grid.appendChild(cell);
+      shown++;
+    });
+    sec.appendChild(grid);
+    if (!list.length && opts.empty) { const p = document.createElement("p"); p.className = "cset-note"; p.textContent = opts.empty; sec.appendChild(p); }
+    body.appendChild(sec);
+  };
+  const tool = (icon, label, title, run) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "cset-tool"; b.dataset.icon = icon; b.title = title; b.setAttribute("aria-label", label);
+    b.addEventListener("click", run);
+    return b;
+  };
+  if (cur && cur.orphan) section("In this effect", "The colors this effect was made with (from a link, or a set since changed). Keep them as a set of your own:", [cur],
+    { tools: (x) => [tool("save", "Keep " + x.name, "Keep these colors as a color set of your own", () => csetNew(x.colors))] });
+  const edit = (x) => [tool("edit", "Edit " + x.name, "Open it in the palette window" + (x.from === "palette" ? " (the palette this ramp is part of)" : ""), () => csetEdit(x))];
+  const browser = myPalSets();
+  if (project) {
+    section("Your color sets", "Planted in this game (crunchy/palettes/): every Crunchy app planted here lists them, and every ramp of a planted palette is a set too.",
+      csetPlanted, { always: !q, tools: edit, empty: "None yet: New color set… makes one, and the Library's Palettes tab keeps them." });
+    if (browser.length) section("In this browser", "Kept here before a folder was planted: open one and Save to plant it.", browser, { tools: edit });
+  } else {
+    section("Your color sets", "Kept in this browser" + (isDesktop ? " (plant a folder in the Library and they can live in your game, for every Crunchy app)" : "") + "; every ramp of a palette you keep is a set too.",
+      browser, { always: !q, empty: "None yet: New color set… makes one.",
+        tools: (x) => edit(x).concat([tool("trash", "Remove " + x.name, "Remove it from this browser" + (x.from === "palette" ? " (the whole palette “" + x.mine.name + "”)" : ""), () => {
+          myPalForget(x.mine.kind, x.mine.name); palLockRowRender(); csetRender(); msg.textContent = "Removed " + x.mine.name + " from this browser.";
+        })]) });
+  }
+  COLORSET_GROUPS.forEach((g) => section(g, "", colorSetsIn(g)));
+  if (!shown && q) { const p = document.createElement("p"); p.className = "cset-note"; p.textContent = "No color set matches “" + q + "”."; body.appendChild(p); }
+  iconsIn(body);
+  body.scrollTop = keep;
+}
+document.getElementById("csetBtn").addEventListener("click", csetOpen);
+window.syncColorSetUI();
+palLockRowRender();
 
 // ---------- Quick shape (macros) ----------
 // Plain-language sliders that each move several real params at once — the CrunchySFX MACROS
@@ -6967,8 +7329,8 @@ function renderTiming() {
   }
 }
 
-document.getElementById("palLockBtn").addEventListener("click", showPaletteLock);
-document.getElementById("palMatchLink").addEventListener("click", showPaletteLock);
+document.getElementById("palLockBtn").addEventListener("click", () => openLockWindow());     // §37: the palette window
+document.getElementById("palMatchLink").addEventListener("click", () => openLockWindow());
 document.getElementById("timeBtn").addEventListener("click", () => {
   timeModal.querySelector("#timeMsg").textContent = "";
   renderTiming();
@@ -9437,6 +9799,7 @@ async function projOpen(dir) {
   plantThumbs.clear();
   projSuite = [];
   projMoments = null;
+  projPalM = null; projPalettes = null; csetPlanted = [];
   projOpened = "";
   projAfter();
   const n = projFromBrowser().length;
@@ -9468,6 +9831,8 @@ function projClose() {
   project = null;
   projSuite = [];
   projMoments = null;
+  projPalM = null; projPalettes = null; csetPlanted = [];
+  palLockRowRender(); window.syncColorSetUI();
   projOpened = "";
   projCheckRun++;
   projAfter();
@@ -9728,6 +10093,59 @@ function momentThumbHero(cv) {                 // a moment without an effect (or
   g.drawImage(c, (96 - h.w * k) >> 1, (96 - h.h * k) >> 1, h.w * k, h.h * k);
 }
 
+// ---- PALETTES in the Library (§37, crunchyCore PALETTES.md "Where palettes live"): the palettes and color sets planted in
+// this game (crunchy/palettes/, the suite's own kind, read through plantOpenAs as moments are), on every engine: a
+// card's swatches are its picture; Use colors (a set) or locks (a palette) the effect; Edit opens the palette window on
+// it and its Save updates it in place; Rename and Delete as for an effect (Delete through the removal guard). A palette
+// or set saved here shows up in every Crunchy app planted in the same game, and theirs here.
+var projPalM = null, projPalettes = null;   // plantOpenAs(project, PALETTE_APP), and its assets with their palettes
+function projPalettesRefresh() {
+  if (!project) { projPalM = null; projPalettes = null; csetPlanted = []; return Promise.resolve(); }
+  const P = project;
+  return plantOpenAs(P, PALETTE_APP).then(function (M) {
+    if (project !== P) return;
+    projPalM = M;
+    projPalettes = M.assets.map((a) => ({ asset: a, palette: palettePlanted(a) })).filter((x) => x.palette)
+      .sort((x, y) => (x.palette.kind === "set") - (y.palette.kind === "set") || x.asset.name.localeCompare(y.asset.name));
+    return paletteSets(P).then((l) => { if (project === P) csetPlanted = l; });
+  }).then(function () {
+    if (project !== P) return;
+    library.refresh(); palLockRowRender(); window.syncColorSetUI(); if (csetDlg) csetRender();
+  }).catch(function () { projPalM = null; projPalettes = null; csetPlanted = []; });
+}
+function palCardEdit(it) {
+  return paletteOpen({ P: project, existing: it.pal.asset, preview: it.pal.palette.kind === "set" ? csetPreviewFn() : lockPreviewFn(),
+    onSaved: function (p, a) {
+      projStatus("Saved the " + (p.kind === "set" ? "color set " : "palette ") + p.name + " (" + plantJoin(projPalM ? projPalM.rel : "crunchy/palettes", a.slug) + "/). Every Crunchy app planted here lists it.");
+      projPalettesRefresh();
+    } });
+}
+function palCardNew(kind) {
+  return paletteOpen({ P: project, kind: kind, preview: kind === "set" ? csetPreviewFn() : lockPreviewFn(), name: kind === "set" ? "" : "My game",
+    onSaved: function (p, a) {
+      projStatus("Saved the " + (p.kind === "set" ? "color set " : "palette ") + p.name + " (" + plantJoin(projPalM ? projPalM.rel : "crunchy/palettes", a.slug) + "/, with .hex, .gpl" + (project.engine === "unity" ? "" : " and a Godot .tres") + "). Every Crunchy app planted here lists it.");
+      projPalettesRefresh();
+    } });
+}
+// is this planted palette the effect's lock, or this set its colors? (a badge on the card)
+function palCardOnEffect(x) {
+  if (x.palette.kind === "set") return state.colorSet === "set:" + x.asset.slug && state.ramp === rampOfColors(x.palette.ramps[0].colors);
+  const cur = state.paletteLock ? state.paletteLock.split(",").map(paletteHexOf) : [], f = paletteFlat(x.palette);
+  return cur.length > 0 && cur.length === f.length && f.every((h) => cur.indexOf(h) >= 0);
+}
+function palThumb(p, cv) {
+  // each ramp a band across the whole picture, its colors side by side, light to dark (up to 12 ramps of 24)
+  const g = cv.getContext("2d"), rows = p.ramps.slice(0, 12), rh = Math.floor(96 / rows.length), y0 = (96 - rh * rows.length) >> 1;
+  g.clearRect(0, 0, 96, 96);
+  rows.forEach(function (r, k) {
+    const n = Math.min(r.colors.length, 24);
+    for (let i = 0; i < n; i++) {
+      const x0 = Math.round(i * 96 / n), x1 = Math.round((i + 1) * 96 / n);
+      g.fillStyle = r.colors[i]; g.fillRect(x0, y0 + k * rh, x1 - x0, rh - (rows.length > 1 ? 1 : 0));
+    }
+  });
+}
+
 // ---- the Library: a panel docked on the right ----
 const plantThumbs = new Map();               // slug → a loaded <img> of the sidecar's picture
 const libDock = isDesktop ? document.createElement("div") : null;
@@ -9751,13 +10169,18 @@ const library = libraryMount({
     "place, so your game's references keep working. Your browser's My Effects stay where they are; “Plant my effects” copies them in.",
   emptyHint: (tab) => tab === "moments"
     ? "No game moments in this game yet. On an effect's card, press Game moment: add a sound, a hit look, a shake and a hit stop, and Save."
+    : tab === "palettes"
+    ? "No palettes or color sets in this game yet. New palette… or New color set… makes one: it lands in crunchy/palettes/ with .hex and .gpl files beside it (and, outside Unity, a Godot .tres), and every Crunchy app planted here lists it."
     : "Nothing planted yet. Press Save above (or Save current in My Effects, Ctrl+S) to plant the effect in the editor, or “Plant my effects”.",
   // TABS (library.js 4): your effects, and the game moments made from them (Godot games only: moments are Godot nodes)
+  // (§37) and the game's palettes and color sets, the suite's own, on every engine
   tabs: function () {
-    if (!project || project.engine === "unity") return [];
-    return [{ key: "effects", label: "Effects", count: project.assets.length, title: "The effects planted in this game" },
-            { key: "moments", label: "Game moments", count: projMoments ? projMoments.assets.length : null,
-              title: "Game moments made from them: open one to change its sound, hit look, shake or hit stop" }];
+    if (!project) return [];
+    return [{ key: "effects", label: "Effects", count: project.assets.length, title: "The effects planted in this game" }]
+      .concat(project.engine === "unity" ? [] : [{ key: "moments", label: "Game moments", count: projMoments ? projMoments.assets.length : null,
+              title: "Game moments made from them: open one to change its sound, hit look, shake or hit stop" }])
+      .concat([{ key: "palettes", label: "Palettes", count: projPalettes ? projPalettes.length : null,
+              title: "The palettes and color sets in this game (crunchy/palettes/): every Crunchy app planted here shares them" }]);
   },
   project: () => (project ? { name: project.name, dir: plantJoin(project.dir, project.rel) } : null),
   start: [
@@ -9768,7 +10191,13 @@ const library = libraryMount({
   commands: function () {
     const n = project ? project.assets.filter((a) => projUpdates[a.slug]).length : 0;
     const mine = projFromBrowser().length;
-    return (n ? [{ label: "Update all (" + n + ")", primary: true, title: "Re-export, in place, every effect this version of CrunchyVFX would export differently", run: projUpdateAll }] : [])
+    // §37: on the Palettes tab, a new palette or color set first
+    const pal = project && library.tab() === "palettes" ? [
+      { label: "New palette…", primary: true, title: "Make a palette in the palette window: it is planted in crunchy/palettes/ for every Crunchy app in this game", run: () => palCardNew("palette") },
+      { label: "New color set…", title: "Make a color set (a few colors, light to dark): every Crunchy app in this game can color with it", run: () => palCardNew("set") }] : [];
+    // (the effect commands are about effects: the Palettes tab keeps only its own two and Close)
+    if (pal.length) return pal.concat([{ label: "Close", title: "Stop saving into this folder (nothing in it is touched)", run: () => projDo(projClose) }]);
+    return pal.concat(n ? [{ label: "Update all (" + n + ")", primary: true, title: "Re-export, in place, every effect this version of CrunchyVFX would export differently", run: projUpdateAll }] : [])
       .concat(mine ? [{ label: "Plant my effects (" + mine + ")", primary: !n, title: "Copy the effects in this browser's My Effects into the planted folder (each once; the browser keeps them, unchanged)",
         run: () => projDo(projPlantEffects) }] : [])
       .concat([
@@ -9781,6 +10210,10 @@ const library = libraryMount({
   // the filter chips: the My Effects categories effects were filed under when they were planted
   kinds: function () {
     if (!project || library.tab() === "moments") return [];
+    if (library.tab() === "palettes") {                     // §37: palettes and color sets, when the game has both
+      const has = (k) => (projPalettes || []).some((x) => x.asset.kind === k);
+      return has("palette") && has("colorset") ? [{ key: "palette", label: "Palettes" }, { key: "colorset", label: "Color sets" }] : [];
+    }
     const seen = {}, out = [];
     project.assets.forEach((a) => { const c = effectGroup(a); if (!seen[c]) { seen[c] = true; out.push({ key: c, label: c }); } });
     return out.length > 1 ? out.sort((x, y) => (x.key === "Effects") - (y.key === "Effects") || x.key.localeCompare(y.key)) : [];
@@ -9805,10 +10238,18 @@ const library = libraryMount({
         const at = new Date(a.data.modified || 0), when = isNaN(at) || !a.data.modified ? "" : at.toLocaleDateString();
         return { id: "moment:" + a.slug, tab: "moments", moment: true, name: a.name, kind: "moment", group: "Game moments",
                  meta: "$" + momentNodeName(a.name) + ".play_at(enemy)" + (when ? " · " + when : ""), badges: momentParts(a), asset: a };
+      })).concat((projPalettes || []).map(function (x) {
+        const p = x.palette, set = p.kind === "set", n = paletteCount(p), badges = [];
+        badges.push({ text: set ? "color set" : "palette", title: set ? "A color set: " + n + " colors, light to dark. Any Crunchy app planted here can color with it" :
+          "A palette: " + n + " colors in " + p.ramps.length + " ramp" + (p.ramps.length === 1 ? "" : "s") + " (each ramp is a color set too)" });
+        if (palCardOnEffect(x)) badges.push({ hot: true, text: set ? "colors this effect" : "locks this effect", title: set ? "The effect in the editor is colored with this set" : "The effect in the editor is locked to this palette" });
+        return { id: "pal:" + x.asset.slug, tab: "palettes", pal: x, name: x.asset.name, kind: x.asset.kind, group: set ? "Color sets" : "Palettes",
+                 meta: (set ? n + " colors" : n + " colors · " + p.ramps.length + " ramp" + (p.ramps.length === 1 ? "" : "s")) + " · " + plantJoin(projPalM.rel, x.asset.slug) + "/", badges: badges, asset: x.asset };
       }));
   },
   thumb: function (it, cv) {
     cv.width = 96; cv.height = 96;
+    if (it.pal) { palThumb(it.pal.palette, cv); return; }   // §37: a palette's picture is its swatches
     if (it.moment) {
       const m = it.asset.data.m || {}, fx = m.effect ? project.assets.find((x) => x.slug === m.effect.slug) : null;
       if (!fx || typeof fx.data.thumb !== "string") { momentThumbHero(cv); return; }
@@ -9830,10 +10271,18 @@ const library = libraryMount({
     img.src = url;
     plantThumbs.set(it.asset.slug, img);
   },
-  open: (it) => (it.moment ? momentOpen(momentOpts({ existing: it.asset })) : projOpenAsset(it.asset)),
+  open: (it) => (it.pal ? palCardEdit(it) : it.moment ? momentOpen(momentOpts({ existing: it.asset })) : projOpenAsset(it.asset)),
   // THE NAME ONLY: the folder, every file's name and its bytes all stay, so nothing in the game moves
   rename: function (it, name) {
     const a = it.asset;
+    // §37: a palette or set: the name in its sidecar, then saved again under it, in place (same folder and files), so its
+    // .gpl and the share string inside carry the new name too
+    if (it.pal) return projDo(async function () {
+      await plantRename(projPalM, a, name);
+      await paletteSave(project, a.name, it.pal.palette);
+      await projPalettesRefresh();
+      projStatus("Renamed to " + a.name + ". Its files keep their paths (" + plantJoin(projPalM.rel, a.slug) + "/).");
+    });
     if (it.moment) return projDo(async function () {        // the name only, as for an effect: its node keeps its name until Edit saves it
       await plantRename(projMoments, a, name);
       projAfter();
@@ -9862,7 +10311,7 @@ const library = libraryMount({
     // have loaded in the editor"): the editor's effect into THIS card, same name, same files, so the game gets it.
     // Two clicks, like Delete.
     { label: "Replace", confirm: true, title: "Put the effect in the editor into this card: same name and same files, so your game gets the new effect",
-      when: (it) => !it.moment,
+      when: (it) => !it.moment && !it.pal,
       run: (it) => projDo(async function () {
         if (!rendered || !chosenScales().length) throw new Error("Nothing to save from the editor yet.");
         const C = editorCtx(), f = editorFields(it.asset.name);
@@ -9874,19 +10323,32 @@ const library = libraryMount({
       }) },
     // RE-EXPORT: only where this version of CrunchyVFX would render the saved effect differently ("update available")
     { label: "Re-export", title: "This version of CrunchyVFX would render it differently: re-export it from its saved settings, in place",
-      when: (it) => !it.moment && !!projUpdates[it.asset.slug],
+      when: (it) => !it.moment && !it.pal && !!projUpdates[it.asset.slug],
       run: (it) => projDo(async function () { await projUpdateOne(it.asset); projAfter(); projStatus("Re-exported " + it.name + " in place."); }) },
     // GAME MOMENT (crunchyCore MOMENTS.md, AJ 2026-10-24): this effect with a sound, a hit look, a shake and a hit stop,
     // as ONE Godot node (`$Hit.play_at($Enemy)`), made in the core's modal from what this game holds.
     { label: "Game moment", title: "Make a game moment from this effect: add a sound, a hit look on the target, a screen shake and a hit stop, saved as one Godot node",
-      when: (it) => !it.moment && !!project && project.engine !== "unity",
+      when: (it) => !it.moment && !it.pal && !!project && project.engine !== "unity",
       run: (it) => momentOpen(momentOpts({ from: { slot: "effect", suite: "vfx", slug: it.asset.slug }, name: "Hit" })) },
     // A GAME MOMENT'S CARD: Edit reopens its modal (Save there updates it in place); Delete takes its folder
     { label: "Edit", title: "Open this game moment: change its effect, sound, hit look, shake or hit stop, and Save to update it in place",
       when: (it) => !!it.moment,
       run: (it) => momentOpen(momentOpts({ existing: it.asset })) },
+    // §37: A PALETTE'S CARD: Use colors the effect with a set, or locks it to a palette; Edit opens the palette window
+    { label: (it) => (it.pal && it.pal.palette.kind === "set" ? "Color the effect" : "Lock the effect"),
+      title: "A color set colors the effect in the editor with its colors; a palette locks every pixel of it to the palette's colors",
+      when: (it) => !!it.pal,
+      run: (it) => {
+        const p = it.pal.palette;
+        if (p.kind === "set") applyColorSet({ id: "set:" + it.pal.asset.slug, name: it.pal.asset.name, colors: p.ramps[0].colors }, false);
+        else setPalette(lockOf(p), it.pal.asset.name);
+        library.refresh();
+      } },
+    { label: "Edit", title: "Open it in the palette window: Save there updates it in place, for every Crunchy app planted here",
+      when: (it) => !!it.pal,
+      run: (it) => palCardEdit(it) },
     { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",
-      when: (it) => !it.moment,
+      when: (it) => !it.moment && !it.pal,
       run: (it) => projDo(async function () {
         if (it.asset.data.ref) throw new Error(it.name + " has a reference image combined in, which a sidecar can't keep: open it, load the image, and save it under a new name.");
         let name = it.name + " copy", n = 2;
@@ -9896,6 +10358,15 @@ const library = libraryMount({
       }) },
     { label: "Delete", confirm: true, title: "Delete it from the planted folder: the files it exported and its .crunchy (nothing else)",
       run: (it) => projDo(async function () {
+        if (it.pal) {                                             // §37: a palette or set: its folder, through the guard
+          const used = await plantUsersOf(projPalM, it.asset.slug, it.asset.data.files), key = "delete/palette:" + it.asset.slug;
+          if (used.length && projUsedArmed !== key) { projUsedArmed = key; throw new Error(plantUsedMessage(used, "delete")); }
+          projUsedArmed = "";
+          await plantDelete(projPalM, it.asset);
+          await projPalettesRefresh();
+          projStatus("Deleted the " + (it.pal.palette.kind === "set" ? "color set " : "palette ") + it.name + " and its files. Effects colored with it keep their colors.");
+          return;
+        }
         if (it.moment) {                                          // a game moment: its folder (the script it shares stays)
           const used = await plantUsersOf(projMoments, it.asset.slug, it.asset.data.files), key = "delete/moment:" + it.asset.slug;
           if (used.length && projUsedArmed !== key) { projUsedArmed = key; throw new Error(plantUsedMessage(used, "delete")); }
@@ -9921,6 +10392,7 @@ function projRefreshSuite() {
   if (!project) { projSuite = []; return Promise.resolve(); }
   const P = project;
   projMomentsRefresh();
+  projPalettesRefresh();
   return plantSuiteView(P).then((v) => { if (project === P) { projSuite = v; library.refresh(); } }).catch(() => { projSuite = []; });
 }
 function libraryShow() { if (!library.isOpen()) { library.open(); projRefreshSuite(); } }

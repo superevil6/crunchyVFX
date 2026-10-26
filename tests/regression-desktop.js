@@ -759,6 +759,167 @@
     return ok(!sidecar("fireball"));
   });
 
+  // ---- §37: SHARED PALETTES AND COLOR SETS (crunchyCore PALETTES.md, palette.js, palette-ui.js, colorsets.js) ----
+  const PAL = GODOT + "/crunchy/palettes";
+  const palOv = function () { return document.querySelector(".pal-overlay"); };
+  // (the window's own row: its paste box has a "Cancel" of its own, hidden, before it)
+  const palBtn = function (text) { return palOv() && Array.from(palOv().querySelectorAll(".pal-acts button")).find(function (b) { return b.textContent === text; }); };
+  const hexOfStop = function (s) { return paletteHexOf(hslParts(s.h, s.s, s.l)); };
+  const rampSamples = function () { const st = parseRamp(state.ramp), out = new Set(); for (let i = 0; i <= 1000; i++) out.add(hexOfStop(sampleRamp(st, i / 1000))); return out; };
+  await t("palettes/a-built-in-set-colors-the-effect-with-exactly-its-colors", async function () {
+    if (!project) await projDo(function () { return projOpen(GODOT); });
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    document.getElementById("csetBtn").click();
+    const dlg = document.querySelector(".cset-overlay"), set = colorSet("theme:inferno");
+    const groups = Array.from(dlg.querySelectorAll(".cset-sec h3")).map(function (h) { return h.textContent; }).join(" | ");
+    const all = dlg.querySelectorAll(".cset-item").length;
+    const q = dlg.querySelector(".cset-q"); q.value = "inferno"; q.dispatchEvent(new Event("input"));
+    const found = Array.from(dlg.querySelectorAll(".cset-item")).map(function (b) { return b.dataset.id; });
+    q.value = ""; q.dispatchEvent(new Event("input"));
+    dlg.querySelector('.cset-item[data-id="theme:inferno"]').click();
+    const closed = !document.querySelector(".cset-overlay");
+    // the ramp IS the set: its stops turn back into exactly the set's colors, in order, and no point of a particle's
+    // life gives a color outside the set (steps, not blends)
+    const back = colorsOfRamp(state.ramp), seen = rampSamples();
+    const exact = same(back, set.colors) && seen.size === set.colors.length && Array.from(seen).every(function (h) { return set.colors.indexOf(h) >= 0; });
+    // every one of the suite's 237 sets round-trips the same way
+    const bad = COLORSETS.filter(function (r) { return !same(colorsOfRamp(rampOfColors(r[3])), r[3]); }).map(function (r) { return r[0]; });
+    const shown = /Inferno/.test(document.getElementById("csetNow").textContent) && state.colorSet === "theme:inferno" && state.hueVar === 0 && state.bright === 1 && state.blend === 1;
+    // it rides in the share link and the planted sidecar (the ramp and the set's id), and reopens to the same frames
+    const f0 = frames(rendered.canvases), enc = encodePatch("Inferno boom");
+    history.replaceState(null, "", location.pathname + "?e=" + enc); loadSharedEffect(); history.replaceState(null, "", location.pathname);
+    const rides = state.colorSet === "theme:inferno" && same(colorsOfRamp(state.ramp), set.colors) && frames(rendered.canvases) === f0;
+    // and with "lock every pixel too" and hard edges, every pixel of every frame is one of its colors
+    document.getElementById("csetBtn").click();
+    document.querySelector(".cset-lock input").click();
+    document.querySelector('.cset-item[data-id="theme:inferno"]').click();
+    state.alphaCut = 0.5; rerender();
+    const allowed = new Set(set.colors), strays = new Set();
+    rendered.canvases.forEach(function (cv) { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      for (let i = 0; i < d.length; i += 4) if (d[i + 3]) { const h = paletteHexOf([d[i], d[i + 1], d[i + 2]]); if (!allowed.has(h)) strays.add(h); } });
+    csetLockToo = false; setPalette([], "");
+    // NEGATIVE: a ramp drawn by hand is no set (colorsOfRamp refuses it) and blends colors no set lists; and a MOOD after a
+    // set takes the set's ramp away: the effect is what that mood gives an effect that never had a set
+    state.ramp = "0,50,0.25,1,1|0.5,24,1,0.5,1|1,0,0.6,0.12,0";
+    const hand = colorsOfRamp(state.ramp) === null && rampSamples().size > 20;
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    Array.from(document.querySelectorAll("#paletteGrid button")).find(function (b) { return b.textContent === "Ice"; }).click();
+    const fMood = frames(rendered.canvases);
+    document.getElementById("csetBtn").click();
+    document.querySelector('.cset-item[data-id="theme:inferno"]').click();
+    const fSet = frames(rendered.canvases);
+    Array.from(document.querySelectorAll("#paletteGrid button")).find(function (b) { return b.textContent === "Ice"; }).click();
+    const moodBack = state.ramp === "" && state.colorSet === "" && frames(rendered.canvases) === fMood && fSet !== fMood;
+    return ok(/Themes/.test(groups) && /Materials/.test(groups) && /Enchants/.test(groups) && /Glows/.test(groups) && all >= COLORSETS.length &&
+              found.indexOf("theme:inferno") >= 0 && found.length < 6 && closed && exact && !bad.length && shown && rides && !strays.size && hand && moodBack,
+      "groups " + groups + " · items " + all + " · found " + found.join(",") + " · exact " + exact + " (" + Array.from(seen).join(" ") + ") · bad " + bad.slice(0, 3) +
+      " · shown " + shown + " · rides " + rides + " · strays " + Array.from(strays).slice(0, 4) + " · hand " + hand + " · moodBack " + moodBack);
+  });
+  await t("palettes/a-set-saved-from-the-window-is-planted-and-listed-with-edit-rename-delete", async function () {
+    document.getElementById("csetBtn").click();
+    document.querySelector(".cset-new").click();
+    await wait(function () { return !!palOv(); });
+    const setMode = palOv().classList.contains("pal-setmode");
+    const nameIn = palOv().querySelector(".pal-top input[type=text]");
+    nameIn.value = "Ember test"; nameIn.dispatchEvent(new Event("input"));
+    palBtn("Save to my game").click();
+    await wait(function () { return !!M.text(PAL + "/ember-test/ember-test.crunchy"); });
+    await settle(); await wait(function () { return state.colorSet === "set:ember-test"; });
+    const side3 = JSON.parse(M.text(PAL + "/ember-test/ember-test.crunchy") || "null");
+    const planted = !!side3 && side3.kind === "colorset" && side3.suite === "palettes" && !!M.text(PAL + "/ember-test/ember-test.hex") &&
+      !!M.text(PAL + "/ember-test/ember-test.gpl") && /ColorPalette/.test(M.text(PAL + "/ember-test/ember-test.tres") || "");
+    const cols = side3 ? side3.pal.ramps[0].colors : [];
+    const colored = state.colorSet === "set:ember-test" && same(colorsOfRamp(state.ramp), cols);
+    palBtn("Close").click();
+    // the picker lists it under Your color sets
+    document.getElementById("csetBtn").click();
+    await wait(function () { return !!document.querySelector('.cset-item[data-id="set:ember-test"]'); });
+    const listed = !!document.querySelector('.cset-item[data-id="set:ember-test"].on');
+    csetClose();
+    // the Library's Palettes tab: its card, swatches for a picture, Edit, Rename, Delete
+    library.open(); await projRefreshSuite(); await settle();
+    await wait(function () { return !!lib().querySelector('.lib-tab[data-tab="palettes"]'); });
+    lib().querySelector('.lib-tab[data-tab="palettes"]').click();
+    await wait(function () { return !!card("Ember test"); });
+    const c = card("Ember test"), acts = Array.from(c.querySelectorAll(".lib-acts button")).map(function (b) { return b.textContent; }).join(",");
+    const badge = /colors this effect/.test(c.textContent) && !card("Explosion");
+    cardButton("Ember test", "Edit").click();
+    await wait(function () { return !!palOv(); });
+    const reopened = /Color set: Ember test/.test(palOv().querySelector(".set-title").textContent);
+    palBtn("Cancel").click();
+    await wait(function () { return !!card("Ember test"); });
+    if (!card("Ember test")) return ok(false, "no card after Edit: tab " + library.tab() + " · " + Array.from(lib().querySelectorAll(".lib-name")).map(function (n) { return n.textContent; }).join(",") + " · reopened " + reopened + " · " + status());
+    const c2 = card("Ember test");
+    c2.querySelector(".lib-name").dispatchEvent(new MouseEvent("dblclick"));
+    const input = c2.querySelector(".lib-rename");
+    input.value = "Ember kept"; input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await settle(); await wait(function () { return !!card("Ember kept"); });
+    const side4 = JSON.parse(M.text(PAL + "/ember-test/ember-test.crunchy") || "null");
+    const renamed = !!side4 && side4.name === "Ember kept" && /Name: Ember kept/.test(M.text(PAL + "/ember-test/ember-test.gpl") || "") && !M.list(PAL + "/ember-kept").length &&
+      paletteDecode(side4.s).palette.name === "Ember kept";
+    // NEGATIVE: a scene that uses its .tres stops the first Delete (the removal guard names it); the second goes through
+    const scene = GODOT + "/scenes/uses-ember.tscn";
+    M.put(scene, 'path="res://crunchy/palettes/ember-test/ember-test.tres"');
+    await twice("Ember kept", "Delete"); await settle();
+    const held = !!M.text(PAL + "/ember-test/ember-test.crunchy") && /uses-ember\.tscn/.test(status() + " " + (lib().querySelector(".lib-status") || {}).textContent);
+    await twice("Ember kept", "Delete"); await settle();
+    await wait(function () { return !card("Ember kept"); });
+    const gone = !M.text(PAL + "/ember-test/ember-test.crunchy") && !M.text(PAL + "/ember-test/ember-test.hex") && !card("Ember kept");
+    M.files.delete(scene);
+    lib().querySelector('.lib-tab[data-tab="effects"]').click();
+    return ok(setMode && planted && colored && listed && acts === "Rename,Color the effect,Edit,Delete" && badge && reopened && renamed && held && gone,
+      "set " + setMode + " · planted " + planted + " · colored " + colored + " · listed " + listed + " · acts " + acts + " · badge " + badge + " · reopened " + reopened +
+      " · renamed " + renamed + " · held " + held + " · gone " + gone + " · " + status());
+  });
+  await t("palettes/a-palette-from-the-shared-window-locks-the-effect", async function () {
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    // NEGATIVE first: the window opened and Cancelled leaves the effect unlocked and plants nothing
+    document.getElementById("palMatchLink").click();
+    await wait(function () { return !!palOv(); });
+    palBtn("Cancel").click();
+    const untouched = state.paletteLock === "" && !M.list(PAL + "/game-pal").length;
+    document.getElementById("palLockBtn").click();
+    await wait(function () { return !!palOv(); });
+    const starter = palOv().querySelector(".pal-top select");
+    const starters = Array.from(starter.querySelectorAll("option")).map(function (o) { return o.textContent; }).join(" | ");
+    starter.value = "Forest floor"; starter.dispatchEvent(new Event("change"));
+    const nameIn = palOv().querySelector(".pal-top input[type=text]");
+    nameIn.value = "Game pal";
+    const pal = paletteStarter("Forest floor");
+    palBtn("Save to my game").click();
+    await wait(function () { return !!M.text(PAL + "/game-pal/game-pal.crunchy") && state.paletteLock !== ""; });
+    const said = palOv() ? Array.from(palOv().querySelectorAll(".pal-say")).map(function (e) { return e.textContent; }).join("/") : "no window";
+    palBtn("Close").click();
+    const locked = state.paletteLock === lockOf(pal).join(",") && /Game pal/.test(msg.textContent);
+    // the Crunch panel's row offers the core's starters and then it, and NOT the two makers' palettes (AJ, 2026-10-25)
+    await settle(); await wait(function () { return /Game pal/.test(document.getElementById("palBuiltins").textContent); });
+    const row = document.getElementById("palBuiltins").textContent;
+    const offers = PALETTE_STARTERS.every(function (s) { return row.indexOf(s.name) >= 0; }) && /Game pal/.test(row) && !/Sweetie|Fantasy 16/.test(row) &&
+      !/Sweetie|Fantasy 16/.test(starters) && typeof BUILTIN_PALETTES === "undefined";
+    // reopening the window on a locked effect opens THAT planted palette, so its Save updates it in place
+    document.getElementById("palLockBtn").click();
+    await wait(function () { return !!palOv(); });
+    const asItself = /Palette: Game pal/.test(palOv().querySelector(".set-title").textContent);
+    palBtn("Cancel").click();
+    setPalette([], "");
+    return ok(untouched && locked && offers && asItself, said + " · untouched " + untouched + " · locked " + locked + " (" + state.paletteLock + ") · offers " + offers + " [" + row + "] · itself " + asItself);
+  });
+  await t("palettes/old-locked-links-render-byte-for-byte", function () {
+    // made on HEAD 04c23ea (tests/fixtures/locked-links.js): an effect locked to each palette VFX offered then, Sweetie 16
+    // and Fantasy 16 among them; their colors ride in the link, so each opens to exactly HEAD's frames
+    const got = window.VFX_LOCKED_LINKS.map(function (l) {
+      history.replaceState(null, "", location.pathname + "?e=" + l.enc); loadSharedEffect();
+      return frames(rendered.canvases) === l.frames && state.paletteLock === l.lock;
+    });
+    // NEGATIVE: the same link with ONE lock color nudged renders differently (the hash would catch a moved pixel)
+    const l0 = window.VFX_LOCKED_LINKS[0];
+    history.replaceState(null, "", location.pathname + "?e=" + l0.enc); loadSharedEffect();
+    state.paletteLock = state.paletteLock.split(",").slice(0, 4).join(","); rerender();   // four of its colors, not all
+    const moved = frames(rendered.canvases) !== l0.frames;
+    history.replaceState(null, "", location.pathname);
+    return ok(got.length === 5 && got.every(Boolean) && moved, got.join(",") + " · moved " + moved);
+  });
+
   // ---- safety ----
   // crunchyCore plant.js 4 (the guard): a delete whose files a SCENE uses says so by name, and deletes on the next press
   await t("guard/a-delete-whose-files-a-scene-uses-asks-first", async function () {
@@ -778,8 +939,9 @@
     return ok(held && !sidecar(a.slug) && !card(a.name), msg());
   });
   await t("safety/nothing-written-outside-crunchy-vfx", function () {
-    // (+ crunchy/moments/: a GAME MOMENT is the suite's, not VFX's, and lives there by design: crunchyCore MOMENTS.md)
-    const allowed = [ROOT + "/", GODOT + "/crunchy/moments/", UNITY + "/Assets/Crunchy/VFX/", PLAIN + "/crunchy/vfx/", "/home/aj/old.crunchyvfx"];
+    // (+ crunchy/moments/: a GAME MOMENT is the suite's, not VFX's, and lives there by design: crunchyCore MOMENTS.md;
+    //  + crunchy/palettes/, §37: palettes and color sets are the suite's too, crunchyCore PALETTES.md)
+    const allowed = [ROOT + "/", GODOT + "/crunchy/moments/", GODOT + "/crunchy/palettes/", UNITY + "/Assets/Crunchy/VFX/", PLAIN + "/crunchy/vfx/", "/home/aj/old.crunchyvfx"];
     const bad = writes().map(function (l) { return l.replace(/^(w|rm|rmdir) /, ""); })
       .filter(function (p) { return !allowed.some(function (a) { return p.indexOf(a) === 0 || p === a.replace(/\/$/, ""); }); });
     return ok(!bad.length, bad.slice(0, 4).join(" "));

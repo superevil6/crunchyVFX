@@ -16,6 +16,7 @@
     say((pass ? "ok   " : "FAIL ") + name + (detail ? " — " + detail : ""));
   }
   const ok = function (p, d) { return { pass: !!p, detail: p ? "" : (d || "") }; };
+  const same = function (a, b) { return !!a && !!b && a.length === b.length && a.every(function (x, i) { return x === b[i]; }); };
   const shown = function (el) { return !!el && el.getClientRects().length > 0; };
   const wait = async function (cond, ms) { for (let i = 0; i < (ms || 4000) / 20; i++) { if (cond()) return true; await new Promise(function (r) { setTimeout(r, 20); }); } return false; };
   const frames = function (cvs) {
@@ -137,6 +138,44 @@
   });
   await t("safety/the-web-build-wrote-nothing-to-the-browser-store", function () {
     return ok(JSON.stringify(store()) === atBoot, Object.keys(store()).join(","));
+  });
+  // §37 (crunchyCore PALETTES.md): on the web there is no Library, so a color set made in the palette window is KEPT IN
+  // THIS BROWSER (a new key of its own; no older key is touched), listed under Your color sets, and the effect colored
+  // with it carries its colors in the share link (the ramp), so the link opens to the same frames in another browser.
+  await t("palettes/a-web-color-set-is-kept-in-the-browser-and-rides-in-the-share-link", async function () {
+    const before = store();
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    document.getElementById("csetBtn").click();
+    document.querySelector(".cset-new").click();
+    const ov = document.querySelector(".pal-overlay");
+    const acts = function (t2) { return Array.from(ov.querySelectorAll(".pal-acts button")).find(function (b) { return b.textContent === t2; }); };
+    const nameIn = ov.querySelector(".pal-top input[type=text]");
+    nameIn.value = "Swamp glow"; nameIn.dispatchEvent(new Event("input"));
+    const cols = ov.querySelectorAll(".pal-ramp .pal-sw").length;
+    acts("Save").click();
+    await wait(function () { return state.colorSet === "mine:swamp-glow"; });
+    acts("Close").click();
+    const after = store(), added = Object.keys(after).filter(function (k) { return !(k in before); });
+    const kept = myPalLoad().find(function (p) { return p.kind === "set" && p.name === "Swamp glow"; });
+    const keptOk = !!kept && kept.ramps[0].colors.length === cols && added.join() === "crunchyvfx.palettes.v1" &&
+      Object.keys(before).every(function (k) { return after[k] === before[k]; });
+    document.getElementById("csetBtn").click();
+    const listed = !!document.querySelector('.cset-item[data-id="mine:swamp-glow"].on') && /Your color sets/.test(document.querySelector(".cset-body").textContent);
+    csetClose();
+    // the link: decoded into a fresh effect, the ramp gives back exactly the set's colors and the same frames
+    const f0 = frames(rendered.canvases), enc = encodePatch("Swamp boom");
+    applyPreset(PRESETS["Fireball"], "Fireball", true);
+    history.replaceState(null, "", location.pathname + "?e=" + enc); loadSharedEffect(); history.replaceState(null, "", location.pathname);
+    const rides = same(colorsOfRamp(state.ramp), kept ? kept.ramps[0].colors : []) && state.colorSet === "mine:swamp-glow" && frames(rendered.canvases) === f0;
+    // NEGATIVE: in a browser that never kept it (the key gone), the link still opens to the same frames, and the picker
+    // offers its colors as "This effect's set" to keep, rather than claiming a set it doesn't have
+    localStorage.removeItem("crunchyvfx.palettes.v1");
+    history.replaceState(null, "", location.pathname + "?e=" + enc); loadSharedEffect(); history.replaceState(null, "", location.pathname);
+    document.getElementById("csetBtn").click();
+    const orphan = frames(rendered.canvases) === f0 && /In this effect/.test(document.querySelector(".cset-body").textContent) &&
+      !document.querySelector('.cset-item[data-id="mine:swamp-glow"]:not(.on)') && myPalLoad().length === 0;
+    csetClose();
+    return ok(keptOk && listed && rides && orphan, "kept " + keptOk + " (" + added.join() + ") · listed " + listed + " · rides " + rides + " · orphan " + orphan);
   });
   await t("words/no-pro-premium-or-unlock-anywhere-visible", function () {
     // the chrome, not the content: a preset is called "Treasure Unlock" (a chest opening), which is an effect's name
