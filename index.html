@@ -314,6 +314,7 @@
         <span class="cset-now" id="csetNow"></span>
       </div>
       <button type="button" class="pal-match" id="palMatchLink" title="Snap every pixel to your game's own colors: the palette window (open a file, paste, pick a starter, or make your own)">Match my game's colors…</button>
+      <label class="game-pal" id="gamePalRow" hidden title="On: every NEW effect (a preset, Randomize, the Wizard, Breed, Variations, Match a sound) is locked to the game's palette and follows its edits. Effects already made never change by this switch. Remembered for this game."><input type="checkbox" id="gamePalOn"> <span>Use the game palette (<b class="game-pal-name"></b>)</span> <span class="game-pal-sw"></span></label>
     </div>
     <div class="engine" id="styleSection">
       <div class="engine-title"><span>Era style</span>
@@ -379,7 +380,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 13;   // must match --css-build in styles.css
+  const CSS_BUILD = 14;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1039,7 +1040,12 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        // §37: the COLOR SET the ramp was made from, by its stable id ("theme:fire", a planted
                        // "set:<slug>", a browser-kept "mine:…"). The colors themselves ride in `ramp`; this only
                        // lets the picker show which set it is. Read by nothing that draws: "" changes no effect.
-                       colorSet: "" };
+                       colorSet: "",
+                       // §38: WHERE THE LOCK CAME FROM, by id: a planted palette "palette:<slug>", a browser-kept one
+                       // "mine-palette:<slug>", or a color set's id (the picker's "lock every pixel to the set too"). The
+                       // colors still ride in `paletteLock`; this lets the lock FOLLOW that palette's edits where it is
+                       // known (followInto). Read by nothing that draws: "" (every lock made before) changes no effect.
+                       lockFrom: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -1926,6 +1932,67 @@ function colorsOfRamp(str) {
 // The lock's colors (bare hex, comma-joined, as `paletteLock` always held them) from a palette or a list.
 function lockOf(pal) { return paletteFlat(pal).map(function (h) { return h.slice(1); }); }
 
+// ---------- FOLLOWING (§38, crunchyCore PALETTES.md step 4; AJ, 2026-10-26: "I think yes too") ----------
+// An effect made FROM a color set (`colorSet`) or locked to a palette it came from (`lockFrom`) draws with that set's or
+// palette's CURRENT colors wherever it is known: the suite's sets (colorsets.js), the ones planted in this game
+// (csetPlanted / projPalettes) and the ones this browser keeps. Unknown (a link opened elsewhere, a set deleted since)
+// it keeps the colors it carried, which still ride inline in `ramp` and `paletteLock`. An effect with neither id (every
+// preset, every effect made from plain colors or before color sets) never meets this code, so none of them moves.
+// THE SET'S CURRENT COLORS by id, or null when it is not known here.
+function setColorsOf(id) {
+  if (!id) return null;
+  const b = colorSet(id);
+  if (b) return b.colors;
+  const hit = (typeof csetPlanted !== "undefined" ? csetPlanted : []).concat(myPalSets()).find(function (x) { return x.id === id; });
+  return hit ? hit.colors.slice() : null;
+}
+// THE LOCK'S CURRENT COLORS by `lockFrom`: a whole planted or kept palette (its flat set), or a set's.
+function lockColorsOf(id) {
+  if (!id) return null;
+  let m = /^palette:([^/]+)$/.exec(id);
+  if (m) {
+    const x = (typeof projPalettes !== "undefined" && projPalettes ? projPalettes : []).find(function (y) { return y.asset.slug === m[1] && y.palette.kind !== "set"; });
+    return x ? paletteFlat(x.palette) : null;
+  }
+  m = /^mine-palette:(.+)$/.exec(id);
+  if (m) {
+    const p = myPalLoad().find(function (y) { return y.kind === "palette" && plantSlug(y.name) === m[1]; });
+    return p ? paletteFlat(p) : null;
+  }
+  return setColorsOf(id);
+}
+// what a `lockFrom` is called, for the lock's line
+function lockFromName(id) {
+  const g = typeof projGamePal !== "undefined" && projGamePal && gamePalId() === id ? projGamePal : null;
+  if (g) return "the game's palette " + g.name;
+  let m = /^palette:([^/]+)$/.exec(id);
+  if (m) { const x = (projPalettes || []).find(function (y) { return y.asset.slug === m[1]; }); return x ? x.asset.name : m[1]; }
+  m = /^mine-palette:(.+)$/.exec(id);
+  if (m) { const p = myPalLoad().find(function (y) { return y.kind === "palette" && plantSlug(y.name) === m[1]; }); return p ? p.name : m[1]; }
+  const b = colorSet(id) || (typeof csetPlanted !== "undefined" ? csetPlanted : []).concat(myPalSets()).find(function (x) { return x.id === id; });
+  return b ? b.name : id;
+}
+// Bring a state (the editor's, or a planted effect's) up to its set's and palette's current colors. → true if it moved.
+function followInto(st) {
+  let moved = false;
+  if (st.colorSet && st.ramp) {
+    const c = setColorsOf(st.colorSet), r = c && c.length ? rampOfColors(c) : "";
+    if (r && r !== st.ramp) { st.ramp = r; moved = true; }
+  }
+  if (st.lockFrom && st.paletteLock) {
+    const c = lockColorsOf(st.lockFrom), l = c && c.length ? c.map(function (h) { return h.slice(1); }).join(",") : "";
+    if (l && l !== st.paletteLock) { st.paletteLock = l; moved = true; }
+  }
+  return moved;
+}
+// The editor's effect, after the sets or palettes were read again (an edit here, or another app's seen on re-read).
+function followEditor() {
+  if (!followInto(state)) return false;
+  clearSpriteCache();
+  syncUI(); rerender(); commitHistory();
+  return true;
+}
+
 // ---------- Palette lock ----------
 // Load a .hex (Lospec), .gpl (GIMP/Aseprite) or .txt (paint.net) palette — or pull one out of the
 // effect itself — and every pixel snaps to it. This is what makes the output belong to someone's
@@ -1960,8 +2027,11 @@ function parsePaletteFile(text) {
   return cols;
 }
 let palSwatches = null, palInfo = null, palPasteEl = null;
-function setPalette(list, label) {
+// `from` (§38): the id of the palette or set these colors ARE ("palette:<slug>", …), so the lock follows its edits; none
+// for plain colors (a file, a paste, the effect's own, a starter).
+function setPalette(list, label, from) {
   state.paletteLock = (list || []).join(",");
+  state.lockFrom = state.paletteLock && from ? from : "";
   clearSpriteCache();
   syncPaletteUI();
   rerender();
@@ -1985,7 +2055,8 @@ function syncPaletteUI() {
   }
   // Exactness depends on alpha: see the KNOWN LIMIT note in vfx.js. Rather than let someone
   // export a "16-color" sheet with 200 colors in its soft edges, say so and name the fix.
-  palInfo.textContent = cols.length + " colors — every pixel snaps to these (Color steps is bypassed).";
+  palInfo.textContent = cols.length + " colors — every pixel snaps to these (Color steps is bypassed)." +
+    (state.lockFrom && lockColorsOf(state.lockFrom) ? " From " + lockFromName(state.lockFrom) + ": it follows that palette's edits." : "");
   // §25 (usability test: a locked palette still left ~85% of the visible pixels semi-transparent): soft edges are the
   // effect's own colors at partial alpha, so the sprite is only exactly-N-color once Alpha cut hardens them. Said in
   // one line, with the fix one click away (never applied unasked: it changes the look).
@@ -3693,7 +3764,7 @@ function applyColorSet(set, lockToo) {
   // blend piles a set's colors up into white where particles overlap: a set is meant to be seen as its colors). A
   // mood button sets its own blend again.
   state.hueVar = 0; state.bright = 1; state.blend = 1; state.emit2Blend = 0;
-  if (lockToo) state.paletteLock = set.colors.map((h) => h.slice(1)).join(",");
+  if (lockToo) { state.paletteLock = set.colors.map((h) => h.slice(1)).join(","); state.lockFrom = set.id; }   // §38: it follows the set too
   syncUI(); rerender(); commitHistory();
   msg.textContent = "Colored with " + set.name + ": its " + set.colors.length + " colors, light to dark over each particle's life" +
     (lockToo ? ", and every pixel locked to them" : "") + ". Ctrl+Z undoes it; a mood button goes back to moods.";
@@ -3755,19 +3826,28 @@ function palLockRowRender() {
   if (!row) return;
   row.textContent = "";
   const lab = (t) => { const s = document.createElement("span"); s.className = "pal-grp"; s.textContent = t; row.appendChild(s); };
-  const add = (label, cols, title) => {
+  const add = (label, cols, title, from) => {
     const b = document.createElement("button");
     b.type = "button"; b.textContent = label; b.title = title + " · " + cols.length + " colors";
-    b.addEventListener("click", () => setPalette(cols, label));
+    if (from) b.dataset.from = from;
+    b.addEventListener("click", () => setPalette(cols, label, from));
     row.appendChild(b);
   };
+  // §38: THE GAME'S PALETTE first (a planted palette or set marked with the Library's star), by name
+  const game = gamePalNow();
+  if (game) {
+    lab("The game's palette");
+    add(game.name + " ★", lockOf(game.palette), "The game's palette, planted in your game (crunchy/palettes/): the lock follows its edits", gamePalId());
+  }
   lab("Starters");
   PALETTE_STARTERS.forEach((s) => add(s.name, lockOf(s), s.credit === PALETTE_OURS ? "The Crunchy suite's own (CC0)" : "A " + PALETTE_HARDWARE));
-  const mine = (project && projPalettes ? projPalettes.filter((x) => x.palette.kind === "palette").map((x) => x.palette) : [])
-    .concat(myPalLoad().filter((p) => p.kind === "palette"));
+  // yours: planted (the lock follows a planted palette's edits, by its slug) and kept in this browser (by its name's slug)
+  const mine = (project && projPalettes ? projPalettes.filter((x) => x.palette.kind === "palette" && !(game && x.asset.slug === game.slug))
+      .map((x) => ({ p: x.palette, from: "palette:" + x.asset.slug, title: "Planted in your game (crunchy/palettes/)" })) : [])
+    .concat(myPalLoad().filter((p) => p.kind === "palette").map((p) => ({ p: p, from: "mine-palette:" + plantSlug(p.name), title: "Kept in this browser" })));
   if (mine.length) {
     lab(project ? "Yours" : "Yours (this browser)");
-    mine.forEach((p) => add(p.name, lockOf(p), project && projPalettes && projPalettes.some((x) => x.palette === p) ? "Planted in your game (crunchy/palettes/)" : "Kept in this browser"));
+    mine.forEach((m) => add(m.p.name, lockOf(m.p), m.title, m.from));
   }
 }
 async function openLockWindow() {
@@ -3781,7 +3861,7 @@ async function openLockWindow() {
     onSaved: function (p, asset) {
       if (!asset && !myPalKeep(p, kept && kept.name)) return;
       if (p.kind === "set") msg.textContent = "Saved the color set " + p.name + ": Color sets… under Palette lists it.";
-      else setPalette(lockOf(p), p.name);
+      else setPalette(lockOf(p), p.name, asset ? "palette:" + asset.slug : "mine-palette:" + plantSlug(p.name));   // §38: it follows
       afterPaletteSaved();
     } };
   if (planted) o.existing = planted.asset;
@@ -3792,7 +3872,8 @@ async function openLockWindow() {
 }
 function afterPaletteSaved() {
   if (project) return projPalettesRefresh();
-  palLockRowRender(); window.syncColorSetUI(); if (csetDlg) csetRender();
+  followEditor();                                         // §38: an effect made from a kept set or palette follows its edit
+  palLockRowRender(); syncPaletteUI(); window.syncColorSetUI(); if (csetDlg) csetRender();
   return Promise.resolve();
 }
 // open the window on one of YOUR sets: a planted one (or the palette whose ramp it is) as itself, a kept one by name
@@ -3861,7 +3942,7 @@ function csetRender() {
     const list = items.filter((x) => hit(x, title));
     if (!list.length && !opts.always) return;
     const sec = document.createElement("section"), h = document.createElement("h3");
-    sec.className = "cset-sec" + (opts.tools ? " cset-mine" : "");
+    sec.className = "cset-sec" + (opts.tools ? " cset-mine" : "") + (opts.game ? " cset-game" : "");
     h.textContent = title + (list.length ? " · " + list.length : "");
     sec.appendChild(h);
     if (note) { const p = document.createElement("p"); p.className = "cset-note"; p.textContent = note; sec.appendChild(p); }
@@ -3896,8 +3977,12 @@ function csetRender() {
   const edit = (x) => [tool("edit", "Edit " + x.name, "Open it in the palette window" + (x.from === "palette" ? " (the palette this ramp is part of)" : ""), () => csetEdit(x))];
   const browser = myPalSets();
   if (project) {
+    // §38: THE GAME'S PALETTE first (its ramps as sets, or the set itself), under a heading naming it
+    const g = gamePalNow(), ofGame = (x) => !!g && x.slug === g.slug;
+    if (g) section("The game's palette: " + g.name + " ★", "Marked the game's palette in the Library (Palettes tab): every Crunchy app planted here lists it first.",
+      csetPlanted.filter(ofGame), { tools: edit, game: true });
     section("Your color sets", "Planted in this game (crunchy/palettes/): every Crunchy app planted here lists them, and every ramp of a planted palette is a set too.",
-      csetPlanted, { always: !q, tools: edit, empty: "None yet: New color set… makes one, and the Library's Palettes tab keeps them." });
+      csetPlanted.filter((x) => !ofGame(x)), { always: !q, tools: edit, empty: g ? "No others yet: New color set… makes one, and the Library's Palettes tab keeps them." : "None yet: New color set… makes one, and the Library's Palettes tab keeps them." });
     if (browser.length) section("In this browser", "Kept here before a folder was planted: open one and Save to plant it.", browser, { tools: edit });
   } else {
     section("Your color sets", "Kept in this browser" + (isDesktop ? " (plant a folder in the Library and they can live in your game, for every Crunchy app)" : "") + "; every ramp of a palette you keep is a set too.",
@@ -4183,7 +4268,8 @@ const STYLES = [
 }
 // One era style, as its button applies it. styleInto is the patch alone (the Wizard, §23, previews with it);
 // applyEraStyle is the whole press, and the Wizard's load does the same writes and pins in one undo step.
-function styleInto(st, s) { for (const k in s.patch) if (k in st) st[k] = s.patch[k]; return st; }
+// (§38: an era that sets the lock sets it to ITS colors, so the lock no longer comes from a palette to follow)
+function styleInto(st, s) { for (const k in s.patch) if (k in st) st[k] = s.patch[k]; if ("paletteLock" in s.patch && "lockFrom" in st) st.lockFrom = ""; return st; }
 function eraPinned(s) {
   // an era style is a deliberate choice about output format — pin it like a hand edit
   for (const k in s.patch) noteLockEdit(k);
@@ -4306,9 +4392,13 @@ function presetOutcome(obj, exact) {
   for (const k in held) s[k] = held[k];
   return s;
 }
-function applyPreset(obj, label, exact) {
+// `fresh` (§38): this load makes a NEW effect (a preset picked, a Breed or Variations child, a match), so "Use the game
+// palette" locks it; a link, a saved or planted effect, undo and A/B restore what was made and never pass it.
+function applyPreset(obj, label, exact, fresh) {
   const s = presetOutcome(obj, exact);
   for (const k in s) state[k] = s[k];
+  followInto(state);                         // §38: made from a set or palette known here → its current colors
+  if (fresh) gameLockNew();
   applyFitOf(obj);
   applyImageSprite(state.imageSprite);
   if (label) effectLabel = label;
@@ -4538,7 +4628,7 @@ function presetCell(name) {
   b.title = name + " (" + (PRESET_CAT_OF[name] || "Effects") + "): click to load it. Hover to watch it play.";
   b.innerHTML = '<span class="pthumb"><img alt="" width="' + PTHUMB + '" height="' + PTHUMB + '"></span><span class="pname"></span>';
   b.querySelector(".pname").textContent = name;
-  b.addEventListener("click", () => applyPreset(PRESETS[name], name));
+  b.addEventListener("click", () => applyPreset(PRESETS[name], name, false, true));
   b.addEventListener("contextmenu", (e) => ucOpenMenu(e, { t: "b", n: name }, name));
   ucDraggable(b, { t: "b", n: name }, name);
   let hover = 0;
@@ -5062,6 +5152,7 @@ function randomize() {
   state.frameSize = START_FRAME_SIZE;        // a new effect starts at the starting size (§22.1); the lock still wins
   for (const k in keep) state[k] = keep[k];
   for (const k in held) state[k] = held[k];
+  gameLockNew();                             // §38: a new effect, in the game's palette when the switch is on
   effectLabel = "random";
   syncUI();
   frameIdx = 0;
@@ -7331,6 +7422,12 @@ function renderTiming() {
 
 document.getElementById("palLockBtn").addEventListener("click", () => openLockWindow());     // §37: the palette window
 document.getElementById("palMatchLink").addEventListener("click", () => openLockWindow());
+// §38: the game palette's switch (shown only while the planted game has one): new effects only, never the one on screen
+document.getElementById("gamePalOn").addEventListener("change", (e) => {
+  gamePalSetOn(e.target.checked);
+  msg.textContent = e.target.checked ? "New effects are locked to the game's palette (" + (gamePalNow() || {}).name + "). The effect on screen is as it was."
+                                     : "New effects keep their own colors. Effects already locked to the game's palette keep it.";
+});
 document.getElementById("timeBtn").addEventListener("click", () => {
   timeModal.querySelector("#timeMsg").textContent = "";
   renderTiming();
@@ -7579,7 +7676,7 @@ function renderBreedGrid() {
   breedGrid.innerHTML = "";
   breedGenomes.forEach((gnome, i) => {
     const cell = makeGridCell(gnome, "", [
-      ["✎", "Load into the editor", () => { applyPreset(gnome, "Bred " + breedGen + "." + (i + 1)); breedModal.hidden = true; }],
+      ["✎", "Load into the editor", () => { applyPreset(gnome, "Bred " + breedGen + "." + (i + 1), false, true); breedModal.hidden = true; }],
       ["★", "Save to My Effects", () => { userEffects.unshift({ id: ++upSeq, name: "Bred " + breedGen + "." + (i + 1), state: fullGenome(gnome) }); saveUserEffects(); renderMyEffects(); breedMsg.textContent = "Saved"; }],
     ], 72);
     cell.addEventListener("click", () => { cell.classList.toggle("sel"); });
@@ -7652,7 +7749,7 @@ function seedVariations() {
   varGrid.innerHTML = "";
   varGenomes.forEach((gnome, i) => {
     varGrid.appendChild(makeGridCell(gnome, String(i + 1).padStart(2, "0"), [
-      ["✎", "Load into the editor", () => { applyPreset(gnome, varNameEl.value + " " + (i + 1)); varModal.hidden = true; }],
+      ["✎", "Load into the editor", () => { applyPreset(gnome, varNameEl.value + " " + (i + 1), false, true); varModal.hidden = true; }],
     ], 64));
   });
   varModal.querySelector("#varAmtV").textContent = amt.toFixed(2);
@@ -8523,6 +8620,7 @@ function wizardLoad(c) {
   // made to fill one), so a click gives what was shown, and says so when it turned Fit back on.
   const fitWas = fitOn;
   if (!fitOn) { fitOn = true; updateFitBtn(); }
+  gameLockNew();                             // §38: a new effect, in the game's palette when the switch is on
   applyImageSprite(state.imageSprite);
   effectLabel = c.label || wizardLabel(c);
   if (s) eraPinned(s);
@@ -9023,7 +9121,7 @@ function applyMatch(result) {
   // Capture BEFORE applying, so the hold records what the sound asked for rather than whatever
   // survived the pixel lock on the way in.
   captureSoundHold(result.patch, result.name);
-  applyPreset(result.patch, result.name);
+  applyPreset(result.patch, result.name, false, true);
   let extra = "";
   // The link already carries the full patch, so synthesize it here rather than making anyone
   // round-trip a WAV through the other tab. Non-fatal: if the engine is missing or the patch
@@ -9746,6 +9844,7 @@ async function exportFor(f, C) {
 // A SAVED effect rendered from its sidecar: its share string, its own Fit, its own sound, no reference image.
 async function plantedRender(f) {
   const st = stateOfShare(f.s), fit = f.fit !== false;
+  followInto(st);                            // §38: made from a set or palette planted here → its CURRENT colors
   return withSpriteOf(st, async () => {
     clearSpriteCache();
     const r = renderFrames(st, { fit: fit });
@@ -9799,7 +9898,7 @@ async function projOpen(dir) {
   plantThumbs.clear();
   projSuite = [];
   projMoments = null;
-  projPalM = null; projPalettes = null; csetPlanted = [];
+  projPalM = null; projPalettes = null; projGamePal = null; projPalFp = null; csetPlanted = [];
   projOpened = "";
   projAfter();
   const n = projFromBrowser().length;
@@ -9831,8 +9930,8 @@ function projClose() {
   project = null;
   projSuite = [];
   projMoments = null;
-  projPalM = null; projPalettes = null; csetPlanted = [];
-  palLockRowRender(); window.syncColorSetUI();
+  projPalM = null; projPalettes = null; projGamePal = null; projPalFp = null; csetPlanted = [];
+  palLockRowRender(); syncPaletteUI(); window.syncColorSetUI(); syncGamePalUI();
   projOpened = "";
   projCheckRun++;
   projAfter();
@@ -9959,7 +10058,16 @@ function projCheckUpdates() {
 }
 async function projUpdateOne(a) {
   if (a.data.ref) throw new Error(a.name + " has the reference image " + a.data.ref + " combined in, which a sidecar can't keep: open it, load the image again, and save.");
-  return projPut(a.name, a.data);
+  return projPut(a.name, followedFields(a.data));
+}
+// §38: a planted effect's fields with its share string brought up to its set's and palette's current colors (what its
+// re-export draws anyway), so the sidecar reopens anywhere, even where the set is unknown, as the files show it. An effect
+// that follows nothing comes back as it was, the very same string.
+function followedFields(f) {
+  const st = stateOfShare(f.s);
+  if (!followInto(st)) return f;
+  const d = decodePatch(f.s) || {};
+  return Object.assign({}, f, { s: withState(st, () => encodePatch(d.n || "", true)) });
 }
 function projUpdateAll() {
   return projDo(async function () {
@@ -10099,19 +10207,83 @@ function momentThumbHero(cv) {                 // a moment without an effect (or
 // it and its Save updates it in place; Rename and Delete as for an effect (Delete through the removal guard). A palette
 // or set saved here shows up in every Crunchy app planted in the same game, and theirs here.
 var projPalM = null, projPalettes = null;   // plantOpenAs(project, PALETTE_APP), and its assets with their palettes
+var projGamePal = null;                     // §38: the game's palette ({ slug, kind, name, palette, asset }), or null
+var projPalFp = null;                       // §38: a fingerprint of every planted palette and set, as last read
+var projPalRead = 0;                        // §38: only the LATEST read lands (a focus and an open can overlap)
 function projPalettesRefresh() {
-  if (!project) { projPalM = null; projPalettes = null; csetPlanted = []; return Promise.resolve(); }
-  const P = project;
+  if (!project) { projPalM = null; projPalettes = null; projGamePal = null; projPalFp = null; csetPlanted = []; syncGamePalUI(); return Promise.resolve(); }
+  const P = project, run = ++projPalRead, stale = () => project !== P || run !== projPalRead;
+  let sets = null;
   return plantOpenAs(P, PALETTE_APP).then(function (M) {
-    if (project !== P) return;
+    if (stale()) return;
+    return paletteSets(P).then((l) => { sets = l; return M; });
+  }).then(function (M) {
+    if (!M || stale()) return;
     projPalM = M;
+    // §38: the game's palette (palette.js 2: `game: true` in its own sidecar, set by any Crunchy app planted here) first
     projPalettes = M.assets.map((a) => ({ asset: a, palette: palettePlanted(a) })).filter((x) => x.palette)
-      .sort((x, y) => (x.palette.kind === "set") - (y.palette.kind === "set") || x.asset.name.localeCompare(y.asset.name));
-    return paletteSets(P).then((l) => { if (project === P) csetPlanted = l; });
-  }).then(function () {
-    if (project !== P) return;
-    library.refresh(); palLockRowRender(); window.syncColorSetUI(); if (csetDlg) csetRender();
-  }).catch(function () { projPalM = null; projPalettes = null; csetPlanted = []; });
+      .sort((x, y) => paletteIsGame(y.asset) - paletteIsGame(x.asset) || (x.palette.kind === "set") - (y.palette.kind === "set") || x.asset.name.localeCompare(y.asset.name));
+    const g = projPalettes.find((x) => paletteIsGame(x.asset));
+    projGamePal = g ? { slug: g.asset.slug, kind: g.asset.kind, name: g.asset.name, palette: g.palette, asset: g.asset } : null;
+    csetPlanted = sets;
+    // §38: UPDATE EVERY ASSET. A palette or set changed (here, or by another Crunchy app, seen on this re-read): the effect
+    // in the editor follows it, and every planted effect is checked again, so one made from it shows "update available"
+    // (the first read after opening counts too: the open's own check may have run before the sets were known)
+    const fp = (projPalettes || []).map((x) => x.asset.slug + "=" + x.asset.data.s).join("|");   // colors only: a star moves no color
+    const changed = fp !== projPalFp;
+    projPalFp = fp;
+    followEditor();
+    if (changed) projCheckUpdates();
+    library.refresh(); palLockRowRender(); syncPaletteUI(); window.syncColorSetUI(); syncGamePalUI(); if (csetDlg) csetRender();
+  }).catch(function () { if (stale()) return; projPalM = null; projPalettes = null; projGamePal = null; csetPlanted = []; syncGamePalUI(); });
+}
+
+// ---- §38: THE GAME PALETTE (crunchyCore PALETTES.md step 4; palette.js 2) ----
+// One planted palette or set is THE GAME'S (the star on its Palettes card; the mark lives in its own sidecar, so every
+// Crunchy app planted in this game shows it). It is listed FIRST in the lock's row, the color set picker and the
+// Palettes tab, and "Use the game palette (<name>)" locks every NEW effect to it: a preset picked, a Randomize, a Wizard
+// pick, a Breed or Variations child loaded, Match a sound. It is the lock "Match my game's colors…" makes, recorded as
+// the palette's id (`lockFrom`), so the effect follows its edits; moods and color sets still color the effect under it.
+// The switch is ON by default and remembered per game (this computer, never in a link). Turning it off, loading a saved
+// effect or opening a link never changes anything; with no game palette none of this runs, so nothing moves.
+const GAME_PAL_KEY = "crunchyvfx.gamepalette.v1";        // { "<game folder>": false } for a game it is turned off in
+function gamePalNow() { return project && projGamePal ? projGamePal : null; }
+function gamePalId() { const g = gamePalNow(); return g ? (g.kind === "colorset" ? "set:" : "palette:") + g.slug : ""; }
+function gamePalPrefs() { try { const o = JSON.parse(localStorage.getItem(GAME_PAL_KEY) || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } }
+function gamePalOn() { return !!gamePalNow() && gamePalPrefs()[project.dir] !== false; }
+function gamePalSetOn(on) {
+  if (!project) return;
+  const o = gamePalPrefs();
+  if (on) delete o[project.dir]; else o[project.dir] = false;
+  try { if (Object.keys(o).length) localStorage.setItem(GAME_PAL_KEY, JSON.stringify(o)); else localStorage.removeItem(GAME_PAL_KEY); } catch (e) { /* not essential */ }
+}
+// A NEW effect is being made (its state is written, the editor not yet synced): lock it to the game palette when the
+// switch is on. → true when it did.
+function gameLockNew() {
+  if (!gamePalOn()) return false;
+  state.paletteLock = lockOf(projGamePal.palette).join(",");
+  state.lockFrom = gamePalId();
+  clearSpriteCache();
+  return true;
+}
+function syncGamePalUI() {
+  const row = document.getElementById("gamePalRow");
+  if (!row) return;
+  const g = gamePalNow();
+  row.hidden = !g;
+  if (!g) return;
+  row.querySelector("input").checked = gamePalOn();
+  row.querySelector(".game-pal-name").textContent = g.name;
+  row.querySelector(".game-pal-sw").replaceWith(csetSwatch(paletteFlat(g.palette).slice(0, 16), "cset-sw game-pal-sw"));
+}
+// the star: mark a planted palette or set as the game's, or unmark it (null). Sidecars only: no file moves.
+function palSetGame(slug) {
+  return projDo(async function () {
+    const g = await paletteSetGame(project, slug);
+    await projPalettesRefresh();
+    projStatus(g ? g.name + " is the game's palette now: every Crunchy app planted here lists it first, and new effects are locked to it while “Use the game palette” is on."
+                 : "This game has no game palette now. Effects locked to it keep their colors.");
+  });
 }
 function palCardEdit(it) {
   return paletteOpen({ P: project, existing: it.pal.asset, preview: it.pal.palette.kind === "set" ? csetPreviewFn() : lockPreviewFn(),
@@ -10130,6 +10302,7 @@ function palCardNew(kind) {
 // is this planted palette the effect's lock, or this set its colors? (a badge on the card)
 function palCardOnEffect(x) {
   if (x.palette.kind === "set") return state.colorSet === "set:" + x.asset.slug && state.ramp === rampOfColors(x.palette.ramps[0].colors);
+  if (state.lockFrom === "palette:" + x.asset.slug && state.paletteLock) return true;   // §38: locked FROM it
   const cur = state.paletteLock ? state.paletteLock.split(",").map(paletteHexOf) : [], f = paletteFlat(x.palette);
   return cur.length > 0 && cur.length === f.length && f.every((h) => cur.indexOf(h) >= 0);
 }
@@ -10242,6 +10415,7 @@ const library = libraryMount({
         const p = x.palette, set = p.kind === "set", n = paletteCount(p), badges = [];
         badges.push({ text: set ? "color set" : "palette", title: set ? "A color set: " + n + " colors, light to dark. Any Crunchy app planted here can color with it" :
           "A palette: " + n + " colors in " + p.ramps.length + " ramp" + (p.ramps.length === 1 ? "" : "s") + " (each ramp is a color set too)" });
+        if (paletteIsGame(x.asset)) badges.push({ hot: true, text: "The game's palette ★", title: "This game's palette: every Crunchy app planted here lists it first, and new effects are locked to it while “Use the game palette” is on" });
         if (palCardOnEffect(x)) badges.push({ hot: true, text: set ? "colors this effect" : "locks this effect", title: set ? "The effect in the editor is colored with this set" : "The effect in the editor is locked to this palette" });
         return { id: "pal:" + x.asset.slug, tab: "palettes", pal: x, name: x.asset.name, kind: x.asset.kind, group: set ? "Color sets" : "Palettes",
                  meta: (set ? n + " colors" : n + " colors · " + p.ramps.length + " ramp" + (p.ramps.length === 1 ? "" : "s")) + " · " + plantJoin(projPalM.rel, x.asset.slug) + "/", badges: badges, asset: x.asset };
@@ -10341,12 +10515,19 @@ const library = libraryMount({
       run: (it) => {
         const p = it.pal.palette;
         if (p.kind === "set") applyColorSet({ id: "set:" + it.pal.asset.slug, name: it.pal.asset.name, colors: p.ramps[0].colors }, false);
-        else setPalette(lockOf(p), it.pal.asset.name);
+        else setPalette(lockOf(p), it.pal.asset.name, "palette:" + it.pal.asset.slug);   // §38: the lock follows its edits
         library.refresh();
       } },
     { label: "Edit", title: "Open it in the palette window: Save there updates it in place, for every Crunchy app planted here",
       when: (it) => !!it.pal,
       run: (it) => palCardEdit(it) },
+    // §38: THE STAR. One palette or set is the game's (its sidecar says so, so every Crunchy app planted here sees it)
+    { label: "Make it the game's palette", title: "Mark it as this game's palette: every Crunchy app planted here lists it first, and new effects are locked to it (“Use the game palette”)",
+      when: (it) => !!it.pal && !paletteIsGame(it.asset),
+      run: (it) => palSetGame(it.asset.slug) },
+    { label: "Unmark", title: "This game has no game palette any more (effects locked to it keep their colors)",
+      when: (it) => !!it.pal && paletteIsGame(it.asset),
+      run: () => palSetGame(null) },
     { label: "Duplicate", title: "A copy, named “… copy”, in its own folder with its own files",
       when: (it) => !it.moment && !it.pal,
       run: (it) => projDo(async function () {
@@ -10427,6 +10608,8 @@ if (isDesktop) {
   for (const k of EXPORT_SCALES) expScaleBoxes[k].addEventListener("change", projBarSync);
   iconsIn(libDock);
   projBarSync();
+  // §38: the game's palettes again whenever the window comes back (another Crunchy app may have edited one, or starred one)
+  addEventListener("focus", () => { if (project) projPalettesRefresh(); });
   // REOPEN THE LAST PLANTED FOLDER, quietly: if it moved, it is simply not open (the Library's recent list says so).
   const last = projRecent()[0];
   if (last) projDo(() => projFs.exists(last.dir).then((yes) => { if (yes) return projOpen(last.dir); }).catch(() => {}));

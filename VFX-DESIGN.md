@@ -2029,3 +2029,51 @@ Rows: desktop `palettes/a-built-in-set-colors-the-effect-with-exactly-its-colors
 planted-and-listed-with-edit-rename-delete`, `…/a-palette-from-the-shared-window-locks-the-effect`, `…/old-locked-links-
 render-byte-for-byte` (each with a negative); web `palettes/a-web-color-set-is-kept-in-the-browser-and-rides-in-the-
 share-link`. Frame hash unchanged (1f591c9eb230a807 over 306). Main 697 / async 77 / desktop 65 / web 14.
+
+## 38. The game palette, and effects that follow their sets (2026-10-26, crunchyCore PALETTES.md step 4b)
+
+AJ (2026-10-26, "I think yes too"): a design made FROM a color set follows later edits of that set, in every app; and a
+game's palette is ON for new designs in that game, never flipped on for anything already saved. VFX pulls palette.js 2
+(`paletteGame`, `paletteSetGame`, `paletteIsGame`: the mark is `game: true` in the palette's own sidecar, so every Crunchy
+app planted in the game sees the same star). `--css-build` 14.
+
+**Following.** §37 copied a set's colors at the pick. Now an effect with a `colorSet` draws with that set's CURRENT colors
+wherever the set is known (the suite's 237, the planted sets and palette ramps, this browser's kept ones), through
+`followInto(st)`: on every load (`applyPreset`: links, planted and My Effects opens, undo), on every planted render
+(`plantedRender`, so the update check and Update all see it), and on every re-read of the game's palettes (`followEditor`).
+A set this computer doesn't know keeps the colors the effect carried: they still ride inline in `ramp`, so a link opens
+anywhere. **The lock follows too**: a new PATCH_EXTRAS `lockFrom` ("" by default, read by nothing that draws) records where
+a lock came from: a planted palette `palette:<slug>`, a browser-kept one `mine-palette:<slug>`, or a set's id (the
+picker's "lock every pixel to the set too"). Set by the lock row's own palettes, the palette window's Save, the Library
+card's Lock the effect and the game palette; cleared by every plain lock (a file, a paste, Take 8/16, Clear, a starter)
+and by an era that sets the lock (`styleInto`). An effect with neither id (every preset, every effect locked or colored
+from plain colors, everything made before) never meets this code: frame hash 1f591c9eb230a807 over 306, unchanged.
+
+**Update every asset.** `projPalettesRefresh` keeps a fingerprint of every planted palette's and set's colors (its `s`);
+when it moves (an edit here, or another app's seen on re-read: opening, the window's focus, opening the Library; the first
+read after opening counts, since the open's own check may run before the sets are read) every planted effect is checked
+again. One made from a set or palette that changed renders differently, so it shows "update available"; Update all
+re-exports it and writes the followed colors into its sidecar's share string (`followedFields`), so the sidecar reopens
+anywhere as the files show it. A plain-color effect renders exactly as before, so it never shows an update. Only the
+latest of overlapping reads lands (`projPalRead`).
+
+**The star.** Each card on the Library's Palettes tab gets "Make it the game's palette", or a "The game's palette ★" badge
+and "Unmark" (`palSetGame` → `paletteSetGame`). The game's palette is FIRST everywhere: the Palettes tab's cards, the lock
+row ("The game's palette", then Starters, then yours), and the color set picker ("The game's palette: <name> ★", its ramps
+as sets, or the set itself).
+
+**"Use the game palette (<name>)"**, under "Match my game's colors…", shown only while the game has one. On by default,
+remembered per game folder in a NEW key `crunchyvfx.gamepalette.v1` (only the games it is turned OFF in; never in a link).
+On, a NEW effect is locked to the palette's flat set with `lockFrom` its id (`gameLockNew`): a preset picked in the strip,
+Randomize, a Wizard pick, a Breed or Variations child loaded, Match a sound (`applyPreset`'s new `fresh`). Moods and color
+sets still color the effect under the lock. A link, a planted effect, My Effects, undo and A/B never pass `fresh`, and the
+switch changes nothing on screen when turned either way. With no game palette (and always on the web) `gameLockNew` returns
+at once. The Wizard's nine and the strip's pictures are drawn without the lock; a click loads them locked.
+
+Rows: desktop `game-palette/the-star-set-here-and-seen-set-by-another-app`, `…/listed-first-in-every-picker`,
+`…/the-switch-on-locks-every-new-effect-as-a-reference`, `…/the-switch-off-and-existing-effects-untouched`,
+`…/a-set-edit-flows-into-effects-made-from-it-and-update-all-takes-it`, `…/a-link-follows-a-known-set-and-keeps-an-unknown-ones-colors`,
+`…/with-none-marked-a-new-effect-is-byte-for-byte-heads` (each with a negative; the follow and switch rows fail with
+following or `gameLockNew` cut out, measured); web `palettes/a-kept-set-or-palette-edited-flows-into-the-effect-made-from-it`.
+The §37 card row's action list gains the star's button; the main suite's extras row gains `lockFrom`. Main 698 / async 77 /
+desktop 72 / web 15; frame hash unchanged; godot-check 19.

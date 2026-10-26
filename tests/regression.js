@@ -106,7 +106,8 @@
     applyPreset({ shape: 18, glyph: "🔥", customSprite: "", ramp: "0,10,1,0.5,1|1,60,1,0.5,0",
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
-                  orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire" }, "extras");   // colorSet: §37
+                  orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire",
+                  lockFrom: "palette:not-planted" }, "extras");   // colorSet: §37; lockFrom: §38
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));

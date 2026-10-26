@@ -149,8 +149,8 @@ that prints the page's `VFX …` lines and kills its own process):
 
 ```sh
 node tests/run-ff.mjs hash | grep -v '(console)' > /tmp/h.txt; diff tests/frame-hash.expected.txt /tmp/h.txt   # no frame moved
-node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (57)
-node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (13)
+node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (72)
+node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (15)
 node tests/plant.test.mjs                # project-app.js over plant.js, in Node
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
 node tests/godot-scene.mjs               # §26: the WEB Export's ready Godot scene plays, signals impact, frees itself (real Godot)
@@ -223,6 +223,11 @@ more particles.
 
 ## Status
 
+- **The game palette + following sets (§38, 2026-10-26, crunchyCore PALETTES.md 4b, palette.js 2)**: an effect made from a
+  set (`colorSet`) or locked from a palette (new PATCH_EXTRA `lockFrom`) draws its CURRENT colors where known (`followInto`);
+  a palette edit re-checks the planted effects ("update available", Update all). The Palettes tab's star ("Make it the
+  game's palette" / Unmark); the game palette first in the lock row, the set picker and the tab; "Use the game palette
+  (<name>)" locks NEW effects (preset, Randomize, Wizard, Breed/Variations load, Match). No game palette: byte for byte.
 - **Shared palettes and color sets (§37, 2026-10-25, crunchyCore PALETTES.md 2b)**: `palette.js`, `palette-ui.js`,
   `colorsets.js` GENERATED from crunchyCore. "Color sets…" under the moods (the suite's 237 + your own; a pick is the
   ramp in steps, `colorSet` PATCH_EXTRA); the lock opens the suite's palette window; the Library's Palettes tab. The

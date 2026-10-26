@@ -177,6 +177,33 @@
     csetClose();
     return ok(keptOk && listed && rides && orphan, "kept " + keptOk + " (" + added.join() + ") · listed " + listed + " · rides " + rides + " · orphan " + orphan);
   });
+  // §38 (crunchyCore PALETTES.md step 4): an effect made FROM a kept set or palette follows its edits in this browser; the
+  // game palette's switch belongs to a planted game, so the web never shows it and a new effect is exactly HEAD's
+  await t("palettes/a-kept-set-or-palette-edited-flows-into-the-effect-made-from-it", async function () {
+    const before = localStorage.getItem("crunchyvfx.palettes.v1");
+    const A = ["#e0f8d0", "#88c070", "#346856", "#081820"], B = ["#f0fff0", "#a0d890", "#4a7a60", "#20302a", "#081008"];
+    myPalKeep({ kind: "set", name: "Moss web", ramps: [{ name: "Moss web", colors: A }] });
+    myPalKeep({ kind: "palette", name: "Web game", ramps: [{ name: "One", colors: A }] });
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    applyColorSet(myPalSets().find(function (x) { return x.id === "mine:moss-web"; }), false);
+    setPalette(A.map(function (h) { return h.slice(1); }), "Web game", "mine-palette:web-game");
+    const made = state.colorSet === "mine:moss-web" && state.lockFrom === "mine-palette:web-game";
+    myPalKeep({ kind: "set", name: "Moss web", ramps: [{ name: "Moss web", colors: B }] });
+    myPalKeep({ kind: "palette", name: "Web game", ramps: [{ name: "One", colors: B }] });
+    await afterPaletteSaved();
+    const follows = same(colorsOfRamp(state.ramp), B) && state.paletteLock === B.map(function (h) { return h.slice(1); }).join(",");
+    // NEGATIVE: the same colors applied PLAIN (no set id, no lock id) stay put through another edit
+    state.colorSet = ""; state.lockFrom = ""; rerender();
+    myPalKeep({ kind: "set", name: "Moss web", ramps: [{ name: "Moss web", colors: A }] });
+    await afterPaletteSaved();
+    const plain = same(colorsOfRamp(state.ramp), B);
+    const noSwitch = !shown(document.getElementById("gamePalRow")) && !gamePalNow() && !gameLockNew();
+    applyPreset(PRESETS["Explosion"], "Explosion"); const fx = frames(rendered.canvases);   // a preset as HEAD loaded it
+    applyPreset(PRESETS["Explosion"], "Explosion", false, true);                             // ... and as a NEW effect now
+    const head = frames(rendered.canvases) === fx && state.paletteLock === "" && state.lockFrom === "";
+    if (before === null) localStorage.removeItem("crunchyvfx.palettes.v1"); else localStorage.setItem("crunchyvfx.palettes.v1", before);
+    return ok(made && follows && plain && noSwitch && head, "made " + made + " · follows " + follows + " · plain " + plain + " · noSwitch " + noSwitch + " · head " + head);
+  });
   await t("words/no-pro-premium-or-unlock-anywhere-visible", function () {
     // the chrome, not the content: a preset is called "Treasure Unlock" (a chest opening), which is an effect's name
     const presets = document.getElementById("presets"), keep = presets.style.display;

@@ -867,7 +867,7 @@
     const gone = !M.text(PAL + "/ember-test/ember-test.crunchy") && !M.text(PAL + "/ember-test/ember-test.hex") && !card("Ember kept");
     M.files.delete(scene);
     lib().querySelector('.lib-tab[data-tab="effects"]').click();
-    return ok(setMode && planted && colored && listed && acts === "Rename,Color the effect,Edit,Delete" && badge && reopened && renamed && held && gone,
+    return ok(setMode && planted && colored && listed && acts === "Rename,Color the effect,Edit,Make it the game's palette,Delete" && badge && reopened && renamed && held && gone,
       "set " + setMode + " · planted " + planted + " · colored " + colored + " · listed " + listed + " · acts " + acts + " · badge " + badge + " · reopened " + reopened +
       " · renamed " + renamed + " · held " + held + " · gone " + gone + " · " + status());
   });
@@ -918,6 +918,205 @@
     const moved = frames(rendered.canvases) !== l0.frames;
     history.replaceState(null, "", location.pathname);
     return ok(got.length === 5 && got.every(Boolean) && moved, got.join(",") + " · moved " + moved);
+  });
+
+  // ---- §38: THE GAME PALETTE AND FOLLOWING SETS (crunchyCore PALETTES.md step 4; palette.js 2) ----
+  const gameRow = function () { return document.getElementById("gamePalRow"); };
+  const lockRowLabels = function () { return Array.from(document.querySelectorAll("#palBuiltins > *")).map(function (e) { return e.textContent; }); };
+  // a preset as its strip picture's click loads it (the picture itself when the strip holds it, else the very call it makes)
+  const presetCell = function (name) {
+    return document.querySelector('#presets .pcell[data-name="' + name + '"]') || { click: function () { applyPreset(PRESETS[name], name, false, true); } };
+  };
+  const palTab = async function () {
+    if (!library.isOpen()) library.open();
+    await projRefreshSuite(); await settle();
+    await wait(function () { return !!lib().querySelector('.lib-tab[data-tab="palettes"]'); });
+    lib().querySelector('.lib-tab[data-tab="palettes"]').click();
+    await settle();
+  };
+  const MOON = paletteStarter("Moonlit night"), DUSK = ["#ffe0a8", "#e88a5a", "#a8405a", "#4a2048"];
+  await t("game-palette/the-star-set-here-and-seen-set-by-another-app", async function () {
+    if (!project) await projDo(function () { return projOpen(GODOT); });
+    await paletteSave(project, "Moon pal", MOON);
+    await paletteSave(project, "Dusk set", { kind: "set", name: "Dusk set", ramps: [{ name: "Dusk set", colors: DUSK }] });
+    await projPalettesRefresh();
+    // NEGATIVE first: no palette is the game's yet, so no switch, no heading, nothing locks a new effect
+    const noneYet = !projGamePal && !shown(gameRow()) && lockRowLabels()[0] === "Starters";
+    presetCell("Explosion").click();
+    const unlocked = state.paletteLock === "" && state.lockFrom === "";
+    await palTab();
+    await wait(function () { return !!card("Moon pal"); });
+    const offered = !!cardButton("Moon pal", "Make it the game's palette") && !cardButton("Moon pal", "Unmark") && !/The game's palette/.test(card("Moon pal").textContent);
+    cardButton("Moon pal", "Make it the game's palette").click();
+    await settle(); await wait(function () { return !!projGamePal; });
+    const sideMoon = side(PAL, "moon-pal"), sideDusk = side(PAL, "dusk-set");
+    const marked = sideMoon.game === true && !sideDusk.game && /The game's palette ★/.test(card("Moon pal").textContent) && !!cardButton("Moon pal", "Unmark") &&
+      !!cardButton("Dusk set", "Make it the game's palette") && projGamePal.slug === "moon-pal" && shown(gameRow()) && /Moon pal/.test(gameRow().textContent);
+    // ANOTHER APP stars the set (palette.js's paletteSetGame straight into the game's sidecars): seen here on the next re-read
+    // (the window coming back), and not before it
+    await paletteSetGame(project, "dusk-set");
+    const notYet = projGamePal.slug === "moon-pal";
+    window.dispatchEvent(new Event("focus"));
+    await settle(); await wait(function () { return projGamePal && projGamePal.slug === "dusk-set"; });
+    const seen = projGamePal.slug === "dusk-set" && /Dusk set/.test(gameRow().textContent) && /The game's palette ★/.test(card("Dusk set").textContent) &&
+      !/The game's palette/.test(card("Moon pal").textContent) && !side(PAL, "moon-pal").game && side(PAL, "dusk-set").game === true;
+    // the files of a palette never move for its mark: only the sidecars were written
+    const files = !!M.text(PAL + "/moon-pal/moon-pal.hex") && !!M.text(PAL + "/dusk-set/dusk-set.tres");
+    await wait(function () { return !!cardButton("Moon pal", "Make it the game's palette"); });
+    if (!cardButton("Moon pal", "Make it the game's palette")) return ok(false, "no star button on Moon pal after the re-read · seen " + seen + " · " + (card("Moon pal") || {}).textContent);
+    cardButton("Moon pal", "Make it the game's palette").click();
+    await settle(); await wait(function () { return projGamePal && projGamePal.slug === "moon-pal"; });
+    return ok(noneYet && unlocked && offered && marked && notYet && seen && files && projGamePal.slug === "moon-pal",
+      "none " + noneYet + " · unlocked " + unlocked + " · offered " + offered + " · marked " + marked + " · notYet " + notYet + " · seen " + seen + " · files " + files);
+  });
+  await t("game-palette/listed-first-in-every-picker", async function () {
+    const row = lockRowLabels(), firstBtn = document.querySelector("#palBuiltins button");
+    const lockFirst = row[0] === "The game's palette" && /^Moon pal ★/.test(firstBtn.textContent) && firstBtn.dataset.from === "palette:moon-pal" &&
+      row.filter(function (x) { return /^Moon pal/.test(x); }).length === 1;
+    document.getElementById("csetBtn").click();
+    const heads = Array.from(document.querySelectorAll(".cset-sec h3")).map(function (h) { return h.textContent; });
+    const firstItems = Array.from(document.querySelectorAll(".cset-sec")[0].querySelectorAll(".cset-item")).map(function (b) { return b.dataset.id; });
+    csetClose();
+    const pickFirst = /^The game's palette: Moon pal ★/.test(heads[0]) && firstItems.length === MOON.ramps.length && firstItems.every(function (id) { return id.indexOf("palette:moon-pal/") === 0; });
+    const cards = Array.from(lib().querySelectorAll(".lib-card .lib-name")).map(function (n) { return n.textContent; });
+    const libFirst = cards[0] === "Moon pal";
+    // NEGATIVE: with the set marked instead, IT heads the picker and the palette is back among yours
+    await paletteSetGame(project, "dusk-set"); await projPalettesRefresh();
+    document.getElementById("csetBtn").click();
+    const heads2 = Array.from(document.querySelectorAll(".cset-sec h3")).map(function (h) { return h.textContent; });
+    const items2 = Array.from(document.querySelectorAll(".cset-sec")[0].querySelectorAll(".cset-item")).map(function (b) { return b.dataset.id; });
+    csetClose();
+    const swapped = /^The game's palette: Dusk set/.test(heads2[0]) && items2.join() === "set:dusk-set" && lockRowLabels().indexOf("Moon pal") > lockRowLabels().indexOf("Starters");
+    await paletteSetGame(project, "moon-pal"); await projPalettesRefresh();
+    return ok(lockFirst && pickFirst && libFirst && swapped, "lock " + lockFirst + " [" + row.slice(0, 3) + "] · pick " + pickFirst + " [" + heads[0] + " " + firstItems + "] · lib " + libFirst + " [" + cards.slice(0, 2) + "] · swapped " + swapped + " [" + heads2[0] + "]");
+  });
+  await t("game-palette/the-switch-on-locks-every-new-effect-as-a-reference", async function () {
+    const want = lockOf(MOON).join(","), locked = function () { return state.paletteLock === want && state.lockFrom === "palette:moon-pal"; };
+    const on = shown(gameRow()) && gameRow().querySelector("input").checked;
+    setPalette([], "");
+    presetCell("Explosion").click(); const preset = locked();
+    // under the lock, a mood and a color set still color the effect (the lock stays, the ramp is the set's)
+    Array.from(document.querySelectorAll("#paletteGrid button")).find(function (b) { return b.textContent === "Ice"; }).click();
+    const mood = locked() && state.ramp === "";
+    applyColorSet(colorSet("theme:inferno"), false);
+    const set = locked() && state.colorSet === "theme:inferno";
+    setPalette([], ""); randomize(); const roll = locked();
+    setPalette([], "");
+    wizard.answers = { type: WIZARD_TYPES[0].key, tags: [], era: "" };
+    wizardLoad(wizardCandidates(wizard.answers, 1)[0]); const wiz = locked();
+    setPalette([], "");
+    applyPreset(breedChild([snapshotState()], 0.3), "Bred 1.1", false, true); const bred = locked();
+    // the lock is a REFERENCE: it rides in the share link as the palette's id beside its colors
+    const d = decodePatch(encodePatch("x"));
+    const ref = d.lockFrom === "palette:moon-pal" && d.paletteLock === want;
+    // and every pixel of a hard-edged frame is one of the game palette's colors
+    state.alphaCut = 0.5; rerender();
+    const allowed = new Set(paletteFlat(MOON)), strays = new Set();
+    rendered.canvases.forEach(function (cv) { const px = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      for (let i = 0; i < px.length; i += 4) if (px[i + 3]) { const h = paletteHexOf([px[i], px[i + 1], px[i + 2]]); if (!allowed.has(h)) strays.add(h); } });
+    return ok(on && preset && mood && set && roll && wiz && bred && ref && !strays.size,
+      "on " + on + " · preset " + preset + " · mood " + mood + " · set " + set + " · roll " + roll + " · wizard " + wiz + " · bred " + bred + " · ref " + ref + " · strays " + Array.from(strays).slice(0, 4));
+  });
+  await t("game-palette/the-switch-off-and-existing-effects-untouched", async function () {
+    // turning it off never touches the effect on screen
+    presetCell("Explosion").click();
+    const before = JSON.stringify(snapshotState()), f0 = frames(rendered.canvases);
+    const box = gameRow().querySelector("input");
+    box.click();
+    const offStays = !box.checked && JSON.stringify(snapshotState()) === before && frames(rendered.canvases) === f0 && !gamePalOn() &&
+      JSON.parse(localStorage.getItem(GAME_PAL_KEY))[project.dir] === false;
+    // off: a new effect is what it always was (the preset's own frames, no lock)
+    presetCell("Explosion").click();
+    const plain = state.paletteLock === "" && state.lockFrom === "";
+    applyPreset(PRESETS["Explosion"], "Explosion", true); const fx = frames(rendered.canvases);
+    presetCell("Explosion").click();
+    const same0 = frames(rendered.canvases) === fx;
+    randomize(); const rollPlain = state.paletteLock === "";
+    box.click();                                                      // on again (the default: the key goes)
+    const backOn = box.checked && gamePalOn() && localStorage.getItem(GAME_PAL_KEY) === null;
+    // ON, and still nothing already made changes: a link, a planted effect and My Effects open as they were
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    const enc = encodePatch("Plain link");
+    history.replaceState(null, "", location.pathname + "?e=" + enc); loadSharedEffect(); history.replaceState(null, "", location.pathname);
+    const link = state.paletteLock === "" && frames(rendered.canvases) === fx;
+    const pa = project.assets[0];
+    projOpenAsset(pa); await settle();
+    const planted = state.lockFrom === "" && state.paletteLock === (decodePatch(pa.data.s).paletteLock || "");
+    applyPreset(userEffects[0].state, userEffects[0].name);          // My Effects' Use
+    const mine = state.lockFrom === "" && state.paletteLock === (userEffects[0].state.paletteLock || "");
+    return ok(offStays && plain && same0 && rollPlain && backOn && link && planted && mine,
+      "offStays " + offStays + " · plain " + plain + " · same " + same0 + " · roll " + rollPlain + " · backOn " + backOn + " · link " + link + " · planted " + planted + " · mine " + mine);
+  });
+  await t("game-palette/a-set-edit-flows-into-effects-made-from-it-and-update-all-takes-it", async function () {
+    const save = async function (name) { document.getElementById("plantName").value = name; projSave(); await settle(); return plantFind(project, "effect", name); };
+    // made FROM the planted set (colored), FROM the planted palette (locked), and one from plain colors (no id at all)
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    applyColorSet(csetPlanted.find(function (x) { return x.id === "set:dusk-set"; }), false);
+    const aSet = await save("Dusk fx");
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    setPalette(lockOf(MOON), "Moon pal", "palette:moon-pal");
+    const aPal = await save("Moon fx");
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    setPalette(DUSK.map(function (h) { return h.slice(1); }), "Pasted");
+    state.ramp = rampOfColors(DUSK); rerender();                        // the same colors, but PLAIN: no set id, no lock id
+    const aPlain = await save("Plain fx");
+    await projCheckUpdates();
+    const fresh = !projUpdates[aSet.slug] && !projUpdates[aPal.slug] && !projUpdates[aPlain.slug];
+    const plainSide = M.text(ROOT + "/" + aPlain.slug + "/" + aPlain.slug + ".crunchy"), plainPng = M.text(ROOT + "/" + aPlain.slug + "/" + aPlain.data.base + ".png");
+    // open the set-colored one, then ANOTHER APP edits the set and the palette (palette.js's own save), seen on re-read
+    projOpenAsset(aSet); await settle();
+    const DUSK2 = ["#fff0c0", "#f0a060", "#c04050", "#502050", "#200818"];
+    const MOON2 = { kind: "palette", name: "Moon pal", ramps: MOON.ramps.map(function (r, i) { return i ? r : { name: r.name, colors: r.colors.slice(1) }; }) };
+    await paletteSave(project, "Dusk set", { kind: "set", name: "Dusk set", ramps: [{ name: "Dusk set", colors: DUSK2 }] });
+    await paletteSave(project, "Moon pal", MOON2);
+    window.dispatchEvent(new Event("focus"));
+    await settle(); await wait(function () { return same(colorsOfRamp(state.ramp), DUSK2); });
+    const editor = state.colorSet === "set:dusk-set" && same(colorsOfRamp(state.ramp), DUSK2);
+    const stillGame = side(PAL, "moon-pal").game === true;                // an edit keeps the star (palette.js 2)
+    await projCheckUpdates(); await settle();
+    const flagged = !!projUpdates[aSet.slug] && !!projUpdates[aPal.slug] && !projUpdates[aPlain.slug];
+    await palTab(); lib().querySelector('.lib-tab[data-tab="effects"]').click(); await settle();
+    const badges = /update available/.test(card("Dusk fx").textContent) && /update available/.test(card("Moon fx").textContent) && !/update available/.test(card("Plain fx").textContent);
+    const btn = libButton(/^Update all \(\d+\)$/);
+    const n = btn ? +/\((\d+)\)/.exec(btn.textContent)[1] : 0;
+    if (btn) await press(btn);
+    await settle(); await wait(function () { return !projUpdates[aSet.slug] && !projUpdates[aPal.slug]; });
+    const sSet = stateOfShare(sidecar(aSet.slug).s), sPal = stateOfShare(sidecar(aPal.slug).s);
+    const taken = same(colorsOfRamp(sSet.ramp), DUSK2) && sSet.colorSet === "set:dusk-set" && sPal.paletteLock === lockOf(MOON2).join(",") && sPal.lockFrom === "palette:moon-pal";
+    await projCheckUpdates();
+    const cleared = !projUpdates[aSet.slug] && !projUpdates[aPal.slug] && !/update available/.test(card("Dusk fx").textContent) && !libButton(/^Update all/);
+    // NEGATIVE: the plain one is byte for byte what it was (its sidecar and its sheet)
+    const plainSame = M.text(ROOT + "/" + aPlain.slug + "/" + aPlain.slug + ".crunchy") === plainSide && M.text(ROOT + "/" + aPlain.slug + "/" + aPlain.data.base + ".png") === plainPng;
+    return ok(fresh && editor && stillGame && flagged && badges && n >= 2 && taken && cleared && plainSame,
+      "fresh " + fresh + " · editor " + editor + " · stillGame " + stillGame + " · flagged " + flagged + " · badges " + badges + " · n " + n + " · taken " + taken + " · cleared " + cleared + " · plain " + plainSame);
+  });
+  await t("game-palette/a-link-follows-a-known-set-and-keeps-an-unknown-ones-colors", function () {
+    // a link made with a suite set whose colors it carried are OLD (as if the set changed since): opened, it draws the set now
+    applyPreset(PRESETS["Explosion"], "Explosion", true);
+    applyColorSet(colorSet("theme:inferno"), false);
+    const fNow = frames(rendered.canvases), now = state.ramp;
+    state.ramp = rampOfColors(["#ffffff", "#808080", "#000000"]);
+    const enc = encodePatch("Old inferno");
+    history.replaceState(null, "", location.pathname + "?e=" + enc); loadSharedEffect();
+    const follows = state.ramp === now && frames(rendered.canvases) === fNow;
+    // NEGATIVE: the same link with a set this computer doesn't know draws exactly the colors it carried
+    state.colorSet = "set:not-in-this-game"; state.ramp = rampOfColors(["#ffffff", "#808080", "#000000"]); const enc2 = encodePatch("Someone's set");
+    history.replaceState(null, "", location.pathname + "?e=" + enc2); loadSharedEffect(); history.replaceState(null, "", location.pathname);
+    const kept = state.colorSet === "set:not-in-this-game" && same(colorsOfRamp(state.ramp), ["#ffffff", "#808080", "#000000"]);
+    return ok(follows && kept, "follows " + follows + " · kept " + kept);
+  });
+  await t("game-palette/with-none-marked-a-new-effect-is-byte-for-byte-heads", async function () {
+    await palTab();
+    cardButton("Moon pal", "Unmark").click();
+    await settle(); await wait(function () { return !projGamePal; });
+    const gone = !shown(gameRow()) && !side(PAL, "moon-pal").game && lockRowLabels()[0] === "Starters";
+    // a preset clicked, as on HEAD: its outcome exactly (no lock, no lockFrom), the same frames as the exact load
+    applyPreset(PRESETS["Explosion"], "Explosion", true); const fx = frames(rendered.canvases), enc = encodePatch("Explosion");
+    presetCell("Explosion").click();
+    const same0 = frames(rendered.canvases) === fx && encodePatch("Explosion") === enc && state.lockFrom === "" && state.paletteLock === "";
+    randomize(); const roll = state.paletteLock === "" && state.lockFrom === "";
+    lib().querySelector('.lib-tab[data-tab="effects"]').click(); await settle();
+    return ok(gone && same0 && roll && !gameLockNew(), "gone " + gone + " · same " + same0 + " · roll " + roll);
   });
 
   // ---- safety ----

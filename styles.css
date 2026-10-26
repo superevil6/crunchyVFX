@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 13;
+    --css-build: 14;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1465,6 +1465,13 @@ main#panels { display: block; }
 .engine.collapsed .cset-row { display: none; }
 .cset-sw { display: inline-flex; flex: none; border: 1px solid var(--drop); }
 .cset-sw i { width: 8px; height: 14px; display: block; }
+/* §38: THE GAME PALETTE. Its switch under "Match my game's colors…" (only while the game has one), and its section heading
+   first in the picker, marked in the accent. */
+.game-pal { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; margin-top: 8px; font-size: 12px; cursor: pointer; }
+.game-pal[hidden], .engine.collapsed .game-pal { display: none; }
+.game-pal b { font-weight: 700; color: var(--accent); }
+.game-pal input { margin: 0; }
+.cset-game h3 { color: var(--accent); }
 .cset-panel { width: min(980px, 100%); height: min(760px, 100%); display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
 .cset-panel > * { flex: none; }
 .cset-panel .setsub { margin: 0; }
