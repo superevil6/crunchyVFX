@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/moments.js @ 667f099 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/moments.js @ f97934f by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 ca7401f758f7d3bd30d1a2331b9a82bb912a6d7ee7d52b9a2c565ca87d7c128e
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
