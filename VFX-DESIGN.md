@@ -2084,3 +2084,44 @@ Rows: desktop `game-palette/the-star-set-here-and-seen-set-by-another-app`, `…
 following or `gameLockNew` cut out, measured); web `palettes/a-kept-set-or-palette-edited-flows-into-the-effect-made-from-it`.
 The §37 card row's action list gains the star's button; the main suite's extras row gains `lockFrom`. Main 698 / async 77 /
 desktop 72 / web 15; frame hash unchanged; godot-check 19.
+
+## 39. Variety: an exported Godot effect that varies every time it plays (2026-10-27)
+
+**Why.** AJ: "a hit effect, with variations it might be at a random angle with a random size. Can we programmatically
+recreate that variance in the premade Godot object?" CrunchySFX's packs (an AudioStreamRandomizer, a different take each
+play) are the precedent.
+
+**What.** A "Variety" section in the Export dialog, shown only for Godot 4 (sheet + Godot metadata). "Vary it every time
+it plays" (off by default) writes the effect's own `variety` PATCH_EXTRA ("k:v,…", `varietyOf`/`varietyString`;
+unknown keys ignored, so append-only), which the share link, undo, My Effects and the planted sidecar carry. Off writes
+"" and every file is byte for byte what it was.
+- **Tweaks each play** (the scene's script, on the SPRITE, so the node's position stays the emitter): flip left-right
+  and/or top-bottom (each on a random half of plays, by a negative scale); turn: none / 90° steps (pixel-crisp,
+  recommended) / any angle (noted as slightly jagged); size: 1× only, 1× or 2×, 1×–3× (whole steps), or a free
+  0.75–1.25× / 0.5–1.5× (noted as uneven pixels); speed ±5/10/20/30% (`speed_scale`); a whole-pixel nudge 0–32.
+- **Baked variations** (None / 3 / 4 / 5, the effect itself first, Reroll): siblings from the Variations engine
+  (`mutateGenome` at the page's default Difference 0.14) under a SEEDED Math.random (the effect's seed and a bake seed),
+  so the same effect always bakes the same family and a planted one never shows "update available" by chance. Two guards
+  the page's human eye supplied before: frame size, duration, fps and seed are pinned (`VARIETY_PINNED`: mutateGenome
+  moves frameW/frameH, and one bake came out a 128×1 frame, a speck), and each sibling's lit pixels must be within half
+  to double the effect's own (12 tries, else the nearest). They are stacked in ONE sheet, ONE SpriteFrames with one
+  animation each (`default`, `variation_2`, …), and the emissive mask stacks the same way.
+- **The scene:** `EFFECT_SCENE_SCRIPT_VARIETY` is the plain script with the Variety exports and `_vary()` spliced in at
+  fixed anchors (it throws at load if one moves; a main-suite row checks it is a superset). Inspector: `flip_h`,
+  `flip_v`, `rotation_mode`, `scale_min`/`scale_max`/`scale_whole`, `speed_percent`, `jitter_px`, `animations` +
+  `impact_frames` + `sound_frames` (each variation's own), `variety_seed` (0: random each run; any other number replays
+  the same sequence), and `variation` (which one the latest play picked). README.txt gains a VARIETY section.
+- Drag out (desktop) writes the plain sheet, so its scene gets the tweaks without the bake (`bake: false`).
+- **Game moments need no change:** CrunchyMoment instantiates the effect scene, so a varied effect varies in a moment.
+  (The Library's moment STAGE preview reads every region of the .tres as one strip, so a baked effect previews its
+  variations back to back there; crunchyCore's `momentFrames`.)
+
+**Proved.** `tests/godot-scene.mjs` 65 (was 31): a fifth export, set through the dialog's own controls (flips, 90°,
+1–2×, ±10%, 2 px, 4 baked), in real Godot 4.7.2: 200 plays: both flips seen, turns only multiples of 90° (all four),
+|scale| 1 or 2 in whole steps, speed within ±10%, whole-pixel nudges ≤ 2, all four animations picked, `impact` once per
+play on that animation's own frame, every play finished and freed; a copy with distinct impact frames (1, 3, 5, 7)
+fires each on its own; variety_seed 77 ×10 identical (seeds 1..10 not); a CrunchyMoment (crunchyCore `momentScene` +
+`MOMENT_GD`) using it shows several variations over 30 plays. Negatives: the four plain exports' `.gd` equals HEAD's
+script byte for byte, their scenes name no Variety and play at scale 1, no turn; the switch on then off gives the
+untouched bundle byte for byte. Frame hash 1f591c9eb230a807 over 306 IDENTICAL; main 709 (9 new), desktop 75 (2 new),
+web 15, godot-check 19.

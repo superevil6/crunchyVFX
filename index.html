@@ -380,7 +380,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 14;   // must match --css-build in styles.css
+  const CSS_BUILD = 15;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1045,7 +1045,11 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        // "mine-palette:<slug>", or a color set's id (the picker's "lock every pixel to the set too"). The
                        // colors still ride in `paletteLock`; this lets the lock FOLLOW that palette's edits where it is
                        // known (followInto). Read by nothing that draws: "" (every lock made before) changes no effect.
-                       lockFrom: "" };
+                       lockFrom: "",
+                       // §39 VARIETY: how the exported Godot scene varies each time it plays (flips, quarter turns,
+                       // scale, speed, jitter) and how many baked sibling variations it picks from, "k:v,k:v" (varietyOf).
+                       // Read only by the Godot export; "" (every effect made before) changes no file.
+                       variety: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -5611,7 +5615,7 @@ async function dragOutSheet() {
     // a Godot drag brings the ready scene too (§26): drop the four files and instance the .tscn
     if (expMetaSel.value === "godot") {
       const named = [{ name: base + ".tres" }];
-      const sc = godotSceneFiles(godotSceneInfo(base, named, Object.assign(exportSettingsNow(), { scales: [1] }), liveExportCtx()), named);
+      const sc = godotSceneFiles(godotSceneInfo(base, named, Object.assign(exportSettingsNow(), { scales: [1], bake: false }), liveExportCtx()), named);
       for (const f of sc) { const fp = await tempFilePath(f.name); await T.fs.writeFile(fp, f.data); items.push(fp); }
     }
     releaseCanvas(sh.cv);
@@ -6103,6 +6107,236 @@ function impactFrameOf(r) {
   }
   return best;
 }
+// ---------- VARIETY: an exported effect that varies every time it plays (§39) ----------
+// AJ (2026-10-27): "a hit effect, with variations it might be at a random angle with a random size. Can we
+// programmatically recreate that variance in the premade Godot object?" Two layers, both opt-in from the Export
+// dialog's Variety section, both riding in the effect's own `variety` PATCH_EXTRA (so its link, My Effects and its
+// planted sidecar carry them; "" = off = every file byte for byte what it was):
+//   1. TWEAKS each play, by the scene's script: a random flip (h/v), a quarter turn (pixel-crisp; any angle is opt-in),
+//      a scale (1x, or WHOLE steps; a free range is opt-in), a speed (± a percent of the fps), a pixel jitter. Seeded by
+//      the node's `variety_seed` (0: different every run).
+//   2. BAKED VARIATIONS: N siblings from the Variations engine itself (mutateGenome, as the Variations page makes them,
+//      at its default Difference), drawn under a seeded Math.random so the same effect always bakes the same siblings
+//      (a planted effect never shows "update available" by chance). They go into ONE sheet (stacked) and ONE
+//      SpriteFrames as separate animations; the scene picks one per play, each with its OWN impact and sound frame.
+// The string: "fh:0,fv:0,r:1,s:1-1,v:0,j:0,b:0,bs:1" (flip h, flip v, rotation 0 none/1 quarter turns/2 any angle,
+// scale "min-max" (an "f" prefix: free), speed ±%, jitter px, baked count (0 or 3..5, the effect itself the first),
+// bake seed). Unknown keys are ignored, so it is append-only like PATCH_EXTRAS itself.
+var VARIETY_DEFAULT = { fh: 0, fv: 0, r: 0, s: "1-1", v: 0, j: 0, b: 0, bs: 1 };
+var VARIETY_SCALES = ["1-1", "1-2", "1-3", "f0.75-1.25", "f0.5-1.5"];
+var VARIETY_AMOUNT = 0.14;
+var VARIETY_PINNED = ["frameSize", "frameW", "frameH", "duration", "fps", "seed"];                       // the Variations page's default Difference
+function varietyOf(st) {
+  const raw = st && typeof st.variety === "string" ? st.variety : "";
+  if (!raw) return null;
+  const o = Object.assign({}, VARIETY_DEFAULT);
+  for (const kv of raw.split(",")) {
+    const i = kv.indexOf(":");
+    if (i < 0) continue;
+    const k = kv.slice(0, i), v = kv.slice(i + 1);
+    if (k === "s") { if (VARIETY_SCALES.indexOf(v) >= 0) o.s = v; }
+    else if (k in o && isFinite(+v)) o[k] = +v;
+  }
+  const cl = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
+  o.fh = o.fh ? 1 : 0; o.fv = o.fv ? 1 : 0; o.r = cl(o.r, 0, 2); o.v = cl(o.v, 0, 50); o.j = cl(o.j, 0, 32);
+  o.b = o.b >= 2 ? cl(o.b, 2, 5) : 0; o.bs = cl(o.bs, 1, 999999);
+  const f = o.s.charAt(0) === "f", mm = o.s.replace(/^f/, "").split("-").map(Number);
+  o.free = f; o.smin = mm[0]; o.smax = mm[1];
+  return o;
+}
+function varietyString(o) {
+  return ["fh:" + (o.fh ? 1 : 0), "fv:" + (o.fv ? 1 : 0), "r:" + (o.r | 0), "s:" + o.s, "v:" + (o.v | 0), "j:" + (o.j | 0),
+          "b:" + (o.b | 0), "bs:" + (o.bs | 0 || 1)].join(",");
+}
+// A seeded Math.random for the bake (mulberry32), put back however the call ends.
+function withSeededRandom(seed, fn) {
+  let a = seed >>> 0;
+  const keep = Math.random;
+  Math.random = function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  try { return fn(); } finally { Math.random = keep; }
+}
+// The baked siblings' genomes (the effect itself not included): the Variations page's engine, seeded by the effect's
+// seed and the bake seed, so the same effect bakes the same family every time.
+function varietyGenomes(st, V) {
+  if (!V || V.b < 2) return [];
+  const base = {};
+  for (const p of PARAMS) base[p[0]] = (p[0] in st) ? st[p[0]] : p[5];
+  for (const k in PATCH_EXTRAS) base[k] = st[k] !== undefined ? st[k] : PATCH_EXTRAS[k];
+  // NOBODY PICKS A BAKED SIBLING BY EYE (the Variations page shows its family first), so each must READ like the
+  // effect: lit pixels (genomePixels, the visibility guard's measure) within half to double the effect's own. Measured:
+  // the plain guard let an Explosion bake a 5x6 px speck as one of four, a quarter of the plays all but invisible.
+  const want = Math.max(40, genomePixels(base));
+  const near = (px) => Math.abs(Math.log(Math.max(1, px) / want));
+  return withSeededRandom(Math.imul((st.seed | 0) + 1, 0x9E3779B1) ^ Math.imul(V.bs, 0x85EBCA6B), () => Array.from({ length: V.b - 1 }, () => {
+    let best = null, bestD = Infinity;
+    for (let i = 0; i < 12; i++) {
+      const g = mutateGenome(base, VARIETY_AMOUNT);
+      // the frame stays the effect's: mutateGenome moves frameW/frameH (kind "size", not skipped), and one bake came out
+      // a 128x1 frame (a speck after trim). One SpriteFrames, one frame size.
+      for (const k of VARIETY_PINNED) g[k] = base[k];
+      const d = near(genomePixels(g));
+      if (d <= Math.LN2) return g;
+      if (d < bestD) { bestD = d; best = g; }
+    }
+    return best;
+  }));
+}
+// Every animation's export context, the effect's own first: [C, sibling 2, …], or null when nothing is baked. The
+// siblings' renders are kept for the last effect asked about (an export asks several times: the sheet, the scene).
+var varietyCache = { key: null, list: null };
+function varietyCtxs(C) {
+  const V = varietyOf(C.st);
+  if (!V || V.b < 2) return null;
+  const key = JSON.stringify(C.st) + "|" + !!C.fit;
+  if (varietyCache.key !== key) {
+    if (varietyCache.list) for (const x of varietyCache.list) for (const cv of x.r.canvases) releaseCanvas(cv);
+    const list = varietyGenomes(C.st, V).map((g) => {
+      const st = fullGenome(g);
+      return { st: st, r: renderFrames(st, { fit: C.fit }), fit: C.fit };
+    });
+    varietyCache = { key: key, list: list };
+  }
+  return [C].concat(varietyCache.list.map((x) => ({ st: x.st, r: x.r, fit: x.fit, ref: C.ref || NO_REF, synth: null, link: null, soundFrame: C.soundFrame | 0 })));
+}
+// The baked sheet: every variation's sheet (the dialog's layout and trim) stacked top to bottom in ONE PNG, its
+// SpriteFrames one animation per variation ("default" is the effect itself, so an AnimatedSprite2D of your own still
+// plays it), and the emissive mask stacked the same way. `name` is the stem with its size suffix.
+var VARIETY_ANIM = (i) => (i ? "variation_" + (i + 1) : "default");
+async function bakedSheetFiles(VC, mult, opts, o, name, files, loop) {
+  const parts = [], so = Object.assign({}, opts, { pot: false });
+  for (const c of VC) {
+    const fr = o.emissive ? framesAtScale(mult, c) : null;
+    const sh = fr ? buildSheet(Object.assign({ frames: fr }, so)) : await buildSheetStreaming(mult, so, c);
+    const em = o.emissive ? buildSheet({ frames: emissiveFrames(sh.frames, c.st), layout: so.layout }) : null;
+    if (fr && fr !== c.r.canvases && fr !== outputCanvases(c)) for (const cv of fr) releaseCanvas(cv);
+    parts.push({ sh: sh, em: em, fps: c.r.fps });
+  }
+  let W = 0, H = 0;
+  for (const p of parts) { p.y = H; H += p.sh.cv.height; W = Math.max(W, p.sh.cv.width); }
+  const stack = (key) => {
+    const cv = document.createElement("canvas");
+    cv.width = opts.pot ? nextPot(W) : W; cv.height = opts.pot ? nextPot(H) : H;
+    const g = cv.getContext("2d");
+    for (const p of parts) g.drawImage(p[key].cv, 0, p.y);
+    return cv;
+  };
+  const cv = stack("sh");
+  files.push({ name: name + ".png", data: new Uint8Array(await (await canvasBlob(cv)).arrayBuffer()) });
+  releaseCanvas(cv);
+  files.push({ name: name + ".tres", data: new TextEncoder().encode(godotTresBaked(parts, name, loop)) });
+  if (o.emissive) {
+    const ec = stack("em");
+    files.push({ name: name + "_emissive.png", data: new Uint8Array(await (await canvasBlob(ec)).arrayBuffer()) });
+    releaseCanvas(ec);
+  }
+  for (const p of parts) { releaseCanvas(p.sh.cv); if (p.em) releaseCanvas(p.em.cv); }
+}
+// sidecarFor's Godot SpriteFrames, one animation per baked variation, every region in the one stacked sheet.
+function godotTresBaked(parts, name, loop) {
+  const subs = [], anims = [];
+  let n = 0;
+  parts.forEach((p, v) => {
+    const sh = p.sh, refs = [];
+    for (let i = 0; i < sh.n; i++) {
+      const id = "AtlasTexture_" + v + "_" + i;
+      const marg = sh.trim ? "margin = Rect2(" + sh.trim.x + ", " + sh.trim.y + ", " + (sh.srcW - sh.w) + ", " + (sh.srcH - sh.h) + ")\n" : "";
+      subs.push('[sub_resource type="AtlasTexture" id="' + id + '"]\natlas = ExtResource("1_tex")\n' +
+        "region = Rect2(" + (i % sh.cols) * sh.w + ", " + (p.y + Math.floor(i / sh.cols) * sh.h) + ", " + sh.w + ", " + sh.h + ")\n" + marg);
+      refs.push('{\n"duration": 1.0,\n"texture": SubResource("' + id + '")\n}');
+      n++;
+    }
+    anims.push('{\n"frames": [' + refs.join(", ") + "],\n" + '"loop": ' + (loop !== false) + ',\n"name": &"' + VARIETY_ANIM(v) + '",\n"speed": ' + p.fps.toFixed(1) + "\n}");
+  });
+  return '[gd_resource type="SpriteFrames" load_steps=' + (n + 2) + ' format=3]\n\n' +
+    '[ext_resource type="Texture2D" path="' + name + '.png" id="1_tex"]\n\n' +
+    subs.join("\n") + "\n[resource]\nanimations = [" + anims.join(", ") + "]\n";
+}
+// THE VARIETY SCRIPT: EFFECT_SCENE_SCRIPT with the Variety settings and _vary() spliced in at fixed lines, so the two
+// can never drift apart (an anchor that moves fails loudly here, at load). Only a varied effect's scene uses it.
+var EFFECT_SCENE_SCRIPT_VARIETY = (function () {
+  const L = EFFECT_SCENE_SCRIPT.split("\n");
+  const at = (line) => { const i = L.indexOf(line); if (i < 0) throw new Error("variety script: anchor gone: " + line); return i; };
+  L.splice(at("@export var sound_frame := 0") + 1, 0,
+    "@export_group(\"Variety\")",
+    "## Mirror the effect left-right on a random half of its plays.",
+    "@export var flip_h := false",
+    "## Mirror it top-bottom on a random half of its plays.",
+    "@export var flip_v := false",
+    "## Turn it at random each play: a quarter turn at a time keeps pixel art crisp; any angle is slightly jagged.",
+    "@export_enum(\"None\", \"90 degree steps\", \"Any angle\") var rotation_mode := 0",
+    "## Scale it at random each play, between these.",
+    "@export var scale_min := 1.0",
+    "@export var scale_max := 1.0",
+    "## Whole steps only (1x, 2x, 3x: every pixel stays square). Off: any scale between (uneven pixels).",
+    "@export var scale_whole := true",
+    "## Vary the playback speed by up to this many percent, faster or slower.",
+    "@export_range(0, 100) var speed_percent := 0.0",
+    "## Move it by up to this many whole pixels from where it was placed.",
+    "@export var jitter_px := 0",
+    "## Baked variations (animations in the SpriteFrames): one is picked at random each play. Empty: the current one.",
+    "@export var animations := PackedStringArray()",
+    "## Each variation's impact frame and sound frame, in the order of [member animations].",
+    "@export var impact_frames := PackedInt32Array()",
+    "@export var sound_frames := PackedInt32Array()",
+    "## 0: different every run. Any other number: the same sequence of plays every run (set it before add_child).",
+    "@export var variety_seed := 0",
+    "",
+    "## Which baked variation the latest play picked (an index into [member animations]).",
+    "var variation := 0",
+    "var _rng := RandomNumberGenerator.new()",
+    "var _seeded := false");
+  const p = at("func play() -> void:");
+  L.splice(p + 3, 0, "\t_vary()");          // after `_started = true` and `_sprite.stop()`, before frame 0
+  L.splice(L.length - 1, 0,
+    "",
+    "# This play's variety: a baked variation (with its own impact and sound frame), then the flips, turn, scale, speed",
+    "# and jitter, all on the sprite, so the node's position stays where it was placed (the emitter).",
+    "func _vary() -> void:",
+    "\tif not _seeded:",
+    "\t\t_seeded = true",
+    "\t\tif variety_seed != 0:",
+    "\t\t\t_rng.seed = variety_seed",
+    "\t\telse:",
+    "\t\t\t_rng.randomize()",
+    "\tif animations.size() > 0:",
+    "\t\tvariation = _rng.randi_range(0, animations.size() - 1)",
+    "\t\t_sprite.animation = animations[variation]",
+    "\t\tif variation < impact_frames.size():",
+    "\t\t\timpact_frame = impact_frames[variation]",
+    "\t\tif variation < sound_frames.size():",
+    "\t\t\tsound_frame = sound_frames[variation]",
+    "\tvar s := scale_min",
+    "\tif scale_max > scale_min:",
+    "\t\tif scale_whole:",
+    "\t\t\ts = float(_rng.randi_range(int(ceil(scale_min)), maxi(int(ceil(scale_min)), int(floor(scale_max)))))",
+    "\t\telse:",
+    "\t\t\ts = _rng.randf_range(scale_min, scale_max)",
+    "\tvar sx := s",
+    "\tvar sy := s",
+    "\tif flip_h and _rng.randi_range(0, 1) == 1:",
+    "\t\tsx = -s",
+    "\tif flip_v and _rng.randi_range(0, 1) == 1:",
+    "\t\tsy = -s",
+    "\t_sprite.scale = Vector2(sx, sy)",
+    "\tif rotation_mode == 1:",
+    "\t\t_sprite.rotation = _rng.randi_range(0, 3) * PI / 2.0",
+    "\telif rotation_mode == 2:",
+    "\t\t_sprite.rotation = _rng.randf() * TAU",
+    "\telse:",
+    "\t\t_sprite.rotation = 0.0",
+    "\t_sprite.speed_scale = 1.0 + _rng.randf_range(-speed_percent, speed_percent) / 100.0 if speed_percent > 0.0 else 1.0",
+    "\tif jitter_px > 0:",
+    "\t\t_sprite.position = Vector2(_rng.randi_range(-jitter_px, jitter_px), _rng.randi_range(-jitter_px, jitter_px))",
+    "\telse:",
+    "\t\t_sprite.position = Vector2.ZERO");
+  return L.join("\n");
+})();
 // Where the emitter sits in the frame, in the frame's pixels: renderPrep's own transform (Fit's centering, or the
 // origin kept at its fraction of the frame), exactly as the frames were drawn. The frame center if anything is missing.
 function effectOriginPx(C) {
@@ -6123,11 +6357,24 @@ function godotSceneInfo(base, files, o, C) {
   const stream = o.sceneSound !== undefined ? o.sceneSound : files.some((x) => x.name === base + ".wav") ? base + ".wav" : null;
   const set = C.soundFrame | 0;
   const org = effectOriginPx(C);
-  return {
+  const info = {
     base: base, name: base, tres: tres, stream: stream, frames: n, fps: C.r.fps, loop: loopFor(o.playback, C.st),
     impact: Math.min(last, set > 0 ? set : impactFrameOf(C.r)), sound: Math.min(last, set),
     offset: { x: Math.round((C.r.w / 2 - org.x) * mult), y: Math.round((C.r.h / 2 - org.y) * mult) },
   };
+  // §39: a varied effect's scene carries its Variety (and, baked, each animation's own impact and sound frame).
+  // `o.bake === false` (Drag out, which writes the plain sheet): the tweaks only.
+  const V = varietyOf(C.st);
+  if (V) {
+    info.variety = V;
+    const VC = o.bake === false ? null : varietyCtxs(C);
+    if (VC) {
+      info.anims = VC.map((c, i) => VARIETY_ANIM(i));
+      info.impacts = VC.map((c) => Math.min(c.r.canvases.length - 1, set > 0 ? set : impactFrameOf(c.r)));
+      info.sounds = VC.map((c) => Math.min(c.r.canvases.length - 1, set));
+    }
+  }
+  return info;
 }
 // The two scene files ({ name, data }, as buildExportFiles's), or none if no .tres was written to point at.
 function godotSceneFiles(info, files) {
@@ -6138,11 +6385,36 @@ function godotSceneFiles(info, files) {
   const off = info.offset.x || info.offset.y ? "offset = Vector2(" + info.offset.x + ", " + info.offset.y + ")\n" : "";
   const tscn = "[gd_scene format=3]\n\n" + res.join("\n") + "\n\n" +
     '[node name="' + node + '" type="Node2D"]\ntexture_filter = 1\nscript = ExtResource("1")\n' +
-    "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n\n" +
+    "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n" + varietyProps(info) + "\n" +
     '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\n' + off +
     (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "");
   const enc = new TextEncoder();
-  return [{ name: info.base + ".gd", data: enc.encode(EFFECT_SCENE_SCRIPT) }, { name: info.base + ".tscn", data: enc.encode(tscn) }];
+  return [{ name: info.base + ".gd", data: enc.encode(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT) }, { name: info.base + ".tscn", data: enc.encode(tscn) }];
+}
+// §39: the scene node's Variety settings ("" for an effect without Variety, so its .tscn is what it was).
+function varietyProps(info) {
+  const V = info.variety;
+  if (!V) return "";
+  const fl = (v) => (Number.isInteger(v) ? v.toFixed(1) : String(v));
+  const L = ["flip_h = " + !!V.fh, "flip_v = " + !!V.fv, "rotation_mode = " + V.r, "scale_min = " + fl(V.smin), "scale_max = " + fl(V.smax),
+    "scale_whole = " + !V.free, "speed_percent = " + fl(V.v), "jitter_px = " + V.j];
+  if (info.anims) {
+    L.push("animations = PackedStringArray(" + info.anims.map((a) => '"' + a + '"').join(", ") + ")",
+      "impact_frames = PackedInt32Array(" + info.impacts.join(", ") + ")", "sound_frames = PackedInt32Array(" + info.sounds.join(", ") + ")");
+  }
+  return L.join("\n") + "\n";
+}
+// In words, for the README and the Export dialog: what varies each play.
+function varietyWords(V, anims) {
+  if (!V) return "";
+  const b = [];
+  if (anims && anims.length > 1) b.push("one of " + anims.length + " baked variations");
+  if (V.fh && V.fv) b.push("flipped either way"); else if (V.fh) b.push("flipped left-right"); else if (V.fv) b.push("flipped top-bottom");
+  if (V.r === 1) b.push("a quarter turn"); else if (V.r === 2) b.push("any angle");
+  if (V.smax > V.smin) b.push(V.free ? V.smin + "x to " + V.smax + "x" : "scaled " + V.smin + "x to " + V.smax + "x in whole steps");
+  if (V.v) b.push("speed \u00b1" + V.v + "%");
+  if (V.j) b.push("moved up to " + V.j + " px");
+  return b.length ? b.join(", ") : "nothing yet (pick what varies)";
 }
 // README.txt: the one-line spawn, the signals, the options. `infos`: one effect, or a pack's (each in `dir`, if any).
 function godotReadme(infos) {
@@ -6173,17 +6445,27 @@ function godotReadme(infos) {
     "",
     "METHODS  play() starts it again from frame 0 · stop() stops it and its sound · is_playing()",
     "",
+  ].concat(infos.some((i) => i.variety) ? [
+    "VARIETY (set in CrunchyVFX's Export dialog; change it in the Inspector)",
+    "  Every play picks again: a baked variation (each keeps its own impact frame), a flip, a turn, a scale,",
+    "  a speed and a jitter, as set. The node's position stays where you put it; the sprite varies.",
+    "  flip_h / flip_v, rotation_mode (0 none, 1 quarter turns, 2 any angle), scale_min / scale_max,",
+    "  scale_whole, speed_percent, jitter_px, animations + impact_frames + sound_frames (the baked ones)",
+    "  variety_seed    0      different every run; any other number replays the same sequence (set it",
+    "                         before add_child). `variation` says which baked one the latest play picked.",
+    "",
+  ] : []).concat([
     "FILES (per effect)",
     "  <name>.tscn  the scene        <name>.gd   its script",
     "  <name>.tres  SpriteFrames for an AnimatedSprite2D (frames, fps, loop)",
     "  <name>.png   the sprite sheet <name>.wav  its sound, when it has one",
     "",
     infos.length === 1 ? "THIS EFFECT" : "THESE EFFECTS",
-  ];
+  ]);
   for (const i of infos) {
     L.push("  " + dir(i) + i.base + ".tscn  " + i.frames + " frames at " + i.fps + " fps, " +
       (i.loop ? "loops (impact on frame " + i.impact + " every time round; never freed)" : "one-shot, impact on frame " + i.impact + ", then finished and freed") +
-      (i.stream ? "; sound on frame " + i.sound : ""));
+      (i.stream ? "; sound on frame " + i.sound : "") + (i.variety ? "; varies each play: " + varietyWords(i.variety, i.anims) : ""));
   }
   L.push("", "Made with CrunchyVFX. CC0: use it in anything, no credit needed.", "");
   return { name: "README.txt", data: new TextEncoder().encode(L.join("\n")) };
@@ -6238,6 +6520,26 @@ expModal.innerHTML =
         '<option value="auto">Auto: loop if Seamless loop is on</option>' +
         '<option value="loop">Loop</option><option value="once">Play once</option>' +
       '</select></div>' +
+      // §39 VARIETY: the Godot scene varies every play (Godot 4 chosen only); saved with the effect, off by default
+      '<div class="exp-row exp-variety" id="expVariety" data-only="sheet"><span>Variety</span><div class="exp-vy">' +
+        '<label class="exp-chk" title="The exported Godot scene picks again every time it plays: a flip, a turn, a size, a speed, a nudge, or one of a few baked variations"><input type="checkbox" id="vyOn"> Vary it every time it plays</label>' +
+        '<div class="exp-vy-body" id="vyBody">' +
+          '<label class="exp-chk"><input type="checkbox" id="vyFh"> Flip left-right</label>' +
+          '<label class="exp-chk"><input type="checkbox" id="vyFv"> Flip top-bottom</label>' +
+          '<label class="exp-vy-sel">Turn <select id="vyRot"><option value="0">None</option>' +
+            '<option value="1">90° steps (pixel-crisp, recommended)</option><option value="2">Any angle (slightly jagged for pixel art)</option></select></label>' +
+          '<label class="exp-vy-sel">Size <select id="vyScale"><option value="1-1">1× only</option>' +
+            '<option value="1-2">1× or 2× (whole steps)</option><option value="1-3">1× to 3× (whole steps)</option>' +
+            '<option value="f0.75-1.25">0.75× to 1.25× (free: uneven pixels)</option><option value="f0.5-1.5">0.5× to 1.5× (free: uneven pixels)</option></select></label>' +
+          '<label class="exp-vy-sel">Speed <select id="vySpeed"><option value="0">The same every play</option>' +
+            '<option value="5">±5%</option><option value="10">±10%</option><option value="20">±20%</option><option value="30">±30%</option></select></label>' +
+          '<label class="exp-vy-sel">Nudge <input type="number" id="vyJit" min="0" max="32" step="1" value="0" aria-label="Nudge in pixels"> px</label>' +
+          '<label class="exp-vy-sel" title="Sibling effects from the Variations engine, baked into the same sheet; the scene picks one each play, each with its own impact frame">Baked variations ' +
+            '<select id="vyBake"><option value="0">None</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>' +
+          '<button id="vyReroll" data-icon="dice" title="Bake a different family">Reroll</button>' +
+          '<span class="exp-vy-strip" id="vyStrip"></span>' +
+          '<span class="exp-vy-note" id="vyNote"></span>' +
+        '</div></div></div>' +
       // A Unity user scanning this list needs to know the omission is a decision, not an
       // oversight — otherwise they go looking for the option that isn't there.
       '<div class="exp-row exp-note-row" data-only="sheet"><span></span>' +
@@ -6281,6 +6583,57 @@ const expSoundRow = expModal.querySelector("#expSoundRow");
 const expPot = expModal.querySelector("#expPot");
 const expMsg = expModal.querySelector("#expMsg");
 const expNote = expModal.querySelector("#expNote");
+// §39 VARIETY: the dialog's controls write the effect's own `variety` (a PATCH_EXTRA: undo, links, My Effects and the
+// planted sidecar all carry it). Off writes "" (the effect's files are then byte for byte what they were); the controls
+// keep their values while off, so ticking it again brings them back.
+var vyEl = {};
+for (const id of ["vyOn", "vyBody", "vyFh", "vyFv", "vyRot", "vyScale", "vySpeed", "vyJit", "vyBake", "vyReroll", "vyStrip", "vyNote"]) vyEl[id] = expModal.querySelector("#" + id);
+var vyBs = 1, vyStripKey = null;
+function vyRead() {
+  return { fh: vyEl.vyFh.checked ? 1 : 0, fv: vyEl.vyFv.checked ? 1 : 0, r: +vyEl.vyRot.value, s: vyEl.vyScale.value,
+           v: +vyEl.vySpeed.value, j: Math.max(0, Math.min(32, Math.round(+vyEl.vyJit.value || 0))), b: +vyEl.vyBake.value, bs: vyBs };
+}
+// The controls from the loaded effect (the dialog opening, an undo)
+function vySync() {
+  const V = varietyOf(state);
+  vyEl.vyOn.checked = !!V;
+  if (V) {
+    vyEl.vyFh.checked = !!V.fh; vyEl.vyFv.checked = !!V.fv; vyEl.vyRot.value = String(V.r); vyEl.vyScale.value = V.s;
+    vyEl.vySpeed.value = [0, 5, 10, 20, 30].indexOf(V.v) >= 0 ? String(V.v) : "10"; vyEl.vyJit.value = String(V.j);
+    vyEl.vyBake.value = V.b ? String(Math.max(3, V.b)) : "0"; vyBs = V.bs;
+  }
+  vyPaint();
+}
+function vyWrite() {
+  state.variety = vyEl.vyOn.checked ? varietyString(vyRead()) : "";
+  commitHistory();
+  vyPaint();
+  refreshExpInfo();
+}
+// The body shows while on; the baked family plays in a strip (the effect itself first), as the Variations page shows it.
+function vyPaint() {
+  const V = varietyOf(state);
+  vyEl.vyBody.hidden = !V;
+  vyEl.vyReroll.hidden = !V || V.b < 2;
+  const key = V && V.b >= 2 ? JSON.stringify(snapshotState()) : "";
+  if (key !== vyStripKey) {
+    vyStripKey = key;
+    clearMinis(vyEl.vyStrip);
+    vyEl.vyStrip.innerHTML = "";
+    if (key) {
+      for (const g of [snapshotState()].concat(varietyGenomes(state, V))) {
+        const cv = document.createElement("canvas");
+        cv.width = cv.height = 64;
+        vyEl.vyStrip.appendChild(cv);
+        miniPlay(cv, g, 64);
+      }
+    }
+  }
+  vyEl.vyNote.textContent = V ? "Each play: " + varietyWords(V, V.b >= 2 ? new Array(V.b) : null) + ". Saved with the effect (its link and the Library too)." +
+    " In Godot, set variety_seed to replay the same sequence." : "";
+}
+for (const id of ["vyOn", "vyFh", "vyFv", "vyRot", "vyScale", "vySpeed", "vyJit", "vyBake"]) vyEl[id].addEventListener("change", vyWrite);
+vyEl.vyReroll.addEventListener("click", () => { vyBs++; vyWrite(); });
 // 8x exists so a 512 frame can reach 4096 for print/marketing. It is genuinely
 // expensive, which is why the dialog estimates the cost before you commit.
 const EXPORT_SCALES = [1, 2, 3, 4, 8];
@@ -6321,6 +6674,7 @@ function refreshExpInfo() {
   if (!rendered) return;
   const fmt = expFormat.value;
   for (const el of expModal.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== fmt;
+  expModal.querySelector("#expVariety").hidden = fmt !== "sheet" || expMetaSel.value !== "godot";   // §39: Godot's scene only
   // the Unity note is for someone choosing generic metadata (or none), not for a Godot, Aseprite or Phaser choice (§25)
   const unityNote = expModal.querySelector(".exp-note-row");
   if (unityNote) unityNote.hidden = fmt !== "sheet" || ["godot", "aseprite", "phaser"].indexOf(expMetaSel.value) >= 0;
@@ -6389,6 +6743,11 @@ function refreshExpInfo() {
     const lp = loopFor(expPlay.value);
     if (expMetaSel.value !== "godot") bits.push(lp ? "Plays as a <b>loop</b>." : "Plays <b>once</b> and stops.");
   }
+  if (fmt === "sheet" && expMetaSel.value === "godot" && varietyOf(state)) {
+    const V = varietyOf(state);
+    bits.push("<b>Variety on:</b> every play picks again (" + varietyWords(V, V.b >= 2 ? new Array(V.b) : null) + ")" +
+      (V.b >= 2 ? "; the " + V.b + " variations share one sheet, one animation each, each with its own impact frame." : "."));
+  }
   if (fmt === "sheet" && expMetaSel.value === "godot") {
     // §26: say it in plain words; the frame is the one the scene will use (the Impact frame set, else the brightest)
     const n = rendered.canvases.length, hit = Math.min(n - 1, soundFrame > 0 ? soundFrame : impactFrameOf(rendered));
@@ -6436,6 +6795,7 @@ document.getElementById("expOpen").addEventListener("click", () => {
   if (!rendered) return;
   expMsg.textContent = "";
   syncExpName();
+  vySync();
   refreshExpInfo();
   expModal.hidden = false;
 });
@@ -6475,7 +6835,11 @@ async function buildExportFiles(onProgress, o) {
     const needsAllFrames = fmt === "apng" || (fmt === "sheet" && o.emissive);
     const frames = needsAllFrames ? framesAtScale(mult, C) : null;
 
-    if (fmt === "sheet") {
+    // §39: a varied effect with baked variations writes ONE stacked sheet + a SpriteFrames of one animation each
+    const VC = fmt === "sheet" && o.meta === "godot" ? varietyCtxs(C) : null;
+    if (VC) {
+      await bakedSheetFiles(VC, mult, opts, o, base + suffix, files, loop);
+    } else if (fmt === "sheet") {
       const sh = frames ? buildSheet(Object.assign({ frames: frames }, opts))
                         : await buildSheetStreaming(mult, opts, C);
       const blob = await canvasBlob(sh.cv);
@@ -7044,7 +7408,7 @@ function decodePatch(str) {
 // range" doesn't give you a sibling, it gives you an unrelated effect. Deriving that half from
 // PARAMS rather than listing it means a new enum can't be added and silently left out — which is
 // exactly what happened when Layer B arrived with three of them.
-const BREED_SKIP = new Set(["duration", "fps", "seed"]);
+const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH"]);   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 

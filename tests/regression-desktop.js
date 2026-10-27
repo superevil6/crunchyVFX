@@ -1202,6 +1202,38 @@
     const bad = text.match(/\b(pro|premium|unlock(ed|s)?)\b/gi);
     return ok(!bad, bad ? bad.join(",") : "");
   });
+  // ---- §39 VARIETY: a varied effect plants its Variety, stays up to date, and the others never move ----
+  await t("variety/a-varied-effect-plants-its-variety-and-stays-up-to-date", async function () {
+    await projDo(function () { return projOpen(GODOT); });
+    await settle();
+    await projCheckUpdates();
+    const before = Object.keys(projUpdates).length;
+    applyPreset(PRESETS["Hit Spark"], "Varied spark", true);
+    document.getElementById("expOpen").click();
+    expFormat.value = "sheet"; expMetaSel.value = "godot"; refreshExpInfo();
+    const set = function (id, v) { if (typeof v === "boolean") vyEl[id].checked = v; else vyEl[id].value = v; vyEl[id].dispatchEvent(new Event("change")); };
+    set("vyOn", true); set("vyFh", true); set("vyRot", "1"); set("vyScale", "1-2"); set("vyBake", "3");
+    const shownRow = shown(document.getElementById("expVariety")) && shown(vyEl.vyStrip);
+    expModal.hidden = true;
+    await press(document.getElementById("plantSave"));
+    const slug = "varied-spark", d = sidecar(slug);
+    const tscn = M.text(ROOT + "/" + slug + "/" + slug + ".tscn") || "", gd = M.text(ROOT + "/" + slug + "/" + slug + ".gd") || "";
+    const tres = M.text(ROOT + "/" + slug + "/" + slug + ".tres") || "";
+    const ex = await exportNow(slug);
+    await projCheckUpdates();
+    const r = d && decodePatch(d.s).variety === state.variety && /b:3/.test(state.variety) && /func _vary\(\)/.test(gd) &&
+      /animations = PackedStringArray\("default", "variation_2", "variation_3"\)/.test(tscn) && /&"variation_3"/.test(tres) &&
+      M.list(ROOT + "/" + slug + "/").filter(function (f) { return /\.png$/.test(f); }).length === 1 &&
+      ex.every(function (f) { return same(M.bytes(ROOT + "/" + slug + "/" + f.name), f.data); }) &&
+      !projUpdates[slug] && Object.keys(projUpdates).length === before && shownRow;
+    return ok(r, JSON.stringify({ s: d && decodePatch(d.s).variety, upd: Object.keys(projUpdates), before: before, shownRow: shownRow }) + " " + tscn.slice(150, 450));
+  });
+  await t("variety/an-effect-without-variety-plants-the-plain-scene", async function () {
+    const gds = M.list(ROOT + "/").filter(function (f) { return /\.gd$/.test(f) && !/varied-spark/.test(f); });
+    const plain = gds.every(function (f) { return M.text(f) === EFFECT_SCENE_SCRIPT && !/flip_h|animations/.test(M.text(f.replace(/\.gd$/, ".tscn")) || ""); });
+    return ok(gds.length > 0 && plain, gds.join(","));
+  });
+
   await t("safety/no-page-errors", function () { return ok(!M.errors.length, M.errors.slice(0, 3).join(" | ")); });
 
   // ?show: end with the docked Library open over the planted Godot folder, to LOOK at it

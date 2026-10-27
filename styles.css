@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 14;
+    --css-build: 15;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -880,6 +880,18 @@
   .exp-row > span:first-child { min-width: 78px; flex: none; }
   .exp-row select { width: auto; min-width: 190px; }
   .exp-row[hidden] { display: none; }
+  /* §39 Variety: the controls wrap under the switch; the baked family plays in a strip */
+  .exp-row.exp-variety { align-items: flex-start; }
+  .exp-vy { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .exp-vy-body { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding-left: 20px; }
+  .exp-vy-sel { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+  .exp-row .exp-vy-sel select { min-width: 0; }
+  .exp-vy-sel input[type="number"] { width: 56px; }
+  .exp-vy-strip { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
+  .exp-vy-strip:empty { display: none; }
+  .exp-vy-strip canvas { width: 64px; height: 64px; image-rendering: pixelated; background: var(--bg, #000); border: 1px solid var(--line, #333); }
+  .exp-vy-note { flex-basis: 100%; font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .exp-vy [hidden] { display: none; }
   .exp-chk { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--ink); font-size: 12px; }
   .exp-chk input { accent-color: var(--accent); cursor: pointer; margin: 0; }
   .exp-scales { display: inline-flex; gap: 14px; flex-wrap: wrap; }

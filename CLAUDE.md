@@ -223,6 +223,10 @@ more particles.
 
 ## Status
 
+- **Variety (§39, 2026-10-27)**: opt-in in the Export dialog (Godot only): the scene varies every play (flips, 90° turns
+  or any angle, 1×/whole-step or free sizes, ±speed, a pixel nudge; `variety_seed` replays) and can pick from 3–5 BAKED
+  siblings (the Variations engine, seeded; one stacked sheet, one animation each, each with its own impact frame). The
+  effect's `variety` PATCH_EXTRA ("" = off = byte for byte). `tests/godot-scene.mjs` proves it in real Godot (moments too).
 - **The game palette + following sets (§38, 2026-10-26, crunchyCore PALETTES.md 4b, palette.js 2)**: an effect made from a
   set (`colorSet`) or locked from a palette (new PATCH_EXTRA `lockFrom`) draws its CURRENT colors where known (`followInto`);
   a palette edit re-checks the planted effects ("update available", Update all). The Palettes tab's star ("Make it the

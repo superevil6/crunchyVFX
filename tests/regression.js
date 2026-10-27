@@ -107,7 +107,7 @@
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
                   orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire",
-                  lockFrom: "palette:not-planted" }, "extras");   // colorSet: §37; lockFrom: §38
+                  lockFrom: "palette:not-planted", variety: "fh:1,r:1,b:3" }, "extras");   // colorSet: §37; lockFrom: §38; variety: §39
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -3799,6 +3799,70 @@
          "every Icon preset draws the icon, upright and still");
       restoreEdit(snap28); effectLabel = label28; syncUI();
     }
+    // ---------------------------------------------------------------- §39: Variety (the Godot scene varies each play)
+    {
+      applyPreset(PRESETS["Hit Spark"], "Hit Spark", true);
+      const plain = encodePatch("x");
+      ok(PATCH_EXTRAS.variety === "" && varietyOf(state) === null && decodePatch(plain).variety === undefined,
+        "variety: off is the neutral default and leaves the link as it was", plain.slice(0, 30));
+      const V = varietyOf({ variety: "fh:1,fv:0,r:7,s:1-3,v:99,j:-4,b:9,bs:3,zz:5" });
+      ok(V && V.fh === 1 && V.r === 2 && V.s === "1-3" && V.smin === 1 && V.smax === 3 && !V.free && V.v === 50 && V.j === 0 && V.b === 5 && V.bs === 3,
+        "variety: values are clamped and unknown keys ignored (append-only)", JSON.stringify(V));
+      ok(varietyOf({ variety: "s:f0.5-1.5" }).free && varietyOf({ variety: "s:9-9" }).s === "1-1", "variety: a free size is marked; an unknown size is 1x", "");
+      // the link round-trips it
+      state.variety = "fh:1,fv:1,r:1,s:1-2,v:10,j:2,b:4,bs:1";
+      const code = encodePatch("Varied");
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+      ok(state.variety === "", "variety: a preset load clears it", state.variety);
+      applyPreset(decodePatch(code), "Varied", true);
+      ok(state.variety === "fh:1,fv:1,r:1,s:1-2,v:10,j:2,b:4,bs:1" && encodePatch("Varied") === code, "variety: the share link round-trips it", state.variety);
+      // the bake is the Variations engine, seeded: the same effect bakes the same family; a reroll another
+      const g1 = JSON.stringify(varietyGenomes(state, varietyOf(state))), g2 = JSON.stringify(varietyGenomes(state, varietyOf(state)));
+      const g3 = JSON.stringify(varietyGenomes(state, Object.assign(varietyOf(state), { bs: 2 })));
+      const fam = varietyGenomes(state, varietyOf(state));
+      ok(fam.length === 3 && g1 === g2 && g1 !== g3 && fam.every((g) => g.shape === state.shape && g.duration === state.duration && g.fps === state.fps) &&
+        fam.some((g) => PARAMS.some((p) => g[p[0]] !== state[p[0]])),
+        "variety: 4 baked = the effect + 3 seeded siblings (same shape, duration, fps; not copies); a reroll bakes others", fam.length + " " + (g1 === g2) + " " + (g1 !== g3));
+      // the variety script is the plain script plus its lines (never drifting from it)
+      const a = EFFECT_SCENE_SCRIPT.split("\n"), b = EFFECT_SCENE_SCRIPT_VARIETY.split("\n");
+      let j = 0;
+      for (const line of b) if (j < a.length && line === a[j]) j++;
+      ok(j === a.length && /func _vary\(\)/.test(EFFECT_SCENE_SCRIPT_VARIETY) && /@export var variety_seed := 0/.test(EFFECT_SCENE_SCRIPT_VARIETY) &&
+        /\t_sprite.stop\(\)\n\t_vary\(\)\n\t_sprite.frame = 0/.test(EFFECT_SCENE_SCRIPT_VARIETY) && !/_vary/.test(EFFECT_SCENE_SCRIPT),
+        "variety: the scene script is the plain one with Variety spliced in (and the plain one untouched)", j + "/" + a.length);
+      // the dialog: Godot only; the switch writes the effect's own field; off writes ""
+      applyPreset(PRESETS["Hit Spark"], "Hit Spark", true);
+      const keepMeta = expMetaSel.value, keepFmt = expFormat.value;
+      document.getElementById("expOpen").click();
+      expFormat.value = "sheet"; expMetaSel.value = "generic"; refreshExpInfo();
+      const row = expModal.querySelector("#expVariety"), shownRow = () => getComputedStyle(row).display !== "none";
+      const hiddenGeneric = !shownRow();
+      expMetaSel.value = "godot"; refreshExpInfo();
+      const shownGodot = shownRow(), bodyOff = getComputedStyle(vyEl.vyBody).display === "none";
+      vyEl.vyOn.checked = true; vyEl.vyOn.dispatchEvent(new Event("change"));
+      vyEl.vyRot.value = "1"; vyEl.vyRot.dispatchEvent(new Event("change"));
+      vyEl.vyBake.value = "3"; vyEl.vyBake.dispatchEvent(new Event("change"));
+      const on = varietyOf(state), strip = vyEl.vyStrip.querySelectorAll("canvas").length, note = expNote.textContent;
+      vyEl.vyOn.checked = false; vyEl.vyOn.dispatchEvent(new Event("change"));
+      ok(hiddenGeneric && shownGodot && bodyOff && on && on.r === 1 && on.b === 3 && strip === 3 && /Variety on/.test(note) && state.variety === "" &&
+        vyEl.vyRot.value === "1", "variety: the Export dialog's section shows for Godot only, writes the effect's field, plays the baked family; off is \"\"",
+        [hiddenGeneric, shownGodot, bodyOff, JSON.stringify(on), strip, state.variety].join(" "));
+      expMetaSel.value = keepMeta; expFormat.value = keepFmt; expModal.hidden = true;
+      // the scene files: a varied effect's scene carries its settings and each baked animation's impact frame
+      state.variety = "fh:1,fv:0,r:1,s:1-2,v:10,j:2,b:3,bs:1";
+      const C = liveExportCtx(), VC = varietyCtxs(C);
+      const info = godotSceneInfo("hs", [{ name: "hs.tres" }], Object.assign(exportSettingsNow(), { scales: [1], meta: "godot", format: "sheet" }), C);
+      const tscn = new TextDecoder().decode(godotSceneFiles(info, [{ name: "hs.tres" }])[1].data);
+      ok(VC.length === 3 && VC[0] === C && /animations = PackedStringArray\("default", "variation_2", "variation_3"\)/.test(tscn) &&
+        tscn.indexOf("impact_frames = PackedInt32Array(" + VC.map((c) => impactFrameOf(c.r)).join(", ") + ")") > 0 && /rotation_mode = 1\n/.test(tscn) &&
+        /scale_max = 2\.0\n/.test(tscn) && /flip_h = true\n/.test(tscn), "variety: the scene names every baked animation with its OWN impact frame", tscn.slice(150, 600));
+      state.variety = "";
+      const plainInfo = godotSceneInfo("hs", [{ name: "hs.tres" }], Object.assign(exportSettingsNow(), { scales: [1] }), liveExportCtx());
+      const pt = new TextDecoder().decode(godotSceneFiles(plainInfo, [{ name: "hs.tres" }])[1].data);
+      ok(!plainInfo.variety && !/flip_h|animations/.test(pt) && /sound_frame = \d+\n\n\[node name="Sprite"/.test(pt), "variety: off, the scene is the plain one", pt.slice(150, 400));
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+    }
+
     // ---------------------------------------------------------------- American spelling
     // AJ, 2026-10-18: "no British spelling … wipe it out everywhere in all apps" (the suite rule). CrunchyUI's
     // copy/on-screen-text-uses-american-spelling, ported: every word the page holds (open panel or folded), every
