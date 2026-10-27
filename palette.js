@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/palette.js @ 2d1c3ee by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/palette.js @ 20d6cb4 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 f1ee7ed724204a504a8e6811e690d3e9dec1ae1741fc9e59b227ee5c2dfe1a72
 "use strict";
 // crunchyCore — SHARED PALETTES (PALETTES.md, AJ 2026-10-25: palettes are "used darn near everywhere"). One palette model

@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/moments.js @ 2d1c3ee by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 819b5e411511ed019b0bff6d924ab5beb77c5f33bebefefc0ac21113dff80638
+// GENERATED from crunchyCore/moments.js @ 20d6cb4 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 a1d9baee5012cfc631f9428deea2e027b62a2edf31810ce8100a97bcdf54ece1
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
 // CrunchySFX sound, a CrunchyShader hit look, a screen shake and a beat of hit stop into ONE Godot node:
@@ -15,7 +15,7 @@
 // played through: frame_override 0 -> last, or progress 0 -> 100 -> 0) and gets its own material back.
 // Pure: strings only.
 
-const MOMENT_BUILD = 4;   // 4: overlapping moments (rapid hits) hand back the ORIGINAL look, camera offset and time scale, never an earlier hit's (AJ: the fire look stayed on Skelly); 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
+const MOMENT_BUILD = 5;   // 5: the stage previews only a varied effect's FIRST animation (VFX Variety bakes one per variation); 4: overlapping moments (rapid hits) hand back the ORIGINAL look, camera offset and time scale, never an earlier hit's (AJ: the fire look stayed on Skelly); 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
 
 const MOMENT_GD = [
   "class_name CrunchyMoment",
@@ -344,9 +344,18 @@ async function momentPieces(P) {
 }
 // What the stage reads from a VFX effect's own files: the SpriteFrames' regions and speed, and the scene's impact frame.
 function momentFrames(tres) {
-  const regions = [], re = /region = Rect2\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\)/g;
-  let m;
+  let regions = [], m;
+  const re = /region = Rect2\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\)/g;
   while ((m = re.exec(tres))) regions.push({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] });
+  // build 5: a SpriteFrames with several animations (CrunchyVFX's Variety: one per baked variation) plays only its
+  // FIRST animation here, in that animation's own frame order; a game picks among them itself. One animation: as before.
+  const byId = {}, sub = /\[sub_resource type="AtlasTexture" id="([^"]+)"\][^[]*?region = Rect2\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)\s*\)/g;
+  while ((m = sub.exec(tres))) byId[m[1]] = { x: +m[2], y: +m[3], w: +m[4], h: +m[5] };
+  const first = /"frames":\s*\[([\s\S]*?)\]\s*,\s*"loop"/.exec(tres), many = (tres.match(/"name":/g) || []).length > 1;
+  if (first && many) {
+    const ids = Array.from(first[1].matchAll(/SubResource\("([^"]+)"\)/g), (x) => x[1]).filter((id) => byId[id]);
+    if (ids.length) regions = ids.map((id) => byId[id]);
+  }
   const sp = /"speed":\s*([\d.]+)/.exec(tres), lp = /"loop":\s*(true|false)/.exec(tres);
   return { regions: regions, fps: sp ? +sp[1] : 12, loop: !!(lp && lp[1] === "true") };
 }
