@@ -2125,3 +2125,13 @@ fires each on its own; variety_seed 77 ×10 identical (seeds 1..10 not); a Crunc
 script byte for byte, their scenes name no Variety and play at scale 1, no turn; the switch on then off gives the
 untouched bundle byte for byte. Frame hash 1f591c9eb230a807 over 306 IDENTICAL; main 709 (9 new), desktop 75 (2 new),
 web 15, godot-check 19.
+
+## 40. The SFX engine catch-up (2026-10-28): the frame hash re-recorded on purpose
+
+VFX's vendored CrunchySFX synth (`crunchysfx-synth.js`) had stayed pinned at SFX v1.1.0. It is now pulled from SFX
+`a6296b6` (v1.2.1 plus SFX-1.3-PLAN's bugs-and-foundation pass, `tools/pull-synth.py --check` OK). That pass fixed a crash
+(a custom-reverb link threw a ReferenceError in this copy) and changed no SFX sound (SFX's audio hash identical).
+Exactly ONE frame-hash line moved: `EXPORT "sound:Hit Spark"` (8a6e12898e771aee → 16c59af5226c06c6), with the FRAMEHASH
+total (1f591c9eb230a807 → c598150557e54c32). The cause is the 1.1 → 1.2 engine catch-up (e.g. its DC block), shown by
+exporting SFX's earlier commit 32c21d8 into this repo, which moves the identical line. So VFX's effect sounds now match what
+CrunchySFX exports today. Re-recorded as MEANT (AJ, 2026-10-28). No frame moved.

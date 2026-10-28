@@ -1,8 +1,8 @@
 {
   "_comment": "Written by tools/pull-synth.py. crunchysfx-synth.js is a GENERATED vendored file \u2014 edit the CrunchySFX sources and re-pull, never the copy.",
   "source": "crunchysfx",
-  "version": "1.1.0",
-  "built": "56e16c0",
-  "sha256": "a51a7c2d487aa97b0a5a12c4baf18ca01b4e1a9c4aaeab7ea7b776d284336f91",
-  "bytes": 90308
+  "version": "1.2.1",
+  "built": "a6296b6",
+  "sha256": "dc5e567665b1cde1f50fd6866ebea1d6c4c3b70e5852023770a3e0435ad4aca8",
+  "bytes": 112478
 }

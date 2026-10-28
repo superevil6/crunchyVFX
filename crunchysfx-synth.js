@@ -1,11 +1,11 @@
 /*! CrunchySFX synthesis engine — GENERATED FILE, DO NOT EDIT.
  *
  *  Everything here is compiled from the CrunchySFX sources; edit those and re-export instead.
- *  Exposes exactly one global: CrunchySynth { render, encodeWav, DEFAULTS, PARAMS, SR, VERSION, BUILT, SHA256 }.
+ *  Exposes exactly one global: CrunchySynth { render, masterStage, encodeWav, decodePatch, DEFAULTS, PARAMS, SR, VERSION, BUILT, SHA256 }.
  *
- *    source   crunchysfx v1.1.0 (56e16c0)
+ *    source   crunchysfx v1.2.1 (a6296b6)
  *    from     dsp.js + synth.js + the PARAMS defaults
- *    sha256   a51a7c2d487aa97b0a5a12c4baf18ca01b4e1a9c4aaeab7ea7b776d284336f91   (of everything below this banner, with the SHA256 field blanked)
+ *    sha256   dc5e567665b1cde1f50fd6866ebea1d6c4c3b70e5852023770a3e0435ad4aca8   (of everything below this banner, with the SHA256 field blanked)
  *
  *  Regenerate:  python3 tools/export-synth.py          (in the crunchysfx repo)
  *  Re-vendor:   python3 tools/pull-synth.py            (in the crunchyvfx repo)
@@ -448,7 +448,7 @@ function makeImpact(n, tone, decay, punch, grit, seed) {
 }
 
 // ---------- Whoosh / air (sword swings, whips, arrows, thrown things, cloth) ----------
-// The "pass-by" gesture: turbulent noise through a bandpass whose CENTRE FREQUENCY and AMPLITUDE
+// The "pass-by" gesture: turbulent noise through a bandpass whose CENTER FREQUENCY and AMPLITUDE
 // both swell up and fall together (that coupling is what makes a swing read as a swing — hard to
 // fake with a plain envelope + filter sweep). Builds ONE gesture over `n` samples; render() reads
 // it at `lt` so it retriggers per burst shot (combos), with `n` set to one shot's slot. Deterministic
@@ -459,7 +459,7 @@ function makeWhoosh(n, tone, sweep, body, peak, seed) {
   if (n < 2) return out;
   let s = (seed >>> 0) || 0x51ce5ab1;
   const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 * 2 - 1; };
-  const fcBase = 300 * Math.pow(13, tone);          // ~300 Hz (dull) .. ~3.9 kHz (sharp) band centre
+  const fcBase = 300 * Math.pow(13, tone);          // ~300 Hz (dull) .. ~3.9 kHz (sharp) band center
   const sweepOct = 0.5 + sweep * 2.5;               // octaves the band rises at mid-swing
   const Q = 0.7 + body * 6;                          // broad/airy .. narrow/whistly
   const pk = 0.15 + peak * 0.6;                      // where amplitude + pitch peak (early flick .. late swing)
@@ -597,6 +597,34 @@ function makeSpeech(n, text, freq, size, rateScale, seed) {
   return out;
 }
 
+// Natural length (samples) of an utterance at rate 1 — used to fit spoken text to a sound's duration.
+function speechLen(text) {
+  let nat = 0;
+  for (const key of textToPhonemes(text)) {
+    if (key === "_") { nat += 0.05 * SR; continue; }
+    const sp = SPEECH_PHON[key]; if (!sp) continue;
+    if (sp.stop) nat += 0.045 * SR;
+    nat += Math.max(4, (sp.d || 120) / 1000 * SR);
+  }
+  return nat;
+}
+
+// Parse a word into the sequence of vowel positions (0..1 across A E I O U) the formant engine
+// morphs through, so a voice can "say" the vowels you type (raaawr → o-a, wooo → held o, hello →
+// e-o). Consonants are ignored — this engine has no consonants; for full words use the Speech
+// engine. Consecutive identical vowels collapse to one held target. Returns [] when text has none.
+const VOWEL_POS = { a: 0.0, e: 0.25, i: 0.5, o: 0.75, u: 1.0, y: 0.5 };
+function formantVowelPath(text) {
+  const out = [];
+  const s = String(text || "").toLowerCase();
+  for (let k = 0; k < s.length; k++) {
+    const p = VOWEL_POS[s[k]];
+    if (p === undefined) continue;
+    if (out.length === 0 || out[out.length - 1] !== p) out.push(p);
+  }
+  return out;
+}
+
 // Fill the 3 formant bandpass coefficient sets for a vowel (0..1 morph A→E→I→O→U), voice size, and
 // Q. Shared by the static precompute and the per-sample vowel-LFO path (RBJ bandpass; b1=0, b2=−b0).
 function computeFormantCoeffs(vowel, size, Q, b0, a1, a2) {
@@ -610,7 +638,81 @@ function computeFormantCoeffs(vowel, size, Q, b0, a1, a2) {
   }
 }
 
+// Same, but from EXPLICIT formant freqs (for speaking — consonant/nasal targets aren't on the
+// A→U vowel line). size scales them (voice size). RBJ bandpass; b1=0, b2=−b0.
+function computeFormantCoeffsF(f1, f2, f3, size, Q, b0, a1, a2) {
+  const fv = [f1, f2, f3];
+  for (let fi = 0; fi < 3; fi++) {
+    const fc = Math.max(60, Math.min(0.45 * SR, fv[fi] * size));
+    const w0 = 2 * Math.PI * fc / SR, alpha = Math.sin(w0) / (2 * Q), a0 = 1 + alpha;
+    b0[fi] = alpha / a0; a1[fi] = -2 * Math.cos(w0) / a0; a2[fi] = (1 - alpha) / a0;
+  }
+}
+
+// Per-sample control timeline for the formant engine to SPEAK text: target formant freqs (F1/F2/F3,
+// unscaled), voicing (1 buzz / 0 noise / ~0.35 mix), and amplitude — same phoneme durations/stops/
+// glides as makeSpeech, but the formant loop supplies its OWN source, so its growl/tilt/breath AND
+// pitch tracking carry through (unlike makeSpeech, which is a fixed-pitch prebuilt buffer). rate>1
+// speeds a long word to fit; stops insert a closure silence then the burst falls out of the phoneme.
+function buildFormantSpeechPlan(n, text, rate) {
+  const f1 = new Float32Array(n), f2 = new Float32Array(n), f3 = new Float32Array(n),
+        voi = new Float32Array(n), amp = new Float32Array(n);
+  const phon = textToPhonemes(text), rs = Math.max(0.25, rate);
+  let idx = 0, last = [500, 1500, 2500];
+  const hold = (cnt, v) => { for (let k = 0; k < cnt && idx < n; k++, idx++) { f1[idx] = last[0]; f2[idx] = last[1]; f3[idx] = last[2]; voi[idx] = v; amp[idx] = 0; } };
+  for (const key of phon) {
+    if (key === "_") { hold(Math.floor(0.05 * SR / rs), 1); continue; }              // word gap
+    const sp = SPEECH_PHON[key]; if (!sp) continue;
+    if (sp.stop) hold(Math.floor(0.045 * SR / rs), 0);                               // stop closure = silence
+    const dur = Math.max(4, Math.floor((sp.d || 120) / 1000 * SR / rs));
+    const t0 = sp.f, t1 = sp.to || sp.f, v = sp.v == null ? 1 : sp.v, a = sp.a == null ? 1 : sp.a;
+    for (let k = 0; k < dur && idx < n; k++, idx++) {
+      const fr = k / dur;
+      f1[idx] = t0[0] + (t1[0] - t0[0]) * fr; f2[idx] = t0[1] + (t1[1] - t0[1]) * fr; f3[idx] = t0[2] + (t1[2] - t0[2]) * fr;
+      voi[idx] = v; amp[idx] = a;
+    }
+    last = sp.to || sp.f;
+  }
+  for (; idx < n; idx++) { f1[idx] = last[0]; f2[idx] = last[1]; f3[idx] = last[2]; voi[idx] = 0; amp[idx] = 0; }   // trailing silence
+  return { f1, f2, f3, voi, amp };
+}
+
 // ---------- Master finishing stage ----------
+// DC blocker: a one-pole highpass at ~18 Hz, always on. In place, no gate.
+//
+// WHY IT IS NEEDED, when the oscillator is already DC-centered: it is, and `drive` undoes it. A
+// centered 25%-duty pulse sits at +1.5 for a quarter of the cycle and −0.5 for three quarters — no
+// DC, but amplitude-ASYMMETRIC — and tanh squashes the tall positive spike far harder than the
+// shallow negative one. The mean goes negative, worse the narrower the duty and the harder the
+// drive. Measured on single notes downstream in CrunchyBGM: 50% duty is clean, 25% reads −0.27,
+// and a 15% duty at drive 0.25 reads −0.44. Nearly half of full scale, on one voice.
+//
+// It matters here for two separate reasons:
+//
+//   1. A one-shot with an offset STEPS the signal on and off, so a sound used repeatedly in a game
+//      lays a low-frequency thump under every trigger. In a sequenced context — CrunchyBGM playing
+//      one of these as an instrument — it reads as a constant rumble, which is how it was found.
+//   2. It corrupts loudness normalization. `rawPeak` in renderPatch is measured across the offset,
+//      so a driven narrow-pulse sound looks louder than it is and gets normalized DOWN. Removing
+//      the offset first makes NORM_TARGET mean what it says.
+//
+// Cold-started on purpose, unlike CrunchyBGM's version of this: a sound effect begins at silence,
+// so there is nothing to prime from and the settling IS the correct behavior. (BGM's buffer is a
+// seamless loop, so it primes on the tail or its own transient lands on the loop point.) The ~9 ms
+// time constant is well below the shortest attack here and a highpass passes transients anyway, so
+// the click at the front of a percussive sound survives intact.
+function dcBlock(L, R) {
+  const n = L.length;
+  if (!n) return;
+  const a = 1 - 2 * Math.PI * 18 / SR;      // ~18 Hz: below anything audible, above the offset
+  let xl = 0, yl = 0, xr = 0, yr = 0;
+  for (let i = 0; i < n; i++) {
+    const l = L[i], r = R[i];
+    yl = l - xl + a * yl; xl = l; L[i] = yl;
+    yr = r - xr + a * yr; xr = r; R[i] = yr;
+  }
+}
+
 // Transient shaper: emphasize (+) or soften (−) attacks. A fast and a slow envelope follower
 // track the signal; their difference (fast − slow) is positive during an attack, so scaling by
 // it punches up (amount>0) or rounds off (amount<0) transients. In place, gated on amount≠0.
@@ -731,10 +833,28 @@ function reverbProcess(L, R, size, tone, wet) {
     }
   }
 }
+
+// ── Share-link codec ─────────────────────────────────────────────────────────────────────────
+// decodePatch lives HERE, not in index.html, so the bundle can carry it (see EXPORTS in
+// tools/export-synth.py). A consumer that accepts a CrunchySFX share link needs to decode it, and
+// hand-copying six lines of codec into a sibling repo is exactly the drift that gave CrunchyVFX an
+// SFX_DEFAULTS table with 25 of 106 params. The payload is version-tagged (`v`), so the day this
+// grows a v2 branch, every consumer gets it by re-pulling rather than by remembering to.
+//
+// Returns the raw payload { v, s: <diff against PARAMS defaults>, n?: normalize, t?: title }.
+// Its counterpart encodePatch stays in index.html on purpose: it reads the app's `state` and the
+// current label, so it is not pure and could never be exported.
+function decodePatch(str) {
+  let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  const obj = JSON.parse(atob(b64));
+  if (!obj || typeof obj.s !== "object") throw new Error("unrecognized link");
+  return obj;
+}
 // ==== synth.js =============================================================================
 // CrunchySFX — the synthesis core: one patch object in, stereo audio out.
 //
-// Extracted from index.html so the engine can be exported and reused (CrunchyVFX synthesises
+// Extracted from index.html so the engine can be exported and reused (CrunchyVFX synthesizes
 // its matched sounds with this exact code). Loaded via <script src="synth.js"> AFTER dsp.js and
 // BEFORE the main <script> — classic scripts share one global scope, like presets.js.
 //
@@ -744,7 +864,18 @@ function reverbProcess(L, R, size, tone, wet) {
 //
 //   renderPatch(st, opts) -> { L, R, rawPeak }
 //     st   — a patch: the same flat key/value shape as PRESETS entries and `state`.
-//     opts — { sample: Float32Array|null, normalize: boolean }, both optional.
+//     opts — all optional, every default renders exactly as before:
+//       sample    Float32Array|null   imported mono audio at SR (the "sample" wave; granular's source)
+//       normalize boolean (true)      loudness-normalize quiet sounds (the app's Normalize button)
+//       customIR  {L, R}|null         a loaded impulse response for the "Custom IR" space (convType 4).
+//                                     None given = that space stays dry, as in the app with no IR loaded.
+//       raw       boolean (false)     SFX 1.3, for layers: stop BEFORE the master stage (normalize, gain,
+//                                     fade, limiter, clip, reverse) so a mix bus can sum layers and run
+//                                     one master stage over the sum (masterStage below).
+//       seedSalt  integer (0)         SFX 1.3, for layers: shifts every fixed seed (noise, grains, bubbles,
+//                                     particles, impact, whoosh, additive drift, speech breath, synth IRs)
+//                                     so two layers of one engine don't produce identical noise. 0 = the
+//                                     seeds as they always were (an exact no-op).
 //
 // rawPeak is the pre-normalization peak, so callers can tell "quiet" from "silent".
 
@@ -761,6 +892,12 @@ function renderPatch(st, opts) {
   // app: no loaded sample, normalization on.
   const sampleBuf = opts.sample || null;
   const normalizeOut = opts.normalize !== false;
+  // The loaded impulse response used to be read here as the app global `customIR`, which the exported bundle never
+  // declares: a convType 4 link threw a ReferenceError in CrunchyVFX and BGM (SFX 1.3 bug 3). It comes in like the sample.
+  const customIR = opts.customIR || null;
+  // Salt for every fixed seed below. 0 returns the seed untouched, so every existing sound is byte-identical.
+  const salt = (opts.seedSalt | 0) >>> 0;
+  const sd = (s) => salt ? ((s ^ Math.imul(salt, 0x9e3779b1)) >>> 0) || 1 : s;
 
   const dur = st.duration;
   const n = Math.max(1, Math.floor(dur * SR));
@@ -783,9 +920,26 @@ function renderPatch(st, opts) {
   const baseCut = st.cutoff;
   const filtEnv = st.filtEnv;
   const fmode = Math.round(st.filterMode);   // 0 LP, 1 HP, 2 BP, 3 notch, 4 peak
+  /* THE MISSING PRIMITIVE FOR A WAH. `filtEnv` sweeps the cutoff with the AMP envelope, which on
+   * anything with a fast attack is over in tens of milliseconds — a spectral click, not a sweep. A
+   * wah pedal moves the cutoff on its own clock, independently of the note, and nothing here could
+   * do that: measured on a guitar patch, `filtEnv` at full moves the spectral centroid 1.19x on an
+   * undriven voice and 1.02x on a driven one, against a 1.05x control that has no filter envelope
+   * at all. (Drive is applied AFTER the filter, so a distorted voice flattens the peak entirely.)
+   *
+   * DEPTH 0 IS EXACTLY THE OLD EXPRESSION. The term below is added inside `Math.pow(2, …)`, and
+   * adding an exact 0 to a float is exact — so every preset that does not ask for a wah renders
+   * bit-for-bit as it did, by construction rather than by test.
+   *
+   * -cos, NOT sin, so a note starts heel-down and sweeps UP. A sine starts mid-travel and moving in
+   * an arbitrary direction, which is the shape `vibOnset` was added to fix for the vibrato: over a
+   * short note there is no second half to cancel the first, so the note simply sits somewhere the
+   * player never put it. */
+  const wahRate = st.wahRate || 0, wahDepth = st.wahDepth || 0;
+  const wahOn = wahRate > 0 && wahDepth > 0;
 
   // deterministic LCG so exports are reproducible
-  let seed = 22222;
+  let seed = sd(22222);
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed / 4294967296) * 2 - 1; };
 
   // unison: V detuned voices, each with its own phase + equal-power stereo pan.
@@ -815,6 +969,7 @@ function renderPatch(st, opts) {
   const isPluck = waveType === 8;
   const ksBuf = isPluck ? new Float32Array(2206) : null;   // max length at 20 Hz
   let ksN = 0, ksIdx = 0, ksPrevShot = -1;
+  let ksC = 0, ksApX = 0, ksApY = 0;                  // fractional-delay allpass (see below)
   const ksRho = 0.999 - 0.02 * st.pluckDamp;            // string decay (higher damp -> shorter)
   // Imported WAV as the source (wave "sample"): read position advances at a varispeed
   // rate set by the pitch controls. Plays once from the start, then silence.
@@ -848,7 +1003,7 @@ function renderPatch(st, opts) {
   let granL = null, granR = null;
   if (isGranular) {
     const src = (sampleBuf && sampleBuf.length > 1) ? sampleBuf : granSynthSource();
-    const gr = makeGranular(src, n, baseFreq, st.grainSize, st.grainDensity, st.grainSpray, st.grainScan, st.grainSpread, 0x00c0ffee);
+    const gr = makeGranular(src, n, baseFreq, st.grainSize, st.grainDensity, st.grainSpray, st.grainScan, st.grainSpread, sd(0x00c0ffee));
     granL = gr.L; granR = gr.R;
   }
   // Custom drawn wave (wave 12): band-limit the drawing to this note's highest frequency (up-sweep
@@ -877,36 +1032,58 @@ function renderPatch(st, opts) {
   const F_N = 3, fmB0 = new Float64Array(F_N), fmA1 = new Float64Array(F_N), fmA2 = new Float64Array(F_N);
   const fmX1 = new Float64Array(F_N), fmX2 = new Float64Array(F_N), fmY1 = new Float64Array(F_N), fmY2 = new Float64Array(F_N);
   const fmBreath = st.formantBreath;
+  // Source character (both 0 = original saw source → byte-identical). fmTilt darkens the source
+  // (one-pole LP: saw → mellow glottal pulse); fmRough adds subharmonic AM + period jitter (growl).
+  const fmTilt = isFormant ? Math.max(0, Math.min(1, st.formantTilt)) : 0;
+  const fmRough = isFormant ? Math.max(0, Math.min(1, st.formantRough)) : 0;
+  let fmLp = 0, fmSubPh = 0, fmJit = 1;   // tilt LP state, subharmonic-AM phase, per-period pitch jitter
   const fmQ = 4 + Math.max(0, Math.min(1, st.formantQ)) * 16;   // formant sharpness
   const fmLfoRate = st.formantLfoRate, fmLfoDepth = st.formantLfoDepth;
   const fmLfoOn = isFormant && fmLfoRate > 0 && fmLfoDepth > 0;    // vowel morphs over time
-  // Static vowel → coeffs are constant, precompute once (unchanged path). LFO on → recompute
-  // per sample from the morphing vowel (in the osc branch below).
-  if (isFormant && !fmLfoOn) computeFormantCoeffs(st.formantVowel, st.formantSize, fmQ, fmB0, fmA1, fmA2);
+  // "Say" text → morph the vowel through the vowels you typed (overrides the LFO). fmPathN>=2 means
+  // move over the sound's duration; ==1 means a single held vowel (static, precomputed like below).
+  const fmPath = isFormant ? formantVowelPath(st.speechText) : [];
+  const fmPathN = fmPath.length;
+  // Consonants: the vowel path can't shape them, so a WORD (text with any consonant) drives a phoneme
+  // TIMELINE that the formant loop below speaks with its OWN source — so growl/tilt/breath AND pitch
+  // (sweep/vibrato) carry through: it's the same voice, not a separate robot. Only-vowel text (aeiou,
+  // ooo) keeps the sustained vowel-morph path above.
+  const fmSayText = isFormant ? String(st.speechText || "") : "";
+  const fmSpeak = isFormant && /[bcdfghjklmnpqrstvwxyz]/i.test(fmSayText);
+  let fmPlan = null;
+  if (fmSpeak) {
+    const rate = Math.max(1, Math.min(4, speechLen(fmSayText) / Math.max(1, n)));   // natural pace; speed up only if the word overruns
+    fmPlan = buildFormantSpeechPlan(n, fmSayText, rate);
+  }
+  const fmCf = [500, 1500, 2500];   // gliding formant freqs (speak mode)
+  let fmVoi = 1, fmAmp = 0;         // eased voicing + amplitude (speak mode)
+  // Static vowel → coeffs are constant, precompute once (unchanged path). LFO / multi-vowel Say / a
+  // spoken word → recompute per sample from the morphing target (in the osc branch below).
+  if (isFormant && !fmLfoOn && !fmSpeak && fmPathN < 2) computeFormantCoeffs(fmPathN === 1 ? fmPath[0] : st.formantVowel, st.formantSize, fmQ, fmB0, fmA1, fmA2);
   // Bubble / water (wave "bubble"): built up front into a stereo buffer, then read per-sample.
   const isBubble = waveType === 14;
   let bubL = null, bubR = null;
   if (isBubble) {
-    const b = makeBubbles(n, baseFreq, st.bubbleRate, st.bubbleRise, st.bubbleSpread, st.bubbleDecay, 0x00b0bb1e);
+    const b = makeBubbles(n, baseFreq, st.bubbleRate, st.bubbleRise, st.bubbleSpread, st.bubbleDecay, sd(0x00b0bb1e));
     bubL = b.L; bubR = b.R;
   }
   // Particle / crackle (wave "particle"): built up front into a stereo buffer, then read per-sample.
   const isParticle = waveType === 15;
   let parL = null, parR = null;
   if (isParticle) {
-    const pr = makeParticles(n, st.particleTone, st.particleRate, st.particleDecay, st.particleSpread, 0x00facade);
+    const pr = makeParticles(n, st.particleTone, st.particleRate, st.particleDecay, st.particleSpread, sd(0x00facade));
     parL = pr.L; parR = pr.R;
   }
   // Impact / blast (wave "impact"): one percussive transient, front-loaded at index 0; read at
   // `lt` in the loop so it retriggers per burst shot (full-auto). Mono; body via boom layer.
   const isImpact = waveType === 19;
   let impactBuf = null;
-  if (isImpact) impactBuf = makeImpact(n, st.impactTone, st.impactDecay, st.impactPunch, st.impactGrit, 0x1a2b3c4d);
+  if (isImpact) impactBuf = makeImpact(n, st.impactTone, st.impactDecay, st.impactPunch, st.impactGrit, sd(0x1a2b3c4d));
   // Whoosh / air (wave "whoosh"): one swing gesture sized to a shot's slot, read at `lt` so combos
   // (repeat) retrigger a fresh swish. Mono.
   const isWhoosh = waveType === 20;
   let whooshBuf = null;
-  if (isWhoosh) { const wlen = Math.max(2, Math.min(n, Math.round(slot * SR))); whooshBuf = makeWhoosh(wlen, st.whooshTone, st.whooshSweep, st.whooshBody, st.whooshPeak, 0x51ce5ab1); }
+  if (isWhoosh) { const wlen = Math.max(2, Math.min(n, Math.round(slot * SR))); whooshBuf = makeWhoosh(wlen, st.whooshTone, st.whooshSweep, st.whooshBody, st.whooshPeak, sd(0x51ce5ab1)); }
   // Additive / spectral pad (wave "additive"): sum of `addPartials` harmonics, each with its own
   // slow amplitude-drift LFO (random rate/phase) → evolving pad. Per-partial data is constant
   // across the render, so precompute it once; only the partial phases advance per sample.
@@ -920,7 +1097,7 @@ function renderPatch(st, opts) {
   if (isAdditive) {
     nAdd = Math.max(1, Math.min(ADD_MAX, Math.round(st.addPartials)));
     const exp = 2 - 1.8 * st.addTilt, det = st.addDetune;
-    let s = 0x5eed1234 >>> 0;
+    let s = sd(0x5eed1234 >>> 0);
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };   // deterministic
     let norm = 0;
     for (let k = 0; k < nAdd; k++) {
@@ -937,13 +1114,67 @@ function renderPatch(st, opts) {
   // Speech (wave "speech"): render the text to a mono buffer up front, then read it per-sample.
   const isSpeech = waveType === 17;
   let speechBuf = null;
-  if (isSpeech) speechBuf = makeSpeech(n, st.speechText, baseFreq, st.speechSize, st.speechRate, 0x5eec0de);
+  if (isSpeech) speechBuf = makeSpeech(n, st.speechText, baseFreq, st.speechSize, st.speechRate, sd(0x5eec0de));
   // 4-operator FM (wave "FM 4op"): per-sample; ops evaluated 3→2→1→0 so mods resolve in one pass.
   const isFM4 = waveType === 18;
   const fmRatio = [1, st.fmRatio2, st.fmRatio3, st.fmRatio4];
   const fmPh = [0, 0, 0, 0], fmOut = [0, 0, 0, 0];
   let fmFbPrev = 0, fmPrevShot = -1;
   const fmModDepth = st.fmIndex * 6, fmFbAmt = st.fmFeedback * 5;
+  /*
+   * THE OPERATORS RUN AT 2x AND ARE DECIMATED THROUGH A REAL FILTER.
+   *
+   * They were four bare `Math.sin` phase accumulators at SR with nothing above Nyquist removed, so
+   * every sideband FM puts up there folded back as an inharmonic image. Measured downstream in
+   * CrunchyBGM across the twelve records on this wave: 0.5% fold-over at MIDI 60 and 23% at MIDI
+   * 84, growing ~8.7 dB/octave, against a real four-operator synth (a TX81Z, read from a CC0
+   * library) whose off-grid share is near-flat at 1.5 dB/octave. It is the measured cause of "FM
+   * sounds harsh" — fold-over is inharmonic, which is what harsh sounds like.
+   *
+   * THE DECIMATOR IS THE DESIGN DECISION, NOT THE OVERSAMPLING FACTOR, and the numbers say so:
+   *
+   *     decimator                       gain at 2x   at 4x
+   *     brick wall (the ceiling)          16.7 dB    51.8 dB
+   *     boxcar, i.e. `driveOS`'s method    4.7 dB     7.5 dB
+   *     FIR 63 taps                       14.3 dB    13.2 dB
+   *     FIR 127 taps                      16.5 dB    14.5 dB
+   *     FIR 255 taps                      16.7 dB    18.3 dB
+   *
+   * Three things in that table. **2x is SATURATED at 16.7 dB** — that is its ceiling and not a
+   * filter limitation, so 127 taps reaches all but 0.2 dB of what is available and 255 doubles the
+   * cost for nothing. **Averaging is not a lowpass**: a boxcar's nulls sit at multiples of SR, so
+   * it barely touches the region just above the base Nyquist, which is exactly where the fold-over
+   * is — the 7.5 dB it buys is about what retuning the patches buys. And **a FIXED filter gets
+   * WORSE as the rate rises** (63 taps: 14.3 at 2x, 13.2 at 4x), because the cutoff moves down to
+   * 0.5/O while the transition band does not narrow with it. So 4x is not "more of the same": the
+   * 51.8 dB ceiling there needs a filter far past 255 taps, which is not something to run per
+   * sample. 2x with a proper filter beats 4x with this one.
+   *
+   * Windowed sinc, Blackman, 127 taps, cutoff at the base Nyquist. Causal, so it costs a fixed
+   * ~1.4 ms of group delay on this wave alone; a delay does not change a magnitude spectrum, so
+   * the measured figure holds, and it is far under any onset that matters. The delay line resets
+   * per shot exactly as `fmPh` does, or a note inherits the tail of the one before it.
+   *
+   * `tests/measure-fmalias.mjs` in CrunchyBGM prints all of the above and takes
+   * `--decim=brick|box|fir --taps=N`, so the choice is reproducible rather than remembered.
+   */
+  const FM_OS = 2;
+  const FM_TAPS = 127;
+  const fmH = new Float64Array(FM_TAPS);
+  if (isFM4) {
+    const H = (FM_TAPS - 1) >> 1, fc = 0.5 / FM_OS;
+    let hs = 0;
+    for (let t = 0; t < FM_TAPS; t++) {
+      const m = t - H;
+      const sinc = m === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * m) / (Math.PI * m);
+      const w = 0.42 - 0.5 * Math.cos(2 * Math.PI * t / (FM_TAPS - 1))
+              + 0.08 * Math.cos(4 * Math.PI * t / (FM_TAPS - 1));
+      fmH[t] = sinc * w; hs += fmH[t];
+    }
+    for (let t = 0; t < FM_TAPS; t++) fmH[t] /= hs;
+  }
+  const fmHist = new Float64Array(FM_TAPS);   // oversampled history, newest at fmHistI
+  let fmHistI = 0;
   const fmAlg = FM_ALGOS[Math.round(st.fmAlgo)] || FM_ALGOS[0];
   const fmMods = fmAlg.mods, fmCarr = fmAlg.carriers;
 
@@ -965,7 +1196,11 @@ function renderPatch(st, opts) {
     const prog = slot > 0 ? Math.min(1, lt / slot) : 0;
 
     const sweepMul = Math.pow(2, sweep * 4 * prog);
-    const vib = st.vibDepth * Math.sin(vibPhase);
+    // Vibrato blooms in over `vibOnset` seconds (per shot, via lt). Default 0 → onset=1 → byte-
+    // identical. A short note otherwise inherits vibrato's first half-cycle as a mean-pitch offset
+    // (sin starts at 0 rising), so it lands sharp; ramping the depth from 0 keeps the onset on pitch.
+    const vibOn = st.vibOnset > 0 ? Math.min(1, lt / st.vibOnset) : 1;
+    const vib = st.vibDepth * Math.sin(vibPhase) * vibOn;
     // arpeggio: each repeat shot steps arpStep semitones (default 0 → ×1, so unchanged)
     const arpMul = st.arpStep ? Math.pow(2, st.arpStep * shotIdx / 12) : 1;
     const f = baseFreq * sweepMul * Math.pow(2, vib * 0.5) * arpMul;
@@ -999,13 +1234,40 @@ function renderPatch(st, opts) {
       // (re-)excite the delay line at each shot, then pluck one sample out of it
       if (shotIdx !== ksPrevShot) {
         ksPrevShot = shotIdx;
-        ksN = Math.min(2205, Math.max(2, Math.round(SR / Math.max(20, fOsc))));
+        // THE DELAY LINE IS FRACTIONAL. `round(SR/f)` alone is wrong twice over, and the two
+        // errors are of different kinds:
+        //
+        //   1. The loop reads the NEXT sample as well as the current one, so it is `ksN - 0.5`
+        //      samples long and sounds SR/(ksN - 0.5), not SR/ksN. That half-sample is
+        //      unconditional, so NO pitch was in tune — not one.
+        //   2. `round()` quantizes, so neighboring semitones are out by DIFFERENT amounts. That
+        //      is worse than a uniform offset: a uniform one is a key change nobody can hear,
+        //      this one detunes intervals against each other. Measured downstream in CrunchyBGM
+        //      across the 25 records that use this wave: 26.1% of generated notes over 10 cents
+        //      out, reaching 65 cents at MIDI 95, and adjacent semitones up to 54 cents apart.
+        //
+        // The fix carries the fractional part in a first-order ALLPASS in the loop (below). An
+        // allpass rather than the textbook linear interpolation because |H| = 1 at every
+        // frequency: the in-loop averager IS the string's damping, and letting the fraction ride
+        // on its coefficient would make decay a function of pitch. Measured at 0.3 cents worst,
+        // with decay, peak level and CrunchyBGM's `instrumentGain` all unmoved.
+        //
+        // `ksFrac` is kept in [0.5, 1.5) — the band a first-order allpass is well behaved in, since
+        // its pole walks toward z = -1 as the fraction goes to 0.
+        const ksD = Math.min(2205.49, Math.max(2.5, SR / Math.max(20, fOsc)));
+        ksN = Math.floor(ksD);
+        const ksFrac = ksD - ksN + 0.5;                  // 0.5..1.5
+        ksC = (1 - ksFrac) / (1 + ksFrac);
+        ksApX = 0; ksApY = 0;
         ksIdx = 0;
         for (let j = 0; j < ksN; j++) ksBuf[j] = rnd();
       }
       const y = ksBuf[ksIdx];
       const nxt = ksIdx + 1 >= ksN ? 0 : ksIdx + 1;
-      ksBuf[ksIdx] = (y + ksBuf[nxt]) * 0.5 * ksRho;   // lowpass-in-the-loop = damping
+      const ksU = (y + ksBuf[nxt]) * 0.5 * ksRho;      // lowpass-in-the-loop = damping
+      const ksW = ksC * (ksU - ksApY) + ksApX;         // fractional delay, |H| = 1 (see above)
+      ksApX = ksU; ksApY = ksW;
+      ksBuf[ksIdx] = ksW;
       ksIdx = nxt;
       oscL = y; oscR = y;                              // mono, centered (ignores unison)
     } else if (isModal) {
@@ -1023,11 +1285,26 @@ function renderPatch(st, opts) {
     } else if (isGranular) {
       oscL = granL[i]; oscR = granR[i];               // prebuilt grain cloud (already stereo)
     } else if (isFormant) {
-      // buzz source (band-limited saw) + optional breath noise, through 3 formant resonators
-      if (fmLfoOn) computeFormantCoeffs(st.formantVowel + fmLfoDepth * Math.sin(2 * Math.PI * fmLfoRate * t), st.formantSize, fmQ, fmB0, fmA1, fmA2);
+      // Pick the formant coeffs + source voicing/amp for this sample. Non-speak modes leave voi=1,
+      // ampMul=1 → byte-identical to before. Every mode's source is the SAME buzz below, so its
+      // pitch tracks fOsc (sweep/vibrato) — a spoken word bends too, unlike the old speech buffer.
+      let voi = 1, ampMul = 1;
+      if (fmPlan) {                                     // speaking a word: glide toward phoneme targets
+        fmCf[0] += (fmPlan.f1[i] - fmCf[0]) * 0.005; fmCf[1] += (fmPlan.f2[i] - fmCf[1]) * 0.005; fmCf[2] += (fmPlan.f3[i] - fmCf[2]) * 0.005;
+        fmVoi += (fmPlan.voi[i] - fmVoi) * 0.02; fmAmp += (fmPlan.amp[i] - fmAmp) * 0.01;
+        voi = fmVoi; ampMul = fmAmp;
+        computeFormantCoeffsF(fmCf[0], fmCf[1], fmCf[2], st.formantSize, fmQ, fmB0, fmA1, fmA2);
+      } else if (fmPathN >= 2) {                        // "Say" pure vowels: morph over the duration
+        const x = (i / n) * (fmPathN - 1), k = Math.min(fmPathN - 2, x | 0);
+        computeFormantCoeffs(fmPath[k] + (fmPath[k + 1] - fmPath[k]) * (x - k), st.formantSize, fmQ, fmB0, fmA1, fmA2);
+      } else if (fmLfoOn) computeFormantCoeffs(st.formantVowel + fmLfoDepth * Math.sin(2 * Math.PI * fmLfoRate * t), st.formantSize, fmQ, fmB0, fmA1, fmA2);
       const dt = fOsc / SR;
-      fmPhase += dt; if (fmPhase >= 1) fmPhase -= 1;
-      let src = waveform(2, fmPhase, dt, 0.25);
+      fmPhase += dt * fmJit;                            // fmJit=1 unless Growl engaged (per-period jitter)
+      if (fmPhase >= 1) { fmPhase -= 1; if (fmRough > 0) fmJit = 1 + (rnd() * 2 - 1) * fmRough * 0.06; }
+      let buzz = waveform(2, fmPhase, dt, 0.25);        // voiced glottal source (saw)
+      if (fmTilt > 0) { fmLp += (1 - fmTilt * 0.97) * (buzz - fmLp); buzz = fmLp * (1 + fmTilt); }   // darken → mellow
+      if (fmRough > 0) { fmSubPh += dt * 0.5; if (fmSubPh >= 1) fmSubPh -= 1; buzz *= 1 - fmRough * 0.9 * (0.5 - 0.5 * Math.cos(2 * Math.PI * fmSubPh)); }  // growl
+      let src = voi >= 1 ? buzz : voi * buzz + (1 - voi) * (rnd() * 2 - 1);   // unvoiced phoneme (fricative/stop burst) → noise
       if (fmBreath > 0) src = src * (1 - fmBreath) + (rnd() * 2 - 1) * fmBreath;
       let y = 0;
       for (let fi = 0; fi < F_N; fi++) {
@@ -1035,7 +1312,7 @@ function renderPatch(st, opts) {
         fmX2[fi] = fmX1[fi]; fmX1[fi] = src; fmY2[fi] = fmY1[fi]; fmY1[fi] = o;
         y += o * FORMANT_GAIN[fi];
       }
-      oscL = y * 1.6; oscR = y * 1.6;                 // mono, centered; makeup for a healthy level
+      oscL = y * 1.6 * ampMul; oscR = y * 1.6 * ampMul;   // mono, centered; makeup for a healthy level
     } else if (isBubble) {
       oscL = bubL[i]; oscR = bubR[i];                 // prebuilt bubble cloud (already stereo)
     } else if (isParticle) {
@@ -1062,20 +1339,35 @@ function renderPatch(st, opts) {
     } else if (isSpeech) {
       const v = speechBuf[i]; oscL = v; oscR = v;     // prebuilt speech utterance (mono)
     } else if (isFM4) {
-      if (shotIdx !== fmPrevShot) { fmPrevShot = shotIdx; fmPh[0] = fmPh[1] = fmPh[2] = fmPh[3] = 0; fmFbPrev = 0; }
-      let s3 = 0;
-      for (let oi = 3; oi >= 0; oi--) {                // higher ops first (they modulate lower ops)
-        let modIn = oi === 3 ? fmFbAmt * fmFbPrev : 0;
-        const md = fmMods[oi];
-        for (let m = 0; m < md.length; m++) modIn += fmOut[md[m]];
-        const raw = Math.sin(2 * Math.PI * fmPh[oi] + modIn);
-        fmPh[oi] += fOsc * fmRatio[oi] / SR; if (fmPh[oi] >= 1) fmPh[oi] -= 1;
-        if (oi === 3) s3 = raw;
-        fmOut[oi] = fmCarr.indexOf(oi) >= 0 ? raw : raw * fmModDepth;   // carrier = audio; modulator = radians
+      if (shotIdx !== fmPrevShot) {
+        fmPrevShot = shotIdx; fmPh[0] = fmPh[1] = fmPh[2] = fmPh[3] = 0; fmFbPrev = 0;
+        fmHist.fill(0); fmHistI = 0;                  // …and the decimator's tail, or the note
+      }                                               // inherits the end of the previous one
+      // FM_OS operator updates per OUTPUT sample, each pushed into the decimator's history. The
+      // phase increment is per OVERSAMPLED sample, which is the whole point.
+      for (let q = 0; q < FM_OS; q++) {
+        let s3 = 0;
+        for (let oi = 3; oi >= 0; oi--) {              // higher ops first (they modulate lower ops)
+          let modIn = oi === 3 ? fmFbAmt * fmFbPrev : 0;
+          const md = fmMods[oi];
+          for (let m = 0; m < md.length; m++) modIn += fmOut[md[m]];
+          const raw = Math.sin(2 * Math.PI * fmPh[oi] + modIn);
+          fmPh[oi] += fOsc * fmRatio[oi] / (SR * FM_OS); if (fmPh[oi] >= 1) fmPh[oi] -= 1;
+          if (oi === 3) s3 = raw;
+          fmOut[oi] = fmCarr.indexOf(oi) >= 0 ? raw : raw * fmModDepth;  // carrier = audio; modulator = radians
+        }
+        fmFbPrev = s3;
+        let v = 0; for (let c = 0; c < fmCarr.length; c++) v += fmOut[fmCarr[c]];
+        fmHist[fmHistI] = v / fmCarr.length;
+        fmHistI = fmHistI + 1 >= FM_TAPS ? 0 : fmHistI + 1;
       }
-      fmFbPrev = s3;
-      let y = 0; for (let c = 0; c < fmCarr.length; c++) y += fmOut[fmCarr[c]];
-      y /= fmCarr.length;
+      // Polyphase in effect: the filter is evaluated once per OUTPUT sample, not once per
+      // oversampled one, so the cost is FM_TAPS multiply-adds a sample rather than FM_OS times it.
+      let y = 0;
+      for (let t = 0; t < FM_TAPS; t++) {
+        let j = fmHistI - 1 - t; if (j < 0) j += FM_TAPS;
+        y += fmH[t] * fmHist[j];
+      }
       oscL = y; oscR = y;                             // mono, centered
     } else {
       // Wave-Morph blend factor at this sample: A→B start (morph) plus a sweep over the sound's
@@ -1138,7 +1430,11 @@ function renderPatch(st, opts) {
     // (Zavalishin). Unconditionally stable at ALL cutoffs; the old Chamberlin SVF
     // self-oscillated at Nyquist once cutoff neared SR/4, which turned bright sounds
     // into 22 kHz buzz that plays back as clicks/silence.
-    let cut = baseCut * Math.pow(2, filtEnv * 3 * prog);
+    // WAH_OCTAVES 1.5: a Cry Baby sweeps roughly 400 Hz to 2 kHz, which is a little over two
+    // octaves peak to peak — so ±1.5 from center at full depth, and the record picks its own center
+    // with `cutoff`.
+    const wah = wahOn ? wahDepth * 1.5 * -Math.cos(2 * Math.PI * wahRate * lt) : 0;
+    let cut = baseCut * Math.pow(2, filtEnv * 3 * prog + wah);
     cut = Math.min(Math.max(cut, 20), 20000);
     const g = Math.tan(Math.PI * cut / SR);
     const k = Math.max(2 - 1.9 * st.reso, 0.1);       // damping = 1/Q
@@ -1257,8 +1553,8 @@ function renderPatch(st, opts) {
         else { const t = toneIR(customIR.L, customIR.R, st.convTone); irL = t.L; irR = t.R; }   // Conv tone darkens it
       }
     } else {                                                // built-in synthesized spaces (Room/Hall/Plate/Spring)
-      irL = makeIR(ct, st.convSize, st.convTone, 0x1234abcd);
-      irR = makeIR(ct, st.convSize, st.convTone, 0x9e3779b9);
+      irL = makeIR(ct, st.convSize, st.convTone, sd(0x1234abcd));
+      irR = makeIR(ct, st.convSize, st.convTone, sd(0x9e3779b9));
     }
     if (irL) {                                              // (Custom IR selected but none loaded → skip, stays dry)
       const wetL = convolveFFT(L, irL), wetR = convolveFFT(R, irR);
@@ -1270,12 +1566,27 @@ function renderPatch(st, opts) {
   // master transient shaper (punch up / soften attacks) — before normalize since it moves peaks
   if (st.transient !== 0) transientShape(L, R, st.transient);
 
+  // Remove any DC the drive stage put back (see dcBlock). BEFORE the peak measurement below, and
+  // for the same reason the transient shaper is: an offset counts toward rawPeak, so a driven
+  // narrow-pulse sound measures louder than it sounds and normalization then pulls it DOWN.
+  dcBlock(L, R);
+
   // measure intrinsic peak (before gain) for loudness normalization + audibility
   let rawPeak = 0;
   for (let i = 0; i < n; i++) {
     const a = Math.abs(L[i]); if (a > rawPeak) rawPeak = a;
     const b = Math.abs(R[i]); if (b > rawPeak) rawPeak = b;
   }
+  if (opts.raw) return { L, R, rawPeak };   // layers: the mix bus runs one masterStage over the sum
+  masterStage(L, R, st, rawPeak, normalizeOut);
+  return { L, R, rawPeak };
+}
+
+// THE MASTER STAGE: loudness normalize, gain + fade-out, limiter, safety clip, reverse. In place. Moved out of
+// renderPatch verbatim (SFX 1.3) so a layered sound can run it ONCE over its mix; `rawPeak` is the peak measured just
+// before it. Same arithmetic in the same order, so a single sound's bytes are unchanged.
+function masterStage(L, R, st, rawPeak, normalizeOut) {
+  const n = L.length;
   // normalize quiet-but-present sounds up to a consistent level (capped so we never
   // amplify near-silence into hiss); the user gain then trims from there.
   let norm = 1;
@@ -1306,7 +1617,6 @@ function renderPatch(st, opts) {
     const dc = Math.min(fade, last >> 1) || 1;
     for (let i = 0; i < dc; i++) { const k = i / dc; L[i] *= k; R[i] *= k; L[last - i] *= k; R[last - i] *= k; }
   }
-  return { L, R, rawPeak };
 }
 
 // ---------- WAV encoding ----------
@@ -1427,6 +1737,7 @@ const PARAMS = [
   ["sweep",      "Pitch sweep",-1, 1, 0.01, 0, "",  "Oscillator"],
   ["vibDepth",   "Vibrato",    0, 1, 0.01, 0, "",   "Oscillator"],
   ["vibRate",    "Vib rate",   0, 40, 0.1, 6, "Hz", "Oscillator"],
+  ["vibOnset",   "Vib onset",  0, 1, 0.01, 0, "s",  "Oscillator"],
   ["unison",     "Unison",     1, 7, 1, 1, "v",     "Oscillator"],
   ["detune",     "Detune",     0, 50, 0.5, 12, "ct","Oscillator"],
   // Pulse width + PWM (applies to the pulse wave); pluck damping (Karplus-Strong). These live in
@@ -1462,6 +1773,12 @@ const PARAMS = [
   ["formantSize", "Voice size", 0.5, 2, 0.01, 1, "",   "Formant"],
   ["formantQ",    "Formant Q",  0, 1, 0.01, 0.5, "",   "Formant"],
   ["formantBreath","Breath",    0, 1, 0.01, 0, "",     "Formant"],
+  // Source character — the missing lever. The buzz source used to be a fixed saw, so patches only
+  // differed by vowel/size and converged. Tilt darkens the source (saw → mellow/rounded glottal
+  // pulse: coos, oohs, soft voices); Rough adds subharmonic AM + period jitter (creak / vocal fry /
+  // growl). Both default 0 = the original saw, so existing presets stay byte-identical.
+  ["formantTilt", "Source tone",0, 1, 0.01, 0, "",     "Formant"],
+  ["formantRough","Growl",      0, 1, 0.01, 0, "",     "Formant"],
   // Vowel LFO — slowly morphs the vowel over time so the voice "talks" (aa-ee-oo). Both default 0
   // (off) so existing formant presets are unchanged.
   ["formantLfoRate","Vowel rate",0, 8, 0.01, 0, "Hz",  "Formant"],
@@ -1531,6 +1848,11 @@ const PARAMS = [
   ["cutoff",     "Cutoff",     40, 12000, 1, 8000, "Hz", "Filter"],
   ["reso",       "Resonance",  0, 0.95, 0.01, 0.1, "",   "Filter"],
   ["filtEnv",    "Filter env", -1, 1, 0.01, 0, "",       "Filter"],
+  // A wah: the cutoff on its own clock rather than the note's. `filtEnv` above sweeps with the AMP
+  // envelope, so on anything with a fast attack it is over in milliseconds — a spectral click. Both
+  // default to 0 and the term is added inside an exponent, so every existing preset is bit-identical.
+  ["wahRate",    "Wah rate",   0, 8, 0.01, 0, "Hz",     "Filter"],
+  ["wahDepth",   "Wah depth",  0, 1, 0.01, 0, "",       "Filter"],
   // Crunch
   ["drive",      "Drive",      0, 1, 0.01, 0.1, "",  "Crunch"],
   ["driveOS",    "Drive OS",   1, 8, 1, 1, "x",     "Crunch"],
@@ -1577,15 +1899,21 @@ const DEFAULTS = {};
 for (const p of PARAMS) DEFAULTS[p[0]] = p[5];
 
 root.CrunchySynth = {
-  VERSION: "1.1.0",
-  BUILT: "56e16c0",
-  SHA256: "a51a7c2d487aa97b0a5a12c4baf18ca01b4e1a9c4aaeab7ea7b776d284336f91",
+  VERSION: "1.2.1",
+  BUILT: "a6296b6",
+  SHA256: "dc5e567665b1cde1f50fd6866ebea1d6c4c3b70e5852023770a3e0435ad4aca8",
   SR: SR,
   PARAMS: PARAMS,
   DEFAULTS: DEFAULTS,
-  // renderPatch(patch, { sample, normalize }) -> { L, R, rawPeak }
+  // renderPatch(patch, { sample, normalize, customIR, raw, seedSalt }) -> { L, R, rawPeak }
   render: renderPatch,
+  // masterStage(L, R, patch, rawPeak, normalize): normalize, gain, fade, limiter, clip, reverse, in place
+  // (what render does after its effects; with { raw: true } a mix bus calls it once over a sum).
+  masterStage: masterStage,
   // encodeWav(L, R, { rate, depth, channels, loop, title }) -> ArrayBuffer
   encodeWav: encodeWav,
+  // decodePatch(shareLinkString) -> { v, s: <diff against DEFAULTS>, n?, t? }
+  // Lets a consumer accept a CrunchySFX share link as an instrument without copying the codec.
+  decodePatch: decodePatch,
 };
 })(typeof window !== "undefined" ? window : globalThis);

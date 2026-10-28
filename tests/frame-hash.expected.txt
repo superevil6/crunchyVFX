@@ -301,8 +301,8 @@ VFX EXPORT "Old Broadcast|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"as
 VFX EXPORT "Fireball|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 1c4db6f26d753907
 VFX EXPORT "Heal Pulse|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" 5ed0ca5b613ce018
 VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" eb35008107e31524
-VFX EXPORT "sound:Hit Spark" 8a6e12898e771aee
+VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
 VFX BATCH "crunchyvfx-pack.zip" f3795229d7289800
-VFX FRAMEHASH 1f591c9eb230a807 over 306
+VFX FRAMEHASH c598150557e54c32 over 306
 VFX END PASS 306 hashes
