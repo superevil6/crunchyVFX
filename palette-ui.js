@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/palette-ui.js @ 20d6cb4 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/palette-ui.js @ 20c93fe by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 8acad1be450a8b23c3a1fc10f7bbf5d6b3b33b04758d3f44dcd9c4335c475610
 "use strict";
 // crunchyCore — THE PALETTE EDITOR (PALETTES.md step 1; the moment window's shape). One window for the whole suite:
