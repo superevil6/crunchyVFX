@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ 8dbe68a by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 14279f1c74c283aa068b6d20a3812daf64720134adc6b4c9ad031cbec16d82b2
+// GENERATED from crunchyCore/shader.js @ 528a24f by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 f9795b9d0871e14f2c470bc57a9e28cc9e1e60a8a0a4d6d6ee588f4c55903bea
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -46,6 +46,8 @@
 //                         frame 0 → 0 and frame FRAMES-1 → 100
 //   sugar (no new ops):   S.clamp(v, lo, hi)   S.mix(a, b, t, n) = a + (b - a) * t / n (floor)
 //                         S.mixc(c1, c2, t, n) the same per channel (free)   S.table([ints…], i) values[clamp(i)]
+//                         S.wave(phase, period, amp) amp · sin(360° · phase / period), floored (build 47: a smooth
+//                         wave with no table; S.wave(S.frame, S.FRAMES, 8) loops, S.wave(S.x, 32, 4) a 32 px stripe)
 // Loops (an outline's neighbors, a flame's column) are JS loops in the effect: the IR is the unrolled result. Only
 // nearest and palIndex are loops in the printed shaders (over the palette's colors in use).
 //
@@ -65,6 +67,9 @@
 //     transition: "covered",              a transition (screen): the `progress` param is required; progress 0 is the
 //                                         plain image, 100 is "covered" (every pixel one color) or this text says
 //                                         what 100 means instead (e.g. "the largest blocks")
+//     backdrop: { blend: 100 },           (build 47, a generator) with these params every pixel is its own field or, in
+//                                         a gap, the picture untouched (never a mix): it can stand BEHIND a game, over
+//                                         the game's flat clear color (shaderGodotBackdropFiles)
 //     reworks: true,                      (build 42, a "covered" transition) on the way to covered it also MOVES, SHADES or
 //                                         BLENDS the picture (paintmelt slides it down, flashcut fades it toward the cover),
 //                                         so it cannot be drawn alone over a clear picture: an engine must give it the
@@ -94,7 +99,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 46;
+const SHADER_BUILD = 47;
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -225,6 +230,14 @@ function shaderBuilder(def) {
         return S.sel(S.lt(k, mid), half(lo, mid - 1), half(mid, hi));
       };
       return half(0, values.length - 1);
+    },
+    // a smooth wave: amplitude · sin(360° · phase / period), floored, in −amplitude .. amplitude (build 47). phase and
+    // period are ints (S.frame and S.FRAMES make a closed loop; S.x and 32 a stripe 32 px wide); the sine is
+    // shaderMotionSin's (Bhaskara I, floored: within 2.2 / 1000), so every target computes it alike. A period <= 0 gives 0.
+    wave: function (phase, period, amplitude) {
+      const d = S.mod(S.div(S.mul(phase, 360), period), 360), h = S.mod(d, 180), p = S.mul(h, S.sub(180, h));
+      const v = S.div(S.mul(p, 4000), S.sub(40500, p));
+      return S.div(S.mul(S.sel(S.lt(d, 180), v, S.neg(v)), amplitude), 1000);
     },
   };
   return S;
@@ -1311,8 +1324,8 @@ function shaderGodotFiles(name, params, base, sprite) {
 function shaderGodotOverlayFiles(name, params, opts) {
   opts = opts || {};
   const def = shaderDef(name), P = shaderParamDefs(def), prm = shaderParams(def, params), id = shaderNameOf(name), base = opts.base || "res://";
-  const pixel = Math.max(1, Math.floor(opts.pixel || 1)), layer = Math.floor(opts.layer || 100);
-  const sh = id + "_overlay.gdshader", mat = id + "_overlay.tres", scn = id + "_overlay.tscn";
+  const pixel = Math.max(1, Math.floor(opts.pixel || 1)), layer = Math.floor(opts.layer || 100), as = opts.as === "backdrop" ? "backdrop" : "overlay";
+  const sh = id + "_" + as + ".gdshader", mat = id + "_" + as + ".tres", scn = id + "_" + as + ".tscn";
   const rows = [];
   Object.keys(P).forEach(function (k) {
     rows.push("shader_parameter/" + k + " = " + shaderGodotValue(P[k], prm[k]));
@@ -1322,13 +1335,23 @@ function shaderGodotOverlayFiles(name, params, opts) {
   const tres = ["[gd_resource type=\"ShaderMaterial\" load_steps=2 format=3]", "",
     "[ext_resource type=\"Shader\" path=\"" + base + sh + "\" id=\"1\"]", "", "[resource]", "shader = ExtResource(\"1\")"]
     .concat(rows, [""]).join("\n");
-  const node = id.split(/[^a-z0-9]+/i).filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join("") + "Overlay";
+  const node = id.split(/[^a-z0-9]+/i).filter(Boolean).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join("") + (as === "backdrop" ? "Backdrop" : "Overlay");
   const tscn = ["[gd_scene load_steps=2 format=3]", "",
     "[ext_resource type=\"Material\" path=\"" + base + mat + "\" id=\"1\"]", "",
     "[node name=\"" + node + "\" type=\"CanvasLayer\"]", "layer = " + layer, "",
     "[node name=\"Effect\" type=\"ColorRect\" parent=\".\"]", "material = ExtResource(\"1\")",
     "anchors_preset = 15", "anchor_right = 1.0", "anchor_bottom = 1.0", "grow_horizontal = 2", "grow_vertical = 2", "mouse_filter = 2", ""].join("\n");
   return [{ name: sh, data: shaderPrintGodot(name, params, { overlay: true, pixel: pixel }) }, { name: mat, data: tres }, { name: scn, data: tscn }];
+}
+
+// THE BACKDROP (build 47; BACKDROP-HANDOFF.md): a generator (def.backdrop) as a background BEHIND a game. The same one node
+// as the overlay, named <id>_backdrop.* / <Pascal>Backdrop, on CanvasLayer -110: behind the game (layer 0) and behind a
+// ParallaxBackground (-100), so the game draws over it and its clear pixels show the field. Under it is only the game's
+// clear color: with the def's backdrop params merged over the person's, each pixel is the field or (in a gap: between
+// copper bars, above the fire) that clear color. opts as the overlay's (pixel, layer, base). Proved in real Godot by tests/shader-godot-overlay.mjs.
+function shaderGodotBackdropFiles(name, params, opts) {
+  opts = opts || {};
+  return shaderGodotOverlayFiles(name, params, { pixel: opts.pixel, base: opts.base, layer: opts.layer || -110, as: "backdrop" });
 }
 
 // Godot files for a SCREEN effect: the game drawn at ART resolution into a SubViewport, shown scaled by a whole number
@@ -4376,7 +4399,7 @@ SHADER_DEFS.dither.variants = [{ pattern: 1, spread: 96 }, { pattern: 2, reach: 
 SHADER_EFFECTS.push("spin", "tilt", "flip", "powerlines", "superform", "afterimage", "rainbowtrail", "sizzle", "disintegrate");
 
 // sin(deg) x 1000 for any whole degrees: Bhaskara I's rational form, 4000 p / (40500 - p), p = d (180 - d), within
-// 2 / 1000 of the true sine; exact at 0, 30, 90, 150, 180 … Integers only, so every engine turns alike.
+// 2.2 / 1000 of the true sine (floored; worst at 121); exact at 0, 30, 90, 150, 180 … Integers only, so every engine turns alike.
 function shaderMotionSin(S, deg) {
   const d = S.mod(deg, 360), h = S.mod(d, 180), p = S.mul(h, S.sub(180, h));
   const v = S.div(S.mul(p, 4000), S.sub(40500, p));
@@ -14534,4 +14557,141 @@ SHADER_DEFS.laserbeam = {
   },
   variants: [{ dir: 1, across: 20, width: 7, reach: 60, beam: "#40e0ff" }, { dir: 2, across: 50, down: 0, charge: 1, width: 2 },
     { dir: 3, across: 30, down: 40, charge: 12, reach: 24, beam: "#60ff40" }],
+};
+
+// ============================================================================================
+// BACKGROUNDS (build 47, 2026-10-29; Painter Panic's BACKDROP-HANDOFF.md, crunchyShader: "a game developer tried to make a
+// background and wrote GLSL instead"). An effect that draws a field of its own (over the picture, with a "Over the
+// picture" amount that reaches 100%) is a GENERATOR: at 100% it is a background: a menu, a title screen, a battle
+// backdrop, a mode's own look. These nine already were; they sat in "World" among the effects that change a picture, so
+// nobody could tell. They now share the group "Backgrounds" (the app shows it near the top), and each whose default
+// still blends over the picture gains an app preset ("Background") with the generator at full: the defaults are left
+// alone, since a link stores only what differs from them and every saved effect must open as it was.
+// ============================================================================================
+const SHADER_BACKGROUNDS = [
+  ["plasma", { blend: 100 }], ["copperbars", { blend: 100 }], ["demofire", null], ["metaballs", { blend: 100 }],
+  ["sunburst", { blend: 100 }], ["menuchecks", { blend: 100 }], ["sunset", { blend: 100 }], ["testcard", null],
+  ["starscroll", { dark: 100 }],
+];
+SHADER_BACKGROUNDS.forEach(function (b) {
+  const d = SHADER_DEFS[b[0]];
+  if (!d) return;
+  d.group = "Backgrounds";
+  if (b[1]) d.presets = [{ label: "Background", params: b[1] }];
+  d.backdrop = b[1] || {};      // build 47: the params that make it a backdrop: each pixel its field or the ground, never a mix (tested)
+});
+
+
+// ============================================================================================
+// NEW BACKDROPS (build 47, 2026-10-29; BACKDROP-HANDOFF.md 3). Three generators made to be backgrounds, each built on S.wave,
+// each with a setting a game is meant to drive while it plays (the README's "a shader the game talks to"):
+//   battlewaves  a battle backdrop: two layers of a cycling pattern, one swaying, one interlaced (its rows wobble in turn
+//                against each other) and squashed, adding together. Drive `shift` (whose turn, a status, a phase).
+//   beatgrid     a grid of glowing blocks that pulses on the beat, a timeline sweeping across it. Drive `energy`
+//                (the music, a combo, danger).
+//   wavelayers   slow overlapping ridges stacked to the horizon, sea or dunes, each drifting at its own pace. Drive
+//                `swell` (calm to stormy).
+// Palette params only (strict: nothing but their colors comes out); each pixel its field, so `backdrop` is {}.
+// ============================================================================================
+SHADER_EFFECTS.push("battlewaves", "beatgrid", "wavelayers");
+
+// a pattern's band at (u, v), period 2 * P on both axes (so a scroll by 2P closes): checks 0..1, diamonds 0..4,
+// rings 0..8, stripes 0..3
+function shaderBgPattern(S, kind, u, v, P) {
+  const P2 = S.mul(P, 2), du = S.abs(S.sub(S.mod(u, P2), P)), dv = S.abs(S.sub(S.mod(v, P2), P));
+  return S.pick([
+    [S.eq(kind, 0), S.mod(S.add(S.div(u, P), S.div(v, P)), 2)],
+    [S.eq(kind, 1), S.div(S.mul(S.add(du, dv), 4), P2)],
+    [S.eq(kind, 2), S.div(S.mul(S.add(S.mul(du, du), S.mul(dv, dv)), 4), S.mul(P, P))],
+  ], S.div(S.mul(S.mod(S.add(u, v), P2), 4), P2));
+}
+
+SHADER_DEFS.battlewaves = {
+  label: "Battle waves", title: "a battle backdrop: two layers of a cycling pattern, one swaying, one interlaced and squashed, adding together",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["battle", "background", "backdrop", "psychedelic", "wavy", "rpg", "retro", "pattern", "trippy", "loop"],
+  params: {
+    pattern: { type: "int", min: 0, max: 3, def: 1, label: "Pattern", choices: ["checks", "diamonds", "rings", "stripes"] },
+    size: { type: "int", min: 4, max: 32, def: 20, label: "Pattern size (px)" },
+    sway: { type: "int", min: 0, max: 24, def: 6, label: "Sway (px)" },
+    ripple: { type: "int", min: 0, max: 24, def: 2, label: "Interlace (px)" },
+    squash: { type: "int", min: 0, max: 16, def: 2, label: "Squash (px)" },
+    shift: { type: "int", min: 0, max: 15, def: 0, label: "Color shift" },
+    colors: { type: "palette", def: ["#1a0a3a", "#4a1a7a", "#a82a8a", "#e85a5a", "#f8a84a", "#4ac8a8"], max: 16, label: "Colors (cycling)" },
+  },
+  fragment: function (S) {
+    const P = S.p("size"), t = S.frame, kind = S.p("pattern"), roll = S.div(S.mul(t, S.mul(P, 2)), S.FRAMES);
+    // A: every row slides sideways on a slow wave; the whole layer scrolls down one pattern period per loop
+    const ax = S.add(S.x, S.wave(S.add(S.mul(S.y, 3), t), 64, S.p("sway"))), ay = S.add(S.y, roll);
+    // B: odd and even rows wobble against each other (interlaced), and the rows bunch and spread (squash)
+    const side = S.sel(S.eq(S.mod(S.y, 2), 0), 1, -1);
+    const bx = S.sub(S.add(S.x, S.mul(side, S.wave(S.add(S.mul(S.y, 2), S.mul(t, 2)), 64, S.p("ripple")))), roll);
+    const by = S.add(S.y, S.wave(S.sub(S.mul(S.y, 5), S.mul(t, 3)), 64, S.p("squash")));
+    const a = shaderBgPattern(S, kind, ax, ay, P), b = shaderBgPattern(S, kind, by, S.add(bx, P), S.add(P, S.div(P, 2)));
+    const n = S.palCount("colors"), cycle = S.div(S.mul(t, n), S.FRAMES);
+    return S.palAt("colors", S.mod(S.add(S.add(a, b), S.add(S.p("shift"), cycle)), n));
+  },
+  presets: [{ label: "Interlaced", params: { pattern: 0, size: 16, sway: 4, ripple: 6, squash: 0 } }],
+  variants: [{ pattern: 0, size: 6, sway: 12, ripple: 0, shift: 3 }, { pattern: 2, size: 20, ripple: 12, squash: 8 }, { pattern: 3, sway: 0, ripple: 20, squash: 0, shift: 15 }],
+};
+
+SHADER_DEFS.beatgrid = {
+  label: "Beat grid", title: "a grid of glowing blocks pulsing on the beat, a timeline sweeping across and lighting what it passes",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 48, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["music", "rhythm", "puzzle", "techno", "grid", "pulse", "beat", "background", "backdrop", "menu", "neon", "loop"],
+  params: {
+    cell: { type: "int", min: 4, max: 32, def: 10, label: "Cell (px)" },
+    beats: { type: "int", min: 1, max: 8, def: 4, label: "Beats per loop" },
+    energy: { type: "int", min: 0, max: 100, def: 60, label: "Energy (%)" },
+    blocks: { type: "int", min: 0, max: 100, def: 30, label: "Blocks (%)" },
+    sweep: { type: "int", min: 0, max: 1, def: 1, label: "Timeline", choices: ["off", "sweeping"] },
+    colors: { type: "palette", def: ["#0a0a1a", "#1e2a4a", "#2a5ac8", "#6ab0ff", "#e0f4ff"], max: 8, label: "Dark to bright" },
+  },
+  fragment: function (S) {
+    const C = S.p("cell"), t = S.frame, F = S.FRAMES, cx = S.div(S.x, C), cy = S.div(S.y, C), lx = S.mod(S.x, C), ly = S.mod(S.y, C);
+    const line = S.or(S.eq(lx, 0), S.eq(ly, 0)), block = S.lt(S.mod(S.hash(cx, cy, 71), 100), S.p("blocks"));
+    // the beat: full at each beat's first frame, falling away until the next; scaled by energy (0..100)
+    const k = S.mod(S.mul(t, S.p("beats")), F), lvl = S.div(S.mul(S.sub(F, k), S.p("energy")), F);
+    // the timeline: a column crossing the screen once a loop; behind it a fading trail a third of the screen long
+    const sx = S.div(S.mul(t, S.w), F), ago = S.mod(S.sub(sx, S.x), S.w);
+    const on = S.eq(S.p("sweep"), 1), bar = S.and(on, S.lt(ago, 2)), trail = S.and(on, S.lt(S.mul(ago, 3), S.w));
+    const bevel = S.or(S.eq(lx, 1), S.eq(ly, 1));
+    const cellIdx = S.add(S.add(2, S.sel(S.gt(lvl, 40), 1, 0)), S.add(S.sel(bevel, 1, 0), S.sel(trail, 1, 0)));
+    const emptyIdx = S.sel(line, S.add(1, S.add(S.sel(S.gt(lvl, 60), 1, 0), S.sel(trail, 1, 0))), 0);
+    const idx = S.sel(bar, S.sub(S.palCount("colors"), 1), S.sel(S.and(block, S.not(line)), cellIdx, emptyIdx));
+    return S.palAt("colors", idx);
+  },
+  variants: [{ cell: 4, beats: 3, energy: 100, blocks: 70, sweep: 0 }, { cell: 24, beats: 8, energy: 20, blocks: 5 }, { beats: 1, energy: 0 }],
+};
+
+SHADER_DEFS.wavelayers = {
+  label: "Wave layers", title: "slow overlapping ridges stacked to the horizon, sea or dunes, each drifting at its own pace, crests lit",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 8, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["sea", "ocean", "waves", "dunes", "desert", "calm", "background", "backdrop", "menu", "title screen", "layers", "loop"],
+  params: {
+    layers: { type: "int", min: 2, max: 8, def: 5, label: "Layers" },
+    swell: { type: "int", min: 0, max: 24, def: 6, label: "Swell (px)" },
+    drift: { type: "int", min: 0, max: 4, def: 1, label: "Drift" },
+    horizon: { type: "int", min: 0, max: 80, def: 35, label: "Horizon (% down)" },
+    colors: { type: "palette", def: ["#f8c88a", "#3a2a6a", "#2a3a8a", "#2a5aa8", "#3a7ac0", "#5aa0d0", "#8ac8e0", "#c8e8f0", "#ffffff"], max: 9, label: "Sky, then far to near" },
+  },
+  fragment: function (S) {
+    const t = S.frame, L = S.p("layers"), sw = S.p("swell"), dr = S.p("drift");
+    const top0 = S.div(S.mul(S.h, S.p("horizon")), 100), span = S.sub(S.h, top0);
+    const n = S.palCount("colors");
+    let idx = S.i(0);
+    // layer i (0 the farthest): its baseline spread down from the horizon, two waves on it (one each way), nearer layers
+    // swell more and drift faster; the nearest layer that has risen above this pixel wins (painter's order)
+    for (let i = 0; i < 8; i++) {
+      const base = S.add(top0, S.div(S.mul(span, i), S.add(L, 1))), amp = S.div(S.mul(sw, i + 2), 6);
+      const run = S.mul(S.mul(t, 4), S.mul(dr, i + 1));                                  // 256 · whole steps a loop: closed
+      const top = S.add(S.add(base, S.wave(S.add(S.mul(S.x, 2 + (i % 3)), run), 256, amp)),
+        S.wave(S.sub(S.mul(S.x, 5 + i), S.mul(run, 2)), 256, S.div(amp, 3)));
+      const here = S.and(S.lt(i, L), S.ge(S.y, top));
+      // the crest (its top row) one step lighter
+      idx = S.sel(here, S.min(S.sub(n, 1), S.add(i + 1, S.sel(S.eq(S.y, top), 1, 0))), idx);
+    }
+    return S.palAt("colors", idx);
+  },
+  variants: [{ layers: 2, swell: 24, drift: 4, horizon: 0 }, { layers: 8, swell: 0, drift: 0, horizon: 80 }, { swell: 12, drift: 2 }],
 };
