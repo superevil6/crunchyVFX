@@ -3596,10 +3596,18 @@
       wizBody.querySelector('.wiz-card[data-key="smoke"]').click();
       ok(JSON.stringify(wizard.answers.tags) === '["fire","smoke"]' && wizBody.querySelectorAll(".wiz-card.on").length === 2, "tags mix (fire + smoke)");
       wizFoot.querySelector(".wiz-next").click();
-      ok(wizard.step === 2 && wizBody.querySelectorAll(".wiz-card").length === STYLES.length, "then the era: As drawn plus every era style");
+      // §23.8 how it moves: any number, then Next
+      ok(wizard.step === 2 && wizBody.querySelectorAll(".wiz-card").length === WIZARD_MOVES.length + 1 && /0|any way/i.test(wizFoot.querySelector(".wiz-next").textContent),
+         "then how it moves: Any way plus every move", wizBody.querySelectorAll(".wiz-card").length + " cards");
+      wizBody.querySelector('.wiz-card[data-key="spin"]').click();
+      ok(JSON.stringify(wizard.answers.moves) === '["spin"]' && /1 move/.test(wizFoot.querySelector(".wiz-next").textContent), "a move picked");
+      wizBody.querySelector('.wiz-card[data-key="spin"]').click();
+      ok(wizard.answers.moves.length === 0, "…and picked again, dropped (these results stay as before)");
+      wizFoot.querySelector(".wiz-next").click();
+      ok(wizard.step === 3 && wizBody.querySelectorAll(".wiz-card").length === STYLES.length, "then the era: As drawn plus every era style");
       wizBody.querySelector('.wiz-card[data-key=""]').click();
       const picks = wizBody.querySelectorAll(".wiz-pick");
-      ok(wizard.step === 3 && picks.length === 9, "then nine results", picks.length);
+      ok(wizard.step === WIZARD_STEPS && picks.length === 9, "then nine results", picks.length);
       const dimsOk = wizard.list.every((c, i) => {
         const d = frameDims(wizardState(c, wizard.answers)), cv = picks[i].querySelector("canvas");
         return cv && cv.width === d.w && cv.height === d.h;
@@ -3651,7 +3659,7 @@
       // AN ERA APPLIES EXACTLY AS ITS BUTTON DOES (values, and what it pins for Lock pixels), still in one step
       {
         pixelLock = true; lockedValues = {};
-        wizard.answers = { type: "explosion", tags: ["fire"], era: "8-bit" }; wizard.step = 3; wizard.seed = 1;
+        wizard.answers = { type: "explosion", tags: ["fire"], era: "8-bit" }; wizard.step = WIZARD_STEPS; wizard.seed = 1;
         wizardOpen();
         const c = wizard.list[1], prevSnap = snapshotEffect();
         wizBody.querySelectorAll(".wiz-pick")[1].click();
@@ -3664,10 +3672,30 @@
         ok(JSON.stringify(lockedValues) === pinsWizard && lockedValues.frameSize === SIZES.indexOf("64"),
            "…and pins the same size and crunch for Lock pixels", pinsWizard);
       }
+      // §23.8 HOW IT MOVES: every result carries every move chosen, reads, is named for one; no move = the old nine exactly
+      {
+        const plainL = wizardCandidates({ type: "hit", tags: ["fire"], era: "" }, 1), noneL = wizardCandidates({ type: "hit", tags: ["fire"], moves: [], era: "" }, 1);
+        ok(plainL.every((c, i) => JSON.stringify(c.g) === JSON.stringify(noneL[i].g) && c.name === noneL[i].name), "no move chosen: the nine exactly as before");
+        const mvBad = [];
+        for (const mv of WIZARD_MOVES) for (const ty of ["explosion", "status"]) {
+          const l = wizardCandidates({ type: ty, tags: ["ice"], moves: [mv.key], era: "" }, 1);
+          for (const c of l) {
+            if (!mv.has(c.g)) mvBad.push(mv.key + "/" + ty + " carry " + c.name);
+            if (!wizardReadable(wizardMeasure(c.g, null))) mvBad.push(mv.key + "/" + ty + " reads " + c.name);
+            if (!mv.word.some((w) => c.name.indexOf(w) === 0)) mvBad.push(mv.key + "/" + ty + " name " + c.name);
+          }
+        }
+        ok(!mvBad.length, "every move, on an explosion and an aura: all nine carry it, read, and are named for it", mvBad.slice(0, 5).join(", "));
+        const two = wizardCandidates({ type: "spell", tags: [], moves: ["splatter", "crack"], era: "" }, 1);
+        ok(two.every((c) => wizardMoveOf("splatter").has(c.g) && wizardMoveOf("crack").has(c.g)) && two.some((c) => /^Splatter|^Spatter/.test(c.name)) && two.some((c) => /^Crack|^Split/.test(c.name)),
+           "two moves: every result carries both; the names take turns", two.map((c) => c.name).slice(0, 2).join("; "));
+        ok(wizardCandidates({ type: "spell", tags: ["wind"], moves: ["swirl"], era: "" }, 1).every((c) => { const w = c.name.toLowerCase().split(" "); return !w.slice(1).some((x) => x.indexOf(w[0].slice(0, 4)) === 0); }),
+           "a move's word never echoes the name (no \"Swirling swirl …\")");
+      }
       // §23.7 THE POWER DIAL: 1..9 on the results, 5 the composition exactly; stronger up the dial; a load is what is shown
       {
         pixelLock = false; lockedValues = {};
-        wizard.answers = { type: "explosion", tags: ["fire"], era: "" }; wizard.step = 3; wizard.seed = 1;
+        wizard.answers = { type: "explosion", tags: ["fire"], era: "" }; wizard.step = WIZARD_STEPS; wizard.seed = 1;
         wizardOpen();
         const dial = wizBody.querySelectorAll(".wiz-power button");
         ok(dial.length === 9 && wizBody.querySelector(".wiz-power button.on").dataset.power === "5" && /As composed/.test(wizBody.querySelector(".wiz-power").textContent),
@@ -3698,7 +3726,7 @@
       // LOCK PIXELS: the results show what a click gives, and say so when the lock changes them
       {
         pixelLock = true; lockedValues = { frameSize: SIZES.indexOf("96") };
-        wizard.answers = { type: "explosion", tags: [], era: "" }; wizard.step = 3; wizard.seed = 1;
+        wizard.answers = { type: "explosion", tags: [], era: "" }; wizard.step = WIZARD_STEPS; wizard.seed = 1;
         wizardOpen();
         const cv = wizBody.querySelector(".wiz-pick canvas");
         ok(cv.width === 96 && /Lock pixels is on/.test(wizBody.textContent) && !!wizBody.querySelector(".wiz-unlock"),
@@ -3736,7 +3764,7 @@
       ok(fitOn && /Fit is on now/.test(msg.textContent), "choosing a size with Fit off turns Fit on, so the effect scales instead of cropping", msg.textContent.slice(0, 60));
       // the Wizard's results are fitted, and loading one never leaves Fit off
       fitOn = false; updateFitBtn();
-      wizard.answers = { type: "spell", tags: ["ice", "tech"], era: "" }; wizard.step = 3; wizard.seed = 1;
+      wizard.answers = { type: "spell", tags: ["ice", "tech"], era: "" }; wizard.step = WIZARD_STEPS; wizard.seed = 1;
       wizardOpen();
       const names = wizard.list.map((c) => c.name.toLowerCase().split(" ").slice(0, 2).sort().join("+"));
       ok(new Set(names).size === names.length, "no two Wizard names are the same words in another order", wizard.list.map((c) => c.name).join(" / "));

@@ -1535,6 +1535,17 @@ it brings), and a new palette each (appended to PALETTES, so a mood button too):
   by the sweep, had one; it failed on HEAD too). A slot that drew something is unchanged.
 - **Tests:** ALL PASS, regression 713 and async 77 (152 wizard answers: every type x every tag, pairs, triples, eras).
 
+### 23.6.1 A Buff tag (AJ, 2026-10-28: "a base wizard category (like fire, or heal) we add Buff")
+
+**Buff** (palette Buff: red rising to gold, a hot core).
+- **Carried by:** buff words (buff, boost, power, empower, strength, rage, haste, might, level, shield, fortify...).
+  A red-gold color with a hint (arrow, boost, shield, Particle rings, Orbit, Light shafts) also counts.
+- **Ingredients:** arrow (rising), boost (power), shield (guard), starburst (surge); Particle rings, Orbit, Light shafts.
+  Leading, its particles rise (gravity -180).
+- **Presets:** Level Up (its card picture), Shield Orbit, Power Rings, Shield Hex, Shield Up, Speed Boost.
+  Starburst is not a hint: it tagged Crit Burst, an attack.
+- **Tests:** ALL PASS, regression 721 and async 78 (160 Wizard answers).
+
 ### 23.7 The Power dial, 1 to 9 (AJ, 2026-10-28: "a 'scale' option that would determine how brutal an effect would be... Dial all the way to 9 baby!")
 
 A row of nine buttons over the results: 1 Tame, 2 Faint, 3 Light, 4 Modest, 5 As composed, 6 Strong, 7 Fierce,
@@ -1559,8 +1570,39 @@ starts at 5 and Start over puts it back.
     flashes; pressing 9 redraws; a load is the powered effect; both ends read.
   - regression-async: the 3240 sweep.
   - ALL PASS: regression 721, async 78.
-- **Next** (AJ's other half): a motion question, "How does it move?" (splattering, spinning, cracking, rising, dripping,
-  shattering, pulsing, swirling), from parts VFX has.
+- **Next** (AJ's other half): the motion question, done in §23.8.
+
+### 23.8 How does it move? (AJ, 2026-10-28: "sub categories, like splattering, spinning, cracking")
+
+The Wizard asks four questions now: what it's for, what it's made of, **how it moves**, which era. The third is like
+the tags: any number, then Next (or Any way).
+
+- **WIZARD_MOVES:** each move has `set` (motion settings), `systems` (layers switched on, tuned from a preset that uses
+  them, wizardAddSystem) and `has` (does an effect carry it; the test).
+
+  | Move | What it does |
+  |---|---|
+  | Splattering | gravity 520, a wide speed spread, drag, and a ground decal |
+  | Spinning | spin 540 with variation, a swirl |
+  | Cracking | Fracture |
+  | Rising | gravity -260, drag |
+  | Dripping | gravity, and Drip |
+  | Shattering | Shatter |
+  | Pulsing | Shockwave |
+  | Swirling | swirl 380, and Vortex |
+
+- **In the composer** (wizardCandidates), before its readability repairs, so every result carries every chosen move
+  and still reads; power and era apply after.
+- **Names:** a move leads ("Cracking snowflake ice shard spell"), the chosen ones in turn across the nine. Each move has
+  three words and uses the first that does not echo the name: Wind's swirl gave "Swirling swirl feather spell", then
+  "Whirling whirlwind…". The ingredients line lists the moves first.
+- **The card pictures:** the first of the type's presets that already moves that way.
+- **No move chosen:** the nine are exactly as before (tested).
+- **Tests:**
+  - regression.js: the question and its Next; pick and drop a move; none = before; every move on an explosion and an
+    aura (carry, read, named for it); two moves (both carried, the names take turns); no echo.
+  - async: every type x every move and four pairs, a tag each, some in 8-bit, 864 results, all carry and read.
+  - ALL PASS: regression 728, async 79.
 
 ## 24. The layout pass, round 2: folding panels, rows that hide, panels in order, grouped layer chips, tag chips (2026-10-13)
 

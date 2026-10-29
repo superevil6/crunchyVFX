@@ -3681,6 +3681,7 @@ const PALETTES = [
   ["Steel",    { hue: 215, hueLife: 0,   sat: 0.18, coreWhite: 0.45, blend: 1 }],
   ["Wind",     { hue: 165, hueLife: 20,  sat: 0.3,  coreWhite: 0.85, blend: 0 }],   // AJ 2026-10-28: the Wizard's Wind
   ["Heal",     { hue: 135, hueLife: 15,  sat: 0.8,  coreWhite: 0.65, blend: 0 }],   // AJ 2026-10-28: the Wizard's Healing
+  ["Buff",     { hue: 8,   hueLife: 38,  sat: 0.95, coreWhite: 0.7,  blend: 0 }],   // AJ 2026-10-28: the Wizard's Buff (red rising to gold)
 ];
 const paletteGrid = document.getElementById("paletteGrid");
 for (const [name, patch] of PALETTES) {
@@ -8302,6 +8303,12 @@ const WIZARD_TAGS = [
     color: (h, s, cw, b) => h >= 100 && h <= 160 && s >= 0.5 && cw >= 0.45 && b !== 1, palettes: ["Heal"],
     words: ["heal", "healing", "cure", "regen", "regeneration", "restore", "health", "hp", "recover", "revive", "mend", "medic", "remedy", "potion", "life"],
     shapes: [], systems: [], maybe: ["plus", "heart", "sprout", "cross", "Twinkle", "Light shafts", "Aura"] },
+  // AJ, 2026-10-28: "for a base wizard category (like fire, or heal) we add Buff". Powering up: red to gold, rising.
+  { key: "buff", name: "Buff", note: "power-ups, rising arrows, empowering rings",
+    color: (h, s, cw, b) => (h <= 40 || h >= 345) && s >= 0.75 && cw >= 0.6 && b !== 1, palettes: ["Buff"],
+    words: ["buff", "buffs", "buffed", "boost", "boosted", "power", "powerup", "powered", "empower", "empowered", "strength", "rage",
+      "enrage", "haste", "might", "level", "shield", "fortify", "bolster"],
+    shapes: [], systems: [], maybe: ["arrow", "boost", "shield", "Particle rings", "Orbit", "Light shafts", "Aura"] },
 ];
 const wizardTag = (key) => WIZARD_TAGS.find((t) => t.key === key) || null;
 const wizardType = (key) => WIZARD_TYPES.find((t) => t.key === key) || null;
@@ -8399,7 +8406,52 @@ const WIZARD_INGREDIENTS = {
   heal:      { shapes: ["plus", "heart", "star", "sprout"], systems: ["Twinkle", "Shockwave", "Light shafts"], palettes: ["Heal"],
                knobs: { gravity: -120 }, say: { plus: "healing", heart: "heart", star: "sparkle", sprout: "renewal", Twinkle: "glimmer",
                Shockwave: "pulse", "Light shafts": "restoring" } },
+  buff:      { shapes: ["arrow", "boost", "shield", "starburst"], systems: ["Particle rings", "Orbit", "Light shafts"], palettes: ["Buff"],
+               knobs: { gravity: -180 }, say: { arrow: "rising", boost: "power", shield: "guard", starburst: "surge",
+               "Particle rings": "empowering", Orbit: "orbiting", "Light shafts": "radiant" } },
 };
+// §23.8 HOW IT MOVES (AJ, 2026-10-28: "sub categories, like splattering, spinning, cracking"): the Wizard's third
+// question, any number of them. A move reworks a composed result's motion (`set`) and switches on the layers that sell
+// it (`systems`, each tuned as a preset that uses it tunes it, wizardAddSystem), so EVERY result carries EVERY move
+// chosen; `has` says whether an effect carries it (after the composer's own repairs, which may soften gravity), and
+// `word` leads the result's name ("Spinning flame explosion"; the second word when the first would echo the name, as
+// "Swirling swirl feather spell" did). Applied in the composer, before power and era.
+const WIZARD_MOVES = [
+  { key: "splatter", name: "Splattering", note: "flies out, falls and splats on the ground", word: ["Splattering", "Spattering", "Spraying"],
+    set: { gravity: 520, speedVar: 0.7, drag: 0.2 }, systems: ["Decal"],
+    has: (st) => st.gravity > 100 && wizardHasGroup(st, "Decal") },
+  { key: "spin", name: "Spinning", note: "every piece turning as it goes", word: ["Spinning", "Twirling", "Turning"],
+    set: { spin: 540, spinVar: 0.4, swirl: 220 }, systems: [], has: (st) => Math.abs(st.spin) >= 300 },
+  { key: "crack", name: "Cracking", note: "cracks running out through it", word: ["Cracking", "Splitting", "Fissuring"],
+    set: {}, systems: ["Fracture"], has: (st) => wizardHasGroup(st, "Fracture") },
+  { key: "rise", name: "Rising", note: "floats up and away", word: ["Rising", "Floating", "Ascending"],
+    set: { gravity: -260, drag: 0.3 }, systems: [], has: (st) => st.gravity < -50 },
+  { key: "drip", name: "Dripping", note: "drops running down from it", word: ["Dripping", "Trickling", "Oozing"],
+    set: { gravity: 260 }, systems: ["Drip"], has: (st) => wizardHasGroup(st, "Drip") },
+  { key: "shatter", name: "Shattering", note: "breaks into flying shards", word: ["Shattering", "Breaking", "Fragmenting"],
+    set: {}, systems: ["Shatter"], has: (st) => wizardHasGroup(st, "Shatter") },
+  { key: "pulse", name: "Pulsing", note: "rings pushing out from its heart", word: ["Pulsing", "Throbbing", "Beating"],
+    set: {}, systems: ["Shockwave"], has: (st) => wizardHasGroup(st, "Shockwave") },
+  { key: "swirl", name: "Swirling", note: "a whirl turning round its middle", word: ["Swirling", "Whirling", "Twisting"],
+    set: { swirl: 380 }, systems: ["Vortex"], has: (st) => wizardHasGroup(st, "Vortex") },
+];
+const wizardMoveOf = (key) => WIZARD_MOVES.find((m) => m.key === key) || null;
+function wizardHasGroup(st, g) { const L = wizardGroupOf(g); return !!L && withState(st, () => L.is()); }
+// The chosen moves on a composition: their settings, then their layers (a later move wins where two set one thing).
+function wizardMove(g, keys, rnd) {
+  const st = Object.assign({}, g);
+  for (const k of keys) {
+    const mv = wizardMoveOf(k);
+    if (!mv) continue;
+    for (const p in mv.set) {
+      const d = PARAM_BY_KEY[p];
+      st[p] = d ? Math.max(d[2], Math.min(d[3], mv.set[p])) : mv.set[p];
+    }
+    for (const sys of mv.systems) wizardAddSystem(st, sys, rnd);
+  }
+  return st;
+}
+
 // Per type: the structural layers its skeleton may keep (everything else on the donor preset is dropped), and the
 // layers it may add when no tag brings one.
 const WIZARD_SKELETON_KEEP = {
@@ -8717,6 +8769,7 @@ function wizardCandidates(answers, seed) {
   const type = wizardType(answers.type);
   if (!type) return [];
   const tags = (answers.tags || []).filter((k) => WIZARD_INGREDIENTS[k]);
+  const moves = (answers.moves || []).filter((k) => wizardMoveOf(k));
   const era = answers.era ? STYLES.find((x) => x.name === answers.era) : null;
   seed = Math.max(1, seed | 0);
   const out = [], seen = new Set(), names = new Set(), pairs = new Set();
@@ -8727,6 +8780,7 @@ function wizardCandidates(answers, seed) {
     for (let attempt = 0; attempt < 12; attempt++) {
       if (attempt === 6 && best && best.score >= 5) break;
       const c = wizardCompose(type, tags, seed, slot, attempt);
+      if (moves.length) c.g = wizardMove(c.g, moves, wizardRng(wizardHash(seed, slot * 101 + attempt, 7717)));
       const key = [c.donor, c.g.shape, c.g.emit2Shape, c.parts.map((p) => p.part).join("+")].join("|");
       if (seen.has(key) && attempt !== 5 && attempt !== 11) continue;
       // with tags chosen (and an era that keeps colors), the LEAD tag's palette must be what is seen
@@ -8744,8 +8798,12 @@ function wizardCandidates(answers, seed) {
     const c = best.c;
     seen.add(best.key); pairs.add(best.pair);
     const words = wizardWords(c, type, names, slot);
+    // a move leads the name (the chosen ones in turn across the nine), and is listed with what it is made of
+    const mv = moves.length ? wizardMoveOf(moves[slot % moves.length]) : null;
+    const lead = mv ? mv.word.find((w) => words.name.toLowerCase().indexOf(w.slice(0, 4).toLowerCase()) < 0) || mv.word[mv.word.length - 1] : "";
     out.push({ kind: "compose", seed, slot, attempt: best.attempt, g: c.g, donor: c.donor, tags: c.tags, parts: c.parts.map((p) => p.part),
-               name: words.name, list: words.list });
+               moves: moves.slice(), name: mv ? lead + " " + words.name.replace(/^./, (x) => x.toLowerCase()) : words.name,
+               list: moves.length ? moves.map((k) => wizardMoveOf(k).name.toLowerCase()).join(" · ") + " · " + words.list : words.list });
   }
   return out;
 }
@@ -8838,8 +8896,8 @@ function wizardLockMatters(list, answers) {
 }
 
 // ---- The dialog ----
-const wizard = { answers: { type: "", tags: [], era: "", power: 5 }, step: 0, seed: 1, list: [], jobs: [], timer: 0, perf: null };
-const WIZARD_STEPS = 3;
+const wizard = { answers: { type: "", tags: [], moves: [], era: "", power: 5 }, step: 0, seed: 1, list: [], jobs: [], timer: 0, perf: null };
+const WIZARD_STEPS = 4;
 const wizModal = document.createElement("div");
 wizModal.className = "modal wiz-modal";
 wizModal.id = "wizModal";
@@ -8914,7 +8972,9 @@ function wizardDraw() {
     : "Nine effects: click one to load it";
   if (step >= WIZARD_STEPS) { wizardResults(); return; }
   const type = wizardType(a.type);
-  const q = wizEl("h3", "wiz-q", ["What's it for?", "What's it made of? Pick any that fit, then Next", "Which era should it look like?"][step]);
+  const q = wizEl("h3", "wiz-q", ["What's it for?", "What's it made of? Pick any that fit, then Next", "How does it move? Pick any that fit, then Next",
+    "Which era should it look like?"][step]);
+  a.moves = a.moves || [];
   wizBody.appendChild(q);
   const cards = wizEl("div", "wiz-cards");
   const card = (key, name, note, on, pic, click) => {
@@ -8947,6 +9007,19 @@ function wizardDraw() {
         wizardDraw();
       });
     }
+  } else if (step === 2) {
+    // §23.8 how it moves: each card's picture is the first of the type's presets (else any) that already moves that way
+    card("", "Any way", "however the effect moves on its own", !a.moves.length, null, () => { a.moves = []; wizard.seed = 1; wizard.step = 3; wizardDraw(); });
+    for (const mv of WIZARD_MOVES) {
+      const all = Object.keys(PRESETS), its = all.filter((n) => !type || wizardPresetIs(n, type));
+      const does = (n) => mv.has(fullGenome(PRESETS[n]));
+      card(mv.key, mv.name, mv.note, a.moves.indexOf(mv.key) >= 0, wizardCardPic(wizardCached("mv|" + mv.key + "|" + a.type, () => its.find(does) || all.find(does) || "")), () => {
+        const i = a.moves.indexOf(mv.key);
+        if (i >= 0) a.moves.splice(i, 1); else a.moves.push(mv.key);
+        wizard.seed = 1;
+        wizardDraw();
+      });
+    }
   } else {
     // the type's sample (with the first tag) in each era, at that era's own frame size: what the era DOES, shown
     const sample = PRESETS[wizardSample(type, wizardTag(a.tags[0]))] || {};
@@ -8955,14 +9028,14 @@ function wizardDraw() {
       cv.className = "wiz-cpic";
       return cv;
     };
-    card("", "As drawn", "each effect's own size, colors and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 3; wizardDraw(); });
+    card("", "As drawn", "each effect's own size, colors and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 4; wizardDraw(); });
     for (const s of STYLES) {
       if (s.name === "Anything") continue;
-      card(s.name, s.name, s.hint, a.era === s.name, eraPic(s), () => { a.era = s.name; wizard.step = 3; wizardDraw(); });
+      card(s.name, s.name, s.hint, a.era === s.name, eraPic(s), () => { a.era = s.name; wizard.step = 4; wizardDraw(); });
     }
   }
   wizBody.appendChild(cards);
-  if (step === 2 && pixelLock) {
+  if (step === 3 && pixelLock) {
     wizBody.appendChild(wizEl("p", "hint wiz-note",
       "Lock pixels is on: choosing an era also pins its frame size and crunch for the effects you load afterwards, exactly as its Era style button does."));
   }
@@ -8976,13 +9049,18 @@ function wizardDraw() {
     next.addEventListener("click", () => { wizard.step = 2; wizardDraw(); });
     wizFoot.appendChild(next);
   }
+  if (step === 2) {
+    const n = a.moves.length, next = wizEl("button", "primary wiz-next", n ? "Next (" + n + (n === 1 ? " move)" : " moves)") : "Next (any way)");
+    next.addEventListener("click", () => { wizard.step = 3; wizardDraw(); });
+    wizFoot.appendChild(next);
+  }
   const first = cards.querySelector(".on") || cards.querySelector("button");
   if (first) first.focus();
 }
 function wizardResults() {
   const a = wizard.answers, type = wizardType(a.type);
-  const tagNames = a.tags.map((k) => wizardTag(k).name).join(" + ");
-  wizBody.appendChild(wizEl("h3", "wiz-q", type.name + (tagNames ? " · " + tagNames : "") + " · " + (a.era || "as drawn")));
+  const tagNames = a.tags.map((k) => wizardTag(k).name).join(" + "), moveNames = (a.moves || []).map((k) => wizardMoveOf(k).name).join(" + ");
+  wizBody.appendChild(wizEl("h3", "wiz-q", type.name + (tagNames ? " · " + tagNames : "") + (moveNames ? " · " + moveNames : "") + " · " + (a.era || "as drawn")));
   // §23.7 the POWER dial: nine steps, the nine redrawn at the one picked (they are stills, so it is quick)
   const pw = a.power || WIZARD_POWER.neutral, dial = wizEl("div", "wiz-power");
   dial.setAttribute("role", "group"); dial.setAttribute("aria-label", "Power");
@@ -9091,13 +9169,13 @@ function wizardResults() {
   });
   wizBody.appendChild(grid);
   const back = wizEl("button", "", "Back");
-  back.addEventListener("click", () => { wizard.step = 2; wizardDraw(); });
+  back.addEventListener("click", () => { wizard.step = WIZARD_STEPS - 1; wizardDraw(); });
   const more = wizEl("button", "primary", "More like these");
   more.setAttribute("data-icon", "refresh");
   more.title = "Nine more for the same answers";
   more.addEventListener("click", () => { wizard.seed++; wizardDraw(); });
   const again = wizEl("button", "", "Start over");
-  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], era: "", power: WIZARD_POWER.neutral }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
+  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], moves: [], era: "", power: WIZARD_POWER.neutral }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
   wizFoot.appendChild(back); wizFoot.appendChild(more); wizFoot.appendChild(again);
   wizFoot.appendChild(wizEl("span", "hint", "Play shows one moving; click one to load it. Ctrl+Z undoes it."));
   iconsIn(wizFoot);

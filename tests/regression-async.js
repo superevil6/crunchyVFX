@@ -521,6 +521,22 @@
           await new Promise((r) => setTimeout(r, 0));
         }
         ok(!pale.length, "…warm and cool tags together: both palettes show across the nine (" + pn + " answers)", pale.join(", ") || "clean");
+        // §23.8 HOW IT MOVES: every type x every move (and four pairs), with a tag and in an era: all carry, all read
+        {
+          const mvBad = [], combos = WIZARD_MOVES.map((m) => [m.key]).concat([["spin", "rise"], ["splatter", "crack"], ["swirl", "pulse"], ["drip", "shatter"]]);
+          let nm = 0;
+          for (const ty of WIZARD_TYPES) for (const mv of combos) {
+            const era = (WIZARD_TYPES.indexOf(ty) + combos.indexOf(mv)) % 4 === 0 ? "8-bit" : "", tg = [WIZARD_TAGS[(nm >> 3) % WIZARD_TAGS.length].key];
+            const l = wizardCandidates({ type: ty.key, tags: tg, moves: mv, era }, 1), st = era ? styleByName(era) : null;
+            for (const c of l) {
+              nm++;
+              if (!mv.every((k) => wizardMoveOf(k).has(c.g))) mvBad.push("carry " + ty.key + "+" + mv + " " + c.name);
+              if (!wizardReadable(wizardMeasure(c.g, st))) mvBad.push("reads " + ty.key + "+" + mv + (era ? "@" + era : "") + " " + c.name);
+            }
+            await new Promise((r) => setTimeout(r, 0));
+          }
+          ok(!mvBad.length, "…and every move (and four pairs), on every type: all carry it and READ (" + nm + " results)", mvBad.slice(0, 6).join(", ") || "clean");
+        }
         // §23.7 THE POWER DIAL: every result READS at every level (every type x five tag mixes x 1..9)
         {
           const weakP = [];
