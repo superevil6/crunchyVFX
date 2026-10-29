@@ -3605,16 +3605,34 @@
         return cv && cv.width === d.w && cv.height === d.h;
       });
       ok(dimsOk, "each result is drawn at its real frame size (what Export writes)");
-      // drain the render queue as the idle ticks would: all nine join the mini-player loop
-      while (wizard.jobs.length) wizard.jobs.shift()();
-      const playingN = miniPlayers.filter((p) => wizBody.contains(p.canvas) && p.frames.length > 1).length;
-      ok(playingN === 9, "all nine play (the Breed grid's mini-player loop)", playingN + " playing; " +
-         (wizard.perf ? "pick " + Math.round(wizard.perf.pickMs) + " ms, stills " + Math.round(wizard.perf.stillMs) + " ms, frames " + wizard.perf.fullMs.join("/") + " ms, " + Math.round(wizard.perf.bytes / 1e6) + " MB" : ""));
+      // §23.5 (AJ: "chuggy"): STILLS until Play; Play renders and plays that one; one at a time
+      const wizPlaying = () => miniPlayers.filter((p) => wizBody.contains(p.canvas));
+      const plays = wizBody.querySelectorAll(".wiz-play");
+      ok(plays.length === 9 && wizPlaying().length === 0 && wizard.perf.ready === 0, "nothing plays or renders frames until Play (stills only)",
+         wizPlaying().length + " playing, " + wizard.perf.ready + " rendered");
+      plays[2].click();
+      const p2 = wizPlaying();
+      ok(p2.length === 1 && p2[0].canvas === picks[2].querySelector("canvas") && p2[0].frames.length > 1 && plays[2].classList.contains("on") &&
+         plays[2].getAttribute("data-icon") === "pause" && wizModal.hidden === false, "Play renders and plays that one (and loads nothing)");
+      plays[5].click();
+      ok(wizPlaying().length === 1 && wizPlaying()[0].canvas === picks[5].querySelector("canvas") && !plays[2].classList.contains("on"),
+         "another's Play pauses the first: one at a time");
+      plays[5].click();
+      ok(wizPlaying().length === 0 && plays[5].getAttribute("data-icon") === "play", "Play again pauses it");
+      plays[2].click();
+      ok(wizPlaying().length === 1 && wizard.perf.ready === 2, "playing one again reuses its frames (no second render)", wizard.perf.ready + " rendered");
       ok(Array.from(picks).every((b) => /plays once|loops/.test(b.querySelector(".wiz-sub").textContent) && b.querySelector(".wiz-ing").textContent.length > 0),
          "each lists its ingredients and says whether Playback will loop it");
-      ok(miniPlayers.filter((p) => wizBody.contains(p.canvas)).every((p) => p.hold === (loopFor(expPlay.value, wizardState(wizard.list[+p.canvas.closest(".wiz-pick").dataset.i], wizard.answers)) ? 0 : 500) &&
-           (p.end == null || wizardLit(p.frames[p.end]))),
-         "a one-shot holds its last lit frame half a second before it plays again (its empty tail is skipped)");
+      // every one, played in turn: a one-shot holds its last lit frame half a second before it plays again
+      let holdBad = "";
+      plays.forEach((pb, i) => {
+        pb.click();
+        const p = wizPlaying()[0], want = loopFor(expPlay.value, wizardState(wizard.list[i], wizard.answers)) ? 0 : 500;
+        if (!p || p.hold !== want || (p.end != null && !wizardLit(p.frames[p.end]))) holdBad += i + " ";
+      });
+      ok(!holdBad, "a one-shot holds its last lit frame half a second before it plays again (its empty tail is skipped)", holdBad +
+         (wizard.perf ? "; pick " + Math.round(wizard.perf.pickMs) + " ms, stills " + Math.round(wizard.perf.stillMs) + " ms, frames " + wizard.perf.fullMs.join("/") + " ms" : ""));
+      plays[8].click();
 
       // A CLICK LOADS IT, as one undo step, and closes the Wizard
       applyPreset(PRESETS["Hit Spark"], "Hit Spark");
@@ -3645,6 +3663,37 @@
         ok(sameSnapshot(snapshotEffect(), viaWizard), "a Wizard era is exactly that Era style button pressed after loading");
         ok(JSON.stringify(lockedValues) === pinsWizard && lockedValues.frameSize === SIZES.indexOf("64"),
            "…and pins the same size and crunch for Lock pixels", pinsWizard);
+      }
+      // §23.7 THE POWER DIAL: 1..9 on the results, 5 the composition exactly; stronger up the dial; a load is what is shown
+      {
+        pixelLock = false; lockedValues = {};
+        wizard.answers = { type: "explosion", tags: ["fire"], era: "" }; wizard.step = 3; wizard.seed = 1;
+        wizardOpen();
+        const dial = wizBody.querySelectorAll(".wiz-power button");
+        ok(dial.length === 9 && wizBody.querySelector(".wiz-power button.on").dataset.power === "5" && /As composed/.test(wizBody.querySelector(".wiz-power").textContent),
+           "a Power dial of nine, on 5 (as composed) when nothing was picked");
+        const c = wizard.list[0], plain = presetOutcome(wizardPatch(c), false);
+        ok(PARAMS.every((p) => wizardState(c, wizard.answers)[p[0]] === plain[p[0]]), "power 5 is the composition exactly");
+        const at = (ty, lv) => { const a = { type: ty, tags: [], era: "", power: lv }, l = wizardCandidates(a, 1), sum = (k) => l.reduce((t, x) => t + wizardState(x, a)[k], 0);
+          return { count: sum("count"), flash: sum("flash"), wave: sum("wave"), sub: sum("subCount"), coreWhite: sum("coreWhite") }; };
+        const lv = [1, 3, 5, 7, 9].map((v) => at("explosion", v));
+        ok(lv.every((x, i) => !i || (x.count > lv[i - 1].count && x.coreWhite > lv[i - 1].coreWhite && x.flash >= lv[i - 1].flash)),
+           "up the dial an explosion gets denser, hotter, its flash stronger", lv.map((x) => Math.round(x.count / 9)).join("/"));
+        ok(lv[4].flash > lv[2].flash && lv[4].wave > lv[2].wave && lv[4].sub > lv[2].sub && lv[0].flash < lv[2].flash,
+           "…a flash, a shockwave and bursts at 9; at 1 the flash fades", lv.map((x) => x.flash.toFixed(1) + "f" + x.wave.toFixed(1) + "w").join(" "));
+        const rain1 = at("atmosphere", 5), rain9 = at("atmosphere", 9);
+        ok(rain9.count > rain1.count && rain9.flash === rain1.flash && rain9.wave === rain1.wave, "weather at 9 is denser, never a flash or a shockwave");
+        dial[8].click();
+        ok(wizard.answers.power === 9 && wizBody.querySelector(".wiz-power button.on").dataset.power === "9" && /Devastating/.test(wizBody.querySelector(".wiz-power").textContent) &&
+           wizBody.querySelectorAll(".wiz-pick").length === 9, "pressing 9 redraws the nine at power 9");
+        const c9 = wizard.list[2], st9 = wizardState(c9, wizard.answers);
+        wizBody.querySelectorAll(".wiz-pick")[2].click();
+        ok(PARAMS.every((p) => state[p[0]] === st9[p[0]] || p[0] === "frameSize" || p[0] === "fit"), "a load at power 9 is the powered effect shown on its card");
+        undoEdit();
+        const readBad = [];
+        for (const v of [1, 9]) { const a = { type: "status", tags: ["heal"], era: "", power: v }; for (const x of wizardCandidates(a, 1)) if (!wizardReadable(wizardMeasure(wizardState(x, a), null))) readBad.push(v + " " + x.name); }
+        ok(!readBad.length, "every result reads at both ends of the dial (healing status, its faintest)", readBad.join(", "));
+        wizard.answers.power = 5;
       }
       // LOCK PIXELS: the results show what a click gives, and say so when the lock changes them
       {

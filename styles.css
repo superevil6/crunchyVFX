@@ -1378,7 +1378,17 @@ h1.wm img { image-rendering: pixelated; display: block; margin: -14px 0; }
 .wiz-note button { padding: 3px 9px; font-size: 12px; }
 .wiz-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 /* a result: its picture SQUARE on the left (no dark side bars), its name, what it is made of and its playback on the right */
-.wiz-pick { display: flex; align-items: stretch; gap: 9px; padding: 6px; text-align: left; min-width: 0; }
+/* §23.7 the Power dial: 1 tame .. 9 devastating, its word beside it */
+.wiz-power { display: flex; align-items: center; gap: 4px; margin: 0 0 10px; flex-wrap: wrap; }
+.wiz-power-lab { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.wiz-power button { min-width: 28px; padding: 3px 0; font-size: 12px; }
+.wiz-power button.on { background: var(--accent); border-color: var(--accent); color: #121116; }
+.wiz-power-word { font-size: 12px; color: var(--ink); margin-left: 8px; }
+.wiz-res { position: relative; display: flex; min-width: 0; }
+.wiz-pick { display: flex; flex: 1; align-items: stretch; gap: 9px; padding: 6px; text-align: left; min-width: 0; }
+/* §23.5: Play over the picture's lower-left corner (a sibling of the card's button, not inside it) */
+.wiz-play { position: absolute; left: 12px; bottom: 12px; padding: 3px 8px; font-size: 12px; opacity: .92; }
+.wiz-play.on { border-color: var(--accent); }
 .wiz-pick:hover { border-color: var(--accent); }
 .wiz-pic { flex: none; width: clamp(96px, 17vh, 176px); aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center;
   background: #100e15; }

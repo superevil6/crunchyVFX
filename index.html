@@ -3679,6 +3679,8 @@ const PALETTES = [
   ["Plasma",   { hue: 310, hueLife: 90,  sat: 0.95, coreWhite: 0.7, blend: 0 }],
   ["Candy",    { hue: 330, hueLife: 40,  sat: 0.6,  coreWhite: 0.5, blend: 0 }],
   ["Steel",    { hue: 215, hueLife: 0,   sat: 0.18, coreWhite: 0.45, blend: 1 }],
+  ["Wind",     { hue: 165, hueLife: 20,  sat: 0.3,  coreWhite: 0.85, blend: 0 }],   // AJ 2026-10-28: the Wizard's Wind
+  ["Heal",     { hue: 135, hueLife: 15,  sat: 0.8,  coreWhite: 0.65, blend: 0 }],   // AJ 2026-10-28: the Wizard's Healing
 ];
 const paletteGrid = document.getElementById("paletteGrid");
 for (const [name, patch] of PALETTES) {
@@ -8290,6 +8292,16 @@ const WIZARD_TAGS = [
     color: (h, s) => (h >= 315 || h <= 10 || (h >= 40 && h <= 58)) && s >= 0.6, palettes: ["Candy", "Gold"],
     words: ["coin", "coins", "heart", "hearts", "confetti", "candy", "charm", "treasure", "gem", "crown", "love", "cute", "music", "party", "gift", "jackpot", "gold"],
     shapes: ["heart", "coin", "candy", "crown", "gem", "heartbreak", "note", "egg"], systems: [], maybe: ["star", "diamond", "flower", "starburst", "glyph", "butterfly", "Twinkle", "Tumble", "Bubble"] },
+  // AJ, 2026-10-28: "we're missing a Wind option for the wizard". Pale, cool, light; whirlwinds, gusts, swirling wisps.
+  { key: "wind", name: "Wind", note: "gusts, whirlwinds, swirling wisps",
+    color: (h, s, cw, b) => h >= 140 && h <= 230 && s <= 0.45 && cw >= 0.6 && b !== 1, palettes: ["Wind"],
+    words: ["wind", "windy", "gust", "gusts", "breeze", "tornado", "whirlwind", "cyclone", "air", "blow", "gale", "swoosh", "whoosh", "draft", "hurricane", "twister", "swirl", "dash"],
+    shapes: ["tornado"], systems: [], maybe: ["comma", "spiral", "feather", "leaf", "cloud", "specks", "Vortex", "Streaks", "Trails", "Tumble", "Weather", "Lines"] },
+  // AJ, 2026-10-28: "a blunt Healing category would be good" (Holy's halos were the nearest, and not clearly it).
+  { key: "heal", name: "Healing", note: "green pluses, rising sparkles, restoring glow",
+    color: (h, s, cw, b) => h >= 100 && h <= 160 && s >= 0.5 && cw >= 0.45 && b !== 1, palettes: ["Heal"],
+    words: ["heal", "healing", "cure", "regen", "regeneration", "restore", "health", "hp", "recover", "revive", "mend", "medic", "remedy", "potion", "life"],
+    shapes: [], systems: [], maybe: ["plus", "heart", "sprout", "cross", "Twinkle", "Light shafts", "Aura"] },
 ];
 const wizardTag = (key) => WIZARD_TAGS.find((t) => t.key === key) || null;
 const wizardType = (key) => WIZARD_TYPES.find((t) => t.key === key) || null;
@@ -8381,6 +8393,12 @@ const WIZARD_INGREDIENTS = {
                knobs: { grow: 0.6 }, say: { smoke: "smoke", cloud: "cloud", rock: "rubble", specks: "dust", Haze: "haze", Decal: "scorch" } },
   cute:      { shapes: ["heart", "star", "candy", "coin", "note"], systems: ["Twinkle", "Tumble"], palettes: ["Candy", "Gold", "Rainbow"],
                knobs: {}, say: { heart: "heart", star: "star", candy: "candy", coin: "coin", note: "music", Twinkle: "twinkle", Tumble: "confetti" } },
+  wind:      { shapes: ["tornado", "comma", "spiral", "feather", "cloud"], systems: ["Vortex", "Streaks", "Trails"], palettes: ["Wind"],
+               knobs: { wind: 240, swirl: 160 }, say: { tornado: "whirlwind", comma: "wisp", spiral: "swirl", feather: "feather", cloud: "gust",
+               Vortex: "cyclone", Streaks: "gale", Trails: "breeze" } },
+  heal:      { shapes: ["plus", "heart", "star", "sprout"], systems: ["Twinkle", "Shockwave", "Light shafts"], palettes: ["Heal"],
+               knobs: { gravity: -120 }, say: { plus: "healing", heart: "heart", star: "sparkle", sprout: "renewal", Twinkle: "glimmer",
+               Shockwave: "pulse", "Light shafts": "restoring" } },
 };
 // Per type: the structural layers its skeleton may keep (everything else on the donor preset is dropped), and the
 // layers it may add when no tag brings one.
@@ -8704,10 +8722,13 @@ function wizardCandidates(answers, seed) {
   const out = [], seen = new Set(), names = new Set(), pairs = new Set();
   for (let slot = 0; slot < 9; slot++) {
     let best = null;
-    for (let attempt = 0; attempt < 6; attempt++) {
+    // six tries; and (2026-10-28) six more only when none of the six READS at all, so a slot that drew something is
+    // exactly as before (Atmosphere + Water + Holy had a slot whose six were all too faint)
+    for (let attempt = 0; attempt < 12; attempt++) {
+      if (attempt === 6 && best && best.score >= 5) break;
       const c = wizardCompose(type, tags, seed, slot, attempt);
       const key = [c.donor, c.g.shape, c.g.emit2Shape, c.parts.map((p) => p.part).join("+")].join("|");
-      if (seen.has(key) && attempt < 5) continue;
+      if (seen.has(key) && attempt !== 5 && attempt !== 11) continue;
       // with tags chosen (and an era that keeps colors), the LEAD tag's palette must be what is seen
       const lk = tags.length && !era ? c.tags[0] : null;
       const good = (m) => wizardReadable(m) && (!lk || wizardTagShare(m, lk) >= WIZARD_READ.lead);
@@ -8732,8 +8753,76 @@ const wizardPatch = (c) => c.g;
 function wizardLabel(c) { return c.name; }
 // A result as it WILL load: what applyPreset gives (Lock pixels and Hold sound included), then the era exactly as its
 // Era style button writes it. The picture and the click are the same state.
+// §23.7 POWER (AJ, 2026-10-28: "a 'scale' option that would determine how brutal an effect would be ... Dial all the way to
+// 9"): one dial on the results, 1 (a tame first-level spell) to 9 (devastating). 5 is the composition as it is, exactly.
+// Below, fewer, smaller, slower, shorter, softer, the flash and shockwave fading out; above, more of all of it, and from 7
+// a flash, from 8 a shockwave, at 9 bursts within the burst and a mark on the ground. (Not a bigger frame: the Wizard
+// fits every effect to its frame, so a bigger one only drew it smaller.) Applied to a
+// result's state, so its still, its Play and its Load are the same effect.
+const WIZARD_POWER = { min: 1, max: 9, neutral: 5,
+  words: ["", "Tame", "Faint", "Light", "Modest", "As composed", "Strong", "Fierce", "Brutal", "Devastating"] };
+// A result at a power: wizardPower, then (as the composer does for a faint composition) nudged until it READS on a card,
+// at most three times, only when it does not (a tame one is meant to be lighter, never invisible). Cached per result and level.
+function wizardPowered(c, answers) {
+  const level = Math.round(answers.power || WIZARD_POWER.neutral), base = presetOutcome(wizardPatch(c), false);
+  if (level === WIZARD_POWER.neutral) return base;
+  const era = answers.era ? styleByName(answers.era) : null, key = level + "|" + (answers.era || "");
+  c.powered = c.powered || {};
+  if (!c.powered[key]) {
+    // and when three nudges are not enough (a few heal compositions at the ends of the dial), a step toward 5 at a time:
+    // 5 is the composition itself, which the composer already made read, so every card shows something
+    const type = wizardType(answers.type), dir = level < WIZARD_POWER.neutral ? 1 : -1;
+    let g = base;
+    for (let lv = level; lv !== WIZARD_POWER.neutral; lv += dir) {
+      let t = wizardPower(presetOutcome(wizardPatch(c), false), lv, answers.type), m = wizardMeasure(t, era);
+      for (let fix = 0; fix < 3 && type && !wizardReadable(m); fix++) { t = wizardFatten(t, type, m, null); m = wizardMeasure(t, era); }
+      if (wizardReadable(m)) { g = t; break; }
+    }
+    c.powered[key] = g;
+  }
+  return Object.assign({}, c.powered[key]);
+}
+// The types whose effects are a single moment (a burst): only these gain a flash, a shockwave, bursts and a ground mark
+// at the top of the dial. Weather, auras and UI cues get stronger by density, size, speed and glow alone.
+const WIZARD_POWER_BURSTS = { hit: 1, explosion: 1, spell: 1, projectile: 1, pickup: 1 };
+function wizardPower(st, level, typeKey) {
+  level = Math.max(WIZARD_POWER.min, Math.min(WIZARD_POWER.max, Math.round(level || WIZARD_POWER.neutral)));
+  if (level === WIZARD_POWER.neutral) return st;
+  const k = (level - WIZARD_POWER.neutral) / 4, P = (key, v) => {   // k: -1 (1) .. 1 (9); P clamps to the param's range
+    const d = PARAM_BY_KEY[key];
+    st[key] = d ? Math.max(d[2], Math.min(d[3], v)) : v;
+  };
+  const x = (e) => Math.pow(2, e * k);
+  // the clip and a particle's life move together (a longer clip of the same particles is mostly empty frames); a tame
+  // effect keeps its particles' life (fewer, smaller and slower is tame; gone in a blink is only hard to see)
+  const lifeE = k > 0 ? 0.3 : 0;
+  P("count", Math.max(8, Math.round(st.count * x(k > 0 ? 1.2 : 0.9))));
+  if (st.emit2Count > 0) P("emit2Count", Math.max(4, Math.round(st.emit2Count * x(k > 0 ? 1.2 : 0.9))));
+  P("size", +(st.size * x(k > 0 ? 0.45 : 0.2)).toFixed(1));
+  P("emit2Size", +(st.emit2Size * x(k > 0 ? 0.45 : 0.2)).toFixed(1));
+  P("speed", Math.round(st.speed * x(k > 0 ? 0.35 : 0.6)));
+  P("emit2Speed", Math.round(st.emit2Speed * x(k > 0 ? 0.35 : 0.6)));
+  P("life", +(st.life * x(lifeE)).toFixed(2));
+  P("duration", +(st.duration * x(lifeE)).toFixed(2));
+  P("coreWhite", +(st.coreWhite + 0.2 * k).toFixed(2));
+  if (k < 0) {
+    const soft = 1 + k * 0.9;                     // level 1: a tenth of the flash and shockwave
+    P("flash", +(st.flash * soft).toFixed(2)); P("wave", +(st.wave * soft).toFixed(2)); P("glow", +(st.glow * soft).toFixed(2));
+    P("subCount", Math.round(st.subCount * soft)); P("decal", +(st.decal * soft).toFixed(2));
+  } else {
+    P("glow", Math.max(st.glow, +(0.5 * k).toFixed(2)));
+    if (typeKey && !WIZARD_POWER_BURSTS[typeKey]) return st;
+    if (level >= 7) { P("flash", Math.max(st.flash, 0.35 + (level - 7) * 0.2)); P("flashSize", Math.max(st.flashSize, 0.5 + (level - 7) * 0.15)); }
+    if (level >= 8) {
+      P("wave", Math.max(st.wave, 0.55 + (level - 8) * 0.3)); P("waveLife", Math.max(st.waveLife, 0.35));
+      P("flashRays", Math.max(st.flashRays, 6));
+    }
+    if (level >= 9) { P("subCount", Math.max(st.subCount, 4)); P("decal", Math.max(st.decal, 0.6)); P("flashRays", Math.max(st.flashRays, 10)); }
+  }
+  return st;
+}
 function wizardState(c, answers) {
-  const st = presetOutcome(wizardPatch(c), false);
+  const st = wizardPowered(c, answers);
   if (answers.era) styleInto(st, styleByName(answers.era));
   gameLockInto(st);                          // §38: in the game palette when the switch is on, as wizardLoad's gameLockNew makes it
   return st;
@@ -8749,7 +8838,7 @@ function wizardLockMatters(list, answers) {
 }
 
 // ---- The dialog ----
-const wizard = { answers: { type: "", tags: [], era: "" }, step: 0, seed: 1, list: [], jobs: [], timer: 0, perf: null };
+const wizard = { answers: { type: "", tags: [], era: "", power: 5 }, step: 0, seed: 1, list: [], jobs: [], timer: 0, perf: null };
 const WIZARD_STEPS = 3;
 const wizModal = document.createElement("div");
 wizModal.className = "modal wiz-modal";
@@ -8894,6 +8983,20 @@ function wizardResults() {
   const a = wizard.answers, type = wizardType(a.type);
   const tagNames = a.tags.map((k) => wizardTag(k).name).join(" + ");
   wizBody.appendChild(wizEl("h3", "wiz-q", type.name + (tagNames ? " · " + tagNames : "") + " · " + (a.era || "as drawn")));
+  // §23.7 the POWER dial: nine steps, the nine redrawn at the one picked (they are stills, so it is quick)
+  const pw = a.power || WIZARD_POWER.neutral, dial = wizEl("div", "wiz-power");
+  dial.setAttribute("role", "group"); dial.setAttribute("aria-label", "Power");
+  dial.appendChild(wizEl("span", "wiz-power-lab", "Power"));
+  for (let v = WIZARD_POWER.min; v <= WIZARD_POWER.max; v++) {
+    const pb = wizEl("button", v === pw ? "on" : "", String(v));
+    pb.type = "button"; pb.dataset.power = v;
+    pb.setAttribute("aria-pressed", v === pw ? "true" : "false");
+    pb.title = "Power " + v + ": " + WIZARD_POWER.words[v].toLowerCase() + (v === WIZARD_POWER.neutral ? " (the effects as they are)" : "");
+    pb.addEventListener("click", () => { if (a.power !== v) { a.power = v; wizardDraw(); } });
+    dial.appendChild(pb);
+  }
+  dial.appendChild(wizEl("span", "wiz-power-word", WIZARD_POWER.words[pw]));
+  wizBody.appendChild(dial);
   const t0 = performance.now();
   wizard.list = wizardCandidates(a, wizard.seed);
   const pickMs = performance.now() - t0;
@@ -8938,14 +9041,38 @@ function wizardResults() {
     txt.appendChild(wizEl("span", "wiz-sub", cv.width + " px · " + (loops ? "loops" : "plays once")));
     b.appendChild(txt);
     b.addEventListener("click", () => wizardLoad(c));
-    grid.appendChild(b);
-    // ALL NINE PLAY (§23: measured, a few hundred ms in all, so no play button): each one's frames render on its own
-    // tick, the first shown first, and join the Breed grid's mini-player loop as they arrive.
-    wizard.jobs.push(() => {
-      if (!cv.isConnected) return;
+    // §23.5 (AJ, 2026-10-28: "VFX gets pretty chuggy during the wizard"): the nine show STILLS, and each has a PLAY button
+    // (a sibling over its picture: a button can't hold a button). Play renders that one's frames on first press (kept
+    // for the next) and plays it in the Breed grid's mini-player loop; one plays at a time, so another's Play pauses it.
+    const cell = wizEl("div", "wiz-res");
+    cell.appendChild(b);
+    const play = wizEl("button", "wiz-play");
+    play.type = "button";
+    setIconLabel(play, "play", "Play");
+    play.title = "Play " + label + " here (it does not load it)";
+    cell.appendChild(play);
+    grid.appendChild(cell);
+    let player = null;
+    const pause = () => {
+      const k = miniPlayers.indexOf(player);
+      if (k >= 0) miniPlayers.splice(k, 1);
+      setIconLabel(play, "play", "Play");
+      play.classList.remove("on");
+    };
+    play.addEventListener("click", () => {
+      if (player && miniPlayers.indexOf(player) >= 0) { pause(); return; }
+      for (const o of wizBody.querySelectorAll(".wiz-play.on")) if (o !== play) o.click();   // one at a time
+      if (!player) player = render();
+      if (!player) return;
+      miniPlayers.push(player);
+      setIconLabel(play, "pause", "Pause");
+      play.classList.add("on");
+    });
+    const render = () => {
+      if (!cv.isConnected) return null;
       const f0 = performance.now();
       let r = null;
-      try { r = withState(st, () => renderFrames(state, { fit: true })); } catch (e) { return; }
+      try { r = withState(st, () => renderFrames(state, { fit: true })); } catch (e) { return null; }
       perf.fullMs.push(Math.round(performance.now() - f0));
       perf.frames += r.canvases.length; perf.bytes += r.w * r.h * 4 * r.canvases.length; perf.ready++;
       // a one-shot holds its last frame half a second before it starts again, so no cell reads as blank (§23.1)
@@ -8957,21 +9084,12 @@ function wizardResults() {
         const lit = r.canvases.map(wizardLitCount), top = Math.max(1, ...lit);
         while (end > 0 && (lit[end] < top * 0.25 || !wizardLit(r.canvases[end]))) end--;
       }
-      const g = cv.getContext("2d"), p = { g, canvas: cv, frames: r.canvases, fps: r.fps, i: Math.floor(end * 0.35), last: 0,
+      // plays from the start (the still was ~40% in; Play shows the effect as it happens)
+      return { g: cv.getContext("2d"), canvas: cv, frames: r.canvases, fps: r.fps, i: end, last: 0,
         hold: loops ? 0 : 500, end: loops ? null : end };
-      g.clearRect(0, 0, cv.width, cv.height);
-      if (r.canvases.length) g.drawImage(r.canvases[p.i], 0, 0);
-      miniPlayers.push(p);
-    });
+    };
   });
   wizBody.appendChild(grid);
-  const pump = () => {
-    wizard.timer = 0;
-    const job = wizard.jobs.shift();
-    if (job) job();
-    if (wizard.jobs.length) wizard.timer = setTimeout(pump, 0);
-  };
-  wizard.timer = setTimeout(pump, 0);
   const back = wizEl("button", "", "Back");
   back.addEventListener("click", () => { wizard.step = 2; wizardDraw(); });
   const more = wizEl("button", "primary", "More like these");
@@ -8979,9 +9097,9 @@ function wizardResults() {
   more.title = "Nine more for the same answers";
   more.addEventListener("click", () => { wizard.seed++; wizardDraw(); });
   const again = wizEl("button", "", "Start over");
-  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], era: "" }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
+  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], era: "", power: WIZARD_POWER.neutral }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
   wizFoot.appendChild(back); wizFoot.appendChild(more); wizFoot.appendChild(again);
-  wizFoot.appendChild(wizEl("span", "hint", "Click one to load it. Ctrl+Z undoes it."));
+  wizFoot.appendChild(wizEl("span", "hint", "Play shows one moving; click one to load it. Ctrl+Z undoes it."));
   iconsIn(wizFoot);
   const first = grid.querySelector("button");
   if (first) first.focus();

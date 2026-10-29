@@ -1330,6 +1330,8 @@ any effect you load would") with a "Turn Lock pixels off" button (the lock butto
 pins) that redraws them at their own sizes. On the era question, with the lock on, a line says an era also pins its size
 and crunch for later effects, exactly as its Era style button does.
 
+> **Superseded by §23.5** (2026-10-28: stills with a Play button each). Kept for the record.
+
 **All nine play** (AJ: "If it's not too intensive we can just have them all playing"). Measured, WebKitGTK (the desktop
 engine) at 1440 x 900, cold, Atmosphere + Fire (nine of 192 px, 328 frames): choosing 201 ms (10 ms warm), the nine
 stills 21 ms, every frame rendered and playing 577 ms after opening; 48 MB of frames; with all nine playing the frame
@@ -1503,6 +1505,62 @@ Screenshots: `tune-*.png` (fire + lightning explosion, sci-fi + ice spell, dark 
 **For AJ:** `WIZARD_READ` is the dial (raise `mean` for chunkier results, at the cost of more retries); a single tag with
 few particles (lightning: bolt, spark, plus) gives names that sound alike ("Static spark trail", "Spark static bolt");
 more `say` words or particles in its ingredient row would fix it.
+
+### 23.5 Stills with a Play button (AJ, 2026-10-28: "VFX gets pretty chuggy during the wizard")
+
+The nine no longer all render and play. Each result shows its still (one frame ~40% in, as before). A **Play**
+button over the picture's lower-left corner (a sibling of the card's button: a button cannot hold one) renders
+that effect's frames on first press, keeps them, and plays it from the start in the Breed grid's mini-player loop.
+Only one plays at a time: another Play pauses it, and Play again pauses it too. Play never loads the effect; the card
+still does. A one-shot still holds its last lit frame half a second before replaying.
+
+- **Measured** (Firefox headless, explosion + fire): 40 ms of stills to open, 57 ms to start one playing. Before, all
+  nine rendered behind it and looped together.
+- **Tests:** regression.js's wizard rows now check that nothing renders until Play, that Play plays that one and loads
+  nothing, one at a time, Play again pauses, a replay reuses its frames, and each one-shot's hold. ALL PASS (713).
+
+### 23.6 Wind and Healing tags (AJ, 2026-10-28: "we're missing a Wind option"; "a blunt Healing category would be good")
+
+Two more answers to "What's it made of?", each a WIZARD_TAGS row (what it looks like) and a WIZARD_INGREDIENTS row (what
+it brings), and a new palette each (appended to PALETTES, so a mood button too):
+
+- **Wind** (palette Wind: pale cool white-green). Strong: the tornado shape, and words (wind, gust, breeze, whirlwind,
+  swirl, dash...). Ingredients: tornado, comma (wisp), spiral, feather, cloud; Vortex, Streaks, Trails; leading, it sets
+  the Wind and Swirl motion. Carried by Tornado Spin, Leaf Swirl, Summon Swirl, Speed Dash, Dash Trail.
+- **Healing** (palette Heal: bright green, a white core). Strong: words only (heal, cure, regen, restore, health, potion,
+  revive...); a bright green with a hint (plus, heart, sprout, cross, Twinkle, Light shafts) also counts. Ingredients:
+  plus, heart, star, sprout; Twinkle, Shockwave, Light shafts; leading, particles rise (gravity -120). Carried by Heal
+  Rise, Heal Pulse, Heart Heal, Potion Brew. (Plus, Glow and Shockwave alone were too common: they tagged Sonar Ping.)
+- **The composer** now tries six more times when none of a slot's six READS (Atmosphere + Water + Holy, newly sampled
+  by the sweep, had one; it failed on HEAD too). A slot that drew something is unchanged.
+- **Tests:** ALL PASS, regression 713 and async 77 (152 wizard answers: every type x every tag, pairs, triples, eras).
+
+### 23.7 The Power dial, 1 to 9 (AJ, 2026-10-28: "a 'scale' option that would determine how brutal an effect would be... Dial all the way to 9 baby!")
+
+A row of nine buttons over the results: 1 Tame, 2 Faint, 3 Light, 4 Modest, 5 As composed, 6 Strong, 7 Fierce,
+8 Brutal, 9 Devastating. A press redraws the nine at that power (they are stills since §23.5, so it is quick). It
+starts at 5 and Start over puts it back.
+
+- **wizardPower(st, level, type)**, applied in wizardState, so a card's still, its Play and its Load are one effect.
+  - **5 is the composition exactly.**
+  - **Below 5:** fewer (count x0.5 at 1), slightly smaller, slower, a cooler core. The flash, shockwave, glow, bursts
+    and ground mark fade (a tenth at 1). The particles keep their life: a tame effect is lighter, not gone in a blink.
+  - **Above 5:** denser (x2.3 at 9), bigger, faster, longer, hotter, glowing.
+  - **Burst types only** (hit, explosion, spell, projectile, pickup): a flash from 7, a shockwave and rays from 8, bursts
+    within the burst and a ground mark at 9. Weather, auras and UI cues power up by density alone, so no flash on rain.
+  - **No bigger frame:** the Wizard fits every effect to its frame, so a bigger one only drew it smaller.
+- **Every card reads** (wizardPowered, cached per result and level). A level that falls under the §23.2 bar gets the
+  composer's own nudge (wizardFatten), up to three times. If that is still not enough, it steps one level toward 5 at a
+  time; 5 always reads. A few healing compositions at the ends of the dial need it.
+- **Measured** (Firefox headless): 20-80 ms a level. 3240 results (every type x five tag mixes x 1..9) all read.
+  Explosion + fire, mean particles a result at 1 / 3 / 5 / 7 / 9: 70 / 94 / 128 / 194 / 294.
+- **Tests:**
+  - regression.js, 8 rows: the dial; 5 exact; denser, hotter and flashier up the dial; bursts at 9; weather never
+    flashes; pressing 9 redraws; a load is the powered effect; both ends read.
+  - regression-async: the 3240 sweep.
+  - ALL PASS: regression 721, async 78.
+- **Next** (AJ's other half): a motion question, "How does it move?" (splattering, spinning, cracking, rising, dripping,
+  shattering, pulsing, swirling), from parts VFX has.
 
 ## 24. The layout pass, round 2: folding panels, rows that hide, panels in order, grouped layer chips, tag chips (2026-10-13)
 

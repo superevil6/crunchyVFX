@@ -521,6 +521,21 @@
           await new Promise((r) => setTimeout(r, 0));
         }
         ok(!pale.length, "…warm and cool tags together: both palettes show across the nine (" + pn + " answers)", pale.join(", ") || "clean");
+        // §23.7 THE POWER DIAL: every result READS at every level (every type x five tag mixes x 1..9)
+        {
+          const weakP = [];
+          let np = 0;
+          const tp0 = performance.now();
+          for (const ty of WIZARD_TYPES) for (const tg of [[], ["fire"], ["heal"], ["wind"], ["ice", "tech"]]) {
+            const a = { type: ty.key, tags: tg, era: "" }, l = wizardCandidates(a, 1);
+            for (let v = 1; v <= 9; v++) {
+              a.power = v;
+              for (const c of l) { np++; if (!wizardReadable(wizardMeasure(wizardState(c, a), null))) weakP.push(ty.key + "+" + (tg.join("+") || "any") + "@" + v + " " + c.name); }
+            }
+            await new Promise((r) => setTimeout(r, 0));
+          }
+          ok(!weakP.length, "…and READS at every Power, 1 to 9 (" + np + " results, " + Math.round(performance.now() - tp0) + " ms)", weakP.slice(0, 6).join(", ") || "clean");
+        }
         pixelLock = wasLock;
       }
 
