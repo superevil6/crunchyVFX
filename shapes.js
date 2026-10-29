@@ -1933,6 +1933,22 @@ const SHAPE_DEFS = [
       for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (m.holes[y * n + x]) g.fillRect(x, y, 1, 1);
     },
   },
+  // A DART (2026-10-29, AJ's weapon motions: the bow's "something arriving from off-screen"): an arrow, a crossbow bolt or
+  // a dart as a projectile, not "arrow" (a chunky UI pointer). Pointing up like every shape: a pointed head, a thin shaft
+  // the length of the cell, two fletching vanes at the tail. Angle 90 points it right.
+  {
+    name: "dart",
+    draw(g, R) {
+      g.save(); g.translate(R, R);
+      const L = R - 1, w = Math.max(0.75, R * 0.07), hw = R * 0.24, hl = R * 0.42, fw = R * 0.26, fl = R * 0.42;
+      g.beginPath(); g.moveTo(0, -L); g.lineTo(hw, -L + hl); g.lineTo(0, -L + hl * 0.8); g.lineTo(-hw, -L + hl); g.closePath(); g.fill();   // the head
+      g.fillRect(-w, -L + hl * 0.7, 2 * w, 2 * L - hl * 0.7);                                                                                 // the shaft
+      for (const sx of [-1, 1]) {                                                                                                            // the vanes
+        g.beginPath(); g.moveTo(sx * w, L - fl); g.lineTo(sx * fw, L - fl * 0.45); g.lineTo(sx * fw, L); g.lineTo(sx * w, L - fl * 0.3); g.closePath(); g.fill();
+      }
+      g.restore();
+    },
+  },
 ];
 
 // ---- the Icon particle's helpers (§28) -----------------------------------------------------------------------------

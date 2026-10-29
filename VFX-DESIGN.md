@@ -1604,6 +1604,35 @@ the tags: any number, then Next (or Any way).
   - async: every type x every move and four pairs, a tag each, some in 8-bit, 864 results, all carry and read.
   - ALL PASS: regression 728, async 79.
 
+### 23.9 Weapon motions: Spear Thrust, Comic Pow, and Slashing / Smashing / Thrusting moves (AJ, 2026-10-29)
+
+For Painter Panic's martial weapons, by motion, not object: a swung edge (axe, sword, dagger), a swung weight (hammer,
+glove), a driven point (spear), a shot (bow). Slash and shot had presets (Sword Slash and kin; Arrow Trail); blunt and
+thrust did not.
+
+- **Presets, picked by eye from four candidates each** (filmstrips, ~/.cache/crunchy-wip/vfxweap/):
+  - **Spear Thrust:** the Beam layer as a pointed lance (taper 1, extending over 0.12) with sparks spraying back.
+    AJ's pick was then made shorter (0.65 of the frame) and bolder (22 px, more sparks, a bigger flash), because the
+    thin original read under the 64 px bar every moment effect meets.
+  - **Comic Pow:** a flash, impact lines bursting, little spinning stars.
+  - Both are in Structures, tagged for the `hit` moment.
+- **The Wizard's third question gains three moves:** Slashing (Ribbon pinned to Sword Slash's arc), Smashing (Lines +
+  Flash, as Comic Pow) and Thrusting (Beam pinned to the lance).
+  - A move's new `after` settings apply AFTER its layers are tuned from a donor preset, so a thrust is never a donor's
+    scrolling laser and a slash never a thin sliver.
+  - Measured: every move on every type carries it and reads (the async sweep, 1080 results).
+- **Arrow Shot (the bow), and two engine additions for it.** AJ liked a struck arrow with a flash and impact lines, "but
+  the impact layer should happen at the end of the flight, so it doesn't look like it's piercing and moving on".
+  - **A new shape, "dart"** (appended, index 98; Sharp): a shaft, a pointed head and fletching, for arrows, bolts and
+    darts. The old "arrow" is a UI pointer.
+  - **`emitDelay`** (Emitter, "Start delay"): the main particles can start late, like Layer B's `emit2Delay`.
+  - **`emit2OffsetX/Y`** (Layer B, "Start X/Y"): Layer B can start away from the main origin, so something can fly INTO
+    the hit. Both default to 0: every existing effect's frames are unchanged (frame hash: only the new preset moved).
+  - **The preset:** two arrows hand over. Layer B flies in from 0.3 of the frame to the left at a constant speed timed
+    to arrive at 0.18 s and ends; the main arrow appears there at that moment and stays; the flash and impact lines
+    wait for it (`layerDelay`). Drag was rejected: it eases out, so the arrow still crept forward after the hit.
+- **Tests:** regression 728, async 79, frame hash re-recorded (only the new presets and the all-presets zip moved).
+
 ## 24. The layout pass, round 2: folding panels, rows that hide, panels in order, grouped layer chips, tag chips (2026-10-13)
 
 The follow-up §22 proposed, AJ approved the direction. Presentation only: no control removed or renamed, the frame hash is

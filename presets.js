@@ -2032,6 +2032,43 @@ window.PRESETS = {
     emit2FadeIn: 0, emit2FadeOut: 0.5, emit2Hue: 50, emit2Sat: 0.9, emit2Bright: 1, emit2Opacity: 1,
     originY: 0.6, duration: 1.1, fps: 24, frameSize: 3, moments: ["powerup"],
   },
+  // WEAPON MOTIONS (2026-10-29, for martial weapons: AJ picked these by eye from four candidates each). A thrust is a
+  // pointed lance (the Beam layer extending fast, taper 1) with sparks spraying back off the hit; a blunt hit is a comic
+  // pow: a flash, impact lines bursting out, little spinning stars. (After AJ's pick: the lance shorter (0.85 -> 0.65 of the
+  // frame, so Fit draws the whole hit larger) and 12 -> 22 px, the sparks 24 -> 40, 8 -> 11 px and longer-lived, the flash
+  // bigger: at first it fell under the 64 px readability bar every moment effect meets.) Slash already had Sword Slash, Katana Cut and kin.
+  "Spear Thrust": {
+    shape: 1, emitter: 1, emitAngle: 290, emitSpread: 50, originX: 0.2, count: 40, speed: 320, speedVar: 0.5,
+    drag: 0.45, gravity: 300, size: 11, life: 0.42, fadeOut: 0.6, hue: 40, sat: 0.55, bright: 1, coreWhite: 0.85,
+    glow: 0.5, beam: 1, beamAngle: 90, beamLen: 0.65, beamWidth: 22, beamTaper: 1, beamCore: 0.9, beamGrow: 0.12,
+    beamScroll: 0, beamFlicker: 0, flash: 0.7, flashSize: 0.24, flashLife: 0.05, duration: 0.45, fps: 30,
+    frameSize: 5,
+    moments: ["hit"],
+  },
+  "Comic Pow": {
+    shape: 3, emitter: 0, count: 8, speed: 220, speedVar: 0.3, drag: 0.6, size: 18, sizeVar: 0.3, life: 0.45,
+    fadeOut: 0.5, spin: 200, hue: 45, sat: 1, bright: 1, coreWhite: 0.6, glow: 0.4, lines: 1, lineCount: 14,
+    lineInner: 0.2, lineOuter: 0.55, lineWidth: 5, lineTaper: 0.85, lineLife: 0.35, flash: 0.9, flashSize: 0.3,
+    flashLife: 0.1, duration: 0.6, fps: 24, frameSize: 5,
+    moments: ["hit"],
+  },
+  // The bow (2026-10-29, AJ: "I like A's setup, but the impact layer should happen at the end of the flight, so it doesn't
+  // look like it's piercing and moving on"). Two arrows hand over: Layer B flies in from the left (emit2OffsetX) at a
+  // constant speed timed to reach the hit point at 0.18 s and ends there; the main arrow appears in that spot at that
+  // moment (emitDelay) and stays, struck. The flash and impact lines wait for it (layerDelay). The "dart" shape. (After
+  // AJ's pick: a shorter flight, 0.3 of the frame, a bigger arrow and impact, to clear the 64 px bar moment effects meet.)
+  "Arrow Shot": {
+    shape: 98, emitter: 0, count: 1, speed: 0, drag: 0, life: 0.5, lifeVar: 0, size: 60, sizeVar: 0, grow: 0,
+    fadeIn: 0, fadeOut: 0.3, angle: 90, angleVar: 0, blend: 1, emitDelay: 0.18, emit2Count: 1, emit2Shape: 98,
+    emit2Emitter: 1, emit2Angle: 90, emit2Spread: 0, emit2Radius: 0, emit2Over: 0, emit2Delay: 0,
+    emit2OffsetX: -0.3, emit2Speed: 320, emit2SpeedVar: 0, emit2Drag: 0, emit2Gravity: 0, emit2Size: 60,
+    emit2SizeVar: 0, emit2Grow: 0, emit2Life: 0.18, emit2LifeVar: 0, emit2FadeIn: 0, emit2FadeOut: 0, emit2Hue: 30,
+    emit2Sat: 0.35, emit2Bright: 0.5, emit2Opacity: 1, emit2Blend: 1, flash: 0.6, flashSize: 0.3, flashLife: 0.06,
+    lines: 1, lineCount: 10, lineInner: 0.12, lineOuter: 0.42, lineWidth: 4, lineLife: 0.26,
+    layerDelay: "Flash:0.18,Lines:0.18", duration: 0.7, fps: 30, frameSize: 5, hue: 30, sat: 0.35, bright: 0.95,
+    coreWhite: 0,
+    moments: ["hit"],
+  },
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -2043,7 +2080,7 @@ window.PRESET_CATEGORIES = [
   ["Structures", ["Cracks", "Laser", "Magic Bolt", "Sword Slash", "Comet Arc",
                   "Portal", "Summon Circle", "Chain Lightning", "Teleport Out",
                   "Comet Trail", "Neon Streaks",
-                  "Glass Shatter", "Ice Shatter", "Impact Lines", "Slime Blob",
+                  "Glass Shatter", "Ice Shatter", "Impact Lines", "Spear Thrust", "Comic Pow", "Arrow Shot", "Slime Blob",
                   "Firework", "Water Ripple", "Sonar Ping", "Glitch Out", "Goo Split", "Comet Path",
                   "Sun Glint", "Corrupt Blip", "Glass Web", "Slime Drip", "Molten Drip",
                   "Radar Sweep", "Searchlight", "Rift Split"]],

@@ -448,6 +448,8 @@ const PARAMS = [
   ["emitSpread", "Spread",      0, 360, 1, 360, "°",   "Emitter"],
   ["emitRadius", "Emit radius", 0, 0.5, 0.01, 0, "",   "Emitter"],
   ["emitTime",   "Emit over",   0, 1, 0.01, 0, "",     "Emitter"],
+  // 2026-10-29 (the arrow shot: an impact must wait for what flies in): the main particles' start, like Layer B's.
+  ["emitDelay",  "Start delay", 0, 1, 0.01, 0, "s",   "Emitter"],
   ["originX",    "Origin X",    0, 1, 0.01, 0.5, "",   "Emitter"],
   ["originY",    "Origin Y",    0, 1, 0.01, 0.5, "",   "Emitter"],
   // Motion — the integrator's forces
@@ -974,6 +976,9 @@ const PARAMS = [
   ["emit2Radius","Emit radius", 0, 0.5, 0.01, 0.05, "","Layer B"],
   ["emit2Spread","Spread",      0, 360, 1, 360, "°",  "Layer B"],
   ["emit2Delay", "Start delay", 0, 1, 0.01, 0, "s",   "Layer B"],
+  // 2026-10-29: where Layer B starts, off the main origin (a fraction of the frame): something flying INTO the hit.
+  ["emit2OffsetX","Start X",   -0.5, 0.5, 0.01, 0, "",  "Layer B"],
+  ["emit2OffsetY","Start Y",   -0.5, 0.5, 0.01, 0, "",  "Layer B"],
   ["emit2Over",  "Emit over",   0, 1, 0.01, 0.2, "",  "Layer B"],
   ["emit2Speed", "Speed",       0, 900, 1, 90, "px/s","Layer B"],
   ["emit2SpeedVar","Speed var", 0, 1, 0.01, 0.5, "",  "Layer B"],
@@ -3393,7 +3398,7 @@ const SHAPE_CATS = [
   ["Sharp",  ["spark", "pixel", "shard", "star", "cross", "diamond", "arrow",
               "triangle", "claw", "shuriken", "spike", "starburst", "frame", "crack", "reticle",
               "cube", "sword", "boom", "rock", "casing", "rift", "boost", "axe", "jaws",
-              "hammer"]],
+              "hammer", "dart"]],
   ["Formed", ["ring", "crescent", "spiral", "bolt", "teardrop", "snowflake", "heart",
               "flower", "leaf", "hexagon", "gear", "plus", "gem",
               "skull", "feather", "coin", "comma", "butterfly", "eye", "mushroom", "shield",
@@ -8434,6 +8439,19 @@ const WIZARD_MOVES = [
     set: {}, systems: ["Shockwave"], has: (st) => wizardHasGroup(st, "Shockwave") },
   { key: "swirl", name: "Swirling", note: "a whirl turning round its middle", word: ["Swirling", "Whirling", "Twisting"],
     set: { swirl: 380 }, systems: ["Vortex"], has: (st) => wizardHasGroup(st, "Vortex") },
+  // WEAPON MOTIONS (AJ, 2026-10-29, for martial weapons: "have the wizard point out the motion clearly"). A slash is a
+  // swung edge (the Ribbon arc of Sword Slash); a smash is a swung weight (Comic Pow's flash and impact lines); a thrust
+  // is a driven point (Spear Thrust's lance: the Beam extending fast, taper 1). `after` is set AFTER the layers are
+  // tuned from a donor preset, so a thrust is always a pointed lance, never a donor's scrolling laser.
+  { key: "slash", name: "Slashing", note: "a swung edge: swords, axes, daggers", word: ["Slashing", "Slicing", "Cutting"],
+    set: {}, systems: ["Ribbon"], after: { ribbonArc: 0.42, ribbonRadius: 0.32, ribbonWidth: 20, ribbonTaper: 1.2, ribbonSweep: 0.35, ribbonTrail: 0.5, ribbonRetract: 1 },
+    has: (st) => wizardHasGroup(st, "Ribbon") && st.ribbonWidth >= 14 },
+  { key: "smash", name: "Smashing", note: "a swung weight: hammers, clubs, fists", word: ["Smashing", "Crushing", "Pounding"],
+    set: {}, systems: ["Lines", "Flash"], after: { lineCount: 14, lineInner: 0.2, lineOuter: 0.55, lineWidth: 5, flash: 0.9, flashSize: 0.3, flashLife: 0.1 },
+    has: (st) => wizardHasGroup(st, "Lines") && st.flash > 0 },
+  { key: "thrust", name: "Thrusting", note: "a driven point: spears, rapiers, lances", word: ["Thrusting", "Piercing", "Stabbing"],
+    set: {}, systems: ["Beam"], after: { beamAngle: 90, beamLen: 0.65, beamWidth: 22, beamTaper: 1, beamCore: 0.9, beamGrow: 0.12, beamScroll: 0, beamFlicker: 0 },
+    has: (st) => wizardHasGroup(st, "Beam") && st.beamTaper >= 0.8 && st.beamScroll === 0 },
 ];
 const wizardMoveOf = (key) => WIZARD_MOVES.find((m) => m.key === key) || null;
 function wizardHasGroup(st, g) { const L = wizardGroupOf(g); return !!L && withState(st, () => L.is()); }
@@ -8448,6 +8466,10 @@ function wizardMove(g, keys, rnd) {
       st[p] = d ? Math.max(d[2], Math.min(d[3], mv.set[p])) : mv.set[p];
     }
     for (const sys of mv.systems) wizardAddSystem(st, sys, rnd);
+    for (const p in mv.after || {}) {
+      const d = PARAM_BY_KEY[p];
+      st[p] = d ? Math.max(d[2], Math.min(d[3], mv.after[p])) : mv.after[p];
+    }
   }
   return st;
 }

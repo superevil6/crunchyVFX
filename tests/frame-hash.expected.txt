@@ -277,6 +277,10 @@ VFX FRAME "Talk Bubble" 31f5c26df06cb898
 VFX FRAME "Prompt Pop" 14e232bcbc1a108b
 VFX FRAME "nofit:Prompt Pop" f4f1108707eb20d2
 VFX FRAME "Trophy Win" dd9f9d6be6cedfa4
+VFX FRAME "Spear Thrust" c1f394960153ddc3
+VFX FRAME "Comic Pow" 8022ed176200dfb8
+VFX FRAME "nofit:Comic Pow" fcc891d68f795987
+VFX FRAME "Arrow Shot" f46e4c15279032fa
 VFX EXPORT "Explosion|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 53d045de124567bf
 VFX EXPORT "Magic Sparkle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" f9494da6cde5b4b7
 VFX EXPORT "Frost Growth|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 03cf428dba03821a
@@ -303,6 +307,6 @@ VFX EXPORT "Heal Pulse|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none
 VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" eb35008107e31524
 VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" f3795229d7289800
-VFX FRAMEHASH c598150557e54c32 over 306
-VFX END PASS 306 hashes
+VFX BATCH "crunchyvfx-pack.zip" db4315cffd560b00
+VFX FRAMEHASH 261edf7fdc7f8470 over 310
+VFX END PASS 310 hashes

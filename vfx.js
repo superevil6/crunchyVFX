@@ -281,7 +281,7 @@ function simulate(st) {
     const i = g % perShot;                       // index within the shot
     const shotScale = Math.pow(st.shotScale, k);
     const t0 = k * st.shotDelay;
-    pbirth[g] = t0 + (emitTime > 0 ? rnd(seed, g, 1) * emitTime : 0);
+    pbirth[g] = t0 + (st.emitDelay || 0) + (emitTime > 0 ? rnd(seed, g, 1) * emitTime : 0);   // emitDelay: 0 = as before
     plife[g] = Math.max(0.02, st.life * (1 + st.lifeVar * rndS(seed, g, 2)));
     psize[g] = Math.max(0.5, st.size * shotScale * (1 + st.sizeVar * rndS(seed, g, 3)));
     phue[g] = st.hue + st.hueVar * 180 * rndS(seed, g, 4);
@@ -317,7 +317,8 @@ function simulate(st) {
       phue[g] = st.emit2Hue + st.hueVar * 180 * rndS(seed, g, 64);
       pspin[g] = (st.spin * (1 + st.spinVar * rndS(seed, g, 65))) * DEG;
       pang[g] = st.angle * DEG + st.angleVar * rnd(seed, g, 66) * Math.PI * 2;
-      const place = emitPlace(b2Emitter, seed, g, n2, bCount, ox, oy, b2R, b2Dir, b2Spread);
+      // emit2OffsetX/Y (2026-10-29): Layer B can start away from the main origin (0, 0 = as before), so a thing flies in
+      const place = emitPlace(b2Emitter, seed, g, n2, bCount, ox + (st.emit2OffsetX || 0) * fs, oy + (st.emit2OffsetY || 0) * fs, b2R, b2Dir, b2Spread);
       const sp = st.emit2Speed * (1 + st.emit2SpeedVar * rndS(seed, g, 67));
       px[g] = place.x; py[g] = place.y;
       vx[g] = Math.cos(place.ang) * sp; vy[g] = Math.sin(place.ang) * sp;
