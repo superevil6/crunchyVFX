@@ -105,7 +105,14 @@ else
   cap 3G node tests/godot-check.mjs >/dev/null || die "node tests/godot-check.mjs failed"
   cap 3G node tests/godot-scene.mjs >/dev/null || die "node tests/godot-scene.mjs failed"
   ok "Godot checks (they skip without godot)"
-  warn "the screenshot suite (tests/run.html) is judged by eye: run it and read the banner before you say yes below"
+  # THE SUITES ARE READ, NOT PHOTOGRAPHED (2026-11-02): crunchyCore's tools/run-suite.mjs drives each page over WebDriver
+  # BiDi, waits until its banner stops saying "running…" and fails unless the banner's TEXT passes. A --screenshot fired
+  # at window.load (an async suite still "running…", green) and a dead Firefox left the previous png to read as a pass.
+  CORE="${CRUNCHYCORE:-$(cd .. && pwd)/crunchyCore}"
+  [[ -f "$CORE/tools/run-suite.mjs" ]] || die "no $CORE/tools/run-suite.mjs: set CRUNCHYCORE to your crunchyCore checkout"
+  node "$CORE/tools/run-suite.mjs" tests/run.html --size=1400,3600 --mem=8G --timeout=900 --banner="body > div:last-of-type" --shot="$WIP/run.png" \
+    || die "tests/run.html did not pass (its result box is above; the page: $WIP/run.png)"
+  ok "screenshot suite (tests/run.html)"
 fi
 
 # ---------------------------------------------------------------- bump versions
