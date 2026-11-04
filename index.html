@@ -787,6 +787,51 @@ const PARAMS = [
   // Off by default so every orbit preset that shipped with round beads still draws round beads.
   ["orbitUseShape","Draw shapes",  0, 1, 1, 0, "", "Orbit"],
 
+  // Pixel art (§41) — blobs and bits drawn as a sprite artist draws them: hard color steps by heat, a lit side and a
+  // dark rim, outlines, held frames. Every number of the explosion and the blood spurt is a row; they are presets.
+  ["pix", "Pixel art", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixDetail", "Art pixels", 24, 160, 1, 64, "px", "Pixel art"],
+  ["pixStep", "Art FPS", 4, 30, 1, 15, "", "Pixel art"],
+  ["pixSize", "Size", 0.3, 1.8, 0.01, 1, "", "Pixel art"],
+  ["pixColors", "Colors", 0, PIX_RAMPS.length - 1, 1, 0, "", "Pixel art", "enum", PIX_RAMPS],
+  ["pixHue", "Hue shift", 0, 360, 1, 0, "°", "Pixel art"],
+  ["pixEmit", "Emit as", 0, PIX_EMITS.length - 1, 1, 0, "", "Pixel art", "enum", PIX_EMITS],
+  ["pixCount", "Blobs", 1, 80, 1, 9, "", "Pixel art"],
+  ["pixPulses", "Pulses", 1, 6, 1, 1, "", "Pixel art"],
+  ["pixSpan", "Emit time", 0, 1, 0.01, 0.2, "", "Pixel art"],
+  ["pixAngle", "Direction", -180, 180, 1, -90, "°", "Pixel art"],
+  ["pixSpread", "Spread", 0, 360, 1, 360, "°", "Pixel art"],
+  ["pixSpeed", "Speed", 0, 30, 0.1, 0.4, "", "Pixel art"],
+  ["pixSpeedVar", "Speed var", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixScatter", "Scatter", 0, 3, 0.01, 0.95, "", "Pixel art"],
+  ["pixGravity", "Gravity", -40, 80, 0.5, -7, "", "Pixel art"],
+  ["pixDrag", "Drag", 0, 10, 0.1, 0, "", "Pixel art"],
+  ["pixStretch", "Stretch", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixFloor", "Floor", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixShape", "Blob shape", 0, PIX_SHAPES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_SHAPES],
+  ["pixBlob", "Blob size", 0.05, 2, 0.01, 0.95, "", "Pixel art"],
+  ["pixSizeVar", "Size var", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixCore", "Core", 0, 1, 0.01, 1, "", "Pixel art"],
+  ["pixGrow", "Grow time", 0, 1, 0.01, 0.18, "", "Pixel art"],
+  ["pixSwell", "Swell", -1, 1, 0.01, 0.35, "", "Pixel art"],
+  ["pixLife", "Blob life", 0.05, 2, 0.01, 0.75, "", "Pixel art"],
+  ["pixLumps", "Lumps", 0, 1, 0.01, 0.32, "", "Pixel art"],
+  ["pixBreak", "Break up", 0, 1, 0.01, 1, "", "Pixel art"],
+  ["pixBreakAs", "Break up as", 0, PIX_BREAKS.length - 1, 1, 0, "", "Pixel art", "enum", PIX_BREAKS],
+  ["pixHeat", "Heat", 0, 1, 0.01, 1, "", "Pixel art"],
+  ["pixCool", "Cool time", 0.02, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixTone", "Tone", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixSmoke", "Smoke", 0, 1, 0.01, 0.7, "", "Pixel art"],
+  ["pixLight", "Highlight", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixRim", "Rim", 0, 1, 0.01, 0.3, "", "Pixel art"],
+  ["pixLightAngle", "Light from", 0, 360, 1, 225, "°", "Pixel art"],
+  ["pixOutline", "Outline", 0, 1, 1, 1, "", "Pixel art"],
+  ["pixBits", "Debris", 0, 40, 1, 4, "", "Pixel art"],
+  ["pixBitSpeed", "Debris speed", 0, 20, 0.1, 4, "", "Pixel art"],
+  ["pixBitGravity", "Debris gravity", -20, 60, 0.5, 16, "", "Pixel art"],
+  ["pixSparks", "Sparks", 0, 60, 1, 7, "", "Pixel art"],
+  ["pixSparkSpeed", "Spark speed", 0, 30, 0.1, 8, "", "Pixel art"],
+
   // Tumble — flat pieces turning over as they fall. Confetti, petals, leaves, paper, coins.
   ["tumble",     "Tumble",      0, 1, 0.01, 0, "",     "Tumble"],
   ["tumbleCount","Pieces",      1, 200, 1, 30, "",     "Tumble"],
@@ -1054,7 +1099,10 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        // §39 VARIETY: how the exported Godot scene varies each time it plays (flips, quarter turns,
                        // scale, speed, jitter) and how many baked sibling variations it picks from, "k:v,k:v" (varietyOf).
                        // Read only by the Godot export; "" (every effect made before) changes no file.
-                       variety: "" };
+                       variety: "",
+                       // §42 a box Fit always takes in ("x0,y0,x1,y1", fractions of the frame), so a set of effects (the CLI's
+                       // strengths) shares one scale: a weak one draws smaller. Not in the editor; "" changes no effect.
+                       fitBox: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -1520,6 +1568,12 @@ const PARAM_WHEN = {
   originX:     () => !fitOn,
   originY:     () => !fitOn,
   turbScale:   (s) => s.turb > 0,
+  pixCool:     (s) => s.pixHeat > 0,
+  pixBreakAs:  (s) => s.pixBreak > 0,
+  pixPulses:   (s) => Math.round(s.pixEmit) < 2,
+  pixBitSpeed: (s) => s.pixBits > 0,
+  pixBitGravity: (s) => s.pixBits > 0,
+  pixSparkSpeed: (s) => s.pixSparks > 0,
   turbSpeed:   (s) => s.turb > 0,
   turbCurl:    (s) => s.turb > 0,
   spinVar:     (s) => s.spin !== 0,
@@ -2839,6 +2893,7 @@ const LAYER_GROUPS = [
   { g: "Ripples",     is: () => state.ripple > 0,     on: () => { state.ripple = 1; } },
   { g: "Sigil",       is: () => state.sigil > 0,      on: () => { state.sigil = 1; } },
   { g: "Orbit",       is: () => state.orbit > 0,      on: () => { state.orbit = 1; } },
+  { g: "Pixel art",   is: () => state.pix > 0,        on: () => { state.pix = 1; } },
   { g: "Tumble",      is: () => state.tumble > 0,     on: () => { state.tumble = 1; } },
   { g: "Web",         is: () => state.web > 0,        on: () => { state.web = 1; } },
   { g: "Rift",        is: () => state.rift > 0,       on: () => { state.rift = 1; } },
@@ -2924,6 +2979,7 @@ const LAYER_ABOUT = {
   "Path trail":     ["Motion", "A line tracing where each particle has been"],
   "Smear":          ["Motion", "Motion smear, as an animator draws speed"],
   "Orbit":          ["Motion", "Shapes circling the center on a tilted ring"],
+  "Pixel art":      ["Particles", "Blobs and bits drawn as a sprite artist would: explosions, blood, poofs, dust"],
   "Shockwave":      ["Shapes & lines", "An expanding ring from the center"],
   "Ripples":        ["Shapes & lines", "Rings spreading out, as on water"],
   "Vortex":         ["Shapes & lines", "Spinning rings on a flat plane: a portal, a whirlpool"],
@@ -7740,7 +7796,7 @@ document.body.appendChild(timeModal);
 const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Arms", "Grid",
   "Light shafts", "Droplets", "Twinkle", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
   "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
-  "Rift", "Tumble", "Swarm", "Crackle", "Orbit"];
+  "Rift", "Tumble", "Swarm", "Crackle", "Orbit", "Pixel art"];
 
 function layerDelayMap() { return parseLayerDelays(state.layerDelay); }
 function setLayerDelay(name, secs) {
@@ -8885,6 +8941,14 @@ function wizardPower(st, level, typeKey) {
   P("life", +(st.life * x(lifeE)).toFixed(2));
   P("duration", +(st.duration * x(lifeE)).toFixed(2));
   P("coreWhite", +(st.coreWhite + 0.2 * k).toFixed(2));
+  // §41's pixel art (2026-11-04, for the VFX CLI's strengths): more and bigger blobs, faster, more debris and sparks
+  if (st.pix > 0) {
+    P("pixCount", Math.max(1, Math.round(st.pixCount * x(k > 0 ? 0.9 : 0.7))));
+    P("pixSize", +(st.pixSize * x(k > 0 ? 0.3 : 0.25)).toFixed(2));
+    P("pixSpeed", +(st.pixSpeed * x(k > 0 ? 0.3 : 0.4)).toFixed(2));
+    P("pixBits", Math.round(st.pixBits * x(k > 0 ? 1 : 1.5)));
+    P("pixSparks", Math.round(st.pixSparks * x(k > 0 ? 1 : 1.2)));
+  }
   if (k < 0) {
     const soft = 1 + k * 0.9;                     // level 1: a tenth of the flash and shockwave
     P("flash", +(st.flash * soft).toFixed(2)); P("wave", +(st.wave * soft).toFixed(2)); P("glow", +(st.glow * soft).toFixed(2));

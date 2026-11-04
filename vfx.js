@@ -795,6 +795,7 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Swarm", (tt) => drawSwarm(g, st, tt, xf, fs, ox, oy, seed));
     stage("Crackle", (tt) => drawCrackle(g, st, tt, xf, fs, ox, oy, seed));
     stage("Orbit", (tt) => drawOrbit(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Pixel art", (tt) => drawPixelArt(g, st, tt, xf, fs, ox, oy, seed));
     drawPRings(g, sim, f, st, xf);
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
@@ -2402,6 +2403,228 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// ---------- pixel art (§41) ----------
+// Effects drawn the way a sprite artist draws them, not as filtered particles: on a coarse grid of ART pixels
+// (`pixDetail` across the frame's short side, blown up by a whole number, unsmoothed), each blob in a few hard color
+// steps chosen by its heat, lit from one side with a darker rim, a dark outline round everything that touches, frames
+// HELD at `pixStep` per second. AJ, 2026-11-02: "an explosion from Metal Slug. Smokey, gritty, and firey" and "a Mortal
+// Kombat blood spurt", then "Is there really no lever to pull there for parameterizing them for stuff like volume?"
+//
+// So there are no kinds: two primitives and their knobs. BLOBS (emitted as a burst, a stream in pulses, or a ring; they
+// fly, fall or rise, grow, swell, stretch along their flight, cool down a ramp and may turn to smoke, break up in clumps,
+// splat on a floor) and BITS (debris chunks on arcs, and sparks: single flickering pixels). The explosion and the blood
+// spurt are presets. PIX_EMITS and PIX_RAMPS are append-only (stored indices).
+const PIX_EMITS = ["burst", "stream", "ring", "arc", "line"];
+// a blob's silhouette (append-only): the distance a pixel is from the center, measured four ways
+const PIX_SHAPES = ["round", "diamond", "star", "square", "cross"];
+const PIX_BREAKS = ["clumps", "dither"];
+const PIX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];   // the 4x4 ordered-dither thresholds, /16
+const PIX_RAMPS = ["fire", "blood", "cloud", "dust", "effect colors"];
+// darkest first. The outline is its own color; smoke is the cooled-blob ramp every kind shares.
+const PIX_RAMP_RGB = [
+  { out: [40, 18, 16], ramp: [[180, 34, 26], [232, 98, 28], [247, 170, 36], [255, 226, 80], [255, 251, 232]] },
+  { out: [44, 4, 10], ramp: [[112, 8, 18], [168, 16, 28], [224, 50, 58], [255, 156, 156]] },
+  { out: [58, 58, 84], ramp: [[150, 152, 176], [196, 198, 214], [232, 234, 244], [255, 255, 255]] },
+  { out: [52, 36, 24], ramp: [[120, 92, 64], [160, 128, 90], [196, 166, 120], [228, 206, 160]] },
+];
+const PIX_SMOKE = [[56, 46, 46], [88, 74, 68], [128, 112, 100]];
+function pixHsl(h, s, l) {     // -> [r, g, b] 0..255
+  h = ((h % 360) + 360) % 360 / 360;
+  const f = (n) => { const k = (n + h * 12) % 12, a = s * Math.min(l, 1 - l); return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); };
+  return [f(0), f(8), f(4)];
+}
+// a luminance-keeping hue turn (the YIQ rotation), so green blood stays exactly as dark as red
+function pixTurn(rgb, hue) {
+  if (!hue) return rgb;
+  const c = Math.cos(-hue * DEG), s = Math.sin(-hue * DEG), [r, g, b] = rgb;
+  const y = 0.299 * r + 0.587 * g + 0.114 * b, i = 0.596 * r - 0.274 * g - 0.322 * b, q = 0.211 * r - 0.523 * g + 0.312 * b;
+  const i2 = i * c - q * s, q2 = i * s + q * c;
+  const cl = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  return [cl(y + 0.956 * i2 + 0.621 * q2), cl(y - 0.272 * i2 - 0.647 * q2), cl(y - 1.106 * i2 + 1.703 * q2)];
+}
+// the palette: [outline, smoke x3, ramp...]. "effect colors" builds the ramp from the effect's own color (so color sets
+// and the game palette reach it): five lightness steps, hue-shifted warmer toward the light as a pixel artist does.
+function pixPalette(st) {
+  const which = Math.max(0, Math.min(PIX_RAMPS.length - 1, Math.round(st.pixColors || 0)));
+  let out, ramp;
+  if (which === 4) {
+    const c = layerColour(st, 0.35, 0), s = clamp01(c.s);
+    ramp = [0.3, 0.44, 0.58, 0.74, 0.9].map((l, k) => pixHsl(c.h + (k - 2) * 9, clamp01(s * (1.05 - 0.15 * Math.abs(k - 2))), l));
+    out = pixHsl(c.h - 20, clamp01(s * 0.7), 0.11);
+  } else { out = PIX_RAMP_RGB[which].out; ramp = PIX_RAMP_RGB[which].ramp; }
+  const hue = st.pixHue || 0;
+  return { pal: [pixTurn(out, hue)].concat(PIX_SMOKE, ramp.map((c) => pixTurn(c, hue))), n: ramp.length };
+}
+// smooth value noise in 0..1 at cell size `c` art pixels: smoke breaks up in CLUMPS, never single-pixel salt
+function pixNoise(seed, x, y, c, salt) {
+  const fx = x / c, fy = y / c, ix = Math.floor(fx), iy = Math.floor(fy), tx = fade(fx - ix), ty = fade(fy - iy);
+  const a = lerp(latt(seed, ix, iy, salt), latt(seed, ix + 1, iy, salt), tx);
+  const b = lerp(latt(seed, ix, iy + 1, salt), latt(seed, ix + 1, iy + 1, salt), tx);
+  return (lerp(a, b, ty) + 1) / 2;
+}
+function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
+  if (st.pix <= 0) return;
+  const W = g.canvas.width, H = g.canvas.height;
+  const k = Math.max(1, Math.round(Math.min(W, H) / Math.max(8, st.pixDetail)));   // frame px per art px, whole
+  const Wa = Math.ceil(W / k), Ha = Math.ceil(H / k);
+  const L = Math.max(0.1, st.duration);
+  const step = Math.max(1, st.pixStep || 15);
+  const tick = Math.floor(t * step + 1e-6);
+  const u = tick / step / L;                                  // held frames: the clock moves in whole art frames
+  // Sized and placed by the FRAME and Origin X/Y, never by Fit: a pixel-art-only effect has one invisible particle, and
+  // Fit would blow its tiny box up to the frame (xf.k in the hundreds).
+  const R0 = 0.16 * Math.min(W, H) * st.pixSize / k;        // the layer's unit, art px: speeds are R0 per duration
+  const ax = st.originX * W / k, ay = st.originY * H / k;
+  const { pal, n: nR } = pixPalette(st);
+  const RAMP0 = 4;                                            // pal index of the ramp's darkest step
+  const col = new Int8Array(Wa * Ha).fill(-1), pri = new Float32Array(Wa * Ha).fill(-1e9);
+  const put = (x, y, c, p) => {
+    if (x < 0 || y < 0 || x >= Wa || y >= Ha) return;
+    const j = y * Wa + x;
+    if (p >= pri[j]) { pri[j] = p; col[j] = c; }
+  };
+  const loose = [];   // [x, y, pal index] drawn after the outline: sparks, shines, hot debris
+  const emit = Math.round(st.pixEmit || 0), P = Math.max(1, Math.round(st.pixPulses || 1));
+  const th0 = (st.pixAngle || 0) * DEG, spread = (st.pixSpread || 0) * DEG;
+  const G = R0 * (st.pixGravity || 0), drag = Math.max(0, st.pixDrag || 0);
+  const floorY = st.pixFloor > 0 ? ay + st.pixFloor * Ha : Infinity;
+  const heat0 = clamp01(st.pixHeat), tone = clamp01(st.pixTone), smoke = clamp01(st.pixSmoke);
+  const shp = Math.round(st.pixShape || 0), dith = Math.round(st.pixBreakAs || 0) === 1;
+  const light = clamp01(st.pixLight), rim = clamp01(st.pixRim), la = (st.pixLightAngle || 0) * DEG;
+  const lx = Math.cos(la) * 0.55, ly = Math.sin(la) * 0.55;  // where the highlight sits inside a blob
+  // where a body launched at angle th, speed v, born at b is at u (drag eases its flight; gravity in R0 per duration²)
+  const fly = (s, v, th, dr) => {
+    const go = dr > 0 ? (1 - Math.exp(-dr * s)) / dr : s;
+    return [Math.cos(th) * v * go, Math.sin(th) * v * go + 0.5 * G * s * s, Math.cos(th) * v * Math.exp(-dr * s), Math.sin(th) * v * Math.exp(-dr * s) + G * s];
+  };
+  // ---- the blobs ----
+  const nB = Math.max(1, Math.round(st.pixCount)), nS = smoke > 0 ? Math.round(nB * 0.78 * smoke) : 0;
+  const span = Math.max(0, st.pixSpan), gap = span / P;
+  for (let i = 0; i < nB + nS; i++) {
+    const isSmoke = i >= nB, r1 = rnd(seed, i, 400), r2 = rnd(seed, i, 401), r3 = rnd(seed, i, 402), r4 = rnd(seed, i, 403), r5 = rnd(seed, i, 404);
+    const pulse = isSmoke ? 0 : i % P;
+    const core = !isSmoke && i === 0 && st.pixCore > 0 && emit < 3;
+    const f = nB > 1 ? i / (nB - 1) : 0;                      // an arc's blobs in order, tail (0) to head (1)
+    // birth: a burst crowds the start, a stream spreads evenly through each pulse; the core is there at once
+    const b = core ? 0 : emit >= 3 && !isSmoke ? span * f : isSmoke ? span * 0.7 + 0.24 * r1 : pulse * gap + gap * (P > 1 ? 0.7 : 1) * (emit === 1 ? r1 : Math.pow(r1, 1.4));
+    // every blob is done by the end of the clip: a late smoke puff squeezes its life rather than being cut off mid-frame
+    // (Big Pixel Boom's last frame still held 5112 pixels, so its loop popped; AJ, 2026-11-02)
+    const life = Math.max(0.05, Math.min(st.pixLife * (isSmoke ? 0.9 : 1) * (0.85 + 0.3 * r5), 0.97 - b));
+    const s = u - b, a = s / life;
+    if (a < 0 || a >= 1) continue;
+    let th, d;
+    if (emit === 2) { th = th0 + (i / nB) * Math.PI * 2; d = st.pixScatter * R0; }
+    else if (emit === 4 && !isSmoke) { th = th0 + (r2 - 0.5) * spread * 0.15; d = st.pixScatter * R0 * f; }   // a line out along Direction: a muzzle flash, a thrust
+    else if (emit === 3 && !isSmoke) { th = th0 + (f - 0.5) * spread; d = st.pixScatter * R0 * (1 + 0.08 * (r3 - 0.5)); }   // a sweep: laid along the arc in order
+    else { th = th0 + (r2 - 0.5) * spread * (P > 1 ? 1 + 0.6 * pulse / (P - 1) : 1); d = core ? 0 : st.pixScatter * R0 * Math.sqrt(r3); }
+    const v = core ? 0 : R0 * st.pixSpeed * (1 - st.pixSpeedVar * r4) * (P > 1 ? 1 - 0.22 * pulse : 1) * (isSmoke ? 0.5 : 1);
+    const [fx, fy, vx, vy] = fly(s, v, th, drag);
+    const x0b = ax + Math.cos(th) * d, y0b = ay + Math.sin(th) * d * 0.85;
+    const cx = x0b + fx, cy = y0b + fy - (isSmoke ? R0 * 0.5 : 0);
+    const grow = st.pixGrow > 0 ? 1 - Math.pow(1 - Math.min(1, (a + 0.07) / st.pixGrow), 2) : 1;
+    const big = (core ? 1 + 0.15 * st.pixCore : (isSmoke ? 0.6 + 0.3 * r4 : 1 - st.pixSizeVar * r5 * 0.9)) * (emit === 3 && !isSmoke ? 0.35 + 0.65 * f : emit === 4 && !isSmoke ? 1 - 0.65 * f : 1);   // an arc grows to its head, a line thins to its tip
+    // Swell above 0 keeps growing late in life; below 0 shrinks to nothing by the end (a glint, a dying spark)
+    const sw = st.pixSwell < 0 ? 1 + st.pixSwell * Math.max(0, a - 0.4) / 0.6 : 1 + st.pixSwell * Math.max(0, a - 0.4);
+    const r = R0 * st.pixBlob * big * grow * sw;
+    if (r < 0.5) continue;
+    // heat: starts at pixHeat, cools over pixCool of the blob's life to its Tone; a cooled blob turns to smoke if Smoke > 0
+    const coolAt = Math.max(0.02, st.pixCool * (0.85 + 0.3 * r4));
+    const hot = isSmoke ? 0 : heat0 * Math.max(0, 1 - a / coolAt);
+    const smoky = isSmoke || (smoke > 0 && heat0 > 0 && hot <= 0);
+    // landed: a splat that spreads, then stays
+    if (cy + r >= floorY && !smoky) {
+      const age = (cy + r - floorY) / Math.max(1, vy);        // how long since it reached the floor, near enough
+      const lx0 = cx - vx * age;
+      const w = r * (1.3 + 1.6 * Math.min(1, age * 9)), h = Math.max(0.8, r * 0.55), base = Math.round(tone * (nR - 2));
+      for (let yy = Math.floor(floorY - h); yy <= Math.ceil(floorY); yy++) for (let xx = Math.floor(lx0 - w); xx <= Math.ceil(lx0 + w); xx++) {
+        const dx = (xx + 0.5 - lx0) / w, dy = (yy + 0.5 - floorY) / h;
+        if (dx * dx + dy * dy < 1) put(xx, yy, RAMP0 + Math.min(nR - 1, base + (dy < -0.45 && dx * lx > 0 ? 0 : dy < -0.45 ? 1 : 0)), 5);
+      }
+      continue;
+    }
+    if (cy - r > Ha + 2 || cx < -r * 6 || cx > Wa + r * 6 || cy < -r * 6) continue;
+    // stretch: a capsule from the tail to the head along the flight, fat at the head
+    const sp = Math.hypot(vx, vy), ux = sp ? vx / sp : 0, uy = sp ? vy / sp : 1;
+    const tail = st.pixStretch * Math.min(r * 5, sp * 0.035);
+    const tx = cx - ux * tail, ty = cy - uy * tail;
+    const erode = st.pixBreak > 0 && a > 0.62 ? st.pixBreak * (a - 0.62) / 0.38 : 0;
+    const lumps = st.pixLumps;
+    const x0 = Math.floor(Math.min(cx, tx) - r - 1), x1 = Math.ceil(Math.max(cx, tx) + r + 1);
+    const y0 = Math.floor(Math.min(cy, ty) - r - 1), y1 = Math.ceil(Math.max(cy, ty) + r + 1);
+    const base = hot > 0 ? Math.round((tone + (1 - tone) * hot) * (nR - 2)) : Math.round(tone * (nR - 2));
+    const pr = hot > 0 ? 10 + 10 * hot - b : smoky ? -b - a * 0.01 : 1 - b * 0.01;
+    for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
+      const px = xx + 0.5, py = yy + 0.5;
+      const q = tail > 0 ? Math.max(0, Math.min(1, ((px - tx) * ux + (py - ty) * uy) / tail)) : 1;
+      const rr = r * (tail > 0 ? 0.55 + 0.45 * q : 1);
+      const dx = (px - (tx + ux * tail * q)) / rr, dy = (py - (ty + uy * tail * q)) / rr;
+      // a lumpy edge, not a balloon: the radius wobbles with noise round the rim
+      const ex = Math.abs(dx), ey = Math.abs(dy);
+      const m = shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
+              : shp === 3 ? Math.max(ex, ey) * Math.max(ex, ey) : Math.pow(Math.max(Math.min(ex, ey) * 3, Math.max(ex, ey)), 2);
+      const d2 = m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i) - 0.5) : 1);
+      if (d2 >= 1) continue;
+      if (erode > 0 && (dith ? PIX_BAYER[(xx & 3) + (yy & 3) * 4] / 16 < erode * 1.05
+                             : pixNoise(seed, xx, yy + a * R0, Math.max(2, R0 * 0.3), 420 + i) < erode * 1.1 + (d2 - 0.5) * 0.4 * erode)) continue;
+      // volume: one step lighter toward the light, one darker at the rim
+      const hx = (px - cx) / r - lx, hy = (py - cy) / r - ly;
+      const shade = (light > 0 && hx * hx + hy * hy < light * light ? 1 : 0) - (rim > 0 && d2 > 1 - rim && (tail <= 0 || q < 0.6) ? 1 : 0);
+      if (smoky) put(xx, yy, 1 + Math.max(0, Math.min(2, 1 + shade)), pr);
+      else put(xx, yy, RAMP0 + Math.max(0, Math.min(nR - 1, base + shade)), pr);
+    }
+    if (!smoky && hot <= 0 && light > 0 && r >= 2.2) loose.push([Math.round(cx + lx * r * 0.7), Math.round(cy + ly * r * 0.75), RAMP0 + nR - 1]);   // the shine
+  }
+  // ---- the bits ----
+  const nD = Math.round(st.pixBits || 0), bth = Math.min(spread || Math.PI * 2, 160 * DEG);
+  for (let i = 0; i < nD; i++) {                                  // debris: dark chunks on arcs, hot-lit early
+    const th = th0 + (rnd(seed, i, 430) - 0.5) * bth, v = R0 * st.pixBitSpeed * (1 + rnd(seed, i, 431)), s = u - 0.02;
+    if (s < 0 || s > 0.8) continue;
+    const x = Math.round(ax + Math.cos(th) * v * s), y = Math.round(ay + Math.sin(th) * v * s + 0.5 * R0 * st.pixBitGravity * s * s);
+    const big = rnd(seed, i, 432) < 0.4;
+    put(x, y, 0, 30); if (big) { put(x + 1, y, 0, 30); put(x, y + 1, 0, 30); put(x + 1, y + 1, 0, 30); }
+    if (s < 0.35 && heat0 > 0) loose.push([x, y, RAMP0 + Math.min(nR - 1, 2)]);
+  }
+  const nE = Math.round(st.pixSparks || 0), eth = Math.min(Math.PI * 2, spread * 1.6 + 0.6);
+  for (let i = 0; i < nE; i++) {                                  // sparks: single pixels that fly, flicker and go out
+    const life = 0.12 + 0.4 * rnd(seed, i, 440), s = u - 0.03 * rnd(seed, i, 444);
+    if (s < 0 || s > life || (heat0 > 0 && (tick + i) % 3 === 0)) continue;
+    const th = th0 + (rnd(seed, i, 441) - 0.5) * eth, v = R0 * st.pixSparkSpeed * (0.6 + 0.6 * rnd(seed, i, 442));
+    const [fx, fy] = fly(s, v, th, 3);
+    const hi = heat0 > 0 ? (s < life * 0.5 ? nR - 2 : 1) : Math.round(tone * (nR - 2)) + (s < life * 0.5 ? 1 : 0);
+    loose.push([Math.round(ax + fx), Math.round(ay + fy), RAMP0 + Math.max(0, Math.min(nR - 1, hi))]);
+  }
+  // the outline: every empty pixel touching a colored one goes to the outline color (debris already is)
+  if (st.pixOutline > 0) {
+    const out = new Uint8Array(Wa * Ha);
+    for (let y = 0; y < Ha; y++) for (let x = 0; x < Wa; x++) {
+      const j = y * Wa + x;
+      if (col[j] >= 0) continue;
+      if ((x > 0 && col[j - 1] > 0) || (x < Wa - 1 && col[j + 1] > 0) || (y > 0 && col[j - Wa] > 0) || (y < Ha - 1 && col[j + Wa] > 0)) out[j] = 1;
+    }
+    for (let j = 0; j < out.length; j++) if (out[j]) col[j] = 0;
+  }
+  for (const [x, y, c] of loose) if (x >= 0 && y >= 0 && x < Wa && y < Ha) col[y * Wa + x] = c;
+  // A FRESH scratch canvas per frame, never one shared: WebKit (the desktop app) defers drawImage onto a big,
+  // GPU-backed frame canvas, so a shared scratch rewritten by the next frame put the LAST frame into every frame
+  // (Big Pixel Boom, 192 px, showed one still wisp of smoke; the 128 px presets and the strip played. AJ, 2026-11-02)
+  const pixCv = document.createElement("canvas");
+  pixCv.width = Wa; pixCv.height = Ha;
+  const pg = pixCv.getContext("2d"), img = pg.createImageData(Wa, Ha), dd = img.data;
+  for (let j = 0; j < col.length; j++) {
+    const c = col[j];
+    if (c < 0) continue;
+    const rgb = pal[Math.min(pal.length - 1, c)];
+    dd[j * 4] = rgb[0]; dd[j * 4 + 1] = rgb[1]; dd[j * 4 + 2] = rgb[2]; dd[j * 4 + 3] = 255;
+  }
+  pg.putImageData(img, 0, 0);
+  g.save();
+  g.globalCompositeOperation = "source-over";                    // smoke is dark: never added
+  g.globalAlpha = clamp01(st.pix);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(pixCv, 0, 0, Wa * k, Ha * k);
+  g.restore();
+}
+
 // ---------- dissolve ----------
 // A noise threshold that erases (or reveals) the WHOLE frame over time — burn-away, materialize,
 // teleport-out. Unlike everything else here it isn't a thing that draws, it's a post pass over
@@ -3254,11 +3477,18 @@ function renderPrep(st, opt) {
   // frame. Needs the bbox across EVERY frame, which is exactly why simulate() runs first.
   let k = base * st.scale, dx, dy;
   if (opt.fit) {
-    const bw = sim.bbox.x1 - sim.bbox.x0, bh = sim.bbox.y1 - sim.bbox.y0;
+    // §42 fitBox: a box ("x0,y0,x1,y1", fractions of the sim frame) Fit grows to take in, so a SET of effects (one attack
+    // at strengths 2, 5, 8) is scaled and centered alike and a weak one draws smaller instead of being blown up. "" = none.
+    let bb = sim.bbox;
+    const fb = st.fitBox ? String(st.fitBox).split(",").map(Number) : null;
+    if (fb && fb.length === 4 && fb.every(isFinite)) {
+      bb = { x0: Math.min(bb.x0, fb[0] * sim.fs), y0: Math.min(bb.y0, fb[1] * sim.fs), x1: Math.max(bb.x1, fb[2] * sim.fs), y1: Math.max(bb.y1, fb[3] * sim.fs) };
+    }
+    const bw = bb.x1 - bb.x0, bh = bb.y1 - bb.y0;
     // Fit against BOTH axes independently and take the tighter one, so a wide effect in a tall
     // frame is limited by width rather than spilling out the sides.
     k = Math.min((outW * 0.94) / Math.max(bw, 1), (outH * 0.94) / Math.max(bh, 1));
-    const cx = (sim.bbox.x0 + sim.bbox.x1) / 2, cy = (sim.bbox.y0 + sim.bbox.y1) / 2;
+    const cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
     dx = outW / 2 - cx * k; dy = outH / 2 - cy * k;
   } else {
     // Keep the emitter origin at ITS fractional position in the frame and scale around it.

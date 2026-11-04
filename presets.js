@@ -1691,6 +1691,74 @@ window.PRESETS = {
     hue: 285, hueLife: 30, sat: 0.8, bright: 1, coreWhite: 0.6,
     glow: 0.5, duration: 1.3, fps: 24, frameSize: 5,
   },
+  // §41: pixel art. One invisible particle; the layer draws everything, placed by Origin X/Y. The layer's defaults ARE
+  // the explosion, so Pixel Explosion names only what places it.
+  "Pixel Explosion": {
+    shape: 0, count: 1, opacity: 0, pix: 1,
+    duration: 1.2, fps: 30, frameSize: 4, originX: 0.5, originY: 0.68,
+    moments: ["explosion", "death"],
+  },
+  "Big Pixel Boom": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixDetail: 72, pixSize: 1.15, pixCount: 15, pixSpan: 0.28, pixSmoke: 1, pixBits: 8, pixSparks: 12, seed: 5,
+    duration: 1.6, fps: 30, frameSize: 5, originX: 0.5, originY: 0.7,
+    moments: ["explosion"],
+  },
+  "Blood Spurt": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 1, pixAngle: -50, pixFloor: 0.3, pixCount: 42, pixEmit: 1, pixPulses: 3, pixSpan: 0.39, pixSpread: 16, pixSpeed: 15, pixSpeedVar: 0.4, pixScatter: 0, pixGravity: 42, pixStretch: 1, pixBlob: 0.24, pixSizeVar: 0.6, pixCore: 0, pixGrow: 0, pixSwell: 0, pixLife: 2, pixLumps: 0, pixBreak: 0, pixHeat: 0, pixTone: 0.5, pixSmoke: 0, pixLight: 0.45, pixRim: 0.4, pixBits: 0, pixSparks: 13, pixSparkSpeed: 14,
+    duration: 1, fps: 30, frameSize: 4, originX: 0.2, originY: 0.55,
+    moments: ["hit", "death"],
+  },
+  "Slime Spurt": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 1, pixHue: 120, pixAngle: -70, pixFloor: 0.32, pixCount: 50, pixEmit: 1, pixPulses: 3, pixSpan: 0.39, pixSpread: 16, pixSpeed: 15, pixSpeedVar: 0.4, pixScatter: 0, pixGravity: 42, pixStretch: 1, pixBlob: 0.24, pixSizeVar: 0.6, pixCore: 0, pixGrow: 0, pixSwell: 0, pixLife: 2, pixLumps: 0, pixBreak: 0, pixHeat: 0, pixTone: 0.5, pixSmoke: 0, pixLight: 0.45, pixRim: 0.4, pixBits: 0, pixSparks: 13, pixSparkSpeed: 14, seed: 3,
+    duration: 1, fps: 30, frameSize: 4, originX: 0.35, originY: 0.55,
+    moments: ["hit", "death"],
+  },
+  "Pixel Poof": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 2, pixEmit: 2, pixCount: 6, pixSpan: 0.06, pixSpeed: 4, pixScatter: 0.35, pixGravity: -3, pixDrag: 3,
+    pixBlob: 0.55, pixSizeVar: 0.4, pixCore: 1, pixGrow: 0.15, pixSwell: 0.3, pixLife: 0.8, pixHeat: 0, pixTone: 0.6, pixSmoke: 0,
+    pixLight: 0.55, pixRim: 0.35, pixBits: 0, pixSparks: 0,
+    duration: 0.8, fps: 30, frameSize: 3, originX: 0.5, originY: 0.55,
+    moments: ["death"],
+  },
+  "Ring Burst": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixHue: 200, pixEmit: 2, pixCount: 8, pixSpeed: 3.6, pixSpeedVar: 0, pixScatter: 0.2, pixGravity: 0,
+    pixBlob: 0.35, pixSizeVar: 0, pixCore: 0, pixGrow: 0.1, pixSwell: 0, pixLife: 0.95, pixLumps: 0, pixBreak: 0, pixCool: 0.7, pixTone: 0.4,
+    pixSmoke: 0, pixBits: 0, pixSparks: 0,
+    duration: 1, fps: 30, frameSize: 4, originX: 0.5, originY: 0.5,
+    moments: ["death"],
+  },
+  "Pixel Dust": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 3, pixSize: 1, pixCount: 8, pixSpan: 0.05, pixSpread: 170, pixSpeed: 8, pixDrag: 5,
+    pixGravity: -2, pixScatter: 0.3, pixBlob: 0.55, pixCore: 0, pixLife: 0.7, pixLumps: 0.25, pixHeat: 0, pixTone: 0.5, pixSmoke: 0,
+    pixBits: 0, pixSparks: 0,
+    duration: 0.7, fps: 30, frameSize: 3, originX: 0.5, originY: 0.8,
+    moments: ["land"],
+  },
+  "Pixel Spark": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 2, pixCount: 4, pixSpan: 0.03, pixSpeed: 2, pixScatter: 0.3, pixGravity: 0, pixBlob: 1.4, pixSizeVar: 0.4, pixCore: 1, pixGrow: 0.08, pixSwell: -1, pixLife: 0.85, pixLumps: 0, pixBreak: 0, pixCool: 0.8, pixTone: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 10, pixSparkSpeed: 12,
+    duration: 0.3, fps: 30, frameSize: 2, originX: 0.5, originY: 0.5,
+    moments: ["hit"],
+  },
+  "Pixel Muzzle": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 4, pixShape: 1, pixAngle: 0, pixSpread: 20, pixCount: 8, pixSpan: 0.0, pixSpeed: 0, pixGravity: 0, pixScatter: 2.4, pixBlob: 0.85, pixSizeVar: 0.2, pixGrow: 0.15, pixSwell: -1, pixLife: 0.85, pixLumps: 0.3, pixBreak: 0, pixCool: 0.7, pixSmoke: 0, pixBits: 0, pixSparks: 6, pixSparkSpeed: 14,
+    duration: 0.27, fps: 30, frameSize: 3, originX: 0.15, originY: 0.5,
+    moments: ["muzzle"],
+  },
+  "Pixel Splash": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 4, pixAngle: -90, pixFloor: 0.2, pixCount: 26, pixEmit: 0, pixPulses: 1, pixSpan: 0.05, pixSpread: 70, pixSpeed: 13, pixSpeedVar: 0.4, pixScatter: 0, pixGravity: 45, pixStretch: 0.8, pixBlob: 0.22, pixSizeVar: 0.6, pixCore: 0, pixGrow: 0, pixSwell: 0, pixLife: 2, pixLumps: 0, pixBreak: 0, pixHeat: 0, pixTone: 0.6, pixSmoke: 0, pixLight: 0.45, pixRim: 0.4, pixBits: 0, pixSparks: 10, pixSparkSpeed: 14, hue: 200, sat: 0.8,
+    duration: 1, fps: 30, frameSize: 4, originX: 0.5, originY: 0.75,
+    moments: ["land"],
+  },
+  "Pixel Glint": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 2, pixColors: 2, pixCount: 3, pixSpan: 0.5, pixSpeed: 0, pixScatter: 1.0, pixGravity: 0, pixBlob: 1.3, pixSizeVar: 0.4, pixCore: 0, pixGrow: 0.3, pixSwell: -1, pixLife: 0.45, pixLumps: 0, pixBreak: 0, pixHeat: 0, pixTone: 1, pixSmoke: 0, pixLight: 0.3, pixRim: 0.3, pixBits: 0, pixSparks: 0,
+    duration: 0.8, fps: 30, frameSize: 2, originX: 0.5, originY: 0.5,
+    moments: ["pickup"],
+  },
+  "Pixel Slash": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 3, pixColors: 2, pixCount: 16, pixSpread: 150, pixAngle: -60, pixScatter: 1.8, pixSpan: 0.18, pixSpeed: 0, pixGravity: 0, pixBlob: 0.42, pixSizeVar: 0, pixGrow: 0, pixSwell: -0.5, pixLife: 0.7, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixHeat: 1, pixCool: 0.6, pixTone: 0.4, pixSmoke: 0, pixLight: 0.4, pixBits: 0, pixSparks: 0,
+    duration: 0.32, fps: 30, frameSize: 4, originX: 0.5, originY: 0.55,
+    moments: ["hit"],
+  },
   "Rain On Glass": {
     shape: 0, count: 1, opacity: 0,
     drops: 0.8, dropCount: 26, dropSize: 0.75, dropSag: 0.45,
@@ -2112,6 +2180,8 @@ window.PRESET_CATEGORIES = [
                  "Deep Freeze", "Rift Tear", "Bloom Cycle", "Sonar Sweep"]],
   ["Ambient",    ["Smoke Puff", "Steam", "Water Splash", "Heat Shimmer", "Campfire Smoke", "Splash Down", "Dust Motes", "Torch Flicker", "Lava Bubble"]],
   ["Projectiles", ["Fireball", "Energy Bolt", "Arrow Trail", "Frost Shot"]],
+  ["Pixel art", ["Pixel Explosion", "Big Pixel Boom", "Blood Spurt", "Slime Spurt", "Pixel Poof", "Ring Burst", "Pixel Dust",
+                 "Pixel Spark", "Pixel Muzzle", "Pixel Splash", "Pixel Glint", "Pixel Slash"]],
 ];
 
 // THE MOMENTS (VFX-DESIGN §26). A game developer thinks in moments ("I need a hit spark, a death puff, a pickup sparkle"),

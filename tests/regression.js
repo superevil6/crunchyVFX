@@ -107,7 +107,7 @@
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
                   orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire",
-                  lockFrom: "palette:not-planted", variety: "fh:1,r:1,b:3" }, "extras");   // colorSet: §37; lockFrom: §38; variety: §39
+                  lockFrom: "palette:not-planted", variety: "fh:1,r:1,b:3", fitBox: "0,0,1,1" }, "extras");   // colorSet: §37; lockFrom: §38; variety: §39
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -1275,6 +1275,8 @@
           [["dither"], { posterize: 8, paletteLock: "" }, { posterize: 32, paletteLock: "" }], [["dither"], { posterize: 32, paletteLock: "ff0000,00ff00" }, { posterize: 32, paletteLock: "" }],
           [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
+          [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }],
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
         for (const [keys, on, off] of RULES) {
@@ -1311,6 +1313,20 @@
            "…then \"Layers in this effect\", heading every layer panel (and no layer before it)");
         ok(layerBar.parentElement.firstElementChild === layerBar && layerBar.compareDocumentPosition(document.getElementById("macros")) & Node.DOCUMENT_POSITION_FOLLOWING,
            "…and \"Add a layer\" is the first thing in the editor, above Quick shape");
+        // §41 PIXEL ART: hard pixels only (every drawn pixel fully opaque), on every frame of both kinds, Fit on or off
+        {
+          const bad = [];
+          for (const nm of ["Pixel Explosion", "Blood Spurt", "Slime Spurt", "Pixel Poof", "Ring Burst", "Pixel Dust", "Pixel Spark", "Pixel Muzzle", "Pixel Splash", "Pixel Glint", "Pixel Slash"]) for (const fit of [true, false]) {
+            applyPreset(PRESETS[nm], nm, true);
+            const r = renderFrames(state, { fit });
+            let lit = 0, soft = 0, held = 0;
+            const sums = r.canvases.map((cv) => { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; let h = 0;
+              for (let i = 3; i < d.length; i += 4) if (d[i]) { lit++; if (d[i] !== 255) soft++; h = (h * 31 + i + d[i - 3]) | 0; } return h; });
+            for (let f = 1; f < sums.length; f++) if (sums[f] === sums[f - 1]) held++;
+            if (!lit || soft || !held) bad.push(nm + (fit ? " fit" : "") + ": " + lit + " lit, " + soft + " soft, " + held + " held");
+          }
+          ok(!bad.length, "§41: pixel art draws hard pixels on held frames, Fit on or off", bad.join("; ") || "clean");
+        }
         // GROUPED CHIPS
         applyPreset(PRESETS["Explosion"], "Explosion");
         const names = LAYER_GROUPS.map((L) => L.g);

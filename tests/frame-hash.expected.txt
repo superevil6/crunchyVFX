@@ -234,6 +234,22 @@ VFX FRAME "Summon Grid" fee62e9a34a20279
 VFX FRAME "nofit:Summon Grid" 78f5faf5f4514332
 VFX FRAME "Cathedral Light" 122224ee1db4cf7b
 VFX FRAME "Rift Light" 55a1aea07e1860db
+VFX FRAME "Pixel Explosion" 722b7a95f86d0046
+VFX FRAME "nofit:Pixel Explosion" 722b7a95f86d0046
+VFX FRAME "Big Pixel Boom" 837e61611f47bef6
+VFX FRAME "Blood Spurt" 708c11756a0080c6
+VFX FRAME "Slime Spurt" 358fb975bc37bb06
+VFX FRAME "nofit:Slime Spurt" 358fb975bc37bb06
+VFX FRAME "Pixel Poof" 46640525efe3e3a6
+VFX FRAME "Ring Burst" 46421ea58e8516c6
+VFX FRAME "Pixel Dust" 58c5777d1178b7ea
+VFX FRAME "nofit:Pixel Dust" 58c5777d1178b7ea
+VFX FRAME "Pixel Spark" 3d4c07c466dc1b09
+VFX FRAME "Pixel Muzzle" 0f234ef5d64a01c6
+VFX FRAME "Pixel Splash" d63311b56a00f086
+VFX FRAME "nofit:Pixel Splash" d63311b56a00f086
+VFX FRAME "Pixel Glint" f1a58263fa8ff632
+VFX FRAME "Pixel Slash" 10ed16c537cce406
 VFX FRAME "Rain On Glass" 2f884b29fd2a5242
 VFX FRAME "nofit:Rain On Glass" 82afc66f5406dc5a
 VFX FRAME "Glint Field" 84669d2e343b7d6b
@@ -301,12 +317,13 @@ VFX EXPORT "Sweat Drop|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"gener
 VFX EXPORT "Poisoned|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" 75365144d9a48d93
 VFX EXPORT "Warp Speed|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 6845314a369ca1fd
 VFX EXPORT "Backlit Burst|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" 6e3cbcb80441b435
-VFX EXPORT "Old Broadcast|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 0934d97b9b5b77de
-VFX EXPORT "Fireball|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 1c4db6f26d753907
-VFX EXPORT "Heal Pulse|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" 5ed0ca5b613ce018
-VFX EXPORT "Prompt Pop|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" eb35008107e31524
+VFX EXPORT "Slime Spurt|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 171c1ce52dd33078
+VFX EXPORT "Rain On Glass|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" faa0f6777ce1a642
+VFX EXPORT "Rift Tear|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" c8a424cb25b37fa2
+VFX EXPORT "Dash Trail|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 8040d1b04fd21a23
+VFX EXPORT "Skull Puff|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" 97c883aa59a0e4cd
 VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" db4315cffd560b00
-VFX FRAMEHASH 261edf7fdc7f8470 over 310
-VFX END PASS 310 hashes
+VFX BATCH "crunchyvfx-pack.zip" f1e45d687946f8b5
+VFX FRAMEHASH 94a32a8010416f7b over 327
+VFX END PASS 327 hashes

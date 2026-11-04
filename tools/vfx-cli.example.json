@@ -1,0 +1,10 @@
+{
+  "out": "crunchy/vfx",
+  "effects": [
+    { "name": "attack-hearts", "wizard": { "type": "hit", "tags": ["cute"], "moves": ["spin"], "seed": 1, "pick": 1 },
+      "strengths": [2, 5, 8] },
+    { "name": "attack-boom", "preset": "Pixel Explosion", "strengths": [2, 5, 9] },
+    { "name": "attack-slime", "preset": "Slime Spurt", "set": { "pixHue": 200 }, "strengths": [3, 7] },
+    { "name": "fire-green", "preset": "Fire Jet", "palette": ["#0b3d20", "#2f8f3a", "#7fd44c", "#e8ff9a"], "size": 128, "playback": "once" }
+  ]
+}

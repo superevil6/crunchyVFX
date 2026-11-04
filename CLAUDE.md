@@ -152,6 +152,7 @@ node tests/run-ff.mjs hash | grep -v '(console)' > /tmp/h.txt; diff tests/frame-
 node tests/run-ff.mjs desktop --quiet    # the planted Library over a mocked Tauri disk + HEAD's saved state (72)
 node tests/run-ff.mjs web --quiet        # the web build over HEAD's saved state (15)
 node tests/plant.test.mjs                # project-app.js over plant.js, in Node
+node tests/vfx-cli.test.mjs              # §42: the CLI end to end, Godot playing its scenes
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
 node tests/godot-scene.mjs               # §26: the WEB Export's ready Godot scene plays, signals impact, frees itself (real Godot)
 python3 tests/build.py show && python3 tests/wkshot.py "file://$PWD/tests/run-show.html" "$PWD/tests/show.png" 1600 1000 40
@@ -223,6 +224,13 @@ more particles.
 
 ## Status
 
+- **The VFX CLI (§42, 2026-11-04)**: `node tools/vfx-cli.mjs` (preset / .crunchy / link / Wizard pick; strengths 1-9 via
+  the Power dial, sharing one Fit box; palette, size, any row) makes planted effect folders through the app's own
+  `plantedRender` in headless Firefox; `node tests/vfx-cli.test.mjs` proves them in real Godot. New PATCH_EXTRA `fitBox`.
+- **Pixel art (§41, 2026-11-02)**: a "Pixel art" layer of BLOBS (burst/stream/ring, heat cooling down a ramp into smoke,
+  gravity, stretch, floor splats, lumps, break-up) and BITS (debris, sparks), drawn on a grid of art pixels with a lit
+  side, a dark rim, outlines and held frames. 42 rows, no kinds (blob shapes, dither break-up, arc and line emits): 12 presets in the "Pixel art"
+  category. PIX_EMITS/PIX_RAMPS append-only; placed by Origin X/Y, never Fit.
 - **Variety (§39, 2026-10-27)**: opt-in in the Export dialog (Godot only): the scene varies every play (flips, 90° turns
   or any angle, 1×/whole-step or free sizes, ±speed, a pixel nudge; `variety_seed` replays) and can pick from 3–5 BAKED
   siblings (the Variations engine, seeded; one stacked sheet, one animation each, each with its own impact frame). The

@@ -2264,3 +2264,90 @@ Exactly ONE frame-hash line moved: `EXPORT "sound:Hit Spark"` (8a6e12898e771aee 
 total (1f591c9eb230a807 → c598150557e54c32). The cause is the 1.1 → 1.2 engine catch-up (e.g. its DC block), shown by
 exporting SFX's earlier commit 32c21d8 into this repo, which moves the identical line. So VFX's effect sounds now match what
 CrunchySFX exports today. Re-recorded as MEANT (AJ, 2026-10-28). No frame moved.
+
+## 41. Pixel art: effects drawn as a sprite artist draws them (2026-11-02)
+
+AJ: "a lot of VFX packs target pixel looking effects. We have filters to make ours look console specific, but we lack in
+actual pixel effects", starting with "an explosion from Metal Slug. Smokey, gritty, and firey" and "a Mortal Kombat blood
+spurt". The era filters crush a smooth effect afterwards; a pixel artist's effect is different in kind: drawn ON a coarse
+grid, a few hard color steps chosen by age, a dark outline round everything that touches, frames held.
+
+**One layer, "Pixel art", and no kinds** (`drawPixelArt` in vfx.js, staged last among the structure layers, a
+TIMED_LAYERS entry). The first cut had a Kind menu with two hand-made effects; AJ: "These aren't parametric it seems", and
+after a comparison showed Crunch's filters can't give the look (they pixelate a finished image: soft particles become
+confetti, overlapping light adds to a white disc, no blob has volume), "Is there really no lever to pull there for
+parameterizing them for stuff like volume?" There was: the two effects were two primitives with fixed numbers, and every
+number is now a row (40, all in the "Pixel art" panel; `pix` 0 = off, so no existing effect moves):
+
+- **BLOBS.** Emit as burst / stream / ring (`PIX_EMITS`, append-only), Blobs, Pulses, Emit time, Direction, Spread, Speed
+  (+ var), Scatter; Gravity (negative rises), Drag, Stretch (a capsule along the flight, fat at the head), Floor (a landed
+  blob splats and stays); Blob size (+ var), Core (a centered first blob), Grow time, Swell, Blob life, Lumps (a noise
+  wobble round the rim), Break up (clumpy erosion late in life). HEAT: a blob starts at Heat, cools over Cool time to its
+  Tone; with Smoke > 0 a cooled blob turns to the three smoke grays, and Smoke also adds smoke-only puffs. Per pixel the
+  hottest blob wins (then the youngest). Every blob is done by the end of the clip (its life squeezed to 0.97 minus its birth): Big
+  Pixel Boom's late smoke was cut off mid-puff and its loop popped (AJ: "doesn't seem to play properly").
+- **VOLUME:** Highlight (a disc one step lighter, toward Light from), Rim (one step darker at the edge), Outline (the
+  darkest color round everything that touches, so drops merge into goo).
+- **COLOR:** Colors (`PIX_RAMPS`, append-only: fire, blood, cloud, dust, effect colors; "effect colors" builds five
+  lightness steps from the effect's own color, hue-shifted warmer toward the light, so color sets and the game palette
+  reach it), Hue shift (a luminance-keeping YIQ turn: blood at 120° is slime, exactly as dark).
+- **BITS:** Debris (dark chunks on arcs, hot-lit early; speed, gravity) and Sparks (single flickering pixels).
+- **The grid and clock:** Art pixels (across the frame's short side; the blow-up is a WHOLE number, unsmoothed), Art FPS
+  (the clock moves in whole art frames), Size (the layer's unit; speeds are that unit per duration).
+- **Placed by the frame, never Fit:** the presets are one invisible particle, and Fit would blow its tiny box up to the
+  frame, so the layer reads Origin X/Y and the frame size directly.
+
+Presets (a "Pixel art" category): Pixel Explosion (the rows' defaults ARE it), Big Pixel Boom, Blood Spurt, Slime Spurt,
+Pixel Poof (a ring of cloud puffs), Ring Burst (a blue ring of orbs), Pixel Dust. Test: `§41: pixel art draws hard pixels
+on held frames, Fit on or off` over six of them; four PARAM_WHEN rules. Frame hash: no earlier effect moved.
+
+**Round 2 (same day; AJ: "Those sound fun, let's do it!").** Presets first, to find which levers were really missing,
+then only general ones:
+- **Blob shape** (`PIX_SHAPES`: round, diamond, star, square, cross; the distance metric, so lumps, rims and stretch still
+  apply), **Break up as** (`PIX_BREAKS`: clumps, or a 4x4 ordered DITHER fade), Swell below 0 (shrinks to nothing by the
+  end), and two emits: **arc** (laid along an arc in order, born tail to head, growing toward the head: a sword smear)
+  and **line** (laid out along Direction, thinning to the tip: a muzzle flash, a thrust).
+- The core blob now stays put (it drifted with Speed).
+- Presets: Pixel Spark (a four-point star), Pixel Muzzle (a line of diamonds), Pixel Splash (blood's rows in effect
+  colors, blue), Pixel Glint (cloud stars that shrink away), Pixel Slash (an arc that dithers away). 12 in the category.
+- The suite caught three real faults on the way: a spark too small to read at 64 px, a value outside its row's range, and
+  clips ending in blank frames. Fixed in the presets (and Scatter's range raised to 3).
+
+**WebKit (the desktop app) and a shared scratch canvas.** Big Pixel Boom played in the strip but showed one still wisp of
+smoke in the desktop preview: WebKitGTK defers drawImage onto a big (GPU-backed) frame canvas, so the ONE scratch canvas
+every frame rewrote reached every 192 px frame in its last state. Each frame now gets its own scratch canvas. Proved in
+real WebKit (tests/wkshot.py with an injected script rendering the frames), before and after.
+
+Not yet: Randomize/Breed rolling the pixel rows sensibly, a Wizard answer, the startup delay AJ noticed.
+
+## 42. The VFX CLI (2026-11-04, crunchyCore VFX-CLI-HANDOFF.md, from Painter Panic)
+
+Painter Panic wants an attack effect per character (about 19), each at several strengths picked by how big the attack
+was: 60 to 100 exports, and all of them again whenever a look changes. `node tools/vfx-cli.mjs` makes them.
+
+- **The app makes them, not a copy of it.** VFX draws on a 2D canvas, so Node can't run it as the items CLI runs
+  items.js. The CLI opens index.html in a headless Firefox (a fresh profile, `--new-instance`, killed by its own PID),
+  evaluates `tools/vfx-cli-page.js` in it, and that calls what the desktop Library calls when it saves an effect:
+  encodePatch → `plantedRender` (render, sound, the Export dialog's files with the ready Godot scene) → `plantSidecar`.
+  So each folder is a planted effect, `.crunchy` and all, and the Library shows it. Files cross back over WebDriver
+  BiDi in 4 MB base64 pieces (no `dump()` limit to worry about). 9 effects take about 3 s.
+- **Sources:** `--preset`, `--crunchy` (a planted effect's sidecar: its settings, sound and export options), `--link`
+  (a share link's `?e=`), `--wizard TYPE --tags --moves --era --seed --pick` (wizardCandidates + wizardState: the
+  same answers and seed give the same nine, a pick loads as the Wizard loads it). Overrides: `--era`, `--size`,
+  `--palette` (paletteLock), `--set key=value` (any row, clamped like its slider), playback, trim, scales, meta.
+- **Strength is the Wizard's Power dial (§23.7)**, which works on any state: a Wizard pick at `power`, anything else
+  through `wizardPower` with its moment's type (a preset's burst moment gives the flash/shockwave top of the dial).
+  The dial now scales §41's pixel rows too (count, size, speed, debris, sparks), so pixel effects have strengths.
+- **One Fit box for a set of strengths.** Fit scales each effect to fill its frame, so strength 2 came out as big as 8.
+  New PATCH_EXTRA `fitBox` ("x0,y0,x1,y1", fractions of the frame; "" = none, so no effect moves): Fit always takes
+  that box in. `--strengths 2,5,8` unions every strength's simulated bounding box into it, so the set shares one scale
+  (measured: 81k vs 620k drawn pixels for a heart burst at 2 and 8). It rides in the share string and the sidecar, so
+  a Library Update keeps it. `--fit-apart` fits each to its own frame as before. Not in the editor.
+- **Writing over an effect** keeps its `created` and removes only the files its old `.crunchy` listed (and their
+  `.import`), never anything else. `--godot-import` runs Godot's import on the project above `--out`.
+- **Pixels: Firefox's.** Painter Panic's fire.crunchy re-exported: the .tres, .tscn, .gd and README byte for byte, the
+  sheet the same size with the same frames, its soft glow edges shaded differently (the game's copy was made in the
+  desktop app, WebKit). The help says so.
+- **Test:** `node tests/vfx-cli.test.mjs` (9 checks, ~15 s): every source, planted folders, a .crunchy and a link
+  reopening an effect byte for byte, size/playback, the shared box, bad input failing with a message and making nothing,
+  and a REAL Godot playing every scene (impact, finished, freed; skipped without Godot). Example: `tools/vfx-cli.example.json`.
