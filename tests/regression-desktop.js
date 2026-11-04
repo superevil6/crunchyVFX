@@ -394,7 +394,8 @@
   });
   await t("update/a-changed-export-is-marked-and-update-all-fixes-it", async function () {
     const d = sidecar("explosion"), png = M.bytes(ROOT + "/explosion/explosion.png");
-    d.hash = "2:0000000000000000";                                   // as if an older CrunchyVFX had exported it
+    d.hash = "2:0000000000000000"; d.appVersion = "0.9.0";          // as if an older CrunchyVFX had exported it (§43: the
+                                                                     // version is what says a render is worth doing)
     M.put(ROOT + "/explosion/explosion.crunchy", JSON.stringify(d));
     await projDo(function () { return projOpen(GODOT); });
     await settle();
@@ -409,10 +410,38 @@
       !card("Explosion").querySelector(".lib-badge.hot") && !libButton("Update all (1)");
     return ok(badge && others && btn && fixed && same(M.bytes(ROOT + "/explosion/explosion.png"), png) && encodePatch("x") === screen, status());
   });
+  // §43 (AJ: "a very big delay when the application starts up"): opening a game re-rendered every planted effect. An
+  // effect this version wrote is current WITHOUT a render, even when its files differ from this renderer's (the CLI's
+  // Firefox pixels); an older version's is rendered once, and once found current it is not rendered again.
+  await t("update/the-check-renders-only-what-could-have-changed", async function () {
+    let renders = 0;
+    const real = plantedRender, keep = {};
+    for (const a of project.assets) keep[a.slug] = M.text(ROOT + "/" + a.slug + "/" + a.slug + ".crunchy");
+    const put = function (slug, d) { M.put(ROOT + "/" + slug + "/" + slug + ".crunchy", JSON.stringify(d)); };
+    const check = async function () { await projDo(function () { return projOpen(GODOT); }); await settle(); renders = 0; await projCheckUpdates(); return renders; };
+    plantedRender = async function (f) { renders++; return real(f); };
+    try {
+      // other pixels than this renderer's (as the CLI's Firefox ones), written by THIS version: current, no render
+      put("explosion", Object.assign(sidecar("explosion"), { hash: "2:1111111111111111", appVersion: APP_VERSION }));
+      const sameVersion = (await check()) === 0 && !card("Explosion").querySelector(".lib-badge.hot");
+      // every effect from an older version: each rendered once; the unchanged ones are remembered, the changed one is not
+      for (const slug in keep) put(slug, Object.assign(sidecar(slug), { appVersion: "0.9.0" }));
+      const n = Object.keys(keep).length, first = await check();
+      const marked = !!card("Explosion").querySelector(".lib-badge.hot");
+      renders = 0; await projCheckUpdates();
+      const again = renders;
+      return ok(sameVersion && first === n && marked && again === 1,
+                "same version: " + sameVersion + "; older: " + first + " of " + n + " rendered, then " + again + " (the changed one)");
+    } finally {
+      plantedRender = real;
+      for (const slug in keep) M.put(ROOT + "/" + slug + "/" + slug + ".crunchy", keep[slug]);
+      await projDo(function () { return projOpen(GODOT); }); await settle(); await projCheckUpdates();
+    }
+  });
   await t("card/re-export-shows-only-with-an-update", async function () {
     const before = !cardButton("Explosion", "Re-export");
     const d = sidecar("explosion");
-    d.hash = "2:0000000000000000";
+    d.hash = "2:0000000000000000"; d.appVersion = "0.9.0";
     M.put(ROOT + "/explosion/explosion.crunchy", JSON.stringify(d));
     await projDo(function () { return projOpen(GODOT); });
     await settle();
@@ -1187,8 +1216,8 @@
     const changed = Object.keys(was).filter(function (k) { return now[k] !== was[k]; });
     // the two preferences the Settings test toggled and put back, written again by the app in its own shape
     return ok(legacyNow() === atBoot && changed.every(function (k) { return k === "crunchyvfx.lockpixels.v1" || k === "crunchyvfx.dock.v1"; }) &&
-              // the export dialog's remembered settings (2026-10-13) are a new key of their own, never a legacy one rewritten
-              Object.keys(now).every(function (k) { return k in was || k === PLANT_RECENT_KEY || k === EXP_PREF; }), changed.join(",") + " | " + Object.keys(now).join(","));
+              // the export dialog's remembered settings (2026-10-13), and §43's checked effects, are new keys of their own, never a legacy one rewritten
+              Object.keys(now).every(function (k) { return k in was || k === PLANT_RECENT_KEY || k === EXP_PREF || k === CHECKED_KEY; }), changed.join(",") + " | " + Object.keys(now).join(","));
   });
   await t("words/no-pro-premium-or-unlock-in-the-library-or-settings", function () {
     library.open();

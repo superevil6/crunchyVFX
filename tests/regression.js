@@ -1135,7 +1135,7 @@
         const firstPage = (q) => { find(q); return Array.from(presetBar.querySelectorAll(".pcell:not([hidden])")).map((c) => c.dataset.name); };
         const fb = find("fireball");
         // §27: there is a preset NAMED Fireball now (a projectile loop); it leads, then the alias's fireball-like effects
-        ok(fb[0] === "Fireball" && fb[1] === "Meteor Hit" && fb.indexOf("Fire Jet") >= 0, "\"fireball\" opens on Fireball, then Meteor Hit and the fiery shots", fb.slice(0, 5).join(", "));
+        ok(fb[0] === "Fireball" && fb[1] === "Pixel Fireball" && fb[2] === "Meteor Hit" && fb.indexOf("Fire Jet") >= 0, "\"fireball\" opens on Fireball (and Pixel Fireball, §44), then Meteor Hit and the fiery shots", fb.slice(0, 5).join(", "));
         const want = { spell: "Rune Circle", flame: "Fire Jet", burn: "Scorch Mark", magic: "Magic Sparkle", hit: "Critical Hit", slash: "Slash",
                        heal: "Heal Rise", explosion: "Big Boom", fireballs: "Meteor Hit", "fire spell": "Meteor Hit", ice: "Frost Nova", sword: "Sword Slash" };
         const miss = Object.keys(want).filter((q) => firstPage(q).indexOf(want[q]) < 0);
@@ -1326,6 +1326,54 @@
             if (!lit || soft || !held) bad.push(nm + (fit ? " fit" : "") + ": " + lit + " lit, " + soft + " soft, " + held + " held");
           }
           ok(!bad.length, "§41: pixel art draws hard pixels on held frames, Fit on or off", bad.join("; ") || "clean");
+        }
+        // §44: the bolt emit, Loop, Hollow, Flatten; pixel rolls (Randomize), Breed's pixel core, the Wizard's Pixel art answer
+        {
+          const snap44 = snapshotState(), label44 = effectLabel;
+          const at = (nm, t, over) => {            // one frame of the layer alone, as alpha 0/1 per pixel
+            const st = Object.assign(presetOutcome(PRESETS[nm], false), over || {}), cv = document.createElement("canvas");
+            cv.width = cv.height = 128;
+            drawPixelArt(cv.getContext("2d"), st, t, null, 128, 0, 0, st.seed);
+            const d = cv.getContext("2d").getImageData(0, 0, 128, 128).data, a = new Uint8Array(128 * 128);
+            for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] ? 1 : 0;
+            return a;
+          };
+          const same = (a, b) => a.every((v, i) => v === b[i]), lit = (a) => a.reduce((s, v) => s + v, 0);
+          const box = (a) => { let x0 = 128, y0 = 128, x1 = -1, y1 = -1;
+            for (let i = 0; i < a.length; i++) if (a[i]) { const x = i % 128, y = (i / 128) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+            return { w: x1 - x0 + 1, h: y1 - y0 + 1, x0, x1 }; };
+          const loops = ["Pixel Campfire", "Pixel Fireball", "Pixel Bubbles", "Pixel Smolder"];
+          const seam = loops.filter((nm) => { const L = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 0 && same(at(nm, 0), at(nm, L)) && !same(at(nm, 0), at(nm, L / 2))); });
+          ok(!seam.length, "§44: a pixel Loop joins with no seam (the clip's end IS its start) and still moves", seam.join(", ") || loops.length + " loops");
+          ok(loops.every((nm) => { const st = presetOutcome(PRESETS[nm], false); return loopFor("auto", st) && loopBlendCount({ st: Object.assign(st, { loopBlend: 0.6 }), n: 30 }) === 0; }) &&
+             !loopFor("auto", presetOutcome(PRESETS["Pixel Zap"], false)),
+             "…so it exports as a loop, and a Seamless-loop cross-dissolve never smears it");
+          const z1 = at("Pixel Zap", 0.2), z2 = at("Pixel Zap", 0.27), zb = box(z1);
+          ok(!same(z1, z2) && zb.x0 < 16 && zb.x1 > 110 && zb.h > 6, "§44: a bolt reaches its tip, zigzags, and is struck afresh each art frame", JSON.stringify(zb));
+          const sw = at("Pixel Shockwave", 0.3), sb = box(sw);
+          ok(sb.w > 40 && !sw[Math.round(0.6 * 128) * 128 + 64] && sb.h < sb.w * 0.75, "§44: Hollow leaves a hole, Flatten lays the ring on the ground", JSON.stringify(sb));
+          const pb = box(at("Pixel Slam", 0.3)), pn = box(at("Pixel Slam", 0.3, { pixFlat: 0 }));
+          ok(pb.h < pn.h * 0.8, "…and flattens a dust burst (" + pb.w + "x" + pb.h + " vs " + pn.w + "x" + pn.h + " upright)");
+          // Randomize: a pixel roll about one in five, from a pixel preset, varied, and it draws; never a half-jittered layer
+          const rolls = [];
+          for (let i = 0; i < 60; i++) { randomize(); if (state.pix > 0) rolls.push({ op: state.opacity, px: litAll(renderFrames(state, { size: 64, fit: true })) }); }
+          ok(rolls.length >= 3 && rolls.length <= 30 && rolls.every((r) => r.op === 0 && r.px > 0),
+             "§44: Randomize makes a pixel roll now and then (a pixel preset, varied), and every one draws", rolls.length + " of 60: " + rolls.map((r) => r.px).join(" "));
+          // Breed: siblings of a pixel effect differ in their pixel rows (its invisible particle's rows are left alone)
+          const base = fullGenome(PRESETS["Pixel Campfire"]);
+          const kids = Array.from({ length: 8 }, () => mutateGenome(base, 0.3, {}));
+          const pixKeys = PARAMS.filter((p) => p[7] === "Pixel art").map((p) => p[0]);
+          ok(kids.every((g) => pixKeys.some((k) => g[k] !== base[k]) && g.pixLoop === 1 && ["count", "speed", "life"].every((k) => g[k] === base[k])),
+             "§44: a pixel effect's siblings vary its pixel rows, keep its Loop, and leave the hidden particle alone");
+          // the Wizard: the Pixel art answer gives nine pixel effects of the type, in the tag's colors, the same nine for the same seed
+          const W = wizardCandidates({ type: "spell", tags: ["poison"], era: WIZARD_PIXEL }, 1);
+          ok(W.length === 9 && W.every((c) => c.g.pix > 0 && c.g.opacity === 0 && c.kind === "pixel") && new Set(W.map((c) => c.name)).size === 9 &&
+             W.every((c) => Math.round(c.g.pixColors) === 4 || wizardTagsOf(PRESETS[c.donor], c.donor).indexOf("poison") >= 0) &&
+             JSON.stringify(wizardCandidates({ type: "spell", tags: ["poison"], era: WIZARD_PIXEL }, 1)) === JSON.stringify(W),
+             "§44: the Wizard's Pixel art answer: nine pixel effects of the type in the tag's colors, the same nine each time", W.map((c) => c.name).join(", "));
+          const ws = wizardState(W[0], { type: "spell", tags: ["poison"], era: WIZARD_PIXEL, power: 5 });
+          ok(ws.pix > 0 && ws.pixelate === PARAM_BY_KEY.pixelate[5], "…and it is never crushed by an era filter");
+          restoreEdit(snap44); effectLabel = label44;
         }
         // GROUPED CHIPS
         applyPreset(PRESETS["Explosion"], "Explosion");
@@ -3620,7 +3668,7 @@
       wizBody.querySelector('.wiz-card[data-key="spin"]').click();
       ok(wizard.answers.moves.length === 0, "…and picked again, dropped (these results stay as before)");
       wizFoot.querySelector(".wiz-next").click();
-      ok(wizard.step === 3 && wizBody.querySelectorAll(".wiz-card").length === STYLES.length, "then the era: As drawn plus every era style");
+      ok(wizard.step === 3 && wizBody.querySelectorAll(".wiz-card").length === STYLES.length + 1, "then the era: As drawn, Pixel art (§44) and every era style");
       wizBody.querySelector('.wiz-card[data-key=""]').click();
       const picks = wizBody.querySelectorAll(".wiz-pick");
       ok(wizard.step === WIZARD_STEPS && picks.length === 9, "then nine results", picks.length);

@@ -18,7 +18,7 @@ window.vfxCli = (function () {
       presets: Object.keys(PRESETS),
       categories: PRESET_CATEGORIES.map((c) => ({ name: c[0], presets: c[1] })),
       types: WIZARD_TYPES.map((t) => t.key), tags: WIZARD_TAGS.map((t) => t.key), moves: WIZARD_MOVES.map((m) => m.key),
-      eras: STYLES.map((s) => s.name), sizes: SIZES.map(Number),
+      eras: STYLES.map((s) => s.name), wizardEras: [WIZARD_PIXEL].concat(STYLES.map((s) => s.name)), sizes: SIZES.map(Number),
       power: WIZARD_POWER.words.slice(1).map((w, i) => (i + 1) + " " + w),
       params: PARAMS.map((p) => ({ key: p[0], label: p[1], min: p[2], max: p[3], def: p[5], group: p[7], values: p[8] === "enum" ? p[9] : undefined })),
     };
@@ -49,7 +49,7 @@ window.vfxCli = (function () {
     if (!wizardType(w.type)) fail('no Wizard type "' + w.type + '" (see --list types)');
     for (const t of w.tags || []) if (!wizardTag(t)) fail('no Wizard tag "' + t + '" (see --list tags)');
     for (const m of w.moves || []) if (!wizardMoveOf(m)) fail('no Wizard move "' + m + '" (see --list moves)');
-    if (w.era && !STYLES.some((s) => s.name === w.era)) fail('no era "' + w.era + '" (see --list eras)');
+    if (w.era && w.era !== WIZARD_PIXEL && !STYLES.some((s) => s.name === w.era)) fail('no era "' + w.era + '" (see --list eras, or "' + WIZARD_PIXEL + '")');
     const answers = { type: w.type, tags: w.tags || [], moves: w.moves || [], era: w.era || "", power: j.strength || WIZARD_POWER.neutral };
     const nine = wizardCandidates(answers, w.seed || 1), pick = Math.round(w.pick || 1);
     const c = nine[pick - 1] || fail("the Wizard made " + nine.length + " effects for those answers; pick 1 to " + nine.length);

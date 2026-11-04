@@ -799,6 +799,7 @@ const PARAMS = [
   ["pixCount", "Blobs", 1, 80, 1, 9, "", "Pixel art"],
   ["pixPulses", "Pulses", 1, 6, 1, 1, "", "Pixel art"],
   ["pixSpan", "Emit time", 0, 1, 0.01, 0.2, "", "Pixel art"],
+  ["pixLoop", "Loop", 0, 1, 1, 0, "", "Pixel art"],
   ["pixAngle", "Direction", -180, 180, 1, -90, "°", "Pixel art"],
   ["pixSpread", "Spread", 0, 360, 1, 360, "°", "Pixel art"],
   ["pixSpeed", "Speed", 0, 30, 0.1, 0.4, "", "Pixel art"],
@@ -808,7 +809,9 @@ const PARAMS = [
   ["pixDrag", "Drag", 0, 10, 0.1, 0, "", "Pixel art"],
   ["pixStretch", "Stretch", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixFloor", "Floor", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixFlat", "Flatten", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixShape", "Blob shape", 0, PIX_SHAPES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_SHAPES],
+  ["pixHollow", "Hollow", 0, 0.95, 0.01, 0, "", "Pixel art"],
   ["pixBlob", "Blob size", 0.05, 2, 0.01, 0.95, "", "Pixel art"],
   ["pixSizeVar", "Size var", 0, 1, 0.01, 0.5, "", "Pixel art"],
   ["pixCore", "Core", 0, 1, 0.01, 1, "", "Pixel art"],
@@ -5182,6 +5185,34 @@ const RANDOM_SHAPES = [0, 1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 1
 // every old link. 192 is what 158 of the 189 presets are authored at, so a roll and a preset now look alike, and it is
 // a whole 2× of the stage at 1366 and 3× at 1920. Lock pixels still wins over it, as it does over a preset.
 const START_FRAME_SIZE = SIZES.indexOf("192");
+// §44 PIXEL ROLLS. The pixel layer has 45 rows and most of their ranges are wider than any one effect wants (Art pixels
+// 24-160, Gravity -40..80), so a uniform jitter of half of them (what Randomize gives any other layer) drew noise. A pixel
+// roll starts from one of the Pixel art presets and moves the rows an effect differs BY, relative to their values, inside
+// their ranges: Randomize (about one roll in five), and the Wizard's Pixel art answer, use the same function.
+const pixPresetNames = () => ((PRESET_CATEGORIES.find((c) => c[0] === "Pixel art") || [])[1] || []).filter((n) => PRESETS[n]);
+function pixelVary(g, R, amt, colors) {
+  const set = (k, v) => { const p = PARAM_BY_KEY[k]; g[k] = snapToStep(v, p[2], p[3], p[4]); };
+  const mul = (k, w) => set(k, g[k] * (1 + (R() * 2 - 1) * amt * w));
+  if (g.pixCount > 1) set("pixCount", Math.max(2, g.pixCount * (1 + (R() * 2 - 1) * amt * 0.8)));
+  mul("pixSize", 0.35); mul("pixBlob", 0.45); mul("pixSpeed", 0.5); mul("pixLife", 0.3);
+  if (g.pixSpread < 360) mul("pixSpread", 0.5);
+  if (g.pixLumps > 0) set("pixLumps", g.pixLumps + (R() - 0.5) * amt * 0.5);
+  if (g.pixSparks > 0) mul("pixSparks", 1);
+  if (g.pixBits > 0) mul("pixBits", 1);
+  if (R() < 0.35 * amt * 2) g.pixShape = Math.floor(R() * PIX_SHAPES.length);
+  if (g.pixBreak > 0 && R() < 0.3) g.pixBreakAs = 1 - Math.round(g.pixBreakAs || 0);
+  if (colors) {
+    if (R() < 0.3) g.pixColors = Math.floor(R() * PIX_RAMPS.length);
+    if (Math.round(g.pixColors) === 4) { if (R() < 0.7) g.hue = Math.round(R() * 360); g.sat = Math.max(g.sat || 0, 0.6); }
+    else if (R() < 0.3) g.pixHue = Math.round(R() * 360);
+  }
+  return g;
+}
+function pixelRollInto(st) {
+  const names = pixPresetNames(), P = fullGenome(PRESETS[pick(names)]);
+  for (const k in P) st[k] = P[k];
+  pixelVary(st, Math.random, 0.5, true);
+}
 function randomize() {
   // Lock pixels and Hold sound carry across a roll exactly as they carry across a preset (applyPreset): the roll
   // changes the effect, never the crunch you pinned or what a matched sound dictated.
@@ -5205,9 +5236,10 @@ function randomize() {
   //
   // Zero to three, not "each with some probability": 42 independent coin flips would put a dozen
   // systems on at once and every roll would look like the same brown soup.
+  const pixRoll = Math.random() < 0.2;
   {
-    const pool = LAYER_GROUPS.slice();
-    const n = Math.floor(Math.random() * 4);
+    const pool = LAYER_GROUPS.filter((L) => L.g !== "Pixel art");   // a pixel layer comes as a pixel roll (below), never jittered
+    const n = pixRoll ? 0 : Math.floor(Math.random() * 4);
     for (let i = 0; i < n && pool.length; i++) {
       const L = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
       L.on();
@@ -5224,6 +5256,7 @@ function randomize() {
   state.count = Math.round(30 + Math.random() * 400);  // the full 3000 is a wall of pixels
   state.life = 0.2 + Math.random() * 0.8;
   state.size = 4 + Math.random() * 28;
+  if (pixRoll) pixelRollInto(state);
   state.seed = 1 + Math.floor(Math.random() * 9999);
   state.frameSize = START_FRAME_SIZE;        // a new effect starts at the starting size (§22.1); the lock still wins
   for (const k in keep) state[k] = keep[k];
@@ -6716,7 +6749,7 @@ const chosenScales = () => EXPORT_SCALES.filter((s) => expScaleBoxes[s].checked)
 function loopFor(playback, st) {
   if (playback === "loop") return true;
   if (playback === "once") return false;
-  return (st || state).loopBlend > 0;
+  return effectLoops(st || state);
 }
 // The export's NAME (its file stem). Defaults to the effect's label; an unnamed or randomized effect gets
 // "<shape>-<seed>" rather than "random". A name typed in the dialog holds while the effect it was typed for is loaded.
@@ -6768,7 +6801,7 @@ function refreshExpInfo() {
     const w = rendered.w * top, h = rendered.h * top;
     const frameMB = (w * h * 4) / 1048576;
     // loopBlend holds the head of the sequence until its tail partner exists.
-    const held = state.loopBlend > 0 && n > 3 ? Math.max(1, Math.round(n * 0.35 * state.loopBlend)) : 0;
+    const held = state.loopBlend > 0 && !pixLoops(state) && n > 3 ? Math.max(1, Math.round(n * 0.35 * state.loopBlend)) : 0;
     const buffered = fmt === "apng" || (fmt === "sheet" && expEmis.checked);
     const sheetMB = fmt === "sheet" ? (w * h * n) * 4 / 1048576 : 0;
     const mb = buffered ? frameMB * n + sheetMB : frameMB * (held + 2) + sheetMB;
@@ -7472,7 +7505,7 @@ function decodePatch(str) {
 // range" doesn't give you a sibling, it gives you an unrelated effect. Deriving that half from
 // PARAMS rather than listing it means a new enum can't be added and silently left out — which is
 // exactly what happened when Layer B arrived with three of them.
-const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH"]);   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
+const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline"]);   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -7518,6 +7551,10 @@ function mutateGenome(src, amount, opts) {
   for (const k in PATCH_EXTRAS) g[k] = src[k];
 
   const on = activeGroups(src);
+  // §44: a pixel-art effect's particle is invisible (opacity 0), so its Emitter, Motion and Life rows change nothing you
+  // can see; there the pixel rows ARE the core (siblings of Pixel Campfire came out identical to it)
+  const pixOnly = src.pix > 0 && !(src.opacity > 0), PIX_HIDDEN = { Emitter: 1, Motion: 1, Life: 1 };
+  const weight = (p) => pixOnly && p[7] === "Pixel art" ? 4 : pixOnly && PIX_HIDDEN[p[7]] ? 0 : VARY_WEIGHT[p[7]] || 1;
   // A param sitting at zero on a default of zero is a dimension this effect DOES NOT USE — wind,
   // radial and swirl on a preset built from gravity alone. Moving one adds a new behavior rather
   // than varying an existing one, which is the same mistake as switching on a new system, one
@@ -7528,7 +7565,7 @@ function mutateGenome(src, amount, opts) {
     if ((GATED_GROUPS.has(p[7]) || SHAPE_GROUPS.has(p[7])) && !on.has(p[7])) continue;
     const cur = g[p[0]];
     const bucket = (cur === 0 && p[5] === 0) ? rest : used;
-    const w = VARY_WEIGHT[p[7]] || 1;
+    const w = weight(p);
     for (let i = 0; i < w; i++) bucket.push(p);    // weighted draw, cheapest form
   }
   if (!used.length && !rest.length) return g;
@@ -7537,7 +7574,7 @@ function mutateGenome(src, amount, opts) {
   // bounded. Sampling with replacement is deliberate: hitting the same param twice is a bigger
   // move on one axis, which is a legitimate kind of sibling.
   const n = Math.max(4, Math.min(16, Math.round(4 + amount * 30)));
-  const core = used.filter((p) => VARY_WEIGHT[p[7]]);
+  const core = used.filter((p) => pixOnly ? p[7] === "Pixel art" : VARY_WEIGHT[p[7]]);
   for (let i = 0; i < n; i++) {
     // The FIRST change always lands on a core param, so no member of a pack can come out looking
     // identical to its parent. With a handful of picks over a wide pool, some did.
@@ -8393,7 +8430,7 @@ function wizardLook(st, name) {
   if (st.emit2Count > 0) for (const i of shapeSet(st.emit2Shape || 0, st.emit2ShapeMix)) shapes.add(SHAPES[i]);
   const systems = new Set(withState(st, () => LAYER_GROUPS.filter((L) => L.is()).map((L) => L.g)));
   const words = String(name || "").toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  return Object.assign(wizardColour(st), { shapes, systems, words, shape: Math.round(st.shape), loops: st.loopBlend > 0 });
+  return Object.assign(wizardColour(st), { shapes, systems, words, shape: Math.round(st.shape), loops: effectLoops(st) });
 }
 // 2 = carries the tag strongly, 1 = weakly, 0 = not at all.
 function wizardTagHit(L, t) {
@@ -8843,9 +8880,39 @@ function wizardWords(c, type, used, slot) {
 // THE NINE. answers: { type, tags: [keys], era: "" | a STYLES name }; seed: 1, 2, 3 … Every one an original composition
 // that READS in the era (wizardMeasure: repaired by wizardFatten up to twice, else composed again); pairwise different
 // (another skeleton, lead or particle when two would coincide); nine different names.
+// §44 THE WIZARD'S PIXEL ART ANSWER (an era answer, beside "As drawn"): the nine are the type's Pixel art presets (by their
+// moments, else every one), each painted in a chosen tag's palette (through "effect colors", unless the preset already
+// carries that tag, as fire does) and varied by pixelVary on the Wizard's own seeded dice, so the same answers give the
+// same nine. Never crushed by an era filter: they are drawn as pixels already.
+const WIZARD_PIXEL = "Pixel art";
+const wizardStyle = (era) => (era && era !== WIZARD_PIXEL ? styleByName(era) : null);
+function wizardPixelCandidates(type, tags, seed) {
+  const all = pixPresetNames(), its = all.filter((n) => wizardPresetIs(n, type));
+  const pool = its.length >= 2 ? its : all, out = [], names = new Set();
+  for (let slot = 0; slot < 9; slot++) {
+    const R = wizardRng(wizardHash(seed, slot, 9091)), base = pool[(slot + seed - 1) % pool.length];
+    let g = fullGenome(PRESETS[base]);
+    const lead = tags.length ? wizardTag(tags[slot % tags.length]) : null;
+    let pal = "";
+    if (lead && wizardTagsOf(PRESETS[base], base).indexOf(lead.key) < 0) {
+      pal = lead.palettes[(Math.floor(slot / tags.length) + seed - 1) % lead.palettes.length];
+      g = wizardPaint(g, pal); g.pixColors = 4; g.pixHue = 0;
+    }
+    // the first round through the pool is each preset as made (but for color); after that, siblings
+    if (slot >= pool.length || seed > 1) pixelVary(g, R, 0.4, !lead);
+    g.seed = 1 + Math.floor(R() * 9999);
+    let name = (lead ? lead.name + " " : "") + base.replace(/^Pixel /, "").replace(/^./, (x) => lead ? x.toLowerCase() : x);
+    for (let n = 2; names.has(name); n++) name = name.replace(/ \d+$/, "") + " " + n;
+    names.add(name);
+    out.push({ kind: "pixel", seed, slot, attempt: 0, g, donor: base, tags: lead ? [lead.key] : [], parts: ["pixel art"], moves: [],
+               name, list: "pixel art · from " + base + (pal ? " · " + pal.toLowerCase() + " colors" : "") });
+  }
+  return out;
+}
 function wizardCandidates(answers, seed) {
   const type = wizardType(answers.type);
   if (!type) return [];
+  if (answers.era === WIZARD_PIXEL) return wizardPixelCandidates(type, (answers.tags || []).filter((k) => wizardTag(k)), Math.max(1, seed | 0));
   const tags = (answers.tags || []).filter((k) => WIZARD_INGREDIENTS[k]);
   const moves = (answers.moves || []).filter((k) => wizardMoveOf(k));
   const era = answers.era ? STYLES.find((x) => x.name === answers.era) : null;
@@ -8902,7 +8969,7 @@ const WIZARD_POWER = { min: 1, max: 9, neutral: 5,
 function wizardPowered(c, answers) {
   const level = Math.round(answers.power || WIZARD_POWER.neutral), base = presetOutcome(wizardPatch(c), false);
   if (level === WIZARD_POWER.neutral) return base;
-  const era = answers.era ? styleByName(answers.era) : null, key = level + "|" + (answers.era || "");
+  const era = wizardStyle(answers.era), key = level + "|" + (answers.era || "");
   c.powered = c.powered || {};
   if (!c.powered[key]) {
     // and when three nudges are not enough (a few heal compositions at the ends of the dial), a step toward 5 at a time:
@@ -8967,7 +9034,7 @@ function wizardPower(st, level, typeKey) {
 }
 function wizardState(c, answers) {
   const st = wizardPowered(c, answers);
-  if (answers.era) styleInto(st, styleByName(answers.era));
+  if (wizardStyle(answers.era)) styleInto(st, wizardStyle(answers.era));
   gameLockInto(st);                          // §38: in the game palette when the switch is on, as wizardLoad's gameLockNew makes it
   return st;
 }
@@ -8976,7 +9043,7 @@ function wizardLockMatters(list, answers) {
   if (!pixelLock || !Object.keys(lockedValues).length) return false;
   return list.some((c) => {
     const a = presetOutcome(wizardPatch(c), false), b = presetOutcome(wizardPatch(c), true);
-    if (answers.era) { styleInto(a, styleByName(answers.era)); styleInto(b, styleByName(answers.era)); }
+    if (wizardStyle(answers.era)) { styleInto(a, wizardStyle(answers.era)); styleInto(b, wizardStyle(answers.era)); }
     return LOCK_KEYS.some((k) => a[k] !== b[k]);
   });
 }
@@ -9115,6 +9182,15 @@ function wizardDraw() {
       return cv;
     };
     card("", "As drawn", "each effect's own size, colors and crunch", !a.era, eraPic(null), () => { a.era = ""; wizard.step = 4; wizardDraw(); });
+    // §44: drawn as sprite art from the start (the type's pixel presets), not a smooth effect crushed afterwards
+    const pixPic = () => {
+      const its = pixPresetNames().filter((n) => !type || wizardPresetIs(n, type)), n = its[0] || pixPresetNames()[0];
+      const cv = wizardStill(presetOutcome(PRESETS[n], false));
+      cv.className = "wiz-cpic";
+      return cv;
+    };
+    card(WIZARD_PIXEL, "Pixel art", "drawn as sprite art: hard pixels, a few colors, outlines, held frames", a.era === WIZARD_PIXEL, pixPic(),
+         () => { a.era = WIZARD_PIXEL; wizard.seed = 1; wizard.step = 4; wizardDraw(); });
     for (const s of STYLES) {
       if (s.name === "Anything") continue;
       card(s.name, s.name, s.hint, a.era === s.name, eraPic(s), () => { a.era = s.name; wizard.step = 4; wizardDraw(); });
@@ -9270,7 +9346,7 @@ function wizardResults() {
 }
 // Load a result: the same writes as clicking a preset (here, the composition) and then its era's button, in ONE undo step.
 function wizardLoad(c) {
-  const a = wizard.answers, st = wizardState(c, a), s = a.era ? styleByName(a.era) : null;
+  const a = wizard.answers, st = wizardState(c, a), s = wizardStyle(a.era);
   for (const k in st) state[k] = st[k];
   // §25: A RESULT IS FITTED. The nine are drawn with Fit on (with Fit off they clipped their frames: the compositions are
   // made to fill one), so a click gives what was shown, and says so when it turned Fit back on.
@@ -10689,16 +10765,43 @@ async function projPlantFile() {
 
 // ---- "update available": this version of CrunchyVFX would export an effect differently ----
 let projCheckRun = 0;
+// §43 THE CHECK RENDERS ONLY WHAT COULD HAVE CHANGED (AJ, 2026-11-02: "a very big delay when the application starts up ...
+// loading effects one at a time"). It re-rendered and re-exported EVERY planted effect on each open (Painter Panic: 68, in
+// WebKit), and the CLI's effects (Firefox's pixels, §42) would all have shown "update available" for a renderer's
+// shading. The export is deterministic, so an effect is current without a render when
+//   * THIS version wrote it (the Export, the Library or the CLI: its sidecar's appVersion), or
+//   * a render by this version already found it current (remembered per game, by its hash; this browser only),
+// and nothing it FOLLOWS has moved (a color set or palette edited since: followInto) and its linked sound is where it was.
+// A save that did not finish is never current. Everything else (an effect from an older version, a moved palette) is rendered and compared, as before.
+const CHECKED_KEY = "crunchyvfx.checked.v1";
+function projCheckedMap() { try { return JSON.parse(localStorage.getItem(CHECKED_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function projCheckedId(a) { return (project ? project.dir : "") + "|" + a.slug; }
+function projChecked(a, yes) {
+  try {
+    const m = projCheckedMap(), id = projCheckedId(a), v = APP_VERSION + "|" + (a.data.hash || "");
+    if (yes) m[id] = v; else delete m[id];
+    localStorage.setItem(CHECKED_KEY, JSON.stringify(m));
+  } catch (e) { /* storage off: it is checked again next time, nothing worse */ }
+}
+function projCheckSkips(a) {
+  if (a.data.pending || followInto(stateOfShare(a.data.s))) return false;
+  // a linked CrunchySFX sound that is gone (or moved) changes the export too (its scene stops playing it)
+  if (projLinkStates[a.slug] && projLinkStates[a.slug] !== "ok") return false;
+  return a.data.appVersion === APP_VERSION || projCheckedMap()[projCheckedId(a)] === APP_VERSION + "|" + (a.data.hash || "");
+}
 async function projCheckOne(a) {
   const l = plantLinks(a)[0];
   if (l) projLinkStates[a.slug] = await plantLinkState(project, l); else delete projLinkStates[a.slug];
   if (a.data.ref) return;                                        // its reference image is not in the sidecar: never second-guessed
+  if (projCheckSkips(a)) { delete projUpdates[a.slug]; return; }
   let made = null;
   try { made = await plantedRender(a.data); } catch (e) { return; }
   // compared over the files its sidecar lists: an effect planted before the combined scene (or a web zip adopted here)
   // is not "update available" just for lacking one (its next save adds it); a listed file no longer made still counts
   const listed = made.files.filter((f) => a.data.files.indexOf(f.path) >= 0);
-  if (plantNeedsUpdate(a, listed)) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
+  const stale = plantNeedsUpdate(a, listed);
+  if (stale) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
+  projChecked(a, !stale);
 }
 // one effect at a time, yielding between them, so the app stays responsive; returns when all are checked
 function projCheckUpdates() {

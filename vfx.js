@@ -2414,7 +2414,8 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
 // fly, fall or rise, grow, swell, stretch along their flight, cool down a ramp and may turn to smoke, break up in clumps,
 // splat on a floor) and BITS (debris chunks on arcs, and sparks: single flickering pixels). The explosion and the blood
 // spurt are presets. PIX_EMITS and PIX_RAMPS are append-only (stored indices).
-const PIX_EMITS = ["burst", "stream", "ring", "arc", "line"];
+// bolt (§44): a jagged line out along Direction, both ends pinned, re-struck every art frame (a zap, lightning)
+const PIX_EMITS = ["burst", "stream", "ring", "arc", "line", "bolt"];
 // a blob's silhouette (append-only): the distance a pixel is from the center, measured four ways
 const PIX_SHAPES = ["round", "diamond", "star", "square", "cross"];
 const PIX_BREAKS = ["clumps", "dither"];
@@ -2469,8 +2470,11 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   const Wa = Math.ceil(W / k), Ha = Math.ceil(H / k);
   const L = Math.max(0.1, st.duration);
   const step = Math.max(1, st.pixStep || 15);
-  const tick = Math.floor(t * step + 1e-6);
-  const u = tick / step / L;                                  // held frames: the clock moves in whole art frames
+  // held frames: the clock moves in whole art frames. A Loop (§44) fits a WHOLE number of them into the clip (1.5 s at 15
+  // art fps would be 22.5: it plays 23, each as long as the next), counted round, so the last leads straight into the first
+  const NL = Math.max(1, Math.round(L * step));
+  const tick = st.pixLoop > 0 ? ((Math.floor(t * NL / L + 1e-6) % NL) + NL) % NL : Math.floor(t * step + 1e-6);
+  const u = st.pixLoop > 0 ? tick / NL : tick / step / L;
   // Sized and placed by the FRAME and Origin X/Y, never by Fit: a pixel-art-only effect has one invisible particle, and
   // Fit would blow its tiny box up to the frame (xf.k in the hundreds).
   const R0 = 0.16 * Math.min(W, H) * st.pixSize / k;        // the layer's unit, art px: speeds are R0 per duration
@@ -2492,14 +2496,31 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   const shp = Math.round(st.pixShape || 0), dith = Math.round(st.pixBreakAs || 0) === 1;
   const light = clamp01(st.pixLight), rim = clamp01(st.pixRim), la = (st.pixLightAngle || 0) * DEG;
   const lx = Math.cos(la) * 0.55, ly = Math.sin(la) * 0.55;  // where the highlight sits inside a blob
+  // §44. LOOP: births wrap round the clip (a blob born late carries on into the start), so a torch, a campfire or an aura
+  // repeats with no seam; the core stays lit and boils. FLATTEN: the layer laid on the ground, seen from the side
+  // (launch and scatter squashed vertically, blobs by 0.65 of it; gravity stays upright, so dust still rises). HOLLOW:
+  // a hole in every blob (bubbles, smoke rings, shockwaves); the outline rings it inside too.
+  const loop = st.pixLoop > 0, flat = clamp01(st.pixFlat || 0), fl = 1 - flat, ys = 1 - 0.65 * flat;
+  const hollow = Math.max(0, Math.min(0.95, st.pixHollow || 0));
+  const wrap = (v) => v - Math.floor(v);
   // where a body launched at angle th, speed v, born at b is at u (drag eases its flight; gravity in R0 per duration²)
   const fly = (s, v, th, dr) => {
     const go = dr > 0 ? (1 - Math.exp(-dr * s)) / dr : s;
-    return [Math.cos(th) * v * go, Math.sin(th) * v * go + 0.5 * G * s * s, Math.cos(th) * v * Math.exp(-dr * s), Math.sin(th) * v * Math.exp(-dr * s) + G * s];
+    return [Math.cos(th) * v * go, Math.sin(th) * v * go * fl + 0.5 * G * s * s, Math.cos(th) * v * Math.exp(-dr * s), Math.sin(th) * v * Math.exp(-dr * s) * fl + G * s];
   };
   // ---- the blobs ----
   const nB = Math.max(1, Math.round(st.pixCount)), nS = smoke > 0 ? Math.round(nB * 0.78 * smoke) : 0;
   const span = Math.max(0, st.pixSpan), gap = span / P;
+  // a bolt: a zigzag of joints (one per four blobs), struck afresh each art frame, pinned at both ends so it always
+  // reaches its tip; the blobs are strung along it. Spread is how far a joint swings (90° = a segment's length).
+  let bolt = null;
+  if (emit === 5 && nB > 1) {
+    const J = Math.max(2, Math.round(nB / 4)), seg = st.pixScatter * R0 / J, amp = (st.pixSpread || 0) / 90, o = [0];
+    for (let j = 1; j < J; j++) o.push((rnd(seed + tick * 7919, j, 480) - 0.5) * 2 * seg * amp);
+    o.push(0);
+    bolt = new Float32Array(nB);
+    for (let j = 0; j < nB; j++) { const q = j / (nB - 1) * J, k0 = Math.min(J - 1, Math.floor(q)); bolt[j] = lerp(o[k0], o[k0 + 1], q - k0); }
+  }
   for (let i = 0; i < nB + nS; i++) {
     const isSmoke = i >= nB, r1 = rnd(seed, i, 400), r2 = rnd(seed, i, 401), r3 = rnd(seed, i, 402), r4 = rnd(seed, i, 403), r5 = rnd(seed, i, 404);
     const pulse = isSmoke ? 0 : i % P;
@@ -2509,20 +2530,23 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     const b = core ? 0 : emit >= 3 && !isSmoke ? span * f : isSmoke ? span * 0.7 + 0.24 * r1 : pulse * gap + gap * (P > 1 ? 0.7 : 1) * (emit === 1 ? r1 : Math.pow(r1, 1.4));
     // every blob is done by the end of the clip: a late smoke puff squeezes its life rather than being cut off mid-frame
     // (Big Pixel Boom's last frame still held 5112 pixels, so its loop popped; AJ, 2026-11-02)
-    const life = Math.max(0.05, Math.min(st.pixLife * (isSmoke ? 0.9 : 1) * (0.85 + 0.3 * r5), 0.97 - b));
-    const s = u - b, a = s / life;
+    const life0 = st.pixLife * (isSmoke ? 0.9 : 1) * (0.85 + 0.3 * r5);
+    const life = loop ? Math.max(0.05, Math.min(1, life0)) : Math.max(0.05, Math.min(life0, 0.97 - b));
+    const s = loop ? (core ? 0.35 * life : wrap(u - b)) : u - b, a = s / life;
     if (a < 0 || a >= 1) continue;
     let th, d;
     if (emit === 2) { th = th0 + (i / nB) * Math.PI * 2; d = st.pixScatter * R0; }
     else if (emit === 4 && !isSmoke) { th = th0 + (r2 - 0.5) * spread * 0.15; d = st.pixScatter * R0 * f; }   // a line out along Direction: a muzzle flash, a thrust
+    else if (emit === 5 && !isSmoke) { th = th0; d = st.pixScatter * R0 * f; }   // a bolt: along Direction, its walk added below
     else if (emit === 3 && !isSmoke) { th = th0 + (f - 0.5) * spread; d = st.pixScatter * R0 * (1 + 0.08 * (r3 - 0.5)); }   // a sweep: laid along the arc in order
     else { th = th0 + (r2 - 0.5) * spread * (P > 1 ? 1 + 0.6 * pulse / (P - 1) : 1); d = core ? 0 : st.pixScatter * R0 * Math.sqrt(r3); }
     const v = core ? 0 : R0 * st.pixSpeed * (1 - st.pixSpeedVar * r4) * (P > 1 ? 1 - 0.22 * pulse : 1) * (isSmoke ? 0.5 : 1);
     const [fx, fy, vx, vy] = fly(s, v, th, drag);
-    const x0b = ax + Math.cos(th) * d, y0b = ay + Math.sin(th) * d * 0.85;
+    const jag = bolt && !isSmoke ? bolt[i] : 0;
+    const x0b = ax + Math.cos(th) * d - Math.sin(th0) * jag, y0b = ay + (Math.sin(th) * d * (emit === 5 ? 1 : 0.85) + Math.cos(th0) * jag) * fl;
     const cx = x0b + fx, cy = y0b + fy - (isSmoke ? R0 * 0.5 : 0);
     const grow = st.pixGrow > 0 ? 1 - Math.pow(1 - Math.min(1, (a + 0.07) / st.pixGrow), 2) : 1;
-    const big = (core ? 1 + 0.15 * st.pixCore : (isSmoke ? 0.6 + 0.3 * r4 : 1 - st.pixSizeVar * r5 * 0.9)) * (emit === 3 && !isSmoke ? 0.35 + 0.65 * f : emit === 4 && !isSmoke ? 1 - 0.65 * f : 1);   // an arc grows to its head, a line thins to its tip
+    const big = (core ? 1 + 0.15 * st.pixCore : (isSmoke ? 0.6 + 0.3 * r4 : 1 - st.pixSizeVar * r5 * 0.9)) * (emit === 3 && !isSmoke ? 0.35 + 0.65 * f : emit === 4 && !isSmoke ? 1 - 0.65 * f : emit === 5 && !isSmoke ? 1 - 0.35 * f : 1);   // an arc grows to its head, a line thins to its tip
     // Swell above 0 keeps growing late in life; below 0 shrinks to nothing by the end (a glint, a dying spark)
     const sw = st.pixSwell < 0 ? 1 + st.pixSwell * Math.max(0, a - 0.4) / 0.6 : 1 + st.pixSwell * Math.max(0, a - 0.4);
     const r = R0 * st.pixBlob * big * grow * sw;
@@ -2557,17 +2581,17 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       const px = xx + 0.5, py = yy + 0.5;
       const q = tail > 0 ? Math.max(0, Math.min(1, ((px - tx) * ux + (py - ty) * uy) / tail)) : 1;
       const rr = r * (tail > 0 ? 0.55 + 0.45 * q : 1);
-      const dx = (px - (tx + ux * tail * q)) / rr, dy = (py - (ty + uy * tail * q)) / rr;
+      const dx = (px - (tx + ux * tail * q)) / rr, dy = (py - (ty + uy * tail * q)) / (rr * ys);
       // a lumpy edge, not a balloon: the radius wobbles with noise round the rim
       const ex = Math.abs(dx), ey = Math.abs(dy);
       const m = shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
               : shp === 3 ? Math.max(ex, ey) * Math.max(ex, ey) : Math.pow(Math.max(Math.min(ex, ey) * 3, Math.max(ex, ey)), 2);
-      const d2 = m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i) - 0.5) : 1);
-      if (d2 >= 1) continue;
+      const d2 = m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && core ? tick * 131 : 0)) - 0.5) : 1);
+      if (d2 >= 1 || (hollow > 0 && d2 < hollow * hollow)) continue;
       if (erode > 0 && (dith ? PIX_BAYER[(xx & 3) + (yy & 3) * 4] / 16 < erode * 1.05
                              : pixNoise(seed, xx, yy + a * R0, Math.max(2, R0 * 0.3), 420 + i) < erode * 1.1 + (d2 - 0.5) * 0.4 * erode)) continue;
       // volume: one step lighter toward the light, one darker at the rim
-      const hx = (px - cx) / r - lx, hy = (py - cy) / r - ly;
+      const hx = (px - cx) / r - lx, hy = (py - cy) / (r * ys) - ly;
       const shade = (light > 0 && hx * hx + hy * hy < light * light ? 1 : 0) - (rim > 0 && d2 > 1 - rim && (tail <= 0 || q < 0.6) ? 1 : 0);
       if (smoky) put(xx, yy, 1 + Math.max(0, Math.min(2, 1 + shade)), pr);
       else put(xx, yy, RAMP0 + Math.max(0, Math.min(nR - 1, base + shade)), pr);
@@ -2577,7 +2601,7 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   // ---- the bits ----
   const nD = Math.round(st.pixBits || 0), bth = Math.min(spread || Math.PI * 2, 160 * DEG);
   for (let i = 0; i < nD; i++) {                                  // debris: dark chunks on arcs, hot-lit early
-    const th = th0 + (rnd(seed, i, 430) - 0.5) * bth, v = R0 * st.pixBitSpeed * (1 + rnd(seed, i, 431)), s = u - 0.02;
+    const th = th0 + (rnd(seed, i, 430) - 0.5) * bth, v = R0 * st.pixBitSpeed * (1 + rnd(seed, i, 431)), s = loop ? wrap(u - rnd(seed, i, 433)) : u - 0.02;
     if (s < 0 || s > 0.8) continue;
     const x = Math.round(ax + Math.cos(th) * v * s), y = Math.round(ay + Math.sin(th) * v * s + 0.5 * R0 * st.pixBitGravity * s * s);
     const big = rnd(seed, i, 432) < 0.4;
@@ -2586,7 +2610,7 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   }
   const nE = Math.round(st.pixSparks || 0), eth = Math.min(Math.PI * 2, spread * 1.6 + 0.6);
   for (let i = 0; i < nE; i++) {                                  // sparks: single pixels that fly, flicker and go out
-    const life = 0.12 + 0.4 * rnd(seed, i, 440), s = u - 0.03 * rnd(seed, i, 444);
+    const life = 0.12 + 0.4 * rnd(seed, i, 440), s = loop ? wrap(u - rnd(seed, i, 444)) : u - 0.03 * rnd(seed, i, 444);
     if (s < 0 || s > life || (heat0 > 0 && (tick + i) % 3 === 0)) continue;
     const th = th0 + (rnd(seed, i, 441) - 0.5) * eth, v = R0 * st.pixSparkSpeed * (0.6 + 0.6 * rnd(seed, i, 442));
     const [fx, fy] = fly(s, v, th, 3);
@@ -3527,8 +3551,12 @@ function renderOneFrame(prep, f, echoCv) {
 }
 
 // How many head frames the seamless loop cross-dissolves into. 0 when loopBlend is off.
+// §44: a pixel-art Loop already joins end to start, so it IS a loop, and the cross-dissolve stays off for it (blending two
+// frames would smear its hard pixels into half-transparent ghosts)
+function pixLoops(st) { return st.pix > 0 && st.pixLoop > 0; }
+function effectLoops(st) { return st.loopBlend > 0 || pixLoops(st); }
 function loopBlendCount(prep) {
-  return (prep.st.loopBlend > 0 && prep.n > 3)
+  return (prep.st.loopBlend > 0 && !pixLoops(prep.st) && prep.n > 3)
     ? Math.max(1, Math.round(prep.n * 0.35 * prep.st.loopBlend)) : 0;
 }
 function blendLoopFrame(head, tail, i, L) {

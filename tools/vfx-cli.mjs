@@ -21,7 +21,7 @@ One source:
   --preset "Name"            a shipped preset (--list presets)
   --crunchy file.crunchy     an effect saved by the desktop Library (its own settings, sound and export options)
   --link "https://…?e=…"     a share link copied from the app
-  --wizard TYPE              the Wizard: --tags a,b  --moves a,b  --era "Super"  --seed N  --pick 1..9
+  --wizard TYPE              the Wizard: --tags a,b  --moves a,b  --era "Super" (or "Pixel art")  --seed N  --pick 1..9
                              (the same answers and seed always give the same nine; --pick takes one of them)
 
 Options:

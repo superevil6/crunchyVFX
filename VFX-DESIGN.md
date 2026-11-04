@@ -2351,3 +2351,77 @@ was: 60 to 100 exports, and all of them again whenever a look changes. `node too
 - **Test:** `node tests/vfx-cli.test.mjs` (9 checks, ~15 s): every source, planted folders, a .crunchy and a link
   reopening an effect byte for byte, size/playback, the shared box, bad input failing with a message and making nothing,
   and a REAL Godot playing every scene (impact, finished, freed; skipped without Godot). Example: `tools/vfx-cli.example.json`.
+
+## 43. Opening a game no longer re-renders every effect (2026-11-04)
+
+AJ (2026-11-02): "a very big delay when the application starts up now. It seems like it's loading effects one at a
+time". The strip was never it (one frame per preset, visible pages only; the web build boots in ~0.27 s). It was the
+desktop Library's "update available" check: on every open it re-rendered and re-EXPORTED every planted effect (PNG
+encoding included), one after another, in WebKit. Painter Panic has 68 now, 54 of them from the CLI (§42). Worse, the
+CLI's effects carry Firefox's pixels, so WebKit's render would have marked every one "update available" for a shade.
+
+The export is deterministic, so `projCheckOne` now renders only what could have changed. An effect is current with
+no render when THIS version wrote it (its sidecar's `appVersion`: the Export, the Library or the CLI), or a render by
+this version already found it current (remembered per game and hash in the new key `crunchyvfx.checked.v1`, this
+browser only). Three exceptions still render and compare: a color set or palette it follows has moved (`followInto`),
+its linked CrunchySFX sound is gone or moved, or a save never finished (`pending`).
+
+After an upgrade every effect from the old version is rendered ONCE; the unchanged ones are then remembered, so later
+opens are instant again. (A CLI effect checked that way after an upgrade may show "update available" for WebKit's
+shading; Update re-exports it, harmlessly.)
+
+Tests: desktop `update/the-check-renders-only-what-could-have-changed` (same version: 0 renders; older: each once, then
+only the changed one), the two rows that fake an old export now also say so in `appVersion`, and the legacy-keys row
+allows the new key. Desktop 76/76, engine 730, web 15.
+
+## 44. Pixel art, round 3: loops, bolts, rings; Randomize, Breed and the Wizard learn it (2026-11-04)
+
+AJ, after the first sale on itch (a VFX copy): "let's make sure they feel at home with the crunchy suite. I think a few
+more pixel effects would actually be a good place to go too." Round 2's way again: presets for what itch's pixel packs
+sell most (zaps, fireballs, campfires and torches, heals, teleports, shockwaves, bubbles, smoke), and only the general
+levers they turned out to need. Every new row defaults off; no earlier effect moves.
+
+- **Loop** (`pixLoop`). The most common thing in those packs is a loop, and §41 squeezed every blob to end inside the
+  clip. With Loop on, births wrap round the clip (a blob born late carries on into the start), the core stays lit and its
+  lumps boil each art frame, debris and sparks are born all through it. So the clip's end IS its start (tested pixel for
+  pixel). It counts as a loop for the export's Auto playback (`effectLoops`), and the Seamless-loop cross-dissolve stays
+  off for it (`pixLoops`): blending two frames would smear its hard pixels into ghosts.
+- **Emit as bolt** (`PIX_EMITS` gains "bolt", appended): a zigzag of joints (one per four blobs) out along Direction,
+  both ends pinned, struck afresh every art frame; Spread is how far a joint swings (90° = a segment's length). The
+  first try walked a step per blob and read as a straight line, then a degrees/radians slip made it straight again.
+- **Hollow** (`pixHollow`): a hole in every blob, ringed by the outline inside too: bubbles, smoke rings, a shockwave.
+- **Flatten** (`pixFlat`): the layer laid on the ground, seen from the side. Launch and scatter squash vertically, blobs by
+  0.65 of it; gravity stays upright, so dust still rises off the ground.
+
+Presets (the Pixel art category, 21 now): Pixel Zap (a bolt), Pixel Fireball (a loop: a boiling core and its trail),
+Pixel Slam (flattened dust and debris; "Ground Slam" was taken), Pixel Shockwave (one hollow, flattened, dithering ring),
+Pixel Heal (green stars rising), Pixel Teleport (a column of squares), and three loops: Pixel Campfire, Pixel Bubbles,
+Pixel Smolder.
+
+**Randomize, Breed and the Wizard.** Randomize used to switch the layer on like any other and jitter half of its 45
+rows across their full ranges: noise, over soft particles. Now:
+- **A pixel roll** about one Randomize in five (`pixelRollInto`): one of the Pixel art presets, then `pixelVary` moves
+  the rows an effect differs BY (count, size, blob, speed, spread, life, lumps, sparks, debris, sometimes the shape, the
+  break-up, the colors and hue), relative to their values and inside their ranges. The Pixel art layer is out of the
+  general layer pool.
+- **Breed and Variations:** a pixel effect's particle is invisible, yet three of the four weighted "core" groups were
+  its Emitter, Motion and Life, so siblings often changed nothing you could see. For a pixel-only effect the pixel rows
+  are the core and those three are left alone; Loop and Outline are never flipped (`BREED_SKIP`).
+- **The Wizard's Pixel art answer** (`WIZARD_PIXEL`, beside "As drawn" on the era step): the nine are the type's pixel
+  presets (by moments, else all of them), painted in a chosen tag's palette through "effect colors" unless the preset
+  already carries that tag (fire stays fire), and from the second round through the pool varied by `pixelVary` on the
+  Wizard's seeded dice, so the same answers give the same nine. Never crushed by an era filter (`wizardStyle`). The
+  Power dial scales them as it scales any pixel effect. "How it moves" answers don't apply to them yet. The CLI takes
+  `--era "Pixel art"` with `--wizard`.
+
+Test: one `§44` block in the engine suite: the loops join with no seam and still move, export as loops and refuse the
+cross-dissolve; the bolt reaches its tip and is re-struck; Hollow leaves a hole and Flatten squashes; Randomize's pixel
+rolls appear and all draw; a pixel effect's siblings vary their pixel rows; the Wizard's nine are pixel effects, tag
+colored, repeatable, unfiltered. The suite also caught two real faults on the way: a Loop whose clip held a fractional number of art
+frames (Bubbles, 1.5 s at 15: 22.5) jumped at the seam, so a Loop now fits a whole number of art frames into the clip;
+and Pixel Shockwave rose off its center on the layer's default gravity (now 0, a ring on the ground stays put).
+
+Frame hash re-recorded: every earlier FRAME line identical (299 of them); 12 new lines for the nine presets; the
+EXPORT spread takes every Nth preset, so the inserted presets moved which preset gets five of its cases (new pairings,
+not changed output), and the Everything zip holds the new presets. FRAMEHASH 5e30e3ac69392bbb over 340. Engine 739,
+desktop 76/76, web 15.

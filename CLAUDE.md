@@ -224,6 +224,11 @@ more particles.
 
 ## Status
 
+- **Pixel art round 3 (§44, 2026-11-04)**: Loop (births wrap, so the end IS the start; counts as a loop, no cross-dissolve), Emit as bolt,
+  Hollow, Flatten; 9 presets (21 in Pixel art); Randomize makes a pixel roll 1 in 5 (`pixelRollInto`/`pixelVary`), Breed varies a pixel
+  effect's pixel rows (not its hidden particle), the Wizard's era step has a Pixel art answer (`WIZARD_PIXEL`).
+- **Startup (§43, 2026-11-04)**: opening a planted game no longer re-renders every effect for "update available": an effect
+  this version wrote (or one already found current, `crunchyvfx.checked.v1`) is skipped unless what it follows moved.
 - **The VFX CLI (§42, 2026-11-04)**: `node tools/vfx-cli.mjs` (preset / .crunchy / link / Wizard pick; strengths 1-9 via
   the Power dial, sharing one Fit box; palette, size, any row) makes planted effect folders through the app's own
   `plantedRender` in headless Firefox; `node tests/vfx-cli.test.mjs` proves them in real Godot. New PATCH_EXTRA `fitBox`.
