@@ -807,9 +807,15 @@ const PARAMS = [
   ["pixScatter", "Scatter", 0, 3, 0.01, 0.95, "", "Pixel art"],
   ["pixGravity", "Gravity", -40, 80, 0.5, -7, "", "Pixel art"],
   ["pixDrag", "Drag", 0, 10, 0.1, 0, "", "Pixel art"],
+  ["pixGather", "Gather", 0, 1, 1, 0, "", "Pixel art"],
+  ["pixCurl", "Curl", -3, 3, 0.05, 0, "", "Pixel art"],
   ["pixStretch", "Stretch", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixTrail", "Trail", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixTrailN", "Trail copies", 1, 12, 1, 6, "", "Pixel art"],
   ["pixFloor", "Floor", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixLandAs", "Land as", 0, PIX_LANDS.length - 1, 1, 0, "", "Pixel art", "enum", PIX_LANDS],
   ["pixFlat", "Flatten", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixSpin", "Spin", -4, 4, 0.25, 0, "", "Pixel art"],
   ["pixShape", "Blob shape", 0, PIX_SHAPES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_SHAPES],
   ["pixHollow", "Hollow", 0, 0.95, 0.01, 0, "", "Pixel art"],
   ["pixBlob", "Blob size", 0.05, 2, 0.01, 0.95, "", "Pixel art"],
@@ -821,15 +827,22 @@ const PARAMS = [
   ["pixLumps", "Lumps", 0, 1, 0.01, 0.32, "", "Pixel art"],
   ["pixBreak", "Break up", 0, 1, 0.01, 1, "", "Pixel art"],
   ["pixBreakAs", "Break up as", 0, PIX_BREAKS.length - 1, 1, 0, "", "Pixel art", "enum", PIX_BREAKS],
+  ["pixBreakAt", "Break at", 0, 0.95, 0.01, 0.62, "", "Pixel art"],
+  ["pixBreakIn", "Break in", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixBreakFrom", "Break from", 0, PIX_WIPES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_WIPES],
   ["pixHeat", "Heat", 0, 1, 0.01, 1, "", "Pixel art"],
   ["pixCool", "Cool time", 0.02, 1, 0.01, 0.5, "", "Pixel art"],
   ["pixTone", "Tone", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixSmoke", "Smoke", 0, 1, 0.01, 0.7, "", "Pixel art"],
   ["pixLight", "Highlight", 0, 1, 0.01, 0.5, "", "Pixel art"],
   ["pixRim", "Rim", 0, 1, 0.01, 0.3, "", "Pixel art"],
+  ["pixSoft", "Soft steps", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixLightAngle", "Light from", 0, 360, 1, 225, "°", "Pixel art"],
   ["pixOutline", "Outline", 0, 1, 1, 1, "", "Pixel art"],
+  ["pixSeeThrough", "See-through", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixFlash", "Flash frames", 0, 4, 1, 0, "", "Pixel art"],
   ["pixBits", "Debris", 0, 40, 1, 4, "", "Pixel art"],
+  ["pixBitsAt", "Bits at", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixBitSpeed", "Debris speed", 0, 20, 0.1, 4, "", "Pixel art"],
   ["pixBitGravity", "Debris gravity", -20, 60, 0.5, 16, "", "Pixel art"],
   ["pixSparks", "Sparks", 0, 60, 1, 7, "", "Pixel art"],
@@ -1572,11 +1585,16 @@ const PARAM_WHEN = {
   originY:     () => !fitOn,
   turbScale:   (s) => s.turb > 0,
   pixCool:     (s) => s.pixHeat > 0,
-  pixBreakAs:  (s) => s.pixBreak > 0,
+  pixBreakAs:  (s) => s.pixBreak > 0 || s.pixBreakIn > 0 || s.pixTrail > 0,
+  pixBreakFrom: (s) => s.pixBreak > 0 || s.pixBreakIn > 0 || s.pixTrail > 0,
+  pixBreakAt:  (s) => s.pixBreak > 0,
+  pixTrailN:   (s) => s.pixTrail > 0,
+  pixLandAs:   (s) => s.pixFloor > 0,
   pixPulses:   (s) => Math.round(s.pixEmit) < 2,
   pixBitSpeed: (s) => s.pixBits > 0,
   pixBitGravity: (s) => s.pixBits > 0,
   pixSparkSpeed: (s) => s.pixSparks > 0,
+  pixBitsAt:   (s) => s.pixBits > 0 || s.pixSparks > 0,
   turbSpeed:   (s) => s.turb > 0,
   turbCurl:    (s) => s.turb > 0,
   spinVar:     (s) => s.spin !== 0,
@@ -3747,6 +3765,16 @@ const PALETTES = [
   ["Heal",     { hue: 135, hueLife: 15,  sat: 0.8,  coreWhite: 0.65, blend: 0 }],   // AJ 2026-10-28: the Wizard's Healing
   ["Buff",     { hue: 8,   hueLife: 38,  sat: 0.95, coreWhite: 0.7,  blend: 0 }],   // AJ 2026-10-28: the Wizard's Buff (red rising to gold)
 ];
+// §46: a mood reaches PIXEL ART too (AJ: "it does a hue shift and not a palette swap, so the palette section doesn't seem
+// to affect anything"): the pixel layer's Colors go to the mood's hand-picked ramp where there is one, otherwise to
+// "effect colors" (built from the hue the mood just set), and its Hue shift back to 0. A color set does the same, and
+// "effect colors" then draws the set's own colors (pixPalette).
+const PIX_MOOD_RAMPS = { Fire: "fire", Ember: "fire", Blood: "blood", Ice: "ice", Frost: "ice", Electric: "electric", Holy: "holy", Void: "shadow" };
+function pixFollowColors(mood) {
+  if (!(state.pix > 0)) return;
+  const r = PIX_RAMPS.indexOf(PIX_MOOD_RAMPS[mood] || "effect colors");
+  state.pixColors = r; state.pixHue = 0;
+}
 const paletteGrid = document.getElementById("paletteGrid");
 for (const [name, patch] of PALETTES) {
   const b = document.createElement("button");
@@ -3780,6 +3808,7 @@ for (const [name, patch] of PALETTES) {
     } else {
       for (const k in patch) state[k] = patch[k];
       if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
+      pixFollowColors(name);
     }
     syncUI(); commitHistory(); rerender();
   });
@@ -3835,6 +3864,7 @@ function applyColorSet(set, lockToo) {
   // blend piles a set's colors up into white where particles overlap: a set is meant to be seen as its colors). A
   // mood button sets its own blend again.
   state.hueVar = 0; state.bright = 1; state.blend = 1; state.emit2Blend = 0;
+  pixFollowColors("");                                                       // §46: pixel art draws the set's colors
   if (lockToo) { state.paletteLock = set.colors.map((h) => h.slice(1)).join(","); state.lockFrom = set.id; }   // §38: it follows the set too
   syncUI(); rerender(); commitHistory();
   msg.textContent = "Colored with " + set.name + ": its " + set.colors.length + " colors, light to dark over each particle's life" +
@@ -7505,7 +7535,7 @@ function decodePatch(str) {
 // range" doesn't give you a sibling, it gives you an unrelated effect. Deriving that half from
 // PARAMS rather than listing it means a new enum can't be added and silently left out — which is
 // exactly what happened when Layer B arrived with three of them.
-const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline"]);   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
+const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather"]);   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 

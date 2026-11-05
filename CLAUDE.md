@@ -224,6 +224,8 @@ more particles.
 
 ## Status
 
+- **Pixel art round 5 (§46, 2026-11-04)**: more from dithering (Break in / from / at, See-through, Soft steps), Flash frames, Curl + Trail (streaks, afterimages), Land as stick; 9 presets (42 in Pixel art); Gust, Ice Shards and Rock Burst rebuilt (no longer water recolors).
+- **Pixel art round 4 (§45, 2026-11-04)**: the elements: Gather, Spin, Bits at, four ramps (shadow, holy, ice, electric); 12 presets (33 in Pixel art).
 - **Pixel art round 3 (§44, 2026-11-04)**: Loop (births wrap, so the end IS the start; counts as a loop, no cross-dissolve), Emit as bolt,
   Hollow, Flatten; 9 presets (21 in Pixel art); Randomize makes a pixel roll 1 in 5 (`pixelRollInto`/`pixelVary`), Breed varies a pixel
   effect's pixel rows (not its hidden particle), the Wizard's era step has a Pixel art answer (`WIZARD_PIXEL`).

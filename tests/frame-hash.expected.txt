@@ -262,6 +262,34 @@ VFX FRAME "Pixel Campfire" f51993456b848d6e
 VFX FRAME "nofit:Pixel Campfire" f51993456b848d6e
 VFX FRAME "Pixel Bubbles" 38ff742d4a8af60a
 VFX FRAME "Pixel Smolder" d9755705a2f25796
+VFX FRAME "Pixel Lightning" b2cf18552712aa86
+VFX FRAME "nofit:Pixel Lightning" b2cf18552712aa86
+VFX FRAME "Pixel Arc" 364ffe858f5da226
+VFX FRAME "Pixel Holy Burst" 748756b517649a86
+VFX FRAME "Pixel Halo" bd0b80a5362114d6
+VFX FRAME "nofit:Pixel Halo" bd0b80a5362114d6
+VFX FRAME "Pixel Shadow Burst" 9b66d705530341c6
+VFX FRAME "Pixel Dark Orb" 48fa35f5736d826e
+VFX FRAME "Pixel Ice Shards" ce2d8a2554d42086
+VFX FRAME "nofit:Pixel Ice Shards" ce2d8a2554d42086
+VFX FRAME "Pixel Frost Nova" 5e4252c59b8e5ec6
+VFX FRAME "Pixel Charge" 02ba49853fca0206
+VFX FRAME "Pixel Gust" 199ba6ddf87ae6aa
+VFX FRAME "nofit:Pixel Gust" 199ba6ddf87ae6aa
+VFX FRAME "Pixel Rock Burst" 443ef495bdfc8b06
+VFX FRAME "Pixel Toxic Puff" 1d44fb05954f4f4e
+VFX FRAME "Pixel Hit Flash" 0f611e0dc636f2c2
+VFX FRAME "nofit:Pixel Hit Flash" 0f611e0dc636f2c2
+VFX FRAME "Pixel Dash" 3cd9e985f61bd31e
+VFX FRAME "Pixel Shield" c7ace2c5ad1b04c6
+VFX FRAME "Pixel Wisps" 65dbad654d9a04b6
+VFX FRAME "nofit:Pixel Wisps" 65dbad654d9a04b6
+VFX FRAME "Pixel Summon" f222e91522bdb5ae
+VFX FRAME "Pixel Torch" ae4ad6a5d59c0eae
+VFX FRAME "Pixel Meteor" c58deb7563f14b5e
+VFX FRAME "nofit:Pixel Meteor" c58deb7563f14b5e
+VFX FRAME "Pixel Dust Devil" cf546fb57d93314a
+VFX FRAME "Pixel Run Dust" c44541bd2f58ca9a
 VFX FRAME "Rain On Glass" 2f884b29fd2a5242
 VFX FRAME "nofit:Rain On Glass" 82afc66f5406dc5a
 VFX FRAME "Glint Field" 84669d2e343b7d6b
@@ -331,12 +359,15 @@ VFX EXPORT "Warp Speed|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godo
 VFX EXPORT "Backlit Burst|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" 6e3cbcb80441b435
 VFX EXPORT "Slime Spurt|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 171c1ce52dd33078
 VFX EXPORT "Pixel Zap|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" da13e2ed41924586
-VFX EXPORT "Rain On Glass|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" 790ef27cbb505ac5
-VFX EXPORT "Rift Tear|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" b90ab99c5b55b2a3
-VFX EXPORT "Dash Trail|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" e550cda0d2a51763
-VFX EXPORT "Skull Puff|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" c72f6a76bc7da5b3
+VFX EXPORT "Pixel Lightning|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" cf57e1b8aa54a80f
+VFX EXPORT "Pixel Gust|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" fff841bdcca68dd6
+VFX EXPORT "Pixel Meteor|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" b3deed1510dc875e
+VFX EXPORT "Summon Ritual|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 58172406fc53914b
+VFX EXPORT "Frost Shot|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" 018d0f59e0dbcfb2
+VFX EXPORT "Heart Heal|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 4a0e5662041d6981
+VFX EXPORT "Comic Pow|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" 312b9bdc721c35fb
 VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" 81cb567a536bbe49
-VFX FRAMEHASH 5e30e3ac69392bbb over 340
-VFX END PASS 340 hashes
+VFX BATCH "crunchyvfx-pack.zip" 887de9a9ca105ebe
+VFX FRAMEHASH 546096fb4f5e9b6a over 371
+VFX END PASS 371 hashes

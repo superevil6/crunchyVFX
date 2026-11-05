@@ -2425,3 +2425,110 @@ Frame hash re-recorded: every earlier FRAME line identical (299 of them); 12 new
 EXPORT spread takes every Nth preset, so the inserted presets moved which preset gets five of its cases (new pairings,
 not changed output), and the Everything zip holds the new presets. FRAMEHASH 5e30e3ac69392bbb over 340. Engine 739,
 desktop 76/76, web 15.
+
+## 45. Pixel art, round 4: the elements (2026-11-04)
+
+AJ: "How about another wave? Let's hit our obvious game marks, lightning, holy, darkness, ice, and a few others." Twelve
+presets (33 in the Pixel art category), and the four levers they needed. All default off; no earlier effect moves.
+
+- **Gather** (`pixGather`): every blob's flight runs backwards, born where it would have landed and arriving home as it
+  dies. A charge-up, an implosion, wisps pulled into an orb. The stretch trails the other way.
+- **Spin** (`pixSpin`, turns per clip, -4..4 in quarters): the blobs turn round the origin, on the ground when
+  flattened. Whole turns loop.
+- **Bits at** (`pixBitsAt`): debris and sparks start that far along Direction × Scatter, so a strike's sparks fly
+  from where it lands, not from the cloud.
+- **Four ramps** (`PIX_RAMPS` appended: shadow, holy, ice, electric; hand-picked, darkest first). Darkness can't come
+  from "effect colors", whose lightest steps are near white; shadow also brings its own dark-purple smoke (a ramp
+  may now carry `smoke`), so a shadow burst cools into shadow, not into brown.
+
+Presets: Pixel Lightning (a bolt from above, sparks at its tip), Pixel Arc (a looping arc between two points), Pixel
+Holy Burst (golden crosses), Pixel Halo (a loop: a flat ring of stars turning once), Pixel Shadow Burst (the explosion
+in shadow), Pixel Dark Orb (a loop: a boiling core gathering wisps), Pixel Ice Shards (diamonds falling and landing),
+Pixel Frost Nova (a flat ring of diamonds dithering away), Pixel Charge (a loop: streaks gathering into a core), Pixel
+Gust, Pixel Rock Burst and Pixel Toxic Puff. Pixel Teleport (§44) waits for the quality pass (AJ: "a little odd").
+
+Tests: the §41 hard-pixel row now covers every Pixel art preset (`pixPresetNames`), not a list of 11; a §45 block
+checks that Gather closes in (and flies out without it), Spin turns and lies flat, Bits at moves the sparks, the new
+loops join with no seam, and the ramps were appended (shadow darker than any smoke, the first five unchanged).
+Frame hash re-recorded: every earlier FRAME line identical, 16 new (327 FRAME lines); the EXPORT spread moved six of its
+cases onto other presets again and the Everything zip holds the new ones. FRAMEHASH 9e61bf989c9c26df over 358.
+Engine 744, desktop 76/76, web 15.
+
+## 46. Pixel art, round 5: more from dithering; trails, curls and landings (2026-11-04)
+
+AJ, on §45: "Gust and a few others just look recolors of water", and then: "I like the dithering disappearance on the
+toxic cloud and explosions, makes me wonder if we can leverage that more?" So this round adds ten levers, all off or
+neutral by default, so no earlier effect moves. It adds nine presets (42 in Pixel art) and rebuilds the three
+watery ones.
+
+- **Break in** (`pixBreakIn`): blobs appear through the Break up pattern over that share of their life (materialize,
+  summon), independent of Break up.
+- **Break from** (`pixBreakFrom`, `PIX_WIPES` append-only: everywhere, top, bottom, center, edge, tail): the break
+  moves through a blob from one side as a wipe with a dithered front (70 % position, 30 % pattern). Break in runs
+  the same wipe the other way, so "top" fills in from the top and also eats away from the top. "everywhere" is the
+  old formula, exactly. The wipe works on each blob, not the whole effect, so it reads on big blobs (a pillar, a
+  shield) and barely shows on many small ones.
+- **Break at** (`pixBreakAt`, default 0.62): when in a blob's life the break starts. It was fixed at 0.62.
+- **See-through** (`pixSeeThrough`): the layer drawn through a fixed 4×4 ordered dither, after the outline, with sparks
+  and shines kept solid. 0.5 is a checkerboard, the old way to fake half-transparency (ghosts, shields, haze).
+- **Soft steps** (`pixSoft`): an ordered-dither band where two color steps meet: heat steps (the step is floored
+  with a Bayer offset), the highlight's edge and the rim's. Zero gives the old math exactly.
+- **Flash frames** (`pixFlash`, 0–4): the first art frames draw every non-outline pixel as the ramp's lightest
+  step, one white silhouette inside its outline, as fighting games mark a hit. Loops flash once per loop.
+- **Curl** (`pixCurl`, turns per clip, each blob 0.7–1.3 of it): a blob's heading turns as it flies, worked out
+  exactly with drag (complex exponential), so a fast streak that slows curls up at its head, like a wind swoosh.
+- **Trail** (`pixTrail`, how much of its life back) and **Trail copies** (`pixTrailN`): each blob is also drawn
+  where it was. With Stretch on, each copy is a capsule reaching to the next, making one streak that follows the
+  curve (wind). Without Stretch, the copies stand apart as afterimages (a dash). Copies thin toward the tail and break
+  up through the pattern, so a dither trail fades out.
+- **Land as** (`pixLandAs`, `PIX_LANDS`: splat, stick): with stick, a blob that reaches the Floor lies there whole
+  instead of spreading like a liquid. This is what made ice and rock look like water.
+- **Spin** now leaves a rise or fall upright: only the ground offset turns, so a rising column twists in place (a
+  dust devil) instead of being swung sideways. Halo has no gravity, so it is unchanged.
+
+The blob draw is now one function (`drawBlob`), called for the head and each trail copy, and the position one
+closure (`posAt`, the flight + Gather + Spin at any time). The refactor was checked byte-identical over all 358
+hashes before any preset used the new rows.
+
+Presets:
+- **Pixel Hit Flash:** a white frame, then a star.
+- **Pixel Dash:** dithering afterimages.
+- **Pixel Shield:** a see-through bubble, looped.
+- **Pixel Wisps:** three orbiting wisps with joined trails, looped.
+- **Pixel Summon:** a pillar of light that dithers in from the top and out again.
+- **Pixel Torch:** Soft steps, looped.
+- **Pixel Meteor:** a fireball with a soft trail, looped.
+- **Pixel Dust Devil:** a spinning, rising funnel, looped.
+- **Pixel Run Dust:** flattened puffs behind a runner, broken from the tail.
+
+Reworked (§45, still uncommitted):
+- **Pixel Gust:** thin curling streaks broken from the tail, not stretched droplets.
+- **Pixel Ice Shards** and **Pixel Rock Burst:** they land as stick, then dither away.
+
+A disintegrate preset was tried and dropped: a body-sized wipe needs the effect's extent, not a blob's (a later
+lever if wanted).
+
+Tests:
+- A §46 block covers Break in, Break from top, Break at, See-through (about half the pixels), Flash (two colors on the
+  first frame, then unchanged), Soft steps (same outline, other colors), Curl + Trail (streak and afterimages), stick
+  landings, and the five new loops' seams.
+- The PARAM_WHEN rules gain five rows.
+- The hash was re-recorded. Every earlier FRAME line is identical except the three rebuilt §45 presets (Gust, Ice
+  Shards, Rock Burst). That makes 339 FRAME lines, FRAMEHASH 546096fb4f5e9b6a over 371 (after the follow-ups below).
+- Results: engine 754/754, desktop 76/76, web 15/15. (The engine suite is `tests/run.html`, which `python3 tests/build.py`
+  builds from regression.js. Rebuild it before a run, or it runs the old checks.)
+
+Follow-ups the same day (AJ):
+- **Pixel Hit Flash rebuilt.** AJ: "Pixel Sparkle and Pixel Hit Flash look almost the same", because it was Spark
+  with a flash. It is now a ring of thin rays (diamond blobs on joined trails) shooting out of the white frame, like a
+  comic impact. Only its own frames moved.
+- **The Palette section reaches pixel art.** AJ: "it does a hue shift and not a palette swap, so the palette section
+  doesn't seem to affect anything". The pixel layer only follows the effect's color on "effect colors", and most
+  presets use a hand-picked ramp. A mood button on a pixel effect now sets its Colors (`pixFollowColors`):
+  - Fire and Ember go to fire; Blood to blood; Ice and Frost to ice; Electric to electric; Holy to holy; Void to
+    shadow.
+  - Every other mood goes to "effect colors" from the hue it just set, with Hue shift back to 0.
+  - A color set also goes to "effect colors", and `pixPalette` then draws the set's own colors: its stops darkest
+    first, repeats dropped, up to six, the outline darker still. It only does this when `colorSet` is set, so no
+    preset moves.
+  - A test clicks Ice, Toxic and a four-color set.

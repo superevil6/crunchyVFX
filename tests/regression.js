@@ -1275,8 +1275,9 @@
           [["dither"], { posterize: 8, paletteLock: "" }, { posterize: 32, paletteLock: "" }], [["dither"], { posterize: 32, paletteLock: "ff0000,00ff00" }, { posterize: 32, paletteLock: "" }],
           [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
-          [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
-          [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }],
+          [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 1 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 0, pixBreakIn: 0.5 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }],
+          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }], [["pixBitsAt"], { pixBits: 4, pixSparks: 0 }, { pixBits: 0, pixSparks: 0 }],
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
         for (const [keys, on, off] of RULES) {
@@ -1316,7 +1317,7 @@
         // §41 PIXEL ART: hard pixels only (every drawn pixel fully opaque), on every frame of both kinds, Fit on or off
         {
           const bad = [];
-          for (const nm of ["Pixel Explosion", "Blood Spurt", "Slime Spurt", "Pixel Poof", "Ring Burst", "Pixel Dust", "Pixel Spark", "Pixel Muzzle", "Pixel Splash", "Pixel Glint", "Pixel Slash"]) for (const fit of [true, false]) {
+          for (const nm of pixPresetNames()) for (const fit of [true, false]) {     // every Pixel art preset (§45: was a list of 11)
             applyPreset(PRESETS[nm], nm, true);
             const r = renderFrames(state, { fit });
             let lit = 0, soft = 0, held = 0;
@@ -1373,6 +1374,61 @@
              "§44: the Wizard's Pixel art answer: nine pixel effects of the type in the tag's colors, the same nine each time", W.map((c) => c.name).join(", "));
           const ws = wizardState(W[0], { type: "spell", tags: ["poison"], era: WIZARD_PIXEL, power: 5 });
           ok(ws.pix > 0 && ws.pixelate === PARAM_BY_KEY.pixelate[5], "…and it is never crushed by an era filter");
+          // §45: Gather, Spin, Bits at, the four ramps, and the new loops
+          const ring = (nm, t, over) => { const a = at(nm, t, over); let n = 0, d = 0;
+            for (let i = 0; i < a.length; i++) if (a[i]) { n++; d += Math.hypot(i % 128 - 64, ((i / 128) | 0) - 64); } return n ? d / n : 0; };
+          const one = { pixLoop: 0, pixCore: 0, pixCount: 8, pixSpan: 0, pixSparks: 0, pixLife: 0.9, pixSwell: 0, pixSpeed: 3 };   // slow enough to start in the frame
+          const gIn = [ring("Pixel Charge", 0.1, one), ring("Pixel Charge", 0.6, one)], gOut = [ring("Pixel Charge", 0.1, Object.assign({ pixGather: 0 }, one)), ring("Pixel Charge", 0.6, Object.assign({ pixGather: 0 }, one))];
+          ok(gIn[0] > gIn[1] * 1.3 && gOut[0] * 1.3 < gOut[1], "§45: Gather runs every flight home (a charge-up closes in; without it the same blobs fly out)",
+             gIn.map((v) => v.toFixed(1)).join(" → ") + " vs " + gOut.map((v) => v.toFixed(1)).join(" → "));
+          ok(!same(at("Pixel Halo", 0.3), at("Pixel Halo", 0.3, { pixSpin: 0 })) && box(at("Pixel Halo", 0.3)).h < box(at("Pixel Halo", 0.3)).w * 0.6,
+             "§45: Spin turns the blobs round the origin, flat on the ground when flattened (a halo)");
+          ok(!same(at("Pixel Lightning", 0.12), at("Pixel Lightning", 0.12, { pixBitsAt: 0 })), "§45: Bits at moves the sparks out to the strike's tip");
+          const newLoops = ["Pixel Arc", "Pixel Halo", "Pixel Dark Orb", "Pixel Charge"];
+          const seam2 = newLoops.filter((nm) => { const L = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 0 && same(at(nm, 0), at(nm, L)) && !same(at(nm, 0), at(nm, L / 2))); });
+          ok(!seam2.length, "§45: …and its loops join with no seam (Spin in whole turns)", seam2.join(", ") || newLoops.length + " loops");
+          const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+          const sh = pixPalette({ pixColors: PIX_RAMPS.indexOf("shadow"), pixHue: 0 }).pal, hl = pixPalette({ pixColors: PIX_RAMPS.indexOf("holy"), pixHue: 0 }).pal;
+          ok(PIX_RAMPS.slice(0, 5).join() === "fire,blood,cloud,dust,effect colors" && lum(sh[4]) < 30 && lum(sh[1]) < 30 && lum(hl[hl.length - 1]) > 250 &&
+             pixPalette({ pixColors: 0, pixHue: 0 }).pal[1].join() === PIX_SMOKE[0].join(),
+             "§45: the ramps are appended (shadow darker than any smoke, with its own; holy up to white; the first five as they were)");
+          // §46: dithering used more, Flash frames, Curl + Trail, Land as stick
+          const rgbAt = (nm, t, over) => { const st = Object.assign(presetOutcome(PRESETS[nm], false), over || {}), cv = document.createElement("canvas");
+            cv.width = cv.height = 128; drawPixelArt(cv.getContext("2d"), st, t, null, 128, 0, 0, st.seed);
+            return Array.from(cv.getContext("2d").getImageData(0, 0, 128, 128).data); };
+          const top = (a) => { const i = a.indexOf(1); return i < 0 ? 128 : (i / 128) | 0; };
+          const inN = lit(at("Pixel Summon", 0.1)), inOff = lit(at("Pixel Summon", 0.1, { pixBreakIn: 0 }));
+          ok(inN > 0 && inN < inOff * 0.8, "§46: Break in: blobs appear through the dither (a summon's pillar fills in)", inN + " vs " + inOff + " px");
+          const tW = top(at("Pixel Summon", 0.85)), tE = top(at("Pixel Summon", 0.85, { pixBreakFrom: 0 }));
+          ok(tW > tE + 4, "§46: Break from top: the break eats down from the top, not everywhere at once", "top row " + tW + " vs " + tE);
+          ok(!same(at("Pixel Summon", 0.6), at("Pixel Summon", 0.6, { pixBreakAt: 0.62 })), "§46: Break at moves when the break starts (0.62, as it always was, by default)");
+          const sN = lit(at("Pixel Shield", 0.3)), sOff = lit(at("Pixel Shield", 0.3, { pixSeeThrough: 0 }));
+          ok(sN > sOff * 0.4 && sN < sOff * 0.65, "§46: See-through: half the layer drawn through a checkerboard (fake transparency)", sN + " of " + sOff + " px");
+          const f0 = rgbAt("Pixel Hit Flash", 0), f1 = rgbAt("Pixel Hit Flash", 0, { pixFlash: 0 }), cols = new Set();
+          for (let i = 0; i < f0.length; i += 4) if (f0[i + 3]) cols.add(f0[i] + "," + f0[i + 1] + "," + f0[i + 2]);
+          ok(cols.size === 2 && same(at("Pixel Hit Flash", 0), at("Pixel Hit Flash", 0, { pixFlash: 0 })) && f0.join() !== f1.join() &&
+             same(rgbAt("Pixel Hit Flash", 0.2), rgbAt("Pixel Hit Flash", 0.2, { pixFlash: 0 })),
+             "§46: Flash frames: the first art frame one white silhouette in its outline, then the effect as it was", cols.size + " colors");
+          ok(same(at("Pixel Torch", 0.3), at("Pixel Torch", 0.3, { pixSoft: 0 })) && rgbAt("Pixel Torch", 0.3).join() !== rgbAt("Pixel Torch", 0.3, { pixSoft: 0 }).join(),
+             "§46: Soft steps dither where color steps meet and change no outline");
+          const gT = lit(at("Pixel Gust", 0.35)), gN = lit(at("Pixel Gust", 0.35, { pixTrail: 0 })), dT = box(at("Pixel Dash", 0.3)), dN = box(at("Pixel Dash", 0.3, { pixTrail: 0 }));
+          ok(gT > gN * 1.5 && !same(at("Pixel Gust", 0.35), at("Pixel Gust", 0.35, { pixCurl: 0 })) && dT.w > dN.w + 6,
+             "§46: Curl turns a flight; Trail joins into a streak with Stretch, or stands apart as afterimages without", gT + " vs " + gN + " px; dash " + dT.w + " vs " + dN.w);
+          const stick = at("Pixel Ice Shards", 0.85), splat = at("Pixel Ice Shards", 0.85, { pixLandAs: 0 });
+          ok(lit(stick) > 0 && !same(stick, splat) && box(stick).h > box(splat).h, "§46: Land as stick: shards lie where they land, whole, instead of spreading like a liquid",
+             box(stick).h + " vs " + box(splat).h + " rows");
+          const loops3 = ["Pixel Shield", "Pixel Wisps", "Pixel Torch", "Pixel Meteor", "Pixel Dust Devil"];
+          const seam3 = loops3.filter((nm) => { const L = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 0 && same(at(nm, 0), at(nm, L)) && !same(at(nm, 0), at(nm, L / 2))); });
+          ok(!seam3.length, "§46: …and the new loops join with no seam (trails, spin, see-through)", seam3.join(", ") || loops3.length + " loops");
+          // §46: the Palette section reaches pixel art (moods to their hand-picked ramps or "effect colors", a color set's own colors)
+          applyPreset(PRESETS["Pixel Explosion"], "Pixel Explosion", true);
+          const mood = (nm) => Array.from(document.querySelectorAll("#paletteGrid .pal-btn")).find((b) => b.textContent === nm).click();
+          mood("Ice"); const pIce = state.pixColors; mood("Toxic"); const pTox = state.pixColors, hueTox = state.pixHue;
+          applyColorSet({ id: "t46", name: "Test", colors: ["#203040", "#506070", "#8090a0", "#c0d0e0"] }, false);
+          const csPal = pixPalette(state).pal.slice(4).map((c) => c.map((v) => v.toString(16).padStart(2, "0")).join(""));
+          ok(pIce === PIX_RAMPS.indexOf("ice") && pTox === PIX_RAMPS.indexOf("effect colors") && hueTox === 0 && state.pixColors === pTox &&
+             csPal.length === 4 && csPal[0] === "203040" && csPal[3] === "c0d0e0",
+             "§46: a mood or a color set recolors pixel art (Ice: the ice ramp; Toxic: effect colors; a set: its own colors)", csPal.join(" "));
           restoreEdit(snap44); effectLabel = label44;
         }
         // GROUPED CHIPS
