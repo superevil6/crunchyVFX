@@ -384,7 +384,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 17;   // must match --css-build in styles.css
+  const CSS_BUILD = 18;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -824,6 +824,8 @@ const PARAMS = [
   ["pixFlat", "Flatten", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixSpin", "Spin", -4, 4, 0.25, 0, "", "Pixel art"],
   ["pixShape", "Blob shape", 0, PIX_SHAPES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_SHAPES],
+  // §57 the smooth particle a "particle" blob draws (picked in Particle shape on the Pixel art scope, §57.1)
+  ["pixParticle", "Particle", 0, SHAPES.length - 1, 1, 30, "", "Pixel art", "pshape"],
   ["pixHollow", "Hollow", 0, 0.95, 0.01, 0, "", "Pixel art"],
   ["pixBlob", "Blob size", 0.05, 2, 0.01, 0.95, "", "Pixel art"],
   ["pixSizeVar", "Size var", 0, 1, 0.01, 0.5, "", "Pixel art"],
@@ -859,6 +861,23 @@ const PARAMS = [
   ["pixCycle", "Color cycling", 0, PIX_CYCLES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_CYCLES],
   ["pixCycleSpeed", "Cycle speed", -6, 6, 0.5, 1, "", "Pixel art"],
   ["pixCycleBands", "Cycle bands", 1, 24, 0.5, 6, "px", "Pixel art"],
+  // §54 the whole-effect wipe (a disintegrate) and raster wobble (off)
+  ["pixWipe", "Wipe", 0, PIX_WIPES2.length - 1, 1, 0, "", "Pixel art", "enum", PIX_WIPES2],
+  ["pixWipeAt", "Wipe at", 0, 1, 0.01, 0.35, "", "Pixel art"],
+  ["pixWipeTime", "Wipe time", 0.05, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixWipeEdge", "Wipe edge", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixDust", "Dust", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixWobble", "Wobble", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixWobbleAxis", "Wobble by", 0, PIX_WOBBLE_AXES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_WOBBLE_AXES],
+  ["pixWobbleWave", "Wobble wave", 2, 64, 1, 12, "px", "Pixel art"],
+  ["pixWobbleSpeed", "Wobble speed", -6, 6, 0.5, 1, "", "Pixel art"],
+  // §55 the fire automaton (off)
+  ["pixFire", "Fire", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixFireW", "Fire width", 0.02, 1.5, 0.01, 0.4, "", "Pixel art"],
+  ["pixFireH", "Fire height", 0.05, 1.5, 0.01, 0.6, "", "Pixel art"],
+  ["pixFireWind", "Fire wind", -1, 1, 0.01, 0, "", "Pixel art"],
+  ["pixFireSpread", "Flicker", 0, 1, 0.01, 0.5, "", "Pixel art"],
+  ["pixFireSpeed", "Fire speed", 1, 6, 1, 3, "", "Pixel art"],
   ["pixBits", "Debris", 0, 40, 1, 4, "", "Pixel art"],
   ["pixBitsAt", "Bits at", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixBitSpeed", "Debris speed", 0, 20, 0.1, 4, "", "Pixel art"],
@@ -1614,6 +1633,9 @@ const PARAM_WHEN = {
   pixStrokeSize: (s) => s.pixStroke > 0, pixStrokeW: (s) => s.pixStroke > 0, pixStrokeLife: (s) => s.pixStroke > 0,
   pixStrokeN:  (s) => s.pixStroke > 0, pixStrokeWobble: (s) => Math.round(s.pixStroke) === 2 || Math.round(s.pixStroke) === 4,
   pixCycleSpeed: (s) => s.pixCycle > 0, pixCycleBands: (s) => s.pixCycle > 0,
+  pixWipeAt: (s) => s.pixWipe > 0, pixWipeTime: (s) => s.pixWipe > 0, pixWipeEdge: (s) => s.pixWipe > 0, pixDust: (s) => s.pixWipe > 0,
+  pixFireW: (s) => s.pixFire > 0, pixFireH: (s) => s.pixFire > 0, pixFireWind: (s) => s.pixFire > 0, pixFireSpread: (s) => s.pixFire > 0, pixFireSpeed: (s) => s.pixFire > 0,
+  pixWobbleAxis: (s) => s.pixWobble > 0, pixWobbleWave: (s) => s.pixWobble > 0, pixWobbleSpeed: (s) => s.pixWobble > 0,
   pixPulses:   (s) => Math.round(s.pixEmit) < 2,
   pixBitSpeed: (s) => s.pixBits > 0,
   pixBitGravity: (s) => s.pixBits > 0,
@@ -1659,7 +1681,7 @@ const paramRows = {};
 
 function fmt(p, val) {
   const [, , , , , , unit, , kind] = p;
-  if (kind === "shape") return SHAPES[Math.round(val)];
+  if (kind === "shape" || kind === "pshape") return SHAPES[Math.round(val)];
   if (kind === "enum") return p[9][Math.round(val)];
   const s = (Math.abs(val) >= 100 || Number.isInteger(val)) ? Math.round(val) : val.toFixed(2);
   return s + (unit ? " " + unit : "");
@@ -1695,6 +1717,7 @@ for (const [group, ps] of Object.entries(groups)) {
     const [key, label, min, max, step, , , , kind] = p;
     if (kind === "shape") continue;            // the shape picker is its own hero section
     if (kind === "shape2") continue;           // layer B's picker is built inside its own panel
+    if (kind === "pshape") continue;           // §57.1 picked in the Particle shape section (the Pixel art scope)
     if (kind === "size") continue;             // frame W/H get a paired row with an aspect lock
     // A few params belong next to the preview rather than in a panel below the fold — they
     // describe what you're looking at. They're built by this same loop into a different host, so
@@ -2343,6 +2366,14 @@ const PIX_TEXT_PICKS = ["-12", "+50", "CRIT", "MISS", "x2", "LV UP!", "KO", "?!"
     updateParamWhen();
   }
 }
+// §57 PARTICLE: the smooth particles that hold up as pixel blobs (solid silhouettes; the soft, the thin and the eight the
+// Blob shape list already draws by hand are left out). §57.1: the Particle shape picker offers them on the Pixel art scope,
+// and grays out the rest.
+const PIX_PARTICLE_PICKS = ["gem", "skull", "ghost", "flower", "leaf", "snowflake", "shield", "mushroom", "crown", "flask",
+  "key", "bomb", "grenade", "bone", "paw", "butterfly", "feather", "flame", "comma", "cloud", "bubble", "ring", "crescent",
+  "hexagon", "triangle", "shard", "plus", "shuriken", "sun", "boom", "gear", "note", "eye", "arrow", "spike", "sword",
+  "hammer", "casing", "rock", "egg", "blob", "splash", "puddle", "planet", "tornado", "hourglass", "lock", "magnet", "bulb",
+  "dice", "cube", "puzzle", "scroll", "candy", "heartbreak", "clover", "jaws", "boost", "frame"];
 // -line <input> can't hold a newline and "!|?" is a lot less annoying than a textarea here.
 let bubbleInput = null;
 const BUBBLE_PICKS = ["!", "?", "!?", "…", "Hey!", "+10", "CRIT!", "Level up!", "z z z", "♥|♥|♥"];
@@ -3573,7 +3604,26 @@ const LAYER_KEYS = {
   A: { shape: "shape",      mix: "shapeMix",      hue: "hue",      sat: "sat",      blend: "blend" },
   B: { shape: "emit2Shape", mix: "emit2ShapeMix", hue: "emit2Hue", sat: "emit2Sat", blend: "emit2Blend" },
 };
-const layerKeys = () => LAYER_KEYS[editLayer];
+const layerKeys = () => LAYER_KEYS[editLayer] || LAYER_KEYS.A;
+// §57.1 THE PIXEL ART SCOPE (AJ, 2026-11-05: the big Particle shape area, not a second picker): on an effect with a pixel
+// layer the switch offers "Pixel art", and on a pixel-only effect (no smooth particles drawn) it is picked by itself. There
+// the picker sets the pixel blob's shape: the eight smooth shapes the Blob shape list already draws by hand go to those
+// (PIX_SHAPE_TWINS), the ones that hold up as pixels (PIX_PARTICLE_PICKS) to "particle", and the rest are grayed out.
+const PIX_SHAPE_TWINS = { glow: 0, diamond: 1, star: 2, pixel: 3, cross: 4, heart: 5, coin: 6, teardrop: 7 };
+function pixPickOf(i) {
+  const nm = SHAPES[i];
+  if (nm in PIX_SHAPE_TWINS) return PIX_SHAPE_TWINS[nm];
+  return PIX_PARTICLE_PICKS.indexOf(nm) >= 0 ? PIX_PARTICLE : -1;
+}
+const PIX_PICKABLE = SHAPES.filter((nm, i) => pixPickOf(i) >= 0).length;
+// the SHAPES index the pixel blob draws now, or -1 (a stamp, which has no particle)
+function pixShapeShown() {
+  const v = Math.round(state.pixShape || 0);
+  if (v === PIX_PARTICLE) return Math.round(state.pixParticle || 0);
+  for (const nm in PIX_SHAPE_TWINS) if (PIX_SHAPE_TWINS[nm] === v) return SHAPES.indexOf(nm);
+  return -1;
+}
+let scopePixOnly = null;                       // the last effect's kind, so the scope follows a change of effect only
 // Says the three true things a user needs before touching anything, in the order they will hit
 // them: where Secondary's own color sliders are, what it SHARES with Main, and what it simply
 // does not have. The middle one is the trap — those sliders sit in the Color section looking
@@ -3584,6 +3634,21 @@ const LAYER_SHARED = "Secondary's own Hue, Saturation and Brightness sliders are
   "behind Main rather than compete with it.";
 
 function syncLayerScope() {
+  const pixOnly = state.pix > 0 && !(state.opacity > 0);
+  if (pixOnly !== scopePixOnly) {
+    if (pixOnly) editLayer = "P"; else if (editLayer === "P") editLayer = "A";
+    scopePixOnly = pixOnly;
+  }
+  if (editLayer === "P" && !(state.pix > 0)) editLayer = "A";
+  for (const b of layerScope.children) if (b.dataset.layer === "P") b.hidden = !(state.pix > 0);
+  const title = document.querySelector("#shapeSection .engine-title span");
+  if (title) title.textContent = editLayer === "P" ? "Pixel blob shape" : "Particle shape";
+  if (editLayer === "P") {
+    for (const b of layerScope.children) b.classList.toggle("active", b.dataset.layer === "P");
+    layerScopeHint.textContent = "Pixel art \u00b7 the shape every blob draws (grayed ones don't hold up as pixels)";
+    layerScopeNote.hidden = true;
+    return;
+  }
   const on = state.emit2Count > 0;
   for (const b of layerScope.children) b.classList.toggle("active", b.dataset.layer === editLayer);
   layerScopeHint.textContent = editLayer === "B"
@@ -3596,13 +3661,14 @@ function syncLayerScope() {
 const layerScope = document.getElementById("layerScope");
 const layerScopeHint = document.getElementById("layerScopeHint");
 const layerScopeNote = document.getElementById("layerScopeNote");
-for (const [key, label] of [["A", "Main"], ["B", "Secondary"]]) {
+for (const [key, label] of [["A", "Main"], ["B", "Secondary"], ["P", "Pixel art"]]) {
   const b = document.createElement("button");
   b.className = "engine-btn";
   b.textContent = label;
   b.dataset.layer = key;
   b.addEventListener("click", () => {
     editLayer = key;
+    if (key === "P") { syncUI(); return; }   // §57.1 a view, not an edit
     // Switching to a population that is not running would show a picker driving nothing, so the
     // switch turns it on — the same 120 the Layer B group toggle uses, and undoable like any edit.
     if (key === "B" && !(state.emit2Count > 0)) state.emit2Count = 120;
@@ -3625,6 +3691,14 @@ for (const [cat, names] of SHAPE_CATS) {
     b.className = "engine-btn";
     shapePicButton(b, i, name);
     b.addEventListener("click", () => {
+      if (editLayer === "P") {                 // §57.1 a pixel blob has ONE shape: the pick replaces it
+        const v = pixPickOf(i);
+        if (v < 0) return;
+        state.pixShape = v;
+        if (v === PIX_PARTICLE) state.pixParticle = i;
+        syncUI(); commitHistory(); rerender();
+        return;
+      }
       const k = layerKeys();
       if (!toggleShape(k.shape, k.mix, i)) return;
       syncShapeButtons(); updateShapePanels(); commitHistory(); rerender();
@@ -3647,6 +3721,12 @@ const shapeCount = document.getElementById("shapeCount");
 // selected — written by two different events. One owner, so neither can stomp the other's half.
 let shapeFilterShown = null;          // null = no filter active
 function updateShapeCount() {
+  if (editLayer === "P") {                     // §57.1
+    const st = pixShapeShown();
+    shapeCount.textContent = (shapeFilterShown === null ? "" : shapeFilterShown + " shown · ") + PIX_PICKABLE + " of " + SHAPES.length + " draw as pixel art"
+      + (st < 0 ? " · Blob shape is " + PIX_SHAPES[Math.round(state.pixShape)] : "");
+    return;
+  }
   const k = layerKeys();
   const n = shapeSet(state[k.shape], state[k.mix]).length;
   shapeCount.textContent = (shapeFilterShown === null
@@ -3781,11 +3861,17 @@ filterShapes();
 }
 
 function syncShapeButtons() {
-  const k = layerKeys();
-  const set = shapeSet(state[k.shape], state[k.mix]);
-  for (const i in shapeBtns) shapeBtns[i].classList.toggle("active", set.indexOf(+i) >= 0);
+  syncLayerScope();                            // first: it can move the scope (§57.1)
+  const k = layerKeys(), P = editLayer === "P";
+  const set = P ? [pixShapeShown()] : shapeSet(state[k.shape], state[k.mix]);
+  for (const i in shapeBtns) {
+    const off = P && pixPickOf(+i) < 0;
+    shapeBtns[i].classList.toggle("active", set.indexOf(+i) >= 0);
+    shapeBtns[i].classList.toggle("pix-off", off);
+    shapeBtns[i].disabled = off;
+    if (off) shapeBtns[i].title = SHAPES[+i] + ": too soft, thin or busy to hold up as pixel art"; else shapeBtns[i].title = SHAPES[+i];
+  }
   updateShapeCount();
-  syncLayerScope();
   // The Layer B panel keeps its own compact picker; both drive emit2Shape, so both must be told.
   if (typeof window.syncBShape === "function") window.syncBShape();
 }
@@ -7938,7 +8024,7 @@ function decodePatch(str) {
 // PARAMS rather than listing it means a new enum can't be added and silently left out — which is
 // exactly what happened when Layer B arrived with three of them.
 const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather", "pixBlobs"]);   // §49: a child keeps its blobs (off with no stroke is nothing)   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
-for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
+for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2" || p[8] === "pshape") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Which groups are actually IN PLAY for a given effect. Two kinds of irrelevance:

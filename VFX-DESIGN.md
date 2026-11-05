@@ -2792,3 +2792,140 @@ break-up pattern differs from the whole string's.
 - A moment's `play_at(target, -99)` returns the effect showing -99.
 
 Suites: engine 784/784, desktop 76/76, web 15/15, godot-scene 65, godot-check 19, godot-text 10, worker 61.
+
+## 54. The whole-effect wipe and raster wobble (2026-11-05)
+
+**Wipe** (`pixWipe`, PIX_WIPES2: off / left to right / right to left / top down / bottom up / center out / edges in): a
+dissolve front sweeps the WHOLE pixel layer, which per-blob Break up could not do (§46's dropped disintegrate).
+- **When a pixel goes:** at tw = Wipe at + Wipe time × (its place along the sweep, over the layer's own box this frame,
+  × 0.82 + the Break up pattern × 0.18: dither or crumbs).
+- **Wipe edge:** just ahead of the front, pixels glow in the ramp's lightest color.
+- **Dust:** behind it, a share of the pixels taken fly off for 0.3 of the clip, in their own colors, loose (no outline),
+  thinning as they go: up and along a side wipe, outward from a center-out one.
+- **Order:** it runs after strokes and cycling, before the outline, so the outline hugs what is left.
+
+**Raster wobble** (`pixWobble`, Wobble by rows / columns, Wobble wave px, Wobble speed waves per clip, whole on a Loop):
+- The last pass: each row (or column) shifts along a sine wave, up to 6 art px.
+- It keeps every pixel, so it suits heat haze, water and dreams.
+
+## 55. The fire automaton (2026-11-05)
+
+`pixFire` (with Fire width, Fire height, Fire wind, Flicker, Fire speed in steps per art frame) is the classic demo
+fire: heat fed along a two-row source at the origin, the source flickering hot and cold per column per step.
+- **Each step:** every cell takes the average of the three cells below it and the one under those, less a random
+  cooling, and a gust (Wind) shifts the whole step. Heat maps onto the ramp with the coolest fifth left empty (the edge
+  of the flame); the source rows are never drawn.
+- **Seamless loops, exactly:** it GATHERS only from the rows below, so a cell's heat depends on the last few dozen steps
+  alone. With its random draws repeating every clip, a looped fire warms up a whole number of clips past its height and
+  then repeats exactly, with no blending.
+- **Speed:** simulated once per look and size (`pixFireCache`).
+
+**Tried first:** the copy-one-cell-below fire (Doom's). Every row is then one birth cohort, so source noise made
+horizontal stripes, and whole rows fell under the edge near the tips. Per-column cooling didn't cure it; averaging did.
+
+**13 presets** (102 in Pixel art):
+
+| Group | Presets |
+|---|---|
+| Wipes (death, spawn) | Disintegrate (an orb blown away left to right as dust), Ghost Fade (a skull dithering out from below), Burn Away (charring down behind a glowing edge), Warp Out (center out) |
+| Raster wobble | Dream Portal (the portal rippling by columns), Underwater (bubbles), Heat Shimmer (a bonfire in a heat haze) |
+| Fire (ambient) | Bonfire, Torch Flame, Burning Ground (also status), Spirit Fire (green), Wall of Fire, Smoke Column (the automaton in the cloud ramp, with wind) |
+
+Results:
+- engine 789/789 (§54–55 rows: the wipe leaves frames before Wipe at untouched, is going mid-way and gone at the end;
+  Dust adds loose pixels; wobble keeps the picture whole; six fire loops repeat exactly; Fire 0 draws none)
+- desktop 76/76, web 15/15
+- Godot: text 10, scene 65, check 19
+- frame hash: 457, all 421 shared hashes unchanged
+
+## 56. The Waterfall rebuilt; Color cycling "streaks" (2026-11-05, AJ: Waterfall "the only one that really needs a rework")
+
+The §49 Waterfall was a downward beam whose flow bands ran ACROSS the water, so it read as a striped tube.
+- **"streaks"** (PIX_CYCLES appended): bands along Direction (5 × Cycle bands long), every 2-px lane across it at its own
+  phase, so light and dark streaks pour along the sheet.
+- **The new Waterfall:**
+  - A held beam pointing UP from its foot (origin 0.86, Size 1.8, Stroke size 3: it runs off the top, falling from
+    above), in the ice ramp, its streaks rolling down (Cycle speed −3).
+  - Foam blobs at the foot, thrown up in short arcs and falling back, dithering away.
+  - Spray sparks flying up (sparks follow Direction, which is why the beam is built from the foot).
+- **Tried:** a downward beam with falling drops and a Floor (the drops' splats were too small to read as foam), and
+  Flatten for the foam (it squashed the beam too: Flatten acts on the whole layer).
+
+Results:
+- engine 790/790 (a Waterfall row: the streaks roll through a still sheet, the foam moves, the loop joins; it left the
+  §49 still-shape row, whose sheets have no moving foam)
+- desktop 76/76, web 15/15
+- frame hash: only the Waterfall moved
+
+## 57. Particle shapes as pixel blobs (2026-11-05, AJ: could "the Heart effect be a diamond instead")
+
+A Blob shape could already be a diamond; what pixel art lacked was the smooth side's other 90-odd particles.
+- **Blob shape "particle"** (PIX_SHAPES appended, `PIX_PARTICLE` = 16) and a `pixParticle` row (kind "pshape", default
+  gem; neutral while Blob shape is anything else): the smooth particle's own drawing (shapes.js, the white mask) drawn
+  once at 96 px (`pixPartMaster`), boxed down to the blob (2.2 r a side, Flatten squashes it), a cell inside when 45 % of
+  it is covered (`pixPartMask`). Its metric is the chamfer distance to the edge, scaled so the outer ring sits where a
+  round blob's rim does, so Rim, Highlight, Hollow and Break from read any silhouette. No Stretch and no Lumps on it, as
+  with stamps (both would smear the silhouette).
+- **Turning:** spark, teardrop, arrow, leaf and feather point along their flight at 16 headings (`pixPartTurn`); the rest
+  stay upright (a small raster turned a few degrees a frame flickers).
+- **The picker** (`PIX_PARTICLE_PICKS`, 59): under Blob shape, shown only for "particle"; each button is the engine's own
+  12-cell mask, so what you pick is what you get. Left out: the soft (glow, smoke, cloud-like specks), the thin (spark,
+  bolt, claw, web, atom, crack, chain, bird, axe…), the busy (saxophone, handcuffs, rose…), and the eight Blob shape
+  already draws by hand. The engine takes any index; the list is only what reads.
+- **Size matters:** below about 8 px a silhouette is a dot, so the older presets (2–5 px blobs) don't swap well as they
+  are; the new presets are built at 0.45–0.6 Blob size.
+- **5 presets:** Pixel Snowflakes (weather, no moment), Pixel Ghosts (ambient), Pixel Gem Burst (pickup), Pixel Flower
+  Burst (heal), Pixel Bone Burst (death). 107 in Pixel art.
+- **Tried:** an Arrow Volley (the smooth arrow is a UI pointer, not a projectile) and leaf/feather falls (they read as
+  tilted ovals); not kept.
+- Rolls and the Wizard never pick "particle" yet (pixelVary keeps to shapes < 9).
+
+Results:
+- engine 796/796 (every pick holds 14+ cells at 10 x 10 and draws; the pick is the silhouette; the arrow turns; the picker
+  shows only for a particle blob and a click picks; the five presets draw)
+- desktop 76/76, web 15/15, worker 61, Godot scene 65
+- frame hash: 465, all 439 shared hashes unchanged
+
+### 57.1 The Particle shape section is the pixel picker (2026-11-05, AJ: "a little unintuitive… leverage this area? If it's not applicable… gray out the choices")
+
+The §57 picker was a second grid inside the Pixel art panel; the big Particle shape section above stayed on Main.
+- **A "Pixel art" scope** on the Editing particles switch (after Main / Secondary; shown only with a pixel layer). A
+  pixel-only effect (no smooth particles drawn) opens on it by itself, and a smooth effect goes back to Main; the switch
+  follows a change of EFFECT only, so a person can still pick Main by hand (`scopePixOnly`). A view, never an edit (no
+  history step, nothing in links).
+- **There the section is "Pixel blob shape":** one pick (a blob has one shape). The eight smooth shapes Blob shape already
+  draws by hand go to those (`PIX_SHAPE_TWINS`: glow → round, diamond, star, pixel → square, cross, heart, coin,
+  teardrop → drop); the 59 `PIX_PARTICLE_PICKS` to "particle"; the other 32 are grayed out and disabled, their tooltip
+  saying why. 67 of 99 draw. A stamp in Blob shape lights none and the count line names it.
+- The second grid is gone; Blob shape still lists "particle" and the stamps.
+
+Results: engine 796/796 (the §57 picker row now drives the real section: Pixel Ghosts opens on Pixel art with ghost lit,
+smoke/web grayed, skull → particle, heart → the hand-drawn heart, a grayed click does nothing, Explosion goes back to
+Main with nothing grayed and the scope hidden); desktop 76/76, web 15/15; engine untouched, so no frame moved.
+
+## 58. The pixel quality pass; Spirit Lights (2026-11-05)
+
+**Quality pass** (AJ: yes, then 1.2.0). The first 42 pixel presets judged in contact sheets; most hold up. Five rebuilt
+with what came after them (names, moments kept):
+- **Pixel Teleport:** a beam up from the feet (Stroke beam) whose streaks roll UP (Color cycling streaks), motes rising in
+  it, wiped away from the base with dust (Wipe bottom up). Was a solid capsule.
+- **Pixel Summon:** a flat gold magic circle, its rings pulsing (Color cycling rings), two ring blasts out of it (Stroke
+  ring, flattened with it), gone from the center out. Was a solid tube.
+- **Pixel Slam:** a flat dust ring blasts out along the ground, more debris.
+- **Pixel Heal:** plus signs (a particle blob, §57) rising and swaying. Was scattered stars.
+- **Pixel Frost Nova:** snowflakes (a particle blob) thrown out on an icy ring; Flatten down to 0.3 so the flakes read.
+- Charge left as it is (a core in its gather didn't help).
+- **Learned:** Flatten squashes STROKES too (`uy * fl`), so a vertical beam can't stand on a flattened ring; Teleport
+  dropped the ring for rising motes.
+- Tests that used the old Summon pillar to prove Break in / Break from / Break at now carry it as a fixture (`PILLAR`),
+  and Slam's flatten check turns its ring off: they still test the engine, not the preset.
+
+**Spirit Lights / Spirit Release** (AJ: soft, desaturated rainbow orbs floating about, usually leaving something; a
+tribute, so its own name). Smooth glow particles, hue var 1 (every color) at sat 0.45, alpha blend (additive and screen
+blew their overlaps out to white), turbulence for the wander.
+- Spirit Lights (Ambient): a box of them rising, a seamless loop; short lives (0.95 s of a 2.4 s clip) with a full
+  loop blend, because long lives left the loop thin until a third of the way in.
+- Spirit Release (Death, beside Soul Rise): a dozen thrown out of a point, slowing, then floating up.
+
+Results: engine 796/796; desktop 76/76, web 15/15, Godot scene 65; frame hash 467: only the five rebuilt presets
+changed, plus the two new ones.

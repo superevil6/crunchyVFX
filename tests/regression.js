@@ -1349,7 +1349,7 @@
           [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
           [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 1 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 0, pixBreakIn: 0.5 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }],
-          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixAreaW", "pixAreaH"], { pixEmit: 6 }, { pixEmit: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixAreaW", "pixAreaH"], { pixEmit: 6 }, { pixEmit: 0 }], [["pixWipeAt", "pixWipeTime", "pixWipeEdge", "pixDust"], { pixWipe: 1 }, { pixWipe: 0 }], [["pixWobbleAxis", "pixWobbleWave", "pixWobbleSpeed"], { pixWobble: 0.5 }, { pixWobble: 0 }], [["pixFireW", "pixFireH", "pixFireWind", "pixFireSpread", "pixFireSpeed"], { pixFire: 1 }, { pixFire: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
           [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }], [["pixBitsAt"], { pixBits: 4, pixSparks: 0 }, { pixBits: 0, pixSparks: 0 }],
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
@@ -1426,7 +1426,7 @@
           ok(!same(z1, z2) && zb.x0 < 16 && zb.x1 > 110 && zb.h > 6, "§44: a bolt reaches its tip, zigzags, and is struck afresh each art frame", JSON.stringify(zb));
           const sw = at("Pixel Shockwave", 0.3), sb = box(sw);
           ok(sb.w > 40 && !sw[Math.round(0.6 * 128) * 128 + 64] && sb.h < sb.w * 0.75, "§44: Hollow leaves a hole, Flatten lays the ring on the ground", JSON.stringify(sb));
-          const pb = box(at("Pixel Slam", 0.3)), pn = box(at("Pixel Slam", 0.3, { pixFlat: 0 }));
+          const pb = box(at("Pixel Slam", 0.3, { pixStroke: 0 })), pn = box(at("Pixel Slam", 0.3, { pixStroke: 0, pixFlat: 0 }));   // §58: its ground ring off
           ok(pb.h < pn.h * 0.8, "…and flattens a dust burst (" + pb.w + "x" + pb.h + " vs " + pn.w + "x" + pn.h + " upright)");
           // Randomize: a pixel roll about one in five, from a pixel preset, varied, and it draws; never a half-jittered layer
           const rolls = [];
@@ -1470,11 +1470,15 @@
             cv.width = cv.height = 128; drawPixelArt(cv.getContext("2d"), st, t, null, 128, 0, 0, st.seed);
             return Array.from(cv.getContext("2d").getImageData(0, 0, 128, 128).data); };
           const top = (a) => { const i = a.indexOf(1); return i < 0 ? 128 : (i / 128) | 0; };
-          const inN = lit(at("Pixel Summon", 0.1)), inOff = lit(at("Pixel Summon", 0.1, { pixBreakIn: 0 }));
+          // §58 rebuilt Pixel Summon as a magic circle; these rows test the engine on the old pillar, kept here as it was
+          const PILLAR = { pixEmit: 5, pixSpread: 0, pixCount: 16, pixSpan: 0, pixScatter: 2.7, pixShape: 3, pixBlob: 0.5, pixCore: 0, pixGrow: 0, pixBreak: 1, pixBreakAt: 0.55, pixBreakIn: 0.35, pixBreakFrom: 1,
+                           pixHeat: 0.7, pixCool: 1, pixRim: 0.35, pixSparks: 18, originY: 0.95, pixFlat: 0, pixCycle: 0, pixStroke: 0, pixWipe: 0 };
+          const pil = (t, o) => at("Pixel Summon", t, Object.assign({}, PILLAR, o || {}));
+          const inN = lit(pil(0.1)), inOff = lit(pil(0.1, { pixBreakIn: 0 }));
           ok(inN > 0 && inN < inOff * 0.8, "§46: Break in: blobs appear through the dither (a summon's pillar fills in)", inN + " vs " + inOff + " px");
-          const tW = top(at("Pixel Summon", 0.85)), tE = top(at("Pixel Summon", 0.85, { pixBreakFrom: 0 }));
+          const tW = top(pil(0.85)), tE = top(pil(0.85, { pixBreakFrom: 0 }));
           ok(tW > tE + 4, "§46: Break from top: the break eats down from the top, not everywhere at once", "top row " + tW + " vs " + tE);
-          ok(!same(at("Pixel Summon", 0.6), at("Pixel Summon", 0.6, { pixBreakAt: 0.62 })), "§46: Break at moves when the break starts (0.62, as it always was, by default)");
+          ok(!same(pil(0.6), pil(0.6, { pixBreakAt: 0.62 })), "§46: Break at moves when the break starts (0.62, as it always was, by default)");
           const sN = lit(at("Pixel Shield", 0.3)), sOff = lit(at("Pixel Shield", 0.3, { pixSeeThrough: 0 }));
           ok(sN > sOff * 0.4 && sN < sOff * 0.65, "§46: See-through: half the layer drawn through a checkerboard (fake transparency)", sN + " of " + sOff + " px");
           const f0 = rgbAt("Pixel Hit Flash", 0), f1 = rgbAt("Pixel Hit Flash", 0, { pixFlash: 0 }), cols = new Set();
@@ -1499,11 +1503,16 @@
           ok(!strokeBad.length, "§49: every stroke kind draws on its own (ring, beam, swoosh, rays)", strokeBad.map((k) => PIX_STROKES[k]).join(", ") || "4 kinds");
           ok(lit(at("Pixel Explosion", 0.3, { pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0 })) === 0 && lit(at("Pixel Explosion", 0.3)) > 0,
              "§49: Blobs off with no stroke draws nothing, and on (the default) the blobs as always");
-          const cyc = ["Pixel Portal", "Pixel Energy Shield", "Pixel Spinner", "Pixel Warp Rings", "Pixel Waterfall", "Pixel Lava Pool"];
+          const cyc = ["Pixel Portal", "Pixel Energy Shield", "Pixel Spinner", "Pixel Warp Rings", "Pixel Lava Pool"];
           const cycBad = cyc.filter((nm) => { const L = PRESETS[nm].duration, o = { pixSparks: 0, pixStrokeWobble: 0, pixLumps: 0 };   // sparks, wobble and a boiling edge move; a fifth in, no whole cycle has passed
             return !(same(at(nm, 0, o), at(nm, L / 5, o)) && rgbAt(nm, 0, o).join() !== rgbAt(nm, L / 5, o).join() && rgbAt(nm, 0).join() === rgbAt(nm, L).join()); });
           ok(!cycBad.length, "§49: color cycling rolls the colors through a still shape, and its loops join", cycBad.join(", ") || cyc.length + " loops");
           ok(rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 1.5 }).join() === rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 2 }).join(), "§49: on a Loop the cycle speed rounds to whole cycles (so it repeats)");
+          // §56: the rebuilt Waterfall: its streaks pour (the sheet's colors roll while its foam splashes) and the loop joins
+          { const L = PRESETS["Pixel Waterfall"].duration, o = { pixBlobs: 0, pixSparks: 0, pixStrokeWobble: 0 };
+            ok(same(at("Pixel Waterfall", 0, o), at("Pixel Waterfall", L / 5, o)) && rgbAt("Pixel Waterfall", 0, o).join() !== rgbAt("Pixel Waterfall", L / 5, o).join() &&
+               rgbAt("Pixel Waterfall", 0).join() === rgbAt("Pixel Waterfall", L).join() && !same(at("Pixel Waterfall", 0), at("Pixel Waterfall", L / 2)),
+               "§56: the Waterfall's streaks pour down a still sheet, its foam splashes, and the loop joins"); }
           // §51: the area emitter spreads its births across the box (Area width), Sway flutters them, and weather loops join
           const wide = box(at("Pixel Snow", 0.5)), narrow = box(at("Pixel Snow", 0.5, { pixAreaW: 0.2 }));
           ok(wide.w > 100 && narrow.w < wide.w * 0.6, "§51: Emit as area: births across the whole area, and Area width narrows it", wide.w + " vs " + narrow.w + " px wide");
@@ -1522,6 +1531,57 @@
           ok(!same(at("Pixel Damage Number", 0.3), at("Pixel Damage Number", 0.3, { pixText: "-99" })), "§52: the text stamp draws the text typed");
           const rolled = []; for (let k = 0; k < 300; k++) rolled.push(pixelVary(fullGenome(PRESETS["Pixel Explosion"]), Math.random, 1, false).pixShape);
           ok(rolled.every((v) => v < 9), "§52: rolls keep to blob shapes; stamps are chosen, never rolled");
+          }
+          // §57: a "particle" blob draws a smooth particle's silhouette, every pick in the picker reads at a small size, the
+          // arrow turns with its flight, the picker shows only for "particle", and nothing else's frames moved
+          {
+            const st0 = { pixBlobs: 1, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixBreak: 0, pixSpeed: 0, pixGravity: 0, pixCount: 1, pixCore: 1, pixGrow: 0, pixSwell: 0, pixLumps: 0, pixShape: 16 };
+            const thin = PIX_PARTICLE_PICKS.filter((nm) => !(pixPartMask(SHAPES.indexOf(nm), 10, 10, 0, state).cells >= 14));
+            ok(!thin.length, "§57: every particle in the picker holds at least 14 cells at 10 x 10", thin.join(", ") || PIX_PARTICLE_PICKS.length + " particles");
+            const dark = PIX_PARTICLE_PICKS.filter((nm) => !(lit(at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixParticle: SHAPES.indexOf(nm) }))) > 30));
+            ok(!dark.length, "§57: every particle in the picker draws as a blob", dark.join(", ") || "all draw");
+            const sk = at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixParticle: SHAPES.indexOf("skull") })), gm = at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixParticle: SHAPES.indexOf("gem") }));
+            ok(!same(sk, gm) && !same(sk, at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixShape: 0 }))), "§57: the particle picked is the silhouette drawn (skull, gem, round all differ)");
+            const up = pixPartMask(22, 12, 12, pixPartTurn(22, 0, -1), state), right = pixPartMask(22, 12, 12, pixPartTurn(22, 1, 0), state);
+            ok(pixPartTurn(22, 0, -1) === 0 && Array.from(up.m).join() !== Array.from(right.m).join() && pixPartTurn(31, 1, 0) === 0,
+               "§57: the arrow points along its flight (a skull stays upright)");
+            // §57.1 the Particle shape section is the pixel picker: a pixel-only effect opens on the Pixel art scope, the shapes
+            // that can't draw as pixels are grayed out, a pick sets the blob (a twin goes to its hand-drawn Blob shape), and a
+            // smooth effect brings the section back to Main with nothing grayed
+            {
+              const keep = JSON.parse(JSON.stringify(state)), keepLayer = editLayer;
+              const btn = (nm) => shapeBtns[SHAPES.indexOf(nm)];
+              applyPreset(PRESETS["Pixel Ghosts"], "Pixel Ghosts", true); syncUI();
+              const onP = editLayer === "P" && btn("ghost").classList.contains("active") && btn("glow").disabled === false && btn("smoke").disabled && btn("web").disabled;
+              const nOff = Object.values(shapeBtns).filter((b) => b.disabled).length;
+              btn("skull").click(); const toSkull = Math.round(state.pixShape) === 16 && state.pixParticle === SHAPES.indexOf("skull");
+              btn("heart").click(); const toHeart = Math.round(state.pixShape) === 5 && btn("heart").classList.contains("active");
+              btn("smoke").click(); const smokeNoop = Math.round(state.pixShape) === 5;
+              applyPreset(PRESETS["Explosion"], "Explosion", true); syncUI();
+              const backA = editLayer === "A" && !Object.values(shapeBtns).some((b) => b.disabled) && document.querySelector('#layerScope [data-layer="P"]').hidden;
+              Object.assign(state, keep); editLayer = keepLayer; syncUI();
+              ok(onP && toSkull && toHeart && smokeNoop && backA && nOff === SHAPES.length - PIX_PICKABLE,
+                 "§57.1: Particle shape drives pixel blobs on the Pixel art scope (grays out the rest; twins go hand-drawn; smooth effects untouched)",
+                 [onP, toSkull, toHeart, smokeNoop, backA, nOff].join(" "));
+            }
+            const nw = ["Pixel Snowflakes", "Pixel Ghosts", "Pixel Gem Burst", "Pixel Flower Burst", "Pixel Bone Burst"];
+            const flat = nw.filter((nm) => !(PRESETS[nm] && Math.round(PRESETS[nm].pixShape) === 16 && lit(at(nm, PRESETS[nm].duration * 0.4)) > 60));
+            ok(!flat.length, "§57: the particle presets draw their particles", flat.join(", ") || nw.length + " presets");
+          }
+          // §54: the wipe takes the WHOLE effect (gone by its end, untouched before Wipe at), its dust flies off loose;
+          // raster wobble shifts rows and keeps every pixel; §55: the fire burns, and its loops repeat exactly
+          {
+            const wd = "Pixel Disintegrate", L = PRESETS[wd].duration;
+            const early = lit(at(wd, L * 0.1)), plain = lit(at(wd, L * 0.1, { pixWipe: 0 })), mid = lit(at(wd, L * 0.55)), late = lit(at(wd, L * 0.97));
+            ok(early === plain && mid < early * 0.8 && late < early * 0.1, "§54: the wipe takes the whole effect: untouched before Wipe at, going mid-way, gone at the end", [early, mid, late].join(" / "));
+            ok(lit(at(wd, L * 0.55, { pixDust: 0 })) < mid, "§54: …and Dust: the pixels it takes fly off");
+            const wobN = lit(at("Pixel Dream Portal", 0.3)), wobO = lit(at("Pixel Dream Portal", 0.3, { pixWobble: 0 }));
+            ok(!same(at("Pixel Dream Portal", 0.3), at("Pixel Dream Portal", 0.3, { pixWobble: 0 })) && Math.abs(wobN - wobO) < wobO * 0.15,
+               "§54: raster wobble shifts rows (columns here) and keeps the picture whole", wobN + " vs " + wobO + " px");
+            const fires = ["Pixel Bonfire", "Pixel Torch Flame", "Pixel Spirit Fire", "Pixel Wall of Fire", "Pixel Smoke Column", "Pixel Heat Shimmer"];
+            const seamF = fires.filter((nm) => { const D = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 20 && same(at(nm, 0), at(nm, D)) && !same(at(nm, 0), at(nm, D / 2))); });
+            ok(!seamF.length, "§55: the fire automaton burns, and its loops repeat exactly (no blending)", seamF.join(", ") || fires.length + " fires");
+            ok(lit(at("Pixel Bonfire", 0.3, { pixFire: 0, pixSparks: 0 })) === 0, "§55: Fire 0 draws no fire");
           }
           // §46: the Palette section reaches pixel art (moods to their hand-picked ramps or "effect colors", a color set's own colors)
           applyPreset(PRESETS["Pixel Explosion"], "Pixel Explosion", true);
@@ -2927,7 +2987,7 @@
       // enum/shape param has to be in BREED_SKIP. Layer B shipped three at once, which is how this
       // stopped being a thing you can hold in your head.
       {
-        const loose = PARAMS.filter((p) => (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2")
+        const loose = PARAMS.filter((p) => (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2" || p[8] === "pshape")
                                            && !BREED_SKIP.has(p[0])).map((p) => p[0]);
         ok(loose.length === 0, "every categorical param is excluded from breeding", loose.join(", "));
       }

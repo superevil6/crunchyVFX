@@ -2418,9 +2418,13 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
 const PIX_EMITS = ["burst", "stream", "ring", "arc", "line", "bolt", "area"];   // append-only (§51: area)
 // a blob's silhouette (append-only): the distance a pixel is from the center, measured four ways
 const PIX_STROKES = ["none", "ring", "beam", "swoosh", "rays"];          // §49, append-only
-const PIX_CYCLES = ["off", "flow", "rings", "spiral", "spin", "shimmer"];  // §49, append-only
+const PIX_WIPES2 = ["off", "left to right", "right to left", "top down", "bottom up", "center out", "edges in"];   // §54, append-only
+const PIX_WOBBLE_AXES = ["rows", "columns"];                               // §54, append-only
+const PIX_CYCLES = ["off", "flow", "rings", "spiral", "spin", "shimmer", "streaks"];  // §49, append-only (§56: streaks)
 const PIX_SHAPES = ["round", "diamond", "star", "square", "cross", "heart", "coin", "drop",   // append-only (§48: heart, coin, drop)
-  "comic burst", "skull", "exclaim (!)", "question (?)", "Z (sleep)", "music note", "anger mark", "text"];   // §52: the stamps
+  "comic burst", "skull", "exclaim (!)", "question (?)", "Z (sleep)", "music note", "anger mark", "text",   // §52: the stamps
+  "particle"];   // §57: any smooth particle (shapes.js), picked by pixParticle
+const PIX_PARTICLE = 16;
 // §52 STAMPS: small bitmaps drawn here (CC0, by hand in code), stamped at a WHOLE scale so their pixels stay square: a blob
 // of radius r draws its stamp at round(2.2 r / its larger side), at least 1, so growing pops it 1x, 2x, 3x. Shaded as a
 // blob (an edge cell is rim, the rest body; the highlight by position), broken up, outlined and cycled as one.
@@ -2452,6 +2456,45 @@ const PIX_FONT = {
   ":": [".", "#", ".", "#", "."], "/": ["..#", "..#", ".#.", "#..", "#.."],
   "♥": [".#.#.", "#####", "#####", ".###.", "..#.."], " ": ["..", "..", "..", "..", ".."],
 };
+// §55 THE FIRE AUTOMATON, the demo-scene fire: heat on a grid, fed along a source line at the origin, each step every
+// cell taking the heat of a cell below it (a little to one side: the flicker; Wind leans it) less a random cooling. It
+// GATHERS from the row below (every cell written once per step), so a cell's heat is a function of the last few dozen
+// steps only; with its random draws repeating every clip (a Loop), the fire itself repeats exactly after a warm-up, and
+// the loop is seamless with no blending. Simulated once per look and size, kept for the frames that follow.
+const pixFireCache = { key: "", steps: null };
+function pixFireSim(st, Wa, Ha, ax, ay, NL, loop, seed) {
+  const spd = Math.max(1, Math.round(st.pixFireSpeed || 3)), per = NL * spd;
+  const H0 = Math.max(0.05, st.pixFireH == null ? 0.6 : st.pixFireH), W0 = Math.max(0.02, st.pixFireW == null ? 0.4 : st.pixFireW);
+  const key = [Wa, Ha, Math.round(ax), Math.round(ay), NL, loop ? 1 : 0, seed, spd, H0, W0, st.pixFireWind || 0, st.pixFireSpread == null ? 0.5 : st.pixFireSpread, st.pix > 0 ? st.pixFire : 0].join(",");
+  if (pixFireCache.key === key) return pixFireCache;
+  const MAX = 36, rows = Math.max(4, H0 * Ha), cool = 1.7 * MAX / rows;
+  const wind = Math.max(-1, Math.min(1, st.pixFireWind || 0)), spread = clamp01(st.pixFireSpread == null ? 0.5 : st.pixFireSpread);
+  const x0 = Math.round(ax - W0 * Wa / 2), x1 = Math.round(ax + W0 * Wa / 2), sy = Math.min(Ha - 1, Math.max(0, Math.round(ay)));
+  const heat0 = MAX * clamp01(st.pixFire);
+  let cur = new Float32Array(Wa * Ha), nxt = new Float32Array(Wa * Ha);
+  // a loop warms up a whole number of clips past the fire's memory (its height) and keeps the clip after; a one-shot
+  // lights from cold at its first frame
+  const warm = loop ? Math.ceil((rows + 4) / per + 1) * per : 0, total = warm + NL * spd, steps = [];
+  for (let n = 0; n < total; n++) {
+    const salt = loop ? n % per : n, w = Math.round(wind * rnd(seed + salt * 13, 0, 512) * 1.6);   // a gust leans the whole step
+    for (let y = 0; y < Ha; y++) for (let x = 0; x < Wa; x++) {
+      const j = y * Wa + x;
+      if (y >= sy) {                                          // the source rows: flickering heat along the line
+        const inside = y <= sy + 1 && x >= x0 && x <= x1, e = Math.min(x - x0, x1 - x) / Math.max(1, (x1 - x0) * 0.2);
+        nxt[j] = inside ? heat0 * Math.min(1, 0.4 + 0.6 * e) * (rnd(seed + salt * 31, x, 510) < 0.2 + 0.45 * spread ? 1.25 : 0.15) : 0;
+        continue;
+      }
+      // the average of the three cells below and the one under them (the classic demo fire), less a random cooling
+      const at = (xx, yy) => (xx < 0 || xx >= Wa || yy >= Ha ? 0 : cur[yy * Wa + xx]);
+      const xs = x - w;
+      nxt[j] = Math.max(0, (at(xs - 1, y + 1) + at(xs, y + 1) + at(xs + 1, y + 1) + at(xs, y + 2)) * 0.25 - cool * rnd(seed + salt * 389, j, 513));
+    }
+    const t2 = cur; cur = nxt; nxt = t2;
+    if (n >= warm && (n - warm) % spd === spd - 1) steps.push(cur.slice());
+  }
+  pixFireCache.key = key; pixFireCache.steps = steps; pixFireCache.max = MAX; pixFireCache.sy = sy;
+  return pixFireCache;
+}
 // §52: the Godot text export reads each frame's stamp scale and center from here (set it to { cur: null }, draw, read)
 var PIX_STAMP_PROBE = null;
 const pixTextCache = new Map();
@@ -2492,6 +2535,80 @@ function pixShapeM(inside, X, Y) {
   let lo = 0.001, hi = 3;
   for (let k = 0; k < 10; k++) { const s = (lo + hi) / 2; if (inside(X / s, Y / s)) hi = s; else lo = s; }
   return hi * hi;
+}
+// §57 PARTICLE SHAPES: a smooth particle's own drawing (shapes.js, white on clear) as a pixel blob. Drawn ONCE large (and
+// turned, for the ones that fly nose first), then boxed down to the blob's size: a cell is inside when at least PIX_PART_IN of it
+// is covered, so the silhouette is the drawing's, not a point sample's. The metric is the distance to the edge (a chamfer
+// pass), scaled so the outer ring sits where a round blob's rim does: the rim, the highlight, Hollow and Break from read any
+// shape as they read a round one. Pure apart from the one canvas the drawing needs.
+const PIX_PART_IN = 0.45, PIX_PART_MASTER = 96;
+const pixPartMasters = new Map(), pixPartMasks = new Map();
+function pixPartMaster(shape, rot, st) {
+  const def = SHAPE_DEFS[shape] || SHAPE_DEFS[0];
+  const key = shape + "|" + rot + (def.key ? "|" + def.key(st) : "");
+  let a = pixPartMasters.get(key);
+  if (a) return a;
+  const M = PIX_PART_MASTER, c = document.createElement("canvas");
+  c.width = c.height = M;
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.strokeStyle = "#fff";
+  if (rot) { g.translate(M / 2, M / 2); g.rotate(rot); g.translate(-M / 2, -M / 2); }
+  def.draw(g, M / 2, st, 0);
+  const d = g.getImageData(0, 0, M, M).data;
+  a = new Float32Array(M * M);
+  for (let j = 0; j < M * M; j++) a[j] = d[j * 4 + 3] / 255;
+  if (pixPartMasters.size > 400) pixPartMasters.clear();
+  pixPartMasters.set(key, a);
+  return a;
+}
+// the cells of a W x H blob: m[] the metric (9 = outside), as pixShapeM's units (the edge at 1)
+function pixPartMask(shape, W, H, rot, st) {
+  const def = SHAPE_DEFS[shape] || SHAPE_DEFS[0];
+  const key = shape + "|" + W + "|" + H + "|" + rot + (def.key ? "|" + def.key(st) : "");
+  let o = pixPartMasks.get(key);
+  if (o) return o;
+  const A = pixPartMaster(shape, rot, st), M = PIX_PART_MASTER, n = W * H;
+  const inside = new Uint8Array(n);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const ax0 = Math.floor(x * M / W), ax1 = Math.max(ax0 + 1, Math.floor((x + 1) * M / W));
+    const ay0 = Math.floor(y * M / H), ay1 = Math.max(ay0 + 1, Math.floor((y + 1) * M / H));
+    let sum = 0;
+    for (let yy = ay0; yy < ay1; yy++) for (let xx = ax0; xx < ax1; xx++) sum += A[yy * M + xx];
+    inside[y * W + x] = sum / ((ax1 - ax0) * (ay1 - ay0)) >= PIX_PART_IN ? 1 : 0;
+  }
+  // distance to the nearest outside cell (the box's border counts as outside), two chamfer passes
+  const D = new Float32Array(n), BIG = 1e6, R2 = Math.SQRT2;
+  for (let j = 0; j < n; j++) D[j] = inside[j] ? BIG : 0;
+  const at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? 0 : D[y * W + x]);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const j = y * W + x;
+    if (D[j]) D[j] = Math.min(D[j], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + R2, at(x + 1, y - 1) + R2);
+  }
+  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+    const j = y * W + x;
+    if (D[j]) D[j] = Math.min(D[j], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + R2, at(x - 1, y + 1) + R2);
+  }
+  let E = 1;
+  for (let j = 0; j < n; j++) if (D[j] > E) E = D[j];
+  const m = new Float32Array(n);
+  let cells = 0;
+  for (let j = 0; j < n; j++) {
+    if (!inside[j]) { m[j] = 9; continue; }
+    cells++;
+    const t = 1 - (D[j] - 0.5) / E;            // the outer ring near 1, the deepest cell near 0
+    m[j] = Math.min(0.99, t * t);
+  }
+  o = { w: W, h: H, m: m, cells: cells };
+  if (pixPartMasks.size > 2000) pixPartMasks.clear();
+  pixPartMasks.set(key, o);
+  return o;
+}
+// the particles that fly nose first, at 16 headings: spark and teardrop (drawn pointing along +x, as the smooth engine turns
+// them), the arrow (drawn pointing up), and the leaf and feather, which tip as they sway down. Else drawn upright.
+function pixPartTurn(shape, ux, uy) {
+  const off = shape === 1 || shape === 16 ? 0 : shape === 22 || shape === 20 || shape === 32 ? Math.PI / 2 : null;   // + leaf, feather (drawn upright)
+  if (off === null || !(ux || uy)) return 0;
+  return Math.round((Math.atan2(uy, ux) + off) / (Math.PI / 8)) * (Math.PI / 8);
 }
 const PIX_BREAKS = ["clumps", "dither"];
 // §46 (append-only): where a break starts in a blob, and what a blob does on the Floor
@@ -2591,7 +2708,7 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   const G = R0 * (st.pixGravity || 0), drag = Math.max(0, st.pixDrag || 0);
   const floorY = st.pixFloor > 0 ? ay + st.pixFloor * Ha : Infinity;
   const heat0 = clamp01(st.pixHeat), tone = clamp01(st.pixTone), smoke = clamp01(st.pixSmoke);
-  const shp = Math.round(st.pixShape || 0), dith = Math.round(st.pixBreakAs || 0) === 1;
+  const shp = Math.round(st.pixShape || 0), part = Math.max(0, Math.min(SHAPES.length - 1, Math.round(st.pixParticle || 0))), dith = Math.round(st.pixBreakAs || 0) === 1;
   const light = clamp01(st.pixLight), rim = clamp01(st.pixRim), la = (st.pixLightAngle || 0) * DEG;
   const lx = Math.cos(la) * 0.55, ly = Math.sin(la) * 0.55;  // where the highlight sits inside a blob
   // §44. LOOP: births wrap round the clip (a blob born late carries on into the start), so a torch, a campfire or an aura
@@ -2647,16 +2764,19 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   const drawBlob = (i, cx, cy, vx, vy, r, a, hot, smoky, b, pr, erode, inv, tl) => {
     // stretch: a capsule from the tail to the head along the flight, fat at the head (a joined trail's piece: tl long)
     const sp = Math.hypot(vx, vy), ux = sp ? vx / sp : 0, uy = sp ? vy / sp : 1;
-    const bmp = shp >= 9 ? pixBmpCells(shp === 15 ? pixTextBitmap(st.pixText || "-12") : PIX_BITMAPS[shp]) : null;   // §52 a stamp
+    const pm = shp === PIX_PARTICLE ? pixPartMask(part, Math.max(2, Math.round(2.2 * r)), Math.max(2, Math.round(2.2 * r * ys)),
+      sp > 0 ? pixPartTurn(part, ux, uy) : 0, st) : null;   // §57
+    const bmp = shp >= 9 && shp <= 15 ? pixBmpCells(shp === 15 ? pixTextBitmap(st.pixText || "-12") : PIX_BITMAPS[shp]) : null;   // §52 a stamp
     // the TEXT scales by a fixed 7 cells, never its length, so every word and number is one size (and the Godot glyph
     // atlas, one glyph per row, lays out any string as the app draws it: godotTextFiles)
     const S = bmp ? Math.max(1, Math.round(2.2 * r / (shp === 15 ? 7 : Math.max(bmp.w, bmp.h)))) : 0;
     const bx0 = bmp ? Math.round(cx - bmp.w * S / 2) : 0, by0s = bmp ? Math.round(cy - bmp.h * S * ys / 2) : 0;
+    const px0 = pm ? Math.round(cx - pm.w / 2) : 0, py0 = pm ? Math.round(cy - pm.h / 2) : 0;
     if (bmp && i === 0 && PIX_STAMP_PROBE) PIX_STAMP_PROBE.cur = { S: S, cx: cx, k: kPx };   // the head is drawn last
-    const tail = bmp ? 0 : tl >= 0 ? tl : st.pixStretch * Math.min(r * 5, sp * 0.035);
+    const tail = bmp || pm ? 0 : tl >= 0 ? tl : st.pixStretch * Math.min(r * 5, sp * 0.035);
     const tx = cx - ux * tail, ty = cy - uy * tail;
-    const x0 = bmp ? bx0 : Math.floor(Math.min(cx, tx) - r - 1), x1 = bmp ? bx0 + bmp.w * S - 1 : Math.ceil(Math.max(cx, tx) + r + 1);
-    const y0 = bmp ? by0s : Math.floor(Math.min(cy, ty) - r - 1), y1 = bmp ? by0s + Math.ceil(bmp.h * S * ys) - 1 : Math.ceil(Math.max(cy, ty) + r + 1);
+    const x0 = pm ? px0 : bmp ? bx0 : Math.floor(Math.min(cx, tx) - r - 1), x1 = pm ? px0 + pm.w - 1 : bmp ? bx0 + bmp.w * S - 1 : Math.ceil(Math.max(cx, tx) + r + 1);
+    const y0 = pm ? py0 : bmp ? by0s : Math.floor(Math.min(cy, ty) - r - 1), y1 = pm ? py0 + pm.h - 1 : bmp ? by0s + Math.ceil(bmp.h * S * ys) - 1 : Math.ceil(Math.max(cy, ty) + r + 1);
     const baseF = hot > 0 ? (tone + (1 - tone) * hot) * (nR - 2) : tone * (nR - 2), base = Math.round(baseF);
     const yTop = Math.min(cy, ty) - r * ys, yH = Math.max(1, Math.abs(cy - ty) + 2 * r * ys);
     const coinW = shp === 6 ? Math.max(0.14, Math.abs(Math.cos((a * 2.5 + i * 0.37) * Math.PI))) : 1;   // §48: two and a half turns a life
@@ -2668,11 +2788,12 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       // a lumpy edge, not a balloon: the radius wobbles with noise round the rim
       const ex = Math.abs(dx), ey = Math.abs(dy);
       let m;
-      if (bmp) { const cl = bmp.c[Math.min(bmp.h - 1, Math.floor((yy - y0) / (S * ys))) * bmp.w + Math.floor((xx - x0) / S)]; m = cl === 2 ? 0.97 : cl === 1 ? 0.45 : 9; }
+      if (pm) m = pm.m[(yy - py0) * pm.w + (xx - px0)];
+      else if (bmp) { const cl = bmp.c[Math.min(bmp.h - 1, Math.floor((yy - y0) / (S * ys))) * bmp.w + Math.floor((xx - x0) / S)]; m = cl === 2 ? 0.97 : cl === 1 ? 0.45 : 9; }
       else m = shp === 8 ? pixShapeM(PIX_SHAPE_IN[8], dx, -dy) : shp === 5 ? pixShapeM(PIX_SHAPE_IN[5], dx, -dy) : shp === 7 ? pixShapeM(PIX_SHAPE_IN[7], dx * uy - dy * ux, dx * ux + dy * uy)
               : shp === 6 ? ex * ex + ey * ey : shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
               : shp === 3 ? Math.max(ex, ey) * Math.max(ex, ey) : Math.pow(Math.max(Math.min(ex, ey) * 3, Math.max(ex, ey)), 2);
-      const d2 = bmp ? m : m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && i === 0 && st.pixCore > 0 && emit < 3 && i < nB ? tick * 131 : 0)) - 0.5) : 1);
+      const d2 = bmp || pm ? m : m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && i === 0 && st.pixCore > 0 && emit < 3 && i < nB ? tick * 131 : 0)) - 0.5) : 1);
       if (d2 >= 1 || (hollow > 0 && d2 < hollow * hollow)) continue;
       if (erode > 0) {
         if (!from) {
@@ -2808,6 +2929,16 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     const hi = heat0 > 0 ? (s < life * 0.5 ? nR - 2 : 1) : Math.round(tone * (nR - 2)) + (s < life * 0.5 ? 1 : 0);
     loose.push([Math.round(bx0 + fx), Math.round(by0 + fy), RAMP0 + Math.max(0, Math.min(nR - 1, hi))]);
   }
+  // ---- §55 the fire automaton: heat mapped onto the ramp (the coolest fifth left empty: the flame's edge), under the
+  // blobs and strokes; Color cycling, the Wipe, the outline and the wobble then treat it like everything else
+  if (st.pixFire > 0) {
+    const F = pixFireSim(st, Wa, Ha, ax, ay, NL, loop, seed), fr = F.steps[Math.max(0, Math.min(F.steps.length - 1, tick % Math.max(1, F.steps.length)))];
+    if (fr) for (let j = 0; j < F.sy * Wa; j++) {            // above the source rows only (they are the fuel, not the flame)
+      const h = fr[j] / F.max;
+      if (h < 0.2) continue;
+      put(j % Wa, (j / Wa) | 0, RAMP0 + Math.max(0, Math.min(nR - 1, Math.floor((h - 0.2) / 0.8 * nR))), 0.3 + h);
+    }
+  }
   // ---- §49 the strokes: hard banded lines in the ramp, a bright core to darker edges, cooling like a blob, breaking up
   // through the same pattern. RING: expands from the origin (Copies: staggered over Emit time). BEAM: shoots out along
   // Direction, holds, thins away (Copies: fanned over Spread; Wobble: its width shivers each art frame). SWOOSH: a smear
@@ -2893,8 +3024,41 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       const dx = x + 0.5 - ax, dy = (y + 0.5 - ay) / ys;
       const v = cyc === 1 ? (dx * ca + dy * sa) / bw : cyc === 2 ? Math.hypot(dx, dy) / bw
               : cyc === 3 ? Math.hypot(dx, dy) / bw + Math.atan2(dy, dx) / (Math.PI * 2) * 2 : cyc === 4 ? Math.atan2(dy, dx) / (Math.PI * 2) * Math.max(1, Math.round(16 / bw) * 2)
-              : pixNoise(seed, x, y, Math.max(2, bw * 1.2), 497) * 2.5;
+              : cyc === 5 ? pixNoise(seed, x, y, Math.max(2, bw * 1.2), 497) * 2.5
+              // §56 STREAKS: bands ALONG Direction, every lane across it at its own phase (a waterfall's falling streaks)
+              : (dx * ca + dy * sa) / (bw * 5) + rnd(seed, Math.floor((-dx * sa + dy * ca) / 2 + 4096), 496) * 3;
       col[j] = RAMP0 + Math.min(nR - 1, Math.floor(tri(v - ph) * nR));
+    }
+  }
+  // ---- §54 THE WIPE: a dissolve front sweeping the WHOLE layer (a disintegrate), not each blob on its own. Every drawn
+  // pixel is gone from its time tw: Wipe at + Wipe time x its place along the sweep (over the layer's own box this frame),
+  // jittered by the Break up pattern (dither or crumbs). Just ahead of the front it glows (Wipe edge); behind it a share of
+  // the pixels taken fly off as Dust for a while, in their own colors, drawn loose (no outline), thinning as they go.
+  const wk = Math.round(st.pixWipe || 0);
+  if (wk > 0) {
+    let bx0 = Wa, by0 = Ha, bx1 = -1, by1 = -1;
+    for (let y = 0; y < Ha; y++) for (let x = 0; x < Wa; x++) if (col[y * Wa + x] > 0) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+    if (bx1 >= 0) {
+      const at = clamp01(st.pixWipeAt == null ? 0.35 : st.pixWipeAt), dur = Math.max(0.05, st.pixWipeTime == null ? 0.5 : st.pixWipeTime);
+      const edge = clamp01(st.pixWipeEdge == null ? 0.5 : st.pixWipeEdge), dust = clamp01(st.pixDust == null ? 0.5 : st.pixDust);
+      const mx = (bx0 + bx1) / 2, my = (by0 + by1) / 2, hw = Math.max(1, (bx1 - bx0) / 2), hh = Math.max(1, (by1 - by0) / 2);
+      const dustLife = 0.3, band = dur * 0.07;
+      const dir = wk === 1 ? [1, -0.5] : wk === 2 ? [-1, -0.5] : wk === 3 ? [0.35, -1] : wk === 4 ? [0.35, -1] : null;
+      for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) {
+        const j = y * Wa + x, c = col[j];
+        if (c <= 0) continue;
+        const nx = (x - mx) / hw, ny = (y - my) / hh, rad = Math.min(1, Math.hypot(nx, ny) / Math.SQRT2);
+        const rank = wk === 1 ? (nx + 1) / 2 : wk === 2 ? (1 - nx) / 2 : wk === 3 ? (ny + 1) / 2 : wk === 4 ? (1 - ny) / 2 : wk === 5 ? rad : 1 - rad;
+        const pat = dith ? PIX_BAYER[(x & 3) + (y & 3) * 4] / 16 : pixNoise(seed, x, y, 2.5, 498);
+        const tw = at + dur * (rank * 0.82 + pat * 0.18);
+        if (u < tw) { if (edge > 0 && tw - u < band && rnd(seed, j, 499) < edge) col[j] = RAMP0 + nR - 1; continue; }
+        col[j] = -1;
+        const age = u - tw;
+        if (dust > 0 && age < dustLife && rnd(seed, j, 500) < dust * 0.45 && rnd(seed, j, 501) > age / dustLife) {
+          const d = dir || (wk === 5 ? [nx, ny - 0.4] : [-nx, -ny - 0.4]), go = age * R0 * 7 * (0.6 + 0.8 * rnd(seed, j, 502));
+          loose.push([Math.round(x + d[0] * go), Math.round(y + d[1] * go * fl), c]);
+        }
+      }
     }
   }
   // the outline: every empty pixel touching a colored one goes to the outline color (debris already is)
@@ -2915,6 +3079,19 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   for (const [x, y, c] of loose) if (x >= 0 && y >= 0 && x < Wa && y < Ha) col[y * Wa + x] = c;
   const flashN = Math.round(st.pixFlash || 0);
   if (flashN > 0 && tick < flashN) for (let j = 0; j < col.length; j++) if (col[j] > 0) col[j] = RAMP0 + nR - 1;
+  // §54 RASTER WOBBLE, last: each row (or column) shifted along a sine wave, the old scanline trick (heat haze, water,
+  // a dream). Wobble x 6 art px at its widest, one wave every Wobble wave px, Wobble speed waves per clip (whole on a Loop).
+  const wob = clamp01(st.pixWobble || 0);
+  if (wob > 0) {
+    const amp = wob * 6, wave = Math.max(2, st.pixWobbleWave || 12), sp0 = st.pixWobbleSpeed == null ? 1 : st.pixWobbleSpeed;
+    const ph = u * (loop ? Math.round(sp0) : sp0), cols2 = Math.round(st.pixWobbleAxis || 0) === 1, src = col.slice();
+    col.fill(-1);
+    for (let y = 0; y < Ha; y++) for (let x = 0; x < Wa; x++) {
+      const sh = Math.round(amp * Math.sin(((cols2 ? x : y) / wave - ph) * Math.PI * 2));
+      const sx = cols2 ? x : x - sh, sy = cols2 ? y - sh : y;
+      if (sx >= 0 && sy >= 0 && sx < Wa && sy < Ha) col[y * Wa + x] = src[sy * Wa + sx];
+    }
+  }
   // A FRESH scratch canvas per frame, never one shared: WebKit (the desktop app) defers drawImage onto a big,
   // GPU-backed frame canvas, so a shared scratch rewritten by the next frame put the LAST frame into every frame
   // (Big Pixel Boom, 192 px, showed one still wisp of smoke; the 128 px presets and the strip played. AJ, 2026-11-02)

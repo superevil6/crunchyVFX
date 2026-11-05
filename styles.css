@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 17;
+    --css-build: 18;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1346,6 +1346,7 @@ h1.wm img { image-rendering: pixelated; display: block; margin: -14px 0; }
 .engine-btn.shape-pic[hidden] { display: none; }
 .shape-img { width: 30px; height: 30px; display: block; flex: none; }
 .shape-img:not([src]) { visibility: hidden; }
+.engine-btn.pix-off { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }   /* §57.1 a shape pixel art can't draw */
 .engine-btn.shape-pic > svg.pxi { width: 24px; height: 24px; margin: 3px 0 3px; flex: none; }
 .engine-btn.shape-pic.compact > svg.pxi { width: 20px; height: 20px; margin: 2px 0; }
 .shape-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
