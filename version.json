@@ -1,5 +1,5 @@
 {
   "version": "1.1.0",
   "url": "https://sevi66.itch.io/crunchyvfx",
-  "notes": "New: game moments (an effect, a sound, a hit look, shake and hit stop as one Godot node), a picture strip of layers, centered slashes, Quick shape sliders that come back to where they were. The Foundry is folded into the Wizard."
+  "notes": "New: pixel art. 65 effects drawn as sprite art (strokes, color cycling, dither dissolves, hearts and coins), a Look switch for pixel or smooth games, shared palettes and your game's palette, Snow, Ink, Earth and Ghost color moods, and Godot effects that vary every time they play."
 }

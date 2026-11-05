@@ -2417,14 +2417,29 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
 // bolt (§44): a jagged line out along Direction, both ends pinned, re-struck every art frame (a zap, lightning)
 const PIX_EMITS = ["burst", "stream", "ring", "arc", "line", "bolt"];
 // a blob's silhouette (append-only): the distance a pixel is from the center, measured four ways
-const PIX_SHAPES = ["round", "diamond", "star", "square", "cross"];
+const PIX_STROKES = ["none", "ring", "beam", "swoosh", "rays"];          // §49, append-only
+const PIX_CYCLES = ["off", "flow", "rings", "spiral", "spin", "shimmer"];  // §49, append-only
+const PIX_SHAPES = ["round", "diamond", "star", "square", "cross", "heart", "coin", "drop"];   // append-only (§48: heart, coin, drop)
+// §48 the shapes that are not symmetric about both axes, as inside-tests on unit coordinates (Y up); their metric is the
+// scale at which a pixel sits on the edge (found by halving: each is star-shaped round its center), squared, as the
+// round blob's x² + y², so the rim, the highlight and Break from read them the same way
+const PIX_SHAPE_IN = {
+  5: (X, Y) => { const x = X * 1.14, y = Y * 1.15 + 0.14, q = x * x + y * y - 1; return q * q * q - x * x * y * y * y <= 0; },   // heart, point down
+  7: (X, Y) => (Y >= 0 ? X * X + Y * Y <= 1 : Y >= -2 && Math.abs(X) <= Math.sqrt(Math.max(0, 1 - Y * Y * 0.25)) * (1 + Y * 0.5)),   // drop: round head, pointed tail (Y = forward)
+};
+function pixShapeM(inside, X, Y) {
+  if (!inside(X / 3, Y / 3)) return 9;
+  let lo = 0.001, hi = 3;
+  for (let k = 0; k < 10; k++) { const s = (lo + hi) / 2; if (inside(X / s, Y / s)) hi = s; else lo = s; }
+  return hi * hi;
+}
 const PIX_BREAKS = ["clumps", "dither"];
 // §46 (append-only): where a break starts in a blob, and what a blob does on the Floor
 const PIX_WIPES = ["everywhere", "top", "bottom", "center", "edge", "tail"];
 const PIX_LANDS = ["splat", "stick"];
 const PIX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];   // the 4x4 ordered-dither thresholds, /16
 // §45 appends four hand-picked ramps (darkness can't come from "effect colors": its lightest steps are 0.9 bright)
-const PIX_RAMPS = ["fire", "blood", "cloud", "dust", "effect colors", "shadow", "holy", "ice", "electric"];
+const PIX_RAMPS = ["fire", "blood", "cloud", "dust", "effect colors", "shadow", "holy", "ice", "electric", "ink"];   // append-only (§50: ink)
 // darkest first. The outline is its own color; smoke is the cooled-blob ramp every kind shares.
 const PIX_RAMP_RGB = [
   { out: [40, 18, 16], ramp: [[180, 34, 26], [232, 98, 28], [247, 170, 36], [255, 226, 80], [255, 251, 232]] },
@@ -2437,6 +2452,9 @@ const PIX_RAMP_RGB = [
   { out: [92, 52, 12], ramp: [[200, 132, 40], [240, 186, 64], [255, 226, 120], [255, 246, 196], [255, 255, 255]] },
   { out: [20, 40, 84], ramp: [[60, 110, 180], [100, 170, 226], [160, 214, 246], [214, 240, 255], [255, 255, 255]] },
   { out: [16, 20, 70], ramp: [[60, 70, 220], [90, 150, 255], [150, 220, 255], [220, 250, 255], [255, 255, 255]] },
+  // §50 ink: almost black, its lit side a cold gray so it still reads on a dark ground; its own smoke, darker than the rest
+  { out: [0, 0, 0], ramp: [[12, 11, 16], [24, 22, 30], [40, 38, 50], [64, 62, 80], [98, 96, 118]],
+    smoke: [[8, 8, 10], [18, 17, 22], [30, 29, 36]] },
 ];
 const PIX_SMOKE = [[56, 46, 46], [88, 74, 68], [128, 112, 100]];
 function pixHsl(h, s, l) {     // -> [r, g, b] 0..255
@@ -2575,14 +2593,16 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     const y0 = Math.floor(Math.min(cy, ty) - r - 1), y1 = Math.ceil(Math.max(cy, ty) + r + 1);
     const baseF = hot > 0 ? (tone + (1 - tone) * hot) * (nR - 2) : tone * (nR - 2), base = Math.round(baseF);
     const yTop = Math.min(cy, ty) - r * ys, yH = Math.max(1, Math.abs(cy - ty) + 2 * r * ys);
+    const coinW = shp === 6 ? Math.max(0.14, Math.abs(Math.cos((a * 2.5 + i * 0.37) * Math.PI))) : 1;   // §48: two and a half turns a life
     for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) {
       const px = xx + 0.5, py = yy + 0.5;
       const q = tail > 0 ? Math.max(0, Math.min(1, ((px - tx) * ux + (py - ty) * uy) / tail)) : 1;
       const rr = r * (tail > 0 ? 0.55 + 0.45 * q : 1);
-      const dx = (px - (tx + ux * tail * q)) / rr, dy = (py - (ty + uy * tail * q)) / (rr * ys);
+      const dx = (px - (tx + ux * tail * q)) / (rr * coinW), dy = (py - (ty + uy * tail * q)) / (rr * ys);   // §48: a coin turns edge-on and back
       // a lumpy edge, not a balloon: the radius wobbles with noise round the rim
       const ex = Math.abs(dx), ey = Math.abs(dy);
-      const m = shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
+      const m = shp === 5 ? pixShapeM(PIX_SHAPE_IN[5], dx, -dy) : shp === 7 ? pixShapeM(PIX_SHAPE_IN[7], dx * uy - dy * ux, dx * ux + dy * uy)
+              : shp === 6 ? ex * ex + ey * ey : shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
               : shp === 3 ? Math.max(ex, ey) * Math.max(ex, ey) : Math.pow(Math.max(Math.min(ex, ey) * 3, Math.max(ex, ey)), 2);
       const d2 = m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && i === 0 && st.pixCore > 0 && emit < 3 && i < nB ? tick * 131 : 0)) - 0.5) : 1);
       if (d2 >= 1 || (hollow > 0 && d2 < hollow * hollow)) continue;
@@ -2607,7 +2627,8 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       else put(xx, yy, RAMP0 + Math.max(0, Math.min(nR - 1, bp + shade)), pr);
     }
   };
-  for (let i = 0; i < nB + nS; i++) {
+  const nAll = st.pixBlobs == null || st.pixBlobs > 0 ? nB + nS : 0;   // §49: Blobs off leaves a stroke (and the bits) alone
+  for (let i = 0; i < nAll; i++) {
     const isSmoke = i >= nB, r1 = rnd(seed, i, 400), r2 = rnd(seed, i, 401), r3 = rnd(seed, i, 402), r4 = rnd(seed, i, 403), r5 = rnd(seed, i, 404);
     const pulse = isSmoke ? 0 : i % P;
     const core = !isSmoke && i === 0 && st.pixCore > 0 && emit < 3;
@@ -2711,6 +2732,94 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     const [fx, fy] = fly(s, v, th, 3);
     const hi = heat0 > 0 ? (s < life * 0.5 ? nR - 2 : 1) : Math.round(tone * (nR - 2)) + (s < life * 0.5 ? 1 : 0);
     loose.push([Math.round(bx0 + fx), Math.round(by0 + fy), RAMP0 + Math.max(0, Math.min(nR - 1, hi))]);
+  }
+  // ---- §49 the strokes: hard banded lines in the ramp, a bright core to darker edges, cooling like a blob, breaking up
+  // through the same pattern. RING: expands from the origin (Copies: staggered over Emit time). BEAM: shoots out along
+  // Direction, holds, thins away (Copies: fanned over Spread; Wobble: its width shivers each art frame). SWOOSH: a smear
+  // sweeping round the origin over Spread, fat in its middle (Copies: staggered). RAYS: lines out from the center, Copies
+  // round Spread, leaving the center as they go. Size in layer units (as Scatter), Width a share of it.
+  const sk = Math.round(st.pixStroke || 0);
+  if (sk > 0) {
+    const N = Math.max(1, Math.round(st.pixStrokeN || 1)), Ls = Math.max(0.05, st.pixStrokeLife || 0.6);
+    const SZ = R0 * (st.pixStrokeSize == null ? 1.2 : st.pixStrokeSize), WD = Math.max(0.6, SZ * (st.pixStrokeW == null ? 0.18 : st.pixStrokeW));
+    const wob = clamp01(st.pixStrokeWobble || 0), easeO = (x) => 1 - (1 - x) * (1 - x);
+    const shade = (o, a, xx, yy) => {                           // o: 0 at the core, 1 at the edge; the pixel's ramp index
+      if (st.pixBreak > 0 && a > breakAt) {
+        const er = st.pixBreak * (a - breakAt) / (1 - breakAt);
+        if ((dith ? PIX_BAYER[(xx & 3) + (yy & 3) * 4] / 16 : pixNoise(seed, xx, yy, 2.5, 490)) < er * 1.05) return -1;
+      }
+      const hot = heat0 * Math.max(0, 1 - a / Math.max(0.02, st.pixCool));
+      const base = Math.round((tone + (1 - tone) * hot) * (nR - 2));
+      if (hot > 0.5 && o < 0.3) return RAMP0 + nR - 1;
+      return RAMP0 + Math.max(0, Math.min(nR - 1, base + (o < 0.4 ? 1 : 0) - (o > 0.8 ? 1 : 0)));
+    };
+    const plot = (xx, yy, o, a, hot) => { const c = shade(o, a, xx, yy); if (c >= 0) put(xx, yy, c, 8 + 10 * hot); };
+    for (let c = 0; c < N; c++) {
+      const b = sk === 1 || sk === 3 ? (N > 1 ? span * c / (N - 1) : 0) : 0;
+      const s = loop ? wrap(u - b) : u - b, a = loop && Ls >= 0.99 && sk !== 1 ? 0.4 : s / Ls;   // a looped stroke of full life holds steady
+      if (a < 0 || a >= 1) continue;
+      const hot = heat0 * Math.max(0, 1 - a / Math.max(0.02, st.pixCool));
+      if (sk === 1) {                                           // ring
+        const rad = SZ * easeO(a), w = Math.max(0.6, WD * Math.pow(1 - a, 0.7)), R = rad + w;
+        for (let yy = Math.floor(ay - R * ys) - 1; yy <= Math.ceil(ay + R * ys) + 1; yy++) for (let xx = Math.floor(ax - R) - 1; xx <= Math.ceil(ax + R) + 1; xx++) {
+          const d = Math.hypot(xx + 0.5 - ax, (yy + 0.5 - ay) / ys), o = Math.abs(d - rad) / (w / 2);
+          if (o < 1) plot(xx, yy, o, a, hot);
+        }
+      } else if (sk === 2 || sk === 4) {                        // beam (fanned copies) or rays (round the spread)
+        const full = sk === 4 && spread >= Math.PI * 2 - 1e-3;
+        const th = N > 1 ? th0 + (full ? c / N * Math.PI * 2 : (c / (N - 1) - 0.5) * spread) : th0;
+        const ux = Math.cos(th), uy = Math.sin(th) * fl, jit = sk === 4 ? 0.75 + 0.5 * rnd(seed, c, 495) : 1;
+        const r1 = sk === 2 ? SZ * Math.min(1, a / 0.15) : SZ * jit * easeO(a), r0 = sk === 2 ? 0 : SZ * jit * Math.max(0, (a - 0.3) / 0.7) * 0.9;
+        const w0 = sk === 2 ? WD * (a < 0.7 ? 1 : 1 - (a - 0.7) / 0.3) : WD * (1 - a);
+        if (w0 < 0.3) continue;
+        const ex = ax + ux * r1, ey = ay + uy * r1, sx0 = ax + ux * r0, sy0 = ay + uy * r0, pad = w0 + 2;
+        for (let yy = Math.floor(Math.min(sy0, ey) - pad); yy <= Math.ceil(Math.max(sy0, ey) + pad); yy++) for (let xx = Math.floor(Math.min(sx0, ex) - pad); xx <= Math.ceil(Math.max(sx0, ex) + pad); xx++) {
+          const px = xx + 0.5 - sx0, py = yy + 0.5 - sy0, L2 = (ex - sx0) * (ex - sx0) + (ey - sy0) * (ey - sy0);
+          const q = L2 > 0 ? Math.max(0, Math.min(1, (px * (ex - sx0) + py * (ey - sy0)) / L2)) : 0;
+          const dx = px - q * (ex - sx0), dy = py - q * (ey - sy0), along = q * Math.sqrt(L2);
+          let w = w0 * (sk === 4 ? 1 - 0.7 * q : 1);              // a ray tapers to its tip
+          if (wob > 0) w *= 1 + wob * 0.45 * Math.sin(along * 0.7 + tick * 2.1 + c) * (0.6 + 0.4 * Math.sin(tick * 1.3 + along * 0.23));
+          const o = Math.hypot(dx, dy) / Math.max(0.3, w / 2);
+          if (o < 1) plot(xx, yy, o, a, hot);
+        }
+      } else if (sk === 3) {                                    // swoosh
+        const sp = spread || Math.PI, start = th0 - sp / 2;
+        const head = start + sp * easeO(Math.min(1, a / 0.4)), tail = start + sp * Math.pow(Math.max(0, (a - 0.3) / 0.7), 1.6);   // the head whips round, the tail catches up late: a long smear at its peak
+        if (head - tail < 1e-3) continue;
+        const rad = SZ * (1 + 0.12 * c), R = rad + WD;
+        for (let yy = Math.floor(ay - R) - 1; yy <= Math.ceil(ay + R) + 1; yy++) for (let xx = Math.floor(ax - R) - 1; xx <= Math.ceil(ax + R) + 1; xx++) {
+          const px = xx + 0.5 - ax, py = (yy + 0.5 - ay) / ys, d = Math.hypot(px, py);
+          let an = Math.atan2(py, px);
+          while (an < tail) an += Math.PI * 2;
+          while (an > tail + Math.PI * 2) an -= Math.PI * 2;
+          if (an > head) continue;
+          const f = (an - tail) / (head - tail), thick = WD * Math.sin(Math.PI * Math.min(1, f * 1.15));   // fattest near the head
+          if (thick < 0.4) continue;
+          const o = Math.abs(d - (rad - thick * 0.25)) / (thick / 2);
+          if (o < 1) plot(xx, yy, o, a, hot);
+        }
+      }
+    }
+  }
+  // ---- §49 color cycling: the layer's colors roll through its own shape, the old palette-rotation trick (waterfalls,
+  // portals, runes, shields, lasers). Each ramp pixel takes its step from a pattern value plus the clock, along a
+  // triangle wave (dark, light, dark), so the bands roll smoothly; smoke and the outline keep theirs. FLOW: stripes along
+  // Direction; RINGS: out from the origin; SPIRAL: rings that turn; SPIN: sectors round the origin; SHIMMER: clumps of
+  // noise. Speed is cycles per clip (rounded to whole ones on a Loop, so it repeats), Bands how wide one is, in art px.
+  const cyc = Math.round(st.pixCycle || 0);
+  if (cyc > 0) {
+    const bw = Math.max(1, st.pixCycleBands || 6), sp0 = st.pixCycleSpeed == null ? 1 : st.pixCycleSpeed;
+    const spd = loop ? Math.round(sp0) : sp0, ph = u * spd, ca = Math.cos(th0), sa = Math.sin(th0);
+    const tri = (x) => { const f = x - Math.floor(x); return f < 0.5 ? f * 2 : 2 - f * 2; };
+    for (let y = 0; y < Ha; y++) for (let x = 0; x < Wa; x++) {
+      const j = y * Wa + x;
+      if (col[j] < RAMP0) continue;
+      const dx = x + 0.5 - ax, dy = (y + 0.5 - ay) / ys;
+      const v = cyc === 1 ? (dx * ca + dy * sa) / bw : cyc === 2 ? Math.hypot(dx, dy) / bw
+              : cyc === 3 ? Math.hypot(dx, dy) / bw + Math.atan2(dy, dx) / (Math.PI * 2) * 2 : cyc === 4 ? Math.atan2(dy, dx) / (Math.PI * 2) * Math.max(1, Math.round(16 / bw) * 2)
+              : pixNoise(seed, x, y, Math.max(2, bw * 1.2), 497) * 2.5;
+      col[j] = RAMP0 + Math.min(nR - 1, Math.floor(tri(v - ph) * nR));
+    }
   }
   // the outline: every empty pixel touching a colored one goes to the outline color (debris already is)
   if (st.pixOutline > 0) {

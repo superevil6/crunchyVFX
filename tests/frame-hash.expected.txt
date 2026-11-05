@@ -290,53 +290,84 @@ VFX FRAME "Pixel Meteor" c58deb7563f14b5e
 VFX FRAME "nofit:Pixel Meteor" c58deb7563f14b5e
 VFX FRAME "Pixel Dust Devil" cf546fb57d93314a
 VFX FRAME "Pixel Run Dust" c44541bd2f58ca9a
+VFX FRAME "Pixel Coin" 776d439588fee266
+VFX FRAME "nofit:Pixel Coin" 776d439588fee266
+VFX FRAME "Pixel Gem Sparkle" 5092079939a6a696
+VFX FRAME "Pixel Heart Pickup" 00e37ca5f25d7cc6
+VFX FRAME "Pixel Level Up" 8b1439154d60bcce
+VFX FRAME "nofit:Pixel Level Up" 8b1439154d60bcce
+VFX FRAME "Pixel Button Sparkle" de1dc6050b7653b6
+VFX FRAME "Pixel Confirm" 17d2ec2d74befb76
+VFX FRAME "Pixel Crit Star" 72fecfa3c63e4186
+VFX FRAME "nofit:Pixel Crit Star" 72fecfa3c63e4186
+VFX FRAME "Pixel Shield Hit" 7b61de15ca9f1846
+VFX FRAME "Pixel Appear" 4856510580b5548e
+VFX FRAME "Pixel Sweat Drop" e313cbabf8b99aca
+VFX FRAME "nofit:Pixel Sweat Drop" e313cbabf8b99aca
+VFX FRAME "Pixel Hearts" 4790d7f5fa5d61d6
+VFX FRAME "Pixel Laser" 00dc1c25526ee986
+VFX FRAME "Pixel Ring Blast" f1b1b405a9a513c6
+VFX FRAME "nofit:Pixel Ring Blast" f1b1b405a9a513c6
+VFX FRAME "Pixel Swoosh" f482ac6d3f8945c2
+VFX FRAME "Pixel Impact Rays" 718907fd277db3ba
+VFX FRAME "Pixel Muzzle Rays" e1086855e54f4046
+VFX FRAME "nofit:Pixel Muzzle Rays" e1086855e54f4046
+VFX FRAME "Pixel Twin Swoosh" 37ec4245695d77ee
+VFX FRAME "Pixel Portal" f45ecaf59240082e
+VFX FRAME "Pixel Waterfall" c3f09e75a7947006
+VFX FRAME "nofit:Pixel Waterfall" c3f09e75a7947006
+VFX FRAME "Pixel Energy Shield" 9f7eef557ef26806
+VFX FRAME "Pixel Lava Pool" 2df59e4bd16bc776
+VFX FRAME "Pixel Spinner" 60d618d501401b06
+VFX FRAME "nofit:Pixel Spinner" 60d618d501401b06
+VFX FRAME "Pixel Warp Rings" 3b4be115c4eecf6e
 VFX FRAME "Rain On Glass" 2f884b29fd2a5242
-VFX FRAME "nofit:Rain On Glass" 82afc66f5406dc5a
 VFX FRAME "Glint Field" 84669d2e343b7d6b
+VFX FRAME "nofit:Glint Field" 5b871147121a4a76
 VFX FRAME "Sonar Motes" b5eae933291a18ca
 VFX FRAME "Old Broadcast" aa9d6b21f9895952
-VFX FRAME "nofit:Old Broadcast" 048ce5e2199ba5cf
 VFX FRAME "Portal Open" eb2c0fdb1dff002a
+VFX FRAME "nofit:Portal Open" cdb74b62ff41ad37
 VFX FRAME "Charge Release" a64501a66d421871
 VFX FRAME "Summon Ritual" bc73510d61842298
-VFX FRAME "nofit:Summon Ritual" 00d9d2ae1c7eb923
 VFX FRAME "Meteor Hit" b70643343711d2c9
+VFX FRAME "nofit:Meteor Hit" ba52d36973b3aa86
 VFX FRAME "Deep Freeze" 29c74e978975cdb6
 VFX FRAME "Rift Tear" 07ab8e680439695d
-VFX FRAME "nofit:Rift Tear" 51fd59c0db4f1f9d
 VFX FRAME "Bloom Cycle" e9cd0a92c026d42b
+VFX FRAME "nofit:Bloom Cycle" 35810a5196d0de80
 VFX FRAME "Sonar Sweep" 0b97e2dcadc724d3
 VFX FRAME "Fireball" b1efa3ff34f0d686
-VFX FRAME "nofit:Fireball" 8aadab810de54536
 VFX FRAME "Energy Bolt" c2f0631344025740
+VFX FRAME "nofit:Energy Bolt" d046cb564a6796bf
 VFX FRAME "Arrow Trail" 8eb5b987f3a7e76a
 VFX FRAME "Frost Shot" 397d8a02ed1e8c45
-VFX FRAME "nofit:Frost Shot" 5d71d343e190a656
 VFX FRAME "Death Poof" 3f38742fd167e574
+VFX FRAME "nofit:Death Poof" f2d0dc785fa2f205
 VFX FRAME "Soul Rise" 00c23b049e1fa777
 VFX FRAME "Dash Trail" c21078232b076f52
-VFX FRAME "nofit:Dash Trail" 38e0dcda7f76fac1
 VFX FRAME "Jump Dust" 459dfbe7b0034366
+VFX FRAME "nofit:Jump Dust" 09b36e3d645d39fc
 VFX FRAME "Crit Burst" 51f512611e3c6236
 VFX FRAME "Heal Pulse" 86a84bbfecce534e
-VFX FRAME "nofit:Heal Pulse" 6eca3eaea03b053d
 VFX FRAME "Burning" 65ee487185b8eb50
+VFX FRAME "nofit:Burning" 9cb2e00acbad4e15
 VFX FRAME "Twin Slash" fafad30f2dcc09e4
 VFX FRAME "Heart Heal" 9455afd0196e682d
-VFX FRAME "nofit:Heart Heal" ff58ff6cc92e31c5
 VFX FRAME "Coin Burst" 9579aba638cc06e1
+VFX FRAME "nofit:Coin Burst" b621b933b58e1b94
 VFX FRAME "Gem Pickup" 453790ba634435cd
 VFX FRAME "Skull Puff" 2a42ba09237a81ea
-VFX FRAME "nofit:Skull Puff" ca18503bf17d87c2
 VFX FRAME "Alert Pop" 5c830742712d914f
+VFX FRAME "nofit:Alert Pop" e226348df0c2e2fe
 VFX FRAME "Talk Bubble" 31f5c26df06cb898
 VFX FRAME "Prompt Pop" 14e232bcbc1a108b
-VFX FRAME "nofit:Prompt Pop" f4f1108707eb20d2
 VFX FRAME "Trophy Win" dd9f9d6be6cedfa4
+VFX FRAME "nofit:Trophy Win" 64600ce31dd06c62
 VFX FRAME "Spear Thrust" c1f394960153ddc3
 VFX FRAME "Comic Pow" 8022ed176200dfb8
-VFX FRAME "nofit:Comic Pow" fcc891d68f795987
 VFX FRAME "Arrow Shot" f46e4c15279032fa
+VFX FRAME "nofit:Arrow Shot" c09973d1b9b3bf70
 VFX EXPORT "Explosion|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 53d045de124567bf
 VFX EXPORT "Magic Sparkle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" f9494da6cde5b4b7
 VFX EXPORT "Frost Growth|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 03cf428dba03821a
@@ -362,12 +393,14 @@ VFX EXPORT "Pixel Zap|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phase
 VFX EXPORT "Pixel Lightning|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" cf57e1b8aa54a80f
 VFX EXPORT "Pixel Gust|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" fff841bdcca68dd6
 VFX EXPORT "Pixel Meteor|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" b3deed1510dc875e
-VFX EXPORT "Summon Ritual|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 58172406fc53914b
-VFX EXPORT "Frost Shot|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" 018d0f59e0dbcfb2
-VFX EXPORT "Heart Heal|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 4a0e5662041d6981
-VFX EXPORT "Comic Pow|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" 312b9bdc721c35fb
+VFX EXPORT "Pixel Crit Star|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 7f5329c76e80aeaa
+VFX EXPORT "Pixel Muzzle Rays|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" c747de267be21491
+VFX EXPORT "Glint Field|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 3fefe8af7f4686c0
+VFX EXPORT "Bloom Cycle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" c002235e8785c305
+VFX EXPORT "Jump Dust|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 7b1c7b3a9f47b871
+VFX EXPORT "Alert Pop|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 39c52b77409d0736
 VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" 887de9a9ca105ebe
-VFX FRAMEHASH 546096fb4f5e9b6a over 371
-VFX END PASS 371 hashes
+VFX BATCH "crunchyvfx-pack.zip" 9af7908abedd186f
+VFX FRAMEHASH 7f1f7106a46bc0c1 over 404
+VFX END PASS 404 hashes

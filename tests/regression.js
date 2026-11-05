@@ -935,6 +935,79 @@
       applyMacro(soft, 0.9); applyMacro(soft, 0.1); applyMacro(soft, s0);
       ok(JSON.stringify(state) === ex, "every relative macro returns the effect exactly (Softness on Explosion)");
     }
+    // §47 (AJ: the pixel effects "don't really seem to use half the QUICK SHAPE bars"): on a pixel-art effect every macro
+    // moves the pixel art (and never the hidden particles), the pixel-only macros show only with pixel art, Hue turns the
+    // ramp onto its hue, and every macro still returns the effect exactly
+    {
+      const shown = () => MACROS.filter((m) => !macroRows[m.id].hidden).map((m) => m.id);
+      applyPreset(PRESETS["Explosion"], "Explosion"); updateMacros();
+      const exShown = shown();
+      ok(MACROS.every((m) => !m.layer === exShown.includes(m.id)), "§47: without pixel art the eight general macros show and the pixel ones hide", exShown.join(" "));
+      const bad = [], idle = [], back = [];
+      for (const name of ["Pixel Explosion", "Pixel Hit Flash", "Pixel Wisps", "Blood Spurt"]) {
+        applyPreset(PRESETS[name], name); updateMacros();
+        const sh = shown();
+        if (sh.length !== MACROS.length) bad.push(name + ": " + MACROS.filter((m) => !sh.includes(m.id)).map((m) => m.name).join(","));
+        const start = JSON.stringify(state);
+        for (const m of MACROS) {
+          const v0 = +macroInputs[m.id].value;
+          applyMacro(m, 0); const lo = Object.assign({}, state);
+          applyMacro(m, 1); const hi = Object.assign({}, state);
+          const moved = Object.keys(hi).filter((k) => hi[k] !== lo[k]);
+          if (!moved.some((k) => /^pix/.test(k))) idle.push(name + " " + m.name);
+          const main = moved.filter((k) => ["count", "speed", "gravity", "swirl", "fadeOut", "coreWhite", "pixelate", "opacity"].includes(k));
+          if (main.length) idle.push(name + " " + m.name + " moved hidden " + main.join(","));
+          applyMacro(m, v0);
+          if (!m.absolute && JSON.stringify(state) !== start) back.push(name + " " + m.name);
+          Object.assign(state, JSON.parse(start)); macroReset(); busyReset(); updateMacros();
+        }
+      }
+      ok(!bad.length, "§47: on a pixel-art effect every macro shows (the pixel ones too)", bad.join("; "));
+      ok(!idle.length, "§47: …and each moves the pixel art, never the hidden particles", idle.join("; "));
+      ok(!back.length, "§47: …and put back where it was gives the effect back exactly", back.join("; "));
+      applyPreset(PRESETS["Pixel Explosion"], "Pixel Explosion");
+      const hue = MACROS.find((m) => m.name === "Hue"), got = [];
+      for (const v of [0.1, 0.4, 0.65, 0.9]) { applyMacro(hue, v); got.push(Math.round(pixLeadHue(state)) + "/" + Math.round(v * 330)); }
+      ok(got.every((x) => { const [a, b] = x.split("/").map(Number); return Math.abs(hueGap(a, b)) < 25; }), "§47: Hue turns a pixel ramp's lead color onto the knob's hue", got.join(" "));
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
+    // §48 THE LOOK (AJ: "a big switch at the top"): Pixel art / Smooth narrow every list and count and steer the rolls;
+    // Any look is everything as before; remembered per game
+    {
+      let stored = null; try { stored = localStorage.getItem(LOOK_KEY); } catch (e) { /* private */ }
+      const sw = document.getElementById("lookSwitch"), btn = (v) => sw.querySelector('button[data-look="' + v + '"]');
+      ok(!!sw && sw.querySelectorAll("button").length === 3, "§48: a three-way Look switch");
+      const cells = () => Array.from(presetBar.querySelectorAll(".pcell")).map((c) => c.dataset.name);
+      const pixAll = Object.keys(PRESETS).filter(presetIsPixel);
+      presetQuery = ""; presetChip = ""; presetMoment = ""; presetTags = []; presetMode = "moments";
+      btn("").click(); const any = cells();
+      btn("pixel").click(); const px = cells();
+      const hitChip = Array.from(document.querySelectorAll("#presetChips .tagchip-moment")).find((c) => c.dataset.moment === "hit");
+      btn("smooth").click(); const sm = cells();
+      ok(px.length === pixAll.length && px.every(presetIsPixel), "§48: Pixel art shows exactly the pixel-art effects", px.length + " of " + pixAll.length);
+      ok(sm.length + px.length === any.length && !sm.some(presetIsPixel), "§48: Smooth shows the rest, and Any look all of them", sm.length + " + " + px.length + " = " + any.length);
+      const hitPix = momentNames("hit").filter(presetIsPixel).length;
+      ok(hitChip && hitChip.textContent === "Hit " + hitPix, "§48: a moment chip counts only the look's effects", hitChip && hitChip.textContent);
+      ok(btn("smooth").getAttribute("aria-pressed") === "true" && btn("pixel").getAttribute("aria-pressed") === "false", "§48: the switch shows which look is on");
+      const saved = state.seed, rolls = [];
+      btn("pixel").click(); for (let i = 0; i < 4; i++) { randomize(); rolls.push(state.pix > 0 ? "p" : "s"); }
+      btn("smooth").click(); for (let i = 0; i < 6; i++) { randomize(); rolls.push(state.pix > 0 ? "p" : "s"); }
+      ok(rolls.join("") === "pppp" + "ssssss", "§48: Randomize rolls the look (pixel art, then smooth)", rolls.join(""));
+      btn("pixel").click();
+      const kids = []; for (let i = 0; i < 12; i++) kids.push(mutateGenome(fullGenome(PRESETS["Pixel Explosion"]), 0.6, { explore: true }));
+      ok(kids.every((g) => g.pix > 0 && LAYER_GROUPS.every((L) => L.g === "Pixel art" || !withState(g, L.is) || withState(fullGenome(PRESETS["Pixel Explosion"]), L.is))),
+         "§48: Breed under Pixel art never gives a pixel effect a soft layer");
+      wizard.answers.era = ""; wizardLookEra();
+      ok(wizard.answers.era === WIZARD_PIXEL, "§48: the Wizard starts on its Pixel art answer under Pixel art");
+      btn("smooth").click(); wizardLookEra();
+      ok(wizard.answers.era === "", "§48: …and on As drawn under Smooth");
+      ok(lookPrefs()[""] === "smooth", "§48: the Look is remembered", JSON.stringify(lookPrefs()));
+      btn("").click();
+      try { if (stored === null) localStorage.removeItem(LOOK_KEY); else localStorage.setItem(LOOK_KEY, stored); } catch (e) { /* private */ }
+      lookLoad(); syncLook(); buildPresetStrip();
+      state.seed = saved;
+      applyPreset(PRESETS["Explosion"], "Explosion");
+    }
 
     // ---------------------------------------------------------------- project files
     // The save/open halves need Tauri, but buildProject/loadProject are pure and are where data
@@ -1276,7 +1349,7 @@
           [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
           [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 1 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 0, pixBreakIn: 0.5 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }],
-          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
           [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }], [["pixBitsAt"], { pixBits: 4, pixSparks: 0 }, { pixBits: 0, pixSparks: 0 }],
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
@@ -1420,10 +1493,25 @@
           const loops3 = ["Pixel Shield", "Pixel Wisps", "Pixel Torch", "Pixel Meteor", "Pixel Dust Devil"];
           const seam3 = loops3.filter((nm) => { const L = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 0 && same(at(nm, 0), at(nm, L)) && !same(at(nm, 0), at(nm, L / 2))); });
           ok(!seam3.length, "§46: …and the new loops join with no seam (trails, spin, see-through)", seam3.join(", ") || loops3.length + " loops");
+          // §49: strokes draw in every kind and stand alone with Blobs off; color cycling rolls the colors (not the shape) and
+          // its loops join; Blobs off with no stroke leaves only the bits
+          const strokeBad = [1, 2, 3, 4].filter((k) => !(lit(at("Pixel Explosion", 0.25, { pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixStroke: k, pixSpread: 180 })) > 20));
+          ok(!strokeBad.length, "§49: every stroke kind draws on its own (ring, beam, swoosh, rays)", strokeBad.map((k) => PIX_STROKES[k]).join(", ") || "4 kinds");
+          ok(lit(at("Pixel Explosion", 0.3, { pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0 })) === 0 && lit(at("Pixel Explosion", 0.3)) > 0,
+             "§49: Blobs off with no stroke draws nothing, and on (the default) the blobs as always");
+          const cyc = ["Pixel Portal", "Pixel Energy Shield", "Pixel Spinner", "Pixel Warp Rings", "Pixel Waterfall", "Pixel Lava Pool"];
+          const cycBad = cyc.filter((nm) => { const L = PRESETS[nm].duration, o = { pixSparks: 0, pixStrokeWobble: 0, pixLumps: 0 };   // sparks, wobble and a boiling edge move; a fifth in, no whole cycle has passed
+            return !(same(at(nm, 0, o), at(nm, L / 5, o)) && rgbAt(nm, 0, o).join() !== rgbAt(nm, L / 5, o).join() && rgbAt(nm, 0).join() === rgbAt(nm, L).join()); });
+          ok(!cycBad.length, "§49: color cycling rolls the colors through a still shape, and its loops join", cycBad.join(", ") || cyc.length + " loops");
+          ok(rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 1.5 }).join() === rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 2 }).join(), "§49: on a Loop the cycle speed rounds to whole cycles (so it repeats)");
           // §46: the Palette section reaches pixel art (moods to their hand-picked ramps or "effect colors", a color set's own colors)
           applyPreset(PRESETS["Pixel Explosion"], "Pixel Explosion", true);
           const mood = (nm) => Array.from(document.querySelectorAll("#paletteGrid .pal-btn")).find((b) => b.textContent === nm).click();
           mood("Ice"); const pIce = state.pixColors; mood("Toxic"); const pTox = state.pixColors, hueTox = state.pixHue;
+          // §50: Snow, Ink, Earth and Ghost; Ink darkens and the next mood brings full brightness back
+          mood("Ink"); const pInk = state.pixColors, bInk = state.bright; mood("Snow"); const pSnow = state.pixColors, bSnow = state.bright; mood("Earth"); const pEarth = state.pixColors;
+          ok(PIX_RAMPS[pInk] === "ink" && bInk < 0.3 && PIX_RAMPS[pSnow] === "cloud" && bSnow === 1 && PIX_RAMPS[pEarth] === "dust" && PALETTES.some((x) => x[0] === "Ghost"),
+             "§50: Ink (almost black), Snow (almost white), Earth and Ghost moods; Ink's dark goes with the next mood", [PIX_RAMPS[pInk], bInk, PIX_RAMPS[pSnow], bSnow, PIX_RAMPS[pEarth]].join(" "));
           applyColorSet({ id: "t46", name: "Test", colors: ["#203040", "#506070", "#8090a0", "#c0d0e0"] }, false);
           const csPal = pixPalette(state).pal.slice(4).map((c) => c.map((v) => v.toString(16).padStart(2, "0")).join(""));
           ok(pIce === PIX_RAMPS.indexOf("ice") && pTox === PIX_RAMPS.indexOf("effect colors") && hueTox === 0 && state.pixColors === pTox &&

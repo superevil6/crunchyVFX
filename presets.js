@@ -1912,6 +1912,123 @@ window.PRESETS = {
     duration: 0.7, fps: 30, frameSize: 3, originX: 0.55, originY: 0.85,
     moments: ["dash", "land"],
   },
+  // §48: pickups, UI, crit, shield, spawn and emotes (the moments pixel art was thin on); heart, coin and drop shapes
+  "Pixel Coin": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 6, pixCount: 1, pixCore: 0, pixSpan: 0, pixSpeed: 0, pixScatter: 0, pixGravity: -7, pixDrag: 2, pixBlob: 1.0, pixSizeVar: 0, pixGrow: 0.05, pixSwell: 0, pixLife: 0.9, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.75, pixHeat: 0, pixTone: 0.75, pixColors: 4, hue: 48, sat: 1, pixLight: 0.5, pixRim: 0.4, pixSmoke: 0, pixBits: 0, pixSparks: 10, pixSparkSpeed: 4,
+    duration: 0.8, frameSize: 3, originY: 0.6, fps: 30,
+    moments: ["pickup"],
+  },
+  "Pixel Gem Sparkle": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 1, pixEmit: 2, pixCount: 6, pixScatter: 0.6, pixSpeed: 3, pixDrag: 3, pixGravity: 0, pixBlob: 0.4, pixCore: 0, pixSwell: -1, pixLife: 0.7, pixColors: 7, pixHeat: 0, pixTone: 0.7, pixLight: 0.5, pixRim: 0.3, pixSparks: 10, pixSparkSpeed: 6, pixSmoke: 0, pixBits: 0, pixLumps: 0, pixBreak: 0, pixSizeVar: 0,
+    duration: 0.6, frameSize: 2, fps: 30,
+    moments: ["pickup"],
+  },
+  "Pixel Heart Pickup": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 5, pixCount: 1, pixCore: 0, pixSpan: 0, pixSpeed: 0, pixScatter: 0, pixGravity: -10, pixDrag: 2, pixBlob: 1.1, pixSizeVar: 0, pixGrow: 0.12, pixSwell: 0.3, pixLife: 0.85, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.7, pixHeat: 0, pixTone: 0.55, pixColors: 4, hue: 350, sat: 0.85, pixLight: 0.55, pixRim: 0.35, pixSmoke: 0, pixBits: 0, pixSparks: 6, pixSparkSpeed: 4,
+    duration: 0.8, frameSize: 3, originY: 0.6, fps: 30,
+    moments: ["pickup",  "heal"],
+  },
+  "Pixel Level Up": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 2, pixEmit: 2, pixCount: 8, pixScatter: 0.3, pixSpeed: 6, pixSpeedVar: 0.2, pixDrag: 2, pixGravity: -12, pixBlob: 0.5, pixSizeVar: 0.2, pixCore: 1, pixGrow: 0.08, pixSwell: -1, pixLife: 0.75, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.7, pixHeat: 1, pixCool: 0.5, pixTone: 0.6, pixColors: 6, pixLight: 0.4, pixRim: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 16, pixSparkSpeed: 7, pixFlash: 1, pixSize: 1.3,
+    duration: 1, originY: 0.65, frameSize: 3, fps: 30,
+    moments: ["powerup",  "ui"],
+  },
+  "Pixel Button Sparkle": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixSize: 1.5, pixShape: 2, pixEmit: 2, pixCount: 4, pixAngle: -45, pixScatter: 0.6, pixSpeed: 3, pixDrag: 4, pixGravity: 0, pixBlob: 0.75, pixSizeVar: 0, pixCore: 1, pixGrow: 0.08, pixSwell: -1, pixLife: 0.8, pixColors: 4, hue: 190, sat: 0.9, pixHeat: 1, pixCool: 0.4, pixTone: 0.5, pixLight: 0.3, pixRim: 0.2, pixSparks: 0, pixBits: 0, pixSmoke: 0, pixLumps: 0, pixBreak: 0,
+    duration: 0.28, frameSize: 2, fps: 30,
+    moments: ["ui"],
+  },
+  "Pixel Confirm": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 2, pixShape: 3, pixCount: 8, pixScatter: 0.3, pixSpeed: 6, pixDrag: 3, pixGravity: 0, pixBlob: 0.3, pixSwell: -1, pixLife: 0.75, pixColors: 4, hue: 120, sat: 0.85, pixHeat: 1, pixCool: 0.3, pixTone: 0.5, pixFlash: 1, pixCore: 1, pixSparks: 0, pixBits: 0, pixSmoke: 0, pixLumps: 0, pixBreak: 0, pixSizeVar: 0,
+    duration: 0.33, frameSize: 2, fps: 30,
+    moments: ["ui"],
+  },
+  "Pixel Crit Star": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 2, pixCount: 1, pixCore: 1, pixSpan: 0, pixSpeed: 0, pixGravity: 0, pixBlob: 1.5, pixSizeVar: 0, pixGrow: 0.06, pixSwell: 0.4, pixLife: 0.9, pixLumps: 0, pixBreak: 1, pixBreakAs: 0, pixBreakAt: 0.3, pixHeat: 1, pixCool: 0.45, pixTone: 0.5, pixLight: 0.5, pixRim: 0.35, pixSmoke: 0, pixBits: 14, pixBitSpeed: 9, pixBitGravity: 20, pixSparks: 20, pixSparkSpeed: 15, pixFlash: 2, shake: 0.3,
+    duration: 0.37, frameSize: 4, fps: 30,
+    moments: ["crit",  "hit"],
+  },
+  "Pixel Shield Hit": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixCount: 1, pixCore: 1, pixHollow: 0.75, pixBlob: 1.6, pixLife: 0.9, pixSwell: 0.2, pixGrow: 0, pixSpeed: 0, pixGravity: 0, pixColors: 8, pixHeat: 1, pixCool: 0.4, pixTone: 0.5, pixLight: 0.5, pixRim: 0.4, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.5, pixSparks: 14, pixSparkSpeed: 10, pixFlash: 1, pixSeeThrough: 0.3, pixLumps: 0.2, pixSmoke: 0, pixBits: 0,
+    duration: 0.28, frameSize: 4, fps: 30,
+    moments: ["shield",  "hit"],
+  },
+  "Pixel Appear": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixCount: 1, pixCore: 1, pixBlob: 1.3, pixBreakIn: 0.6, pixBreakFrom: 2, pixBreakAs: 1, pixBreak: 1, pixLife: 0.95, pixSwell: 0, pixGrow: 0, pixSpeed: 0, pixGravity: 0, pixColors: 4, hue: 280, sat: 0.8, pixHeat: 0.5, pixTone: 0.55, pixLight: 0.5, pixRim: 0.35, pixLumps: 0.25, pixSparks: 10, pixSparkSpeed: 5, pixSmoke: 0, pixBits: 0, pixBreakAt: 0.6,
+    duration: 1, frameSize: 3, fps: 30,
+    moments: ["spawn"],
+  },
+  "Pixel Sweat Drop": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixCount: 1, pixCore: 0, pixSpan: 0, pixShape: 7, pixSpeed: 2, pixAngle: 70, pixSpread: 0, pixScatter: 0, pixGravity: 8, pixDrag: 1, pixBlob: 0.55, pixSizeVar: 0, pixGrow: 0.1, pixSwell: 0, pixLife: 0.9, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.8, pixHeat: 0, pixTone: 0.6, pixColors: 7, pixLight: 0.6, pixRim: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 0,
+    duration: 0.8, frameSize: 2, originY: 0.35, fps: 30,
+    moments: ["status"],
+  },
+  "Pixel Hearts": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 1, pixAngle: -90, pixSpread: 50, pixCount: 4, pixSpan: 0.7, pixLoop: 1, pixSpeed: 3, pixGravity: -6, pixDrag: 1, pixShape: 5, pixBlob: 0.5, pixSizeVar: 0.3, pixGrow: 0.15, pixSwell: 0, pixLife: 0.7, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.75, pixColors: 4, hue: 345, sat: 0.85, pixTone: 0.6, pixLight: 0.5, pixRim: 0.3, pixSparks: 0, pixBits: 0, pixSmoke: 0, pixLumps: 0, pixHeat: 0,
+    duration: 1.2, frameSize: 3, originY: 0.75, fps: 30,
+    moments: ["status"],
+  },
+  // §49: strokes (rings, beams, swooshes, rays) and color cycling (flow, rings, spiral, spin, shimmer)
+  "Pixel Laser": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 8, pixStroke: 2, pixAngle: 0, pixStrokeSize: 3, pixStrokeW: 0.16, pixStrokeLife: 0.9, pixStrokeWobble: 0.5, pixColors: 8, pixHeat: 1, pixCool: 0.5, pixTone: 0.5, pixCycle: 1, pixCycleSpeed: -3, pixCycleBands: 5, pixSparkSpeed: 6, pixSize: 1.5,
+    originX: 0.12, duration: 0.6, frameSize: 4, fps: 30,
+    moments: ["projectile"],
+  },
+  "Pixel Ring Blast": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 12, pixStroke: 1, pixStrokeN: 2, pixSpan: 0.15, pixStrokeSize: 1.6, pixStrokeW: 0.22, pixStrokeLife: 0.7, pixColors: 0, pixHeat: 1, pixCool: 0.5, pixTone: 0.3, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.6, pixSparkSpeed: 12,
+    duration: 0.6, frameSize: 4, fps: 30,
+    moments: ["explosion",  "land"],
+  },
+  "Pixel Swoosh": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixSize: 1.4, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixStroke: 3, pixAngle: -30, pixSpread: 200, pixStrokeSize: 1.6, pixStrokeW: 0.5, pixStrokeLife: 0.8, pixColors: 7, pixHeat: 1, pixCool: 0.4, pixTone: 0.4, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.55,
+    duration: 0.35, frameSize: 3, fps: 30,
+    moments: ["hit"],
+  },
+  "Pixel Impact Rays": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixSize: 1.4, pixBlobs: 1, pixSmoke: 0, pixBits: 0, pixSparks: 10, pixStroke: 4, pixSpread: 360, pixStrokeN: 8, pixStrokeSize: 1.8, pixStrokeW: 0.17, pixStrokeLife: 0.95, pixColors: 6, pixHeat: 1, pixCool: 0.9, pixTone: 0.6, pixFlash: 1, pixCount: 1, pixCore: 1, pixShape: 2, pixBlob: 0.6, pixSpeed: 0, pixLife: 0.5, pixSwell: -1, pixBreak: 0, pixLumps: 0, pixSparkSpeed: 10,
+    duration: 0.3, frameSize: 3, fps: 30,
+    moments: ["hit",  "crit"],
+  },
+  "Pixel Muzzle Rays": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 1, pixSmoke: 0.25, pixBits: 0, pixSparks: 8, pixStroke: 4, pixAngle: 0, pixSpread: 70, pixStrokeN: 4, pixStrokeSize: 2.2, pixStrokeW: 0.28, pixStrokeLife: 0.8, pixColors: 0, pixHeat: 1, pixCool: 0.9, pixTone: 0.55, pixCount: 1, pixCore: 1, pixBlob: 0.7, pixSpeed: 0, pixLife: 0.5, pixSwell: -1, pixLumps: 0.3, pixBreak: 0, pixSparkSpeed: 14, pixStep: 24, pixFlash: 1,
+    originX: 0.15, duration: 0.25, frameSize: 3, fps: 30,
+    moments: ["muzzle"],
+  },
+  "Pixel Twin Swoosh": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixSize: 1.35, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixStroke: 3, pixAngle: 20, pixSpread: 240, pixStrokeN: 2, pixSpan: 0.2, pixStrokeSize: 1.2, pixStrokeW: 0.45, pixStrokeLife: 0.7, pixColors: 4, hue: 0, sat: 0.9, pixHeat: 1, pixCool: 0.35, pixTone: 0.45, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.55,
+    duration: 0.45, frameSize: 3, fps: 30,
+    moments: ["hit"],
+  },
+  "Pixel Portal": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixCount: 1, pixCore: 1, pixSpeed: 0, pixGravity: 0, pixBlob: 1.6, pixSizeVar: 0, pixGrow: 0, pixSwell: 0, pixLife: 1, pixLoop: 1, pixLumps: 0.15, pixBreak: 0, pixHeat: 0, pixTone: 0.5, pixColors: 4, hue: 275, sat: 0.85, pixLight: 0, pixRim: 0, pixSmoke: 0, pixBits: 0, pixSparks: 6, pixSparkSpeed: 2, pixCycle: 3, pixCycleSpeed: -2, pixCycleBands: 5, pixFlat: 0.3,
+    duration: 1, frameSize: 3, fps: 30,
+    moments: ["spawn",  "ambient"],
+  },
+  "Pixel Waterfall": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixStroke: 2, pixAngle: 90, pixStrokeSize: 2.6, pixStrokeW: 0.55, pixStrokeLife: 1, pixLoop: 1, pixStrokeWobble: 0.15, pixColors: 7, pixHeat: 0, pixTone: 0.5, pixCycle: 1, pixCycleSpeed: -4, pixCycleBands: 4, pixSize: 1.4,
+    originY: 0.08, duration: 1, frameSize: 4, fps: 30,
+    moments: ["ambient"],
+  },
+  "Pixel Energy Shield": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixLoop: 1, pixCount: 1, pixCore: 1, pixHollow: 0.7, pixSpeed: 0, pixGravity: 0, pixGrow: 0, pixSwell: 0, pixBlob: 1.7, pixLife: 1, pixLumps: 0, pixBreak: 0, pixColors: 8, pixHeat: 0, pixTone: 0.55, pixLight: 0, pixRim: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixCycle: 4, pixCycleSpeed: 2, pixCycleBands: 3,
+    duration: 1, frameSize: 4, fps: 30,
+    moments: ["shield",  "status"],
+  },
+  "Pixel Lava Pool": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixLoop: 1, pixCount: 1, pixCore: 1, pixSpeed: 0, pixGravity: 0, pixGrow: 0, pixSwell: 0, pixBlob: 1.8, pixLife: 1, pixLumps: 0.2, pixBreak: 0, pixColors: 0, pixHeat: 0, pixTone: 0.6, pixLight: 0, pixRim: 0, pixFlat: 1, pixSmoke: 0, pixBits: 0, pixSparks: 5, pixSparkSpeed: 3, pixCycle: 5, pixCycleSpeed: 1, pixCycleBands: 6,
+    duration: 1.5, frameSize: 4, originY: 0.6, fps: 30,
+    moments: ["ambient"],
+  },
+  "Pixel Spinner": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixLoop: 1, pixCount: 1, pixCore: 1, pixHollow: 0.55, pixSpeed: 0, pixGravity: 0, pixGrow: 0, pixSwell: 0, pixBlob: 1.2, pixLife: 1, pixLumps: 0, pixBreak: 0, pixColors: 4, hue: 190, sat: 0.9, pixHeat: 0, pixTone: 0.5, pixLight: 0, pixRim: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixCycle: 4, pixCycleSpeed: 1, pixCycleBands: 8,
+    duration: 0.8, frameSize: 2, fps: 30,
+    moments: ["ui"],
+  },
+  "Pixel Warp Rings": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixLoop: 1, pixCount: 1, pixCore: 1, pixSpeed: 0, pixGravity: 0, pixGrow: 0, pixSwell: 0, pixBlob: 1.5, pixLife: 1, pixLumps: 0, pixBreak: 0, pixColors: 6, pixHeat: 0, pixTone: 0.5, pixLight: 0, pixRim: 0, pixSmoke: 0, pixBits: 0, pixSparks: 8, pixSparkSpeed: 3, pixCycle: 2, pixCycleSpeed: -3, pixCycleBands: 4, pixFlat: 0.6,
+    duration: 1, frameSize: 3, originY: 0.65, fps: 30,
+    moments: ["spawn",  "powerup"],
+  },
   "Rain On Glass": {
     shape: 0, count: 1, opacity: 0,
     drops: 0.8, dropCount: 26, dropSize: 0.75, dropSag: 0.45,
@@ -2337,7 +2454,9 @@ window.PRESET_CATEGORIES = [
                  "Pixel Spark", "Pixel Muzzle", "Pixel Splash", "Pixel Glint", "Pixel Slash",
                  "Pixel Zap", "Pixel Fireball", "Pixel Slam", "Pixel Shockwave", "Pixel Heal", "Pixel Teleport", "Pixel Campfire", "Pixel Bubbles", "Pixel Smolder",
                  "Pixel Lightning", "Pixel Arc", "Pixel Holy Burst", "Pixel Halo", "Pixel Shadow Burst", "Pixel Dark Orb", "Pixel Ice Shards", "Pixel Frost Nova", "Pixel Charge", "Pixel Gust", "Pixel Rock Burst", "Pixel Toxic Puff",
-                 "Pixel Hit Flash", "Pixel Dash", "Pixel Shield", "Pixel Wisps", "Pixel Summon", "Pixel Torch", "Pixel Meteor", "Pixel Dust Devil", "Pixel Run Dust"]],
+                 "Pixel Hit Flash", "Pixel Dash", "Pixel Shield", "Pixel Wisps", "Pixel Summon", "Pixel Torch", "Pixel Meteor", "Pixel Dust Devil", "Pixel Run Dust",
+                 "Pixel Coin", "Pixel Gem Sparkle", "Pixel Heart Pickup", "Pixel Level Up", "Pixel Button Sparkle", "Pixel Confirm", "Pixel Crit Star", "Pixel Shield Hit", "Pixel Appear", "Pixel Sweat Drop", "Pixel Hearts",
+                 "Pixel Laser", "Pixel Ring Blast", "Pixel Swoosh", "Pixel Impact Rays", "Pixel Muzzle Rays", "Pixel Twin Swoosh", "Pixel Portal", "Pixel Waterfall", "Pixel Energy Shield", "Pixel Lava Pool", "Pixel Spinner", "Pixel Warp Rings"]],
 ];
 
 // THE MOMENTS (VFX-DESIGN §26). A game developer thinks in moments ("I need a hit spark, a death puff, a pickup sparkle"),

@@ -125,6 +125,10 @@
 <nav id="presetbar" aria-label="Effects">
   <div class="pbar-top">
     <span class="pbar-title" id="presetsHead">Effects</span>
+    <!-- §48 THE LOOK (AJ: "a big switch at the top"): smooth effects, pixel art, or both, through every list and roll -->
+    <span class="lookswitch" id="lookSwitch" role="group" aria-label="Look of the effects" title="Which look your game uses: the strip, the moments, search, Randomize, Breed and the Wizard keep to it. Remembered for this game.">
+      <button type="button" data-look="" aria-pressed="true" title="Every effect, smooth and pixel art"><canvas class="lookpic" width="12" height="12" aria-hidden="true"></canvas>Any look</button><button type="button" data-look="smooth" aria-pressed="false" title="Smooth effects only: soft particles, glows and blends"><canvas class="lookpic" width="12" height="12" aria-hidden="true"></canvas>Smooth</button><button type="button" data-look="pixel" aria-pressed="false" title="Pixel art only: drawn as sprite art with hard pixels, a few colors and outlines"><canvas class="lookpic" width="12" height="12" aria-hidden="true"></canvas>Pixel art</button>
+    </span>
     <input type="search" id="presetSearch" class="pickfilter" placeholder="Search: fireball, heal, slash…" autocomplete="off" spellcheck="false" title="Find an effect by name, category or the moment it is for: hit, death, pickup, heal, projectile, fireball, slash, ice…">
     <span class="zoomgroup pbar-mode" id="presetMode" role="group" aria-label="Filter the effects by" title="Narrow the effects by the moment in a game they are for (a hit, a death, a pickup…), by technique, or by what they are made of (the Wizard's tags: fire, ice, tech…)">
       <button type="button" data-mode="moments" class="active" aria-pressed="true" title="By the moment in a game: a hit, a death, a pickup, a projectile…">Moments</button><button type="button" data-mode="cats" aria-pressed="false" title="By technique: the effects grouped by how they are made (explosions, structures, symmetry…)">Techniques</button><button type="button" data-mode="tags" aria-pressed="false" title="By material: fire, ice, tech… (the Wizard's tags)">Tags</button>
@@ -380,7 +384,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 15;   // must match --css-build in styles.css
+  const CSS_BUILD = 16;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -841,6 +845,17 @@ const PARAMS = [
   ["pixOutline", "Outline", 0, 1, 1, 1, "", "Pixel art"],
   ["pixSeeThrough", "See-through", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixFlash", "Flash frames", 0, 4, 1, 0, "", "Pixel art"],
+  // §49 strokes and color cycling (off; Blobs on is the layer as it always was)
+  ["pixBlobs", "Blobs", 0, 1, 1, 1, "", "Pixel art"],
+  ["pixStroke", "Stroke", 0, PIX_STROKES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_STROKES],
+  ["pixStrokeSize", "Stroke size", 0.1, 3, 0.01, 1.2, "", "Pixel art"],
+  ["pixStrokeW", "Stroke width", 0.02, 0.8, 0.01, 0.18, "", "Pixel art"],
+  ["pixStrokeLife", "Stroke life", 0.05, 1, 0.01, 0.6, "", "Pixel art"],
+  ["pixStrokeN", "Stroke copies", 1, 16, 1, 1, "", "Pixel art"],
+  ["pixStrokeWobble", "Stroke wobble", 0, 1, 0.01, 0, "", "Pixel art"],
+  ["pixCycle", "Color cycling", 0, PIX_CYCLES.length - 1, 1, 0, "", "Pixel art", "enum", PIX_CYCLES],
+  ["pixCycleSpeed", "Cycle speed", -6, 6, 0.5, 1, "", "Pixel art"],
+  ["pixCycleBands", "Cycle bands", 1, 24, 0.5, 6, "px", "Pixel art"],
   ["pixBits", "Debris", 0, 40, 1, 4, "", "Pixel art"],
   ["pixBitsAt", "Bits at", 0, 1, 0.01, 0, "", "Pixel art"],
   ["pixBitSpeed", "Debris speed", 0, 20, 0.1, 4, "", "Pixel art"],
@@ -1590,6 +1605,9 @@ const PARAM_WHEN = {
   pixBreakAt:  (s) => s.pixBreak > 0,
   pixTrailN:   (s) => s.pixTrail > 0,
   pixLandAs:   (s) => s.pixFloor > 0,
+  pixStrokeSize: (s) => s.pixStroke > 0, pixStrokeW: (s) => s.pixStroke > 0, pixStrokeLife: (s) => s.pixStroke > 0,
+  pixStrokeN:  (s) => s.pixStroke > 0, pixStrokeWobble: (s) => Math.round(s.pixStroke) === 2 || Math.round(s.pixStroke) === 4,
+  pixCycleSpeed: (s) => s.pixCycle > 0, pixCycleBands: (s) => s.pixCycle > 0,
   pixPulses:   (s) => Math.round(s.pixEmit) < 2,
   pixBitSpeed: (s) => s.pixBits > 0,
   pixBitGravity: (s) => s.pixBits > 0,
@@ -3764,19 +3782,26 @@ const PALETTES = [
   ["Wind",     { hue: 165, hueLife: 20,  sat: 0.3,  coreWhite: 0.85, blend: 0 }],   // AJ 2026-10-28: the Wizard's Wind
   ["Heal",     { hue: 135, hueLife: 15,  sat: 0.8,  coreWhite: 0.65, blend: 0 }],   // AJ 2026-10-28: the Wizard's Healing
   ["Buff",     { hue: 8,   hueLife: 38,  sat: 0.95, coreWhite: 0.7,  blend: 0 }],   // AJ 2026-10-28: the Wizard's Buff (red rising to gold)
+  // §50 (AJ, 2026-11-04: "an almost white, and an almost black", and any other obvious ones missing). A third entry is the
+  // swatch drawn by hand, where the hue math can't show the mood (white and black have no hue to speak of).
+  ["Snow",     { hue: 205, hueLife: 0,   sat: 0.06, coreWhite: 1, blend: 1 }, ["#ffffff", "#eef2f8", "#d6dde8"]],
+  ["Ink",      { hue: 255, hueLife: 0,   sat: 0.25, coreWhite: 0.05, bright: 0.16, blend: 1 }, ["#3a3848", "#1c1a24", "#0a090e"]],
+  ["Earth",    { hue: 28,  hueLife: -6,  sat: 0.38, coreWhite: 0.08, bright: 0.72, blend: 1 }],
+  ["Ghost",    { hue: 175, hueLife: 12,  sat: 0.35, coreWhite: 0.9,  blend: 0 }],
 ];
 // §46: a mood reaches PIXEL ART too (AJ: "it does a hue shift and not a palette swap, so the palette section doesn't seem
 // to affect anything"): the pixel layer's Colors go to the mood's hand-picked ramp where there is one, otherwise to
 // "effect colors" (built from the hue the mood just set), and its Hue shift back to 0. A color set does the same, and
 // "effect colors" then draws the set's own colors (pixPalette).
-const PIX_MOOD_RAMPS = { Fire: "fire", Ember: "fire", Blood: "blood", Ice: "ice", Frost: "ice", Electric: "electric", Holy: "holy", Void: "shadow" };
+const PIX_MOOD_RAMPS = { Fire: "fire", Ember: "fire", Blood: "blood", Ice: "ice", Frost: "ice", Electric: "electric", Holy: "holy", Void: "shadow",
+                         Snow: "cloud", Ink: "ink", Earth: "dust" };   // §50
 function pixFollowColors(mood) {
   if (!(state.pix > 0)) return;
   const r = PIX_RAMPS.indexOf(PIX_MOOD_RAMPS[mood] || "effect colors");
   state.pixColors = r; state.pixHue = 0;
 }
 const paletteGrid = document.getElementById("paletteGrid");
-for (const [name, patch] of PALETTES) {
+for (const [name, patch, swatch] of PALETTES) {
   const b = document.createElement("button");
   b.className = "engine-btn pal-btn";
   // §22.1: a swatch of what the palette paints, in three hard steps along a particle's life (its hue, then drifted by
@@ -3785,6 +3810,7 @@ for (const [name, patch] of PALETTES) {
   sw.className = "pal-swatch"; sw.setAttribute("aria-hidden", "true");
   for (const t of [0, 0.5, 1]) {
     const c = document.createElement("i");
+    if (swatch) { c.style.background = swatch[t * 2]; sw.appendChild(c); continue; }
     c.style.background = hsl(patch.hue + (patch.hueLife || 0) * t, patch.sat, t === 0 ? 0.55 + 0.35 * (patch.coreWhite || 0) : 0.5 - 0.12 * t);
     sw.appendChild(c);
   }
@@ -3808,6 +3834,7 @@ for (const [name, patch] of PALETTES) {
     } else {
       for (const k in patch) state[k] = patch[k];
       if (!("hueVar" in patch)) state.hueVar = PARAM_BY_KEY.hueVar[5];
+      if (!("bright" in patch)) state.bright = PARAM_BY_KEY.bright[5];   // §50: Ink darkens; every other mood is at full brightness
       pixFollowColors(name);
     }
     syncUI(); commitHistory(); rerender();
@@ -4115,7 +4142,7 @@ const inv = (x, a, b) => clamp01((x - a) / (b - a));
 // `kalCount` is excluded by name and it is the only exception: kaleidoscope segments are SYMMETRY,
 // not density. Trebling them does not make an effect busier, it makes it a different effect.
 const BUSY_PARAMS = PARAMS.filter((p) =>
-  (/Count$/.test(p[0]) || p[0] === "count" || p[0] === "shatterPieces") && p[0] !== "kalCount");
+  (/Count$/.test(p[0]) || p[0] === "count" || p[0] === "shatterPieces" || p[0] === "pixBits" || p[0] === "pixSparks") && p[0] !== "kalCount");   // §47: the pixel art's crumbs and sparks are amounts too
 
 // This macro is RELATIVE where every other one is absolute, so it needs a baseline to scale from.
 // Captured the first time the slider moves and cleared by syncUI, i.e. whenever anything else
@@ -4136,78 +4163,150 @@ function busyCapture() {
 }
 function busyReset() { busyBase = null; busyV = 0.5; }
 
+// §47 (AJ, 2026-11-04: on pixel effects "the pixel effects don't really seem to use half the QUICK SHAPE bars"). Every
+// macro was written for the main particle emitter, and a pixel-art preset hides that emitter (count 1, opacity 0), so
+// Violence, Weight, Swirl… moved settings nothing draws. A macro is now made of PARTS, each for what it shapes and run
+// only while that is drawn: `rest` is the particles and the layers round them (what the macro always moved), `pix` the
+// pixel-art layer's own settings. An effect whose pixel art stands in for the particles (they are hidden, opacity 0)
+// leaves `rest` out: the Flash or Shockwave Violence adds must not bring the particle knobs back. A macro with nothing
+// drawn to move hides (`macroShows`); one with `layer` (the pixel-only ones at the end) shows only while that is on.
+const macroRest = () => state.opacity > 0 || !(state.pix > 0);
+const macroPix = () => state.pix > 0;
+// the pixel art's lead hue: its ramp's middle color as drawn (pixPalette: the ramp, the set or the effect colors, turned)
+function pixLeadHue(st) {
+  const P = pixPalette(st), [r, g, b] = P.pal[4 + Math.floor(P.n / 2)].map((c) => c / 255);
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (d < 1e-6) return 0;
+  const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+const hueGap = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
+
 const MACROS = [
   { name: "Violence", id: "mViolence", left: "gentle", right: "brutal",
     to(v) {
-      state.count = Math.round(lerpN(20, 600, v));
-      state.speed = Math.round(lerpN(70, 620, v));
-      state.speedVar = lerpN(0.2, 0.7, v);
-      state.drag = lerpN(0.6, 0.25, v);
-      state.flash = v < 0.15 ? 0 : lerpN(0, 1, v);
-      state.wave = v < 0.3 ? 0 : lerpN(0, 0.7, v);
+      if (macroRest()) {
+        state.count = Math.round(lerpN(20, 600, v));
+        state.speed = Math.round(lerpN(70, 620, v));
+        state.speedVar = lerpN(0.2, 0.7, v);
+        state.drag = lerpN(0.6, 0.25, v);
+      }
+      if (macroPix()) {
+        state.pixSpeed = lerpN(2, 16, v);
+        state.pixSpeedVar = lerpN(0.25, 0.7, v);
+        state.pixSparks = Math.round(lerpN(0, 24, v));
+        state.pixBits = Math.round(lerpN(0, 14, v));
+        state.pixFlash = v < 0.7 ? 0 : v < 0.9 ? 1 : 2;     // white frames on the hardest hits
+      }
+      if (macroRest()) {                             // a soft halo and a smooth ring are not pixel art: those stay the particles'
+        state.flash = v < 0.15 ? 0 : lerpN(0, 1, v);
+        state.wave = v < 0.3 ? 0 : lerpN(0, 0.7, v);
+      }
       state.shake = v < 0.55 ? 0 : lerpN(0, 0.45, v);
     },
-    from() { return inv(state.speed, 70, 620); } },
+    from() { return macroRest() || !macroPix() ? inv(state.speed, 70, 620) : inv(state.pixSpeed, 2, 16); } },
   { name: "Softness", id: "mSoftness", left: "hard", right: "hazy",
     to(v) {
-      state.fadeIn = lerpN(0, 0.3, v);
-      state.fadeOut = lerpN(0.15, 0.85, v);
-      state.glow = lerpN(0, 0.7, v);
-      state.sizeVar = lerpN(0.15, 0.65, v);
-      state.smokeSoft = lerpN(0.3, 0.95, v);
-      state.alphaCut = lerpN(0.55, 0, v);          // hard edges live at the LOW end
-      state.outline = v < 0.3 ? 1 : 0;
+      if (macroRest()) {
+        state.fadeIn = lerpN(0, 0.3, v);
+        state.fadeOut = lerpN(0.15, 0.85, v);
+        state.glow = lerpN(0, 0.7, v);
+        state.sizeVar = lerpN(0.15, 0.65, v);
+        state.smokeSoft = lerpN(0.3, 0.95, v);
+        state.alphaCut = lerpN(0.55, 0, v);          // hard edges live at the LOW end
+        state.outline = v < 0.3 ? 1 : 0;
+      }
+      if (macroPix()) {                              // pixel art stays pixel art: dithered steps, not blur
+        state.pixSoft = lerpN(0, 1, v);
+        state.pixSeeThrough = v < 0.6 ? 0 : lerpN(0, 0.3, (v - 0.6) / 0.4);
+        state.pixOutline = v < 0.75 ? 1 : 0;
+        state.pixLumps = lerpN(0.1, 0.6, v);
+      }
     },
-    from() { return inv(state.fadeOut, 0.15, 0.85); } },
+    from() { return macroRest() || !macroPix() ? inv(state.fadeOut, 0.15, 0.85) : inv(state.pixSoft, 0, 1); } },
   { name: "Chunkiness", id: "mChunk", left: "smooth", right: "8-bit",
     to(v) {
-      state.pixelate = Math.max(1, Math.round(lerpN(1, 8, v)));
-      state.posterize = Math.round(lerpN(32, 5, v));
-      state.alphaCut = v < 0.1 ? 0 : lerpN(0, 0.55, v);
-      state.outline = v > 0.6 ? 1 : 0;
-      state.dither = v > 0.35 ? lerpN(0, 0.6, v) : 0;
-      state.fps = Math.round(lerpN(24, 12, v));    // low frame rates ARE part of the pixel look
+      if (macroRest()) {
+        state.pixelate = Math.max(1, Math.round(lerpN(1, 8, v)));
+        state.posterize = Math.round(lerpN(32, 5, v));
+        state.alphaCut = v < 0.1 ? 0 : lerpN(0, 0.55, v);
+        state.outline = v > 0.6 ? 1 : 0;
+        state.dither = v > 0.35 ? lerpN(0, 0.6, v) : 0;
+        state.fps = Math.round(lerpN(24, 12, v));    // low frame rates ARE part of the pixel look
+      }
+      if (macroPix()) {                              // already pixels: fewer, bigger ones, at fewer drawings a second
+        state.pixDetail = Math.round(lerpN(140, 32, v));
+        state.pixStep = Math.round(lerpN(24, 8, v));
+      }
     },
-    from() { return inv(state.pixelate, 1, 8); } },
+    from() { return macroRest() || !macroPix() ? inv(state.pixelate, 1, 8) : inv(state.pixDetail, 140, 32); } },
   { name: "Weight", id: "mWeight", left: "floaty", right: "heavy",
     to(v) {
-      state.gravity = Math.round(lerpN(-120, 900, v));
-      state.drag = lerpN(0.55, 0.15, v);
-      state.life = lerpN(1.4, 0.4, v);
-      state.grow = lerpN(0.3, -0.7, v);
+      if (macroRest()) {
+        state.gravity = Math.round(lerpN(-120, 900, v));
+        state.drag = lerpN(0.55, 0.15, v);
+        state.life = lerpN(1.4, 0.4, v);
+        state.grow = lerpN(0.3, -0.7, v);
+      }
+      if (macroPix()) {
+        state.pixGravity = lerpN(-10, 50, v);
+        state.pixDrag = lerpN(3, 0.3, v);
+        state.pixLife = lerpN(1.3, 0.5, v);
+      }
     },
-    from() { return inv(state.gravity, -120, 900); } },
+    from() { return macroRest() || !macroPix() ? inv(state.gravity, -120, 900) : inv(state.pixGravity, -10, 50); } },
   // §25: "Heat: white-hot" on an ice spell read as a contradiction (usability test). Heat is INTENSITY, not temperature:
   // how white and glowing a particle's core is, in whatever color Hue gives it. The ends and the row's note say so.
   { name: "Heat", id: "mHeat", left: "dim", right: "white-hot",
     note: "Heat is intensity, not temperature: how white and glowing each particle's core is, in any color (an ice spell can have a white-hot core). Hue sets the color.",
     to(v) {
-      state.coreWhite = lerpN(0, 0.95, v);
-      state.glow = lerpN(0, 0.65, v);
-      state.hueLife = Math.round(lerpN(20, -55, v));
-      state.bright = lerpN(0.7, 1, v);
-      state.sat = lerpN(0.55, 1, v);
+      if (macroRest()) {
+        state.coreWhite = lerpN(0, 0.95, v);
+        state.glow = lerpN(0, 0.65, v);
+        state.hueLife = Math.round(lerpN(20, -55, v));
+        state.bright = lerpN(0.7, 1, v);
+        state.sat = lerpN(0.55, 1, v);
+      }
+      if (macroPix()) {                              // a white-hot core that cools down the ramp
+        state.pixHeat = lerpN(0, 1, v);
+        state.pixCool = lerpN(0.15, 0.8, v);
+        state.pixCore = lerpN(0.3, 1, v);
+      }
     },
-    from() { return inv(state.coreWhite, 0, 0.95); } },
+    from() { return macroRest() || !macroPix() ? inv(state.coreWhite, 0, 0.95) : inv(state.pixHeat, 0, 1); } },
   // Sits next to Heat because they're the two color macros, and they don't collide: Heat owns
   // saturation, brightness and the over-life drift, while this owns only the base hue.
   //
   // Stops at 330° rather than 360° on purpose. Hue wraps, so a full-range slider would put red at
   // BOTH ends — which reads as a broken control ("I dragged it all the way and ended up back
   // where I started"). 0→330 spans red through violet once, with every hue represented.
+  //
+  // §47: pixel art draws from its own ramps (Fire, Ice…) that the base hue never reaches, so for it Hue turns the ramp
+  // (Hue shift) until its lead color sits on the knob's hue (the turn is luminance-keeping, not exactly HSL: two passes).
   { name: "Hue", absolute: true, id: "mHue", left: "red", right: "violet",
     to(v) {
       state.hue = Math.round(lerpN(0, 330, v));
+      if (macroPix()) {
+        let s = 0;
+        for (let k = 0; k < 2; k++) s = (s + hueGap(state.hue, pixLeadHue(Object.assign({}, state, { pixHue: s }))) + 360) % 360;
+        state.pixHue = Math.round(s) % 360;
+      }
     },
-    from() { return inv(state.hue, 0, 330); } },
+    from() { return inv(macroRest() || !macroPix() ? state.hue : (pixLeadHue(state) + 15) % 360 - 15, 0, 330); } },
   { name: "Swirl", id: "mSwirl", left: "straight", right: "vortex",
     to(v) {
-      state.swirl = Math.round(lerpN(0, 520, v));
-      state.turb = lerpN(0, 0.65, v);
-      state.turbSpeed = lerpN(0.5, 2, v);
-      state.spin = Math.round(lerpN(0, 320, v));
+      if (macroRest()) {
+        state.swirl = Math.round(lerpN(0, 520, v));
+        state.turb = lerpN(0, 0.65, v);
+        state.turbSpeed = lerpN(0.5, 2, v);
+        state.spin = Math.round(lerpN(0, 320, v));
+      }
+      if (macroPix()) {                              // blobs curl round as they fly; a turning column spins
+        state.pixCurl = lerpN(0, 2.4, v);
+        state.pixSpin = Math.round(lerpN(0, 2, v) * 4) / 4;
+      }
     },
-    from() { return inv(state.swirl, 0, 520); } },
+    from() { return macroRest() || !macroPix() ? inv(state.swirl, 0, 520) : inv(Math.abs(state.pixCurl), 0, 2.4); } },
   // The only macro that scales rather than sets, because "how many particles" does not mean the
   // same thing in two effects the way "how much swirl" does. 40 is a dense splatter and a thin
   // explosion, and the counts WITHIN one effect are tuned against each other — Paint Splatter is
@@ -4226,17 +4325,46 @@ const MACROS = [
       // burst is already past what the frame can show.
       const f = busyV <= 0.5 ? lerpN(0.15, 1, busyV / 0.5) : lerpN(1, 3, (busyV - 0.5) / 0.5);
       for (const p of BUSY_PARAMS) {
-        if (!busyActive(p[7])) continue;
+        if (!busyActive(p[7]) || (p[7] === "Emitter" && !macroRest())) continue;
         const b = busyBase[p[0]];
         if (!(b > 0)) continue;
         state[p[0]] = snapToStep(b * f, p[2], p[3], p[4]);
       }
     },
     from() { return busyV; } },
+  // §47: the pixel art's own shapes, shown only while the effect has pixel art (and after the eight every effect has)
+  { name: "Crumble", id: "mCrumble", layer: "Pixel art", left: "holds", right: "crumbles",
+    note: "How the pixel blobs end: holding their shape to the last, or crumbling away early into dithered crumbs.",
+    to(v) {
+      state.pixBreak = lerpN(0, 1, v);
+      state.pixBreakAt = lerpN(0.95, 0.3, v);
+      state.pixBits = Math.round(lerpN(0, 10, v));
+    },
+    from() { return inv(state.pixBreakAt, 0.95, 0.3); } },
+  { name: "Streak", id: "mStreak", left: "dots", right: "streaks", layer: "Pixel art",
+    note: "Round blobs, or blobs stretched along their flight with a trail behind them.",
+    to(v) {
+      state.pixStretch = lerpN(0, 1, v);
+      state.pixTrail = v < 0.4 ? 0 : lerpN(0, 0.8, (v - 0.4) / 0.6);
+    },
+    from() { return inv(state.pixStretch, 0, 1); } },
+  { name: "Shading", id: "mShade", left: "flat", right: "rounded", layer: "Pixel art",
+    note: "Flat cel colors, or a lit side, a highlight and a rim, so each blob reads as round.",
+    to(v) {
+      state.pixLight = lerpN(0, 0.85, v);
+      state.pixRim = lerpN(0, 0.6, v);
+    },
+    from() { return inv(state.pixLight, 0, 0.85); } },
 ];
+// a macro shows while it has something drawn to move: its layer on, or (the general eight) the pixel art or the rest
+function macroShows(m) {
+  if (m.layer) { const L = LAYER_GROUPS.find((x) => x.g === m.layer); return !!(L && L.is()); }
+  if (m.id === "mBusy") return BUSY_PARAMS.some((p) => busyActive(p[7]) && (p[7] !== "Emitter" || macroRest()) && state[p[0]] > 0);
+  return macroRest() || macroPix();
+}
 
 const macroBox = document.getElementById("macros");
-const macroInputs = {};
+const macroInputs = {}, macroRows = {};
 for (const m of MACROS) {
   const row = document.createElement("div");
   row.className = "macro-row";
@@ -4249,6 +4377,7 @@ for (const m of MACROS) {
     '" min="0" max="1" step="0.01" value="0">' +
     '<span class="macro-end macro-end-r">' + m.right + "</span>";
   macroBox.appendChild(row);
+  macroRows[m.id] = row;
   const input = row.querySelector("input");
   macroInputs[m.id] = input;
   input.addEventListener("input", () => { applyMacro(m, +input.value); scheduleRender(); });
@@ -4301,6 +4430,7 @@ function applyMacro(m, v) {
 }
 function updateMacros() {
   for (const m of MACROS) {
+    if (macroRows[m.id]) macroRows[m.id].hidden = !macroShows(m);
     const el = macroInputs[m.id];
     if (el) el.value = clamp01(macroBase[m.id] && macroBase[m.id].v != null ? macroBase[m.id].v : m.from());
   }
@@ -4533,6 +4663,21 @@ let presetQuery = "", presetChip = "", presetPage = 0, presetPageFor = "", prese
 // own WIZARD_TAGS, derived per preset by wizardTagsOf (no list per preset). That section is declared further down, so it
 // hands itself over (presetTagSrc) once it exists; until then there are no tag chips. Not remembered (no new key, §22).
 let presetMode = "moments", presetTags = [], presetTagSrc = null;
+// §48 THE LOOK: "" (any), "smooth" or "pixel". A preset is pixel art when it draws with the pixel-art layer (every one
+// of the Pixel art category, and a My Effect made from one). Remembered per game (the planted folder; "" on the web or
+// with none), in this browser. `var`: buildPresetStrip may run before this line.
+var presetLook = "";
+const LOOK_KEY = "crunchyvfx.look";
+function lookPrefs() { try { const o = JSON.parse(localStorage.getItem(LOOK_KEY) || "{}"); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } }
+function lookLoad() {
+  const o = lookPrefs(), k = project ? project.dir : "";
+  const v = Object.prototype.hasOwnProperty.call(o, k) ? o[k] : o[""];
+  presetLook = v === "smooth" || v === "pixel" ? v : "";
+}
+function lookSave() { try { const o = lookPrefs(); o[project ? project.dir : ""] = presetLook; localStorage.setItem(LOOK_KEY, JSON.stringify(o)); } catch (e) { /* private mode */ } }
+const presetIsPixel = (name) => !!(PRESETS[name] && PRESETS[name].pix > 0);
+const presetLookOk = (name) => !presetLook || (presetLook === "pixel") === presetIsPixel(name);
+lookLoad();
 // §27: GAME MOMENTS, the strip's default way in (AJ, 2026-10-15: a game developer thinks "I need a hit spark, a death
 // puff, a pickup sparkle", not in techniques). PRESET_MOMENTS (presets.js) is the moments in order; each preset's own
 // `moments` field says which it serves (a preset may serve several, and sits under its FIRST on the All page). A
@@ -4647,6 +4792,7 @@ function searchWordReach(w) {
 }
 // 2 = a strong hit (every word in the name, the category or an alias's named presets), 1 = related, 0 = no.
 function presetQueryHit(name, q) {
+  if (!presetLookOk(name)) return 0;          // §48: the Look narrows everything, counts included
   if (!q) return 2;
   const cat = PRESET_CAT_OF[name] || "", hay = (name + " " + cat).toLowerCase();
   let score = 2;
@@ -4884,6 +5030,42 @@ document.getElementById("presetMode").addEventListener("click", (e) => {
   document.getElementById("presetChips").scrollLeft = 0;
   buildPresetStrip();
 });
+// §48: the Look switch. Each button carries a 12 px picture drawn here: a soft glow, a hard pixel blob, half of each.
+function syncLook() {
+  for (const b of document.querySelectorAll("#lookSwitch button")) {
+    const on = b.dataset.look === presetLook;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+}
+function lookChanged() { lookLoad(); syncLook(); document.getElementById("presetChips").scrollLeft = 0; buildPresetStrip(); }
+function lookSet(v) { presetLook = v; lookSave(); syncLook(); document.getElementById("presetChips").scrollLeft = 0; buildPresetStrip(); }
+(function () {
+  const BLOB = ["....####....", "..##ffff##..", ".#ffwwffoo#.", ".#fwwffoooo#", "#ffwffoooor#", "#ffffooorrr#",
+                "#fffoooorrr#", "#foooorrrrr#", ".#oorrrrrr#.", ".#rrrrrrr#..", "..##rrr##...", "....###....."];
+  const COL = { "#": "#3a1d18", w: "#fff6c8", f: "#ffd23f", o: "#f77f1e", r: "#c8321e" };
+  const draw = (cv, look) => {
+    const g = cv.getContext("2d");
+    g.clearRect(0, 0, 12, 12);
+    if (look !== "pixel") {
+      const gr = g.createRadialGradient(5, 5, 0.5, 6, 6, 6);
+      gr.addColorStop(0, "rgba(255,250,220,1)"); gr.addColorStop(0.45, "rgba(255,190,70,0.9)"); gr.addColorStop(1, "rgba(240,90,30,0)");
+      g.fillStyle = gr; g.beginPath(); g.arc(6, 6, 6, 0, Math.PI * 2); g.fill();
+    }
+    if (look !== "smooth") {
+      for (let y = 0; y < 12; y++) for (let x = look === "" ? 6 : 0; x < 12; x++) {
+        const c = COL[BLOB[y][x]];
+        if (c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
+        else if (look === "") g.clearRect(x, y, 1, 1);
+      }
+    }
+  };
+  for (const b of document.querySelectorAll("#lookSwitch button")) {
+    draw(b.querySelector("canvas"), b.dataset.look);
+    b.addEventListener("click", () => { if (b.dataset.look !== presetLook) lookSet(b.dataset.look); });
+  }
+  syncLook();
+})();
 // THE CHIP ROW PAGES BY ARROWS TOO (CrunchyTile's chipPager; AJ there: a scrollbar "pops up to block" the chips). The row
 // stays one line with its overflow hidden; ‹ › step it by most of its width and gray out at either end, and they hide
 // when every chip fits. The wheel steps it as well.
@@ -5266,7 +5448,7 @@ function randomize() {
   //
   // Zero to three, not "each with some probability": 42 independent coin flips would put a dozen
   // systems on at once and every roll would look like the same brown soup.
-  const pixRoll = Math.random() < 0.2;
+  const pixRoll = presetLook === "pixel" ? true : presetLook === "smooth" ? false : Math.random() < 0.2;   // §48: the Look
   {
     const pool = LAYER_GROUPS.filter((L) => L.g !== "Pixel art");   // a pixel layer comes as a pixel roll (below), never jittered
     const n = pixRoll ? 0 : Math.floor(Math.random() * 4);
@@ -7535,7 +7717,7 @@ function decodePatch(str) {
 // range" doesn't give you a sibling, it gives you an unrelated effect. Deriving that half from
 // PARAMS rather than listing it means a new enum can't be added and silently left out — which is
 // exactly what happened when Layer B arrived with three of them.
-const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather"]);   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
+const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather", "pixBlobs"]);   // §49: a child keeps its blobs (off with no stroke is nothing)   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2") BREED_SKIP.add(p[0]);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
@@ -7622,7 +7804,8 @@ function mutateGenome(src, amount, opts) {
   // things you'd never reach by dragging sliders", and that has to stay true — so a bred child may
   // gain ONE new system, at odds that leave most of the litter recognizable. Variations never do.
   if (opts.explore && Math.random() < 0.3) {
-    const off = LAYER_GROUPS.filter((L) => !on.has(L.g));
+    // §48: under a Look a child never changes look: no pixel layer on a smooth game, no soft layer on a pixel effect
+    const off = presetLook === "pixel" && pixOnly ? [] : LAYER_GROUPS.filter((L) => !on.has(L.g) && !(presetLook === "smooth" && L.g === "Pixel art"));
     if (off.length) {
       const L = pick(off);
       const after = withState(g, () => { L.on(); return snapshotState(); });
@@ -9104,7 +9287,13 @@ function wizardStop() {
   for (const p of miniPlayers) if (wizBody.contains(p.canvas)) { for (const cv of p.frames) releaseCanvas(cv); p.frames = []; }
   clearMinis(wizBody);
 }
-function wizardOpen() { wizModal.hidden = false; wizardDraw(); }
+// §48: the Look picks the Wizard's era answer to start with (Pixel art, or As drawn on a smooth game); a chosen era stays
+function wizardLookEra() {
+  const a = wizard.answers;
+  if (presetLook === "pixel" && !a.era) a.era = WIZARD_PIXEL;
+  else if (presetLook === "smooth" && a.era === WIZARD_PIXEL) a.era = "";
+}
+function wizardOpen() { wizardLookEra(); wizModal.hidden = false; wizardDraw(); }
 function wizardClose() { wizardStop(); wizModal.hidden = true; }
 // The picture on a question's card: a preset's strip picture (cached), so a card shows the kind of thing it means.
 function wizardCardPic(name) {
@@ -9367,7 +9556,7 @@ function wizardResults() {
   more.title = "Nine more for the same answers";
   more.addEventListener("click", () => { wizard.seed++; wizardDraw(); });
   const again = wizEl("button", "", "Start over");
-  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], moves: [], era: "", power: WIZARD_POWER.neutral }; wizard.step = 0; wizard.seed = 1; wizardDraw(); });
+  again.addEventListener("click", () => { wizard.answers = { type: "", tags: [], moves: [], era: "", power: WIZARD_POWER.neutral }; wizardLookEra(); wizard.step = 0; wizard.seed = 1; wizardDraw(); });
   wizFoot.appendChild(back); wizFoot.appendChild(more); wizFoot.appendChild(again);
   wizFoot.appendChild(wizEl("span", "hint", "Play shows one moving; click one to load it. Ctrl+Z undoes it."));
   iconsIn(wizFoot);
@@ -10068,7 +10257,7 @@ const TOUR = [
 
   // Then the refining tools, coarse to fine.
   { target: "#macros", title: "Shape it in plain language",
-    body: MACROS.length + " sliders that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
+    body: MACROS.filter((m) => !m.layer).length + " sliders (more when the effect has pixel art) that each move a dozen real controls at once. Drag Violence or Chunkiness and watch the whole effect change — no jargon needed." },
   { target: "#shapeSection", title: "Pick a particle",
     body: SHAPES.length + " shapes, from soft glows to flames, gears and skulls. Click as many as you like — a mixed selection gives each particle its own shape. Filter by name, draw your own, or import a PNG." },
   { target: "#timeBtn", title: "Stage it in time",
@@ -10662,6 +10851,7 @@ async function projOpen(dir) {
   projMoments = null;
   projPalM = null; projPalettes = null; projGamePal = null; projPalFp = null; csetPlanted = [];
   projOpened = "";
+  lookChanged();                             // §48: this game's Look
   projAfter();
   const n = projFromBrowser().length;
   projStatus("Planted in " + P.name + " (" + (P.engine === "godot" ? "a Godot project, " : P.engine === "unity" ? "a Unity project, " : "") +
@@ -10690,6 +10880,7 @@ async function projOpenRecent(dir) {
 }
 function projClose() {
   project = null;
+  lookChanged();
   projSuite = [];
   projMoments = null;
   projPalM = null; projPalettes = null; projGamePal = null; projPalFp = null; csetPlanted = [];

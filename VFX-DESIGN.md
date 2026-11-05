@@ -2532,3 +2532,144 @@ Follow-ups the same day (AJ):
     first, repeats dropped, up to six, the outline darker still. It only does this when `colorSet` is set, so no
     preset moves.
   - A test clicks Ice, Toxic and a four-color set.
+
+## 47. Quick shape knows what is drawn (2026-11-04, AJ: the pixel effects "don't really seem to use half the QUICK SHAPE bars")
+
+Every macro moved the main particle emitter's settings, and all 42 pixel-art presets hide that emitter (count 1,
+opacity 0), so Violence, Softness, Weight, Swirl and Heat moved settings nothing drew, and Hue turned a base hue the pixel
+ramps never read. A macro is now made of PARTS, each run only while what it shapes is drawn:
+- `macroRest()`: the particles and the layers round them, which is everything the macro always moved. It is left out
+  only when pixel art stands in for hidden particles (pix on, opacity 0). That way the Flash a macro might add can't
+  bring the particle knobs back.
+- `macroPix()`: the pixel art's own settings. Violence moves speed, sparks, debris and flash frames (Flash and Shockwave
+  stay with the particles: a soft halo is not pixel art). Softness moves soft steps, see-through, outline and lumps.
+  Chunkiness moves art pixels and art FPS. Weight moves gravity, drag and life. Heat moves heat, cool time and core.
+  Swirl moves curl and spin. Busyness also counts debris and sparks (`BUSY_PARAMS`), and skips the hidden emitter's count.
+- **Hue** on pixel art turns the ramp (Hue shift) until its lead color (`pixLeadHue`: the ramp's middle color as drawn,
+  whether that's a ramp, a color set or the effect colors) sits on the knob's hue. pixTurn keeps luminance and isn't
+  exact HSL, so it takes two passes.
+- **Three pixel-only macros** (`layer: "Pixel art"`, after the eight): Crumble (holds → crumbles: break up, break at,
+  debris), Streak (dots → streaks: stretch, then trail) and Shading (flat → rounded: highlight, rim).
+- **A macro with nothing drawn to move hides** (`macroShows`, in updateMacros). Without pixel art the eight show as
+  before; with it, all eleven show.
+
+Every effect without pixel art gets exactly the old macros (the parts are the old bodies). No preset changed, and the
+frame hash is unchanged. Rows (regression.js §47):
+- the pixel macros hide without pixel art
+- on four pixel presets every macro shows, moves a pixel setting, never moves a hidden particle setting, and returns the
+  effect exactly
+- Hue lands the lead color within 25° of the knob
+
+Each macro's two ends were checked side by side on Pixel Explosion. Suites: engine 759/759, desktop 76/76, web 15/15,
+hash 371 unchanged. Later, if wanted: parts for other layers that stand in for the particles (a Shockwave-only or
+Weather-only effect still shows the particle knobs).
+
+## 48. The Look switch; 11 pixel effects; heart, coin and drop (2026-11-04, AJ: "a big switch at the top somewhere")
+
+**The Look** (`#lookSwitch`, after "Effects" at the head of the strip, its biggest control, with three buttons):
+- **The buttons:** Any look / Smooth / Pixel art, each with a 12 px picture drawn in code (a soft glow, a pixel blob,
+  half and half).
+- **What counts as pixel art:** an effect drawn by the pixel-art layer (`presetIsPixel`: pix > 0). That covers every
+  Pixel art preset and a My Effect made from one.
+- **Where it applies:** `presetQueryHit` returns 0 for an effect of the other look. So every moment, category, tag,
+  search and count narrows to the look; Hit under Pixel art is the 12 pixel hits.
+- **Rolls:** Randomize rolls the look (pixel always, or never). Breed's one new system never changes a child's look (no
+  pixel layer in a smooth game, no soft layer on a pixel effect). The Wizard starts its era answer on Pixel art, or As
+  drawn under Smooth (`wizardLookEra`; an era the person picks stays).
+- **Memory:** remembered per game (`crunchyvfx.look` in this browser, keyed by the planted folder; "" on the web),
+  re-read when a game opens or closes.
+- Any look is the default and is exactly the strip as it was. styles.css is --css-build 16.
+
+**Shapes** (PIX_SHAPES appended):
+- **heart** and **drop** are inside-tests on unit coordinates (`PIX_SHAPE_IN`). Their metric is the edge scale, found
+  by halving, squared, so the rim, highlight and Break from read them like the round blob. The heart points down; the
+  drop has a round head and a pointed tail along its flight.
+- **coin** is a disc whose width follows |cos| over its life, flipping edge-on and back two and a half times.
+
+**11 presets** (53 in Pixel art), aimed at the moments pixel art was thin on:
+
+| Moment | Before | After | New |
+|---|---|---|---|
+| UI | 0 | 3 | Level Up, Button Sparkle, Confirm |
+| Pickup | 1 | 4 | Coin, Gem Sparkle, Heart Pickup |
+| Crit | 1 | 2 | Crit Star (a big star that crumbles into debris, two flash frames, shake) |
+| Shield | 1 | 2 | Shield Hit |
+| Spawn | 2 | 3 | Appear (materializes from the bottom, holds, breaks away) |
+| Status | | | Sweat Drop, Hearts |
+
+Tried and dropped:
+- **Rain:** the line emitter births its blobs in order, so it draws a sweep. Weather needs area emission, a future lever.
+- **Shotgun blast:** it read as the muzzle flash plus smoke.
+
+Muzzle is still 1. Suites:
+- engine 769/769 (§48 rows: the switch, the strip and its counts under each look, rolls, Breed, the Wizard, memory)
+- desktop 76/76, web 15/15
+- frame hash: 387, every one of the 327 shared hashes unchanged
+
+## 49. Strokes and color cycling (2026-11-04, AJ: two of the pixel engines "we're ignoring")
+
+Both live inside the pixel-art layer, so they share its grid, ramp, outline, see-through, break-up and flash frames.
+
+**Strokes** (`pixStroke`: none / ring / beam / swoosh / rays, `PIX_STROKES` append-only):
+- **What they are:** hard banded lines in the ramp. The core is a step brighter and the edge a step darker; a hot core
+  is white. They cool like a blob (Heat, Cool time, Tone) and break up through the same pattern (Break up, Break at,
+  Break up as).
+- **Ring:** expands from the origin, thinning as it goes. Copies are staggered over Emit time.
+- **Beam:** shoots out along Direction, holds, thins away. Copies fan over Spread, and Wobble makes its width shiver
+  each art frame.
+- **Swoosh:** a smear round the origin over Spread. The head whips round, the tail catches up late, and it's fattest
+  near the head. Copies are staggered.
+- **Rays:** lines out from the center, round Spread, tapering to their tips and leaving the center as they go.
+- **Sizes:** Stroke size is in layer units (like Scatter), and Stroke width is a share of it.
+- **On a Loop:** a stroke with full Stroke life holds steady (a waterfall, a constant laser).
+- **Blobs** (`pixBlobs`, on): off leaves a stroke, and the sparks and debris, on their own. Breed never flips it
+  (BREED_SKIP).
+
+**Color cycling** (`pixCycle`: off / flow / rings / spiral / spin / shimmer, `PIX_CYCLES` append-only), the palette
+rotation trick:
+- **How it works:** after drawing, every ramp pixel takes its step from a pattern value minus the clock, on a triangle
+  wave (dark, light, dark), so the bands roll smoothly through the layer's own shape. Smoke, the outline and the loose
+  pixels keep their colors.
+- **Patterns:** flow is stripes along Direction, rings run out from the origin, spiral is rings that turn, spin is
+  sectors round the origin, and shimmer is clumped noise.
+- **Rows:** Cycle speed is cycles per clip, rounded to whole ones on a Loop so it repeats. Cycle bands is the width in
+  art px.
+
+**12 presets** (65 in Pixel art):
+- Strokes: Laser (a wobbling beam whose bands flow), Ring Blast, Swoosh, Twin Swoosh, Impact Rays (crit), Muzzle Rays
+  (muzzle: 2 now).
+- Cycling: Portal (spiral), Waterfall (a held beam flowing down), Energy Shield (spin on a hollow blob), Lava Pool
+  (shimmer, flat), Spinner (UI), Warp Rings.
+
+Rows (regression.js §49):
+- every stroke kind draws on its own
+- Blobs off with no stroke draws nothing
+- cycling rolls colors through a still shape and its six loops join
+- a Loop rounds the speed
+- the PARAM_WHEN rules
+
+Suites: engine 773/773, desktop 76/76, web 15/15. Frame hash: 404, every one of the 354 shared hashes unchanged.
+
+## 50. Snow, Ink, Earth and Ghost moods (2026-11-04, AJ: "an almost white, and an almost black … any other obvious ones")
+
+**Four Palette moods** (PALETTES, after Buff):
+- **Snow** (almost white): sat 0.06, a full hot core, normal blend.
+- **Ink** (almost black): brightness 0.16, normal blend.
+- **Earth** (browns for dirt, rock and dust; the moods had none): hue 28, brightness 0.72.
+- **Ghost** (a pale glowing cyan): additive.
+
+**Swatches:** an entry's optional third element is a hand-drawn swatch (Snow, Ink), where the hue math can't show white
+or black.
+
+**Brightness:** Ink is the first mood to set it, so every other mood now puts Brightness back to full. Otherwise one
+click on Ink would leave everything after it dark.
+
+**On pixel art:** Snow takes the cloud ramp and Earth the dust ramp. Ink takes a new **ink** ramp (PIX_RAMPS appended):
+near-black with a cold gray lit side so it reads on a dark ground, and its own darker smoke. Ghost takes "effect colors".
+
+A smooth Snow can't be held white by a ramp: a mood leaves a hand-drawn ramp alone on purpose, so the ramp would stick
+after the next mood click. Its full core does the job.
+
+Results:
+- one new engine row (774/774); desktop 76/76, web 15/15
+- frame hash unchanged, 404 (no preset uses a mood)
