@@ -2415,16 +2415,76 @@ function drawLines(g, st, t, xf, fs, ox, oy, seed) {
 // splat on a floor) and BITS (debris chunks on arcs, and sparks: single flickering pixels). The explosion and the blood
 // spurt are presets. PIX_EMITS and PIX_RAMPS are append-only (stored indices).
 // bolt (§44): a jagged line out along Direction, both ends pinned, re-struck every art frame (a zap, lightning)
-const PIX_EMITS = ["burst", "stream", "ring", "arc", "line", "bolt"];
+const PIX_EMITS = ["burst", "stream", "ring", "arc", "line", "bolt", "area"];   // append-only (§51: area)
 // a blob's silhouette (append-only): the distance a pixel is from the center, measured four ways
 const PIX_STROKES = ["none", "ring", "beam", "swoosh", "rays"];          // §49, append-only
 const PIX_CYCLES = ["off", "flow", "rings", "spiral", "spin", "shimmer"];  // §49, append-only
-const PIX_SHAPES = ["round", "diamond", "star", "square", "cross", "heart", "coin", "drop"];   // append-only (§48: heart, coin, drop)
+const PIX_SHAPES = ["round", "diamond", "star", "square", "cross", "heart", "coin", "drop",   // append-only (§48: heart, coin, drop)
+  "comic burst", "skull", "exclaim (!)", "question (?)", "Z (sleep)", "music note", "anger mark", "text"];   // §52: the stamps
+// §52 STAMPS: small bitmaps drawn here (CC0, by hand in code), stamped at a WHOLE scale so their pixels stay square: a blob
+// of radius r draws its stamp at round(2.2 r / its larger side), at least 1, so growing pops it 1x, 2x, 3x. Shaded as a
+// blob (an edge cell is rim, the rest body; the highlight by position), broken up, outlined and cycled as one.
+const PIX_BITMAPS = {
+  9: [".#####.", "#######", "#..#..#", "#######", ".##.##.", ".#####.", ".#.#.#."],                   // skull
+  10: ["##", "##", "##", "##", "##", "..", "##"],                                                       // !
+  11: [".###.", "##.##", "...##", "..##.", "..##.", ".....", "..##."],                                   // ?
+  12: ["#####", "...##", "..##.", ".##..", "#####"],                                                   // Z
+  13: ["...##.", "...#.#", "...#..", "...#..", ".###..", "####..", ".##..."],                           // a note
+  14: [".##.##.", "##...##", "#.....#", ".......", "#.....#", "##...##", ".##.##."],                   // an anger mark
+};
+// the TEXT stamp's font: 5 rows, 3 wide (M, N, W and the heart wider), capitals only; a column between letters
+const PIX_FONT = {
+  "0": ["###", "#.#", "#.#", "#.#", "###"], "1": [".#.", "##.", ".#.", ".#.", "###"], "2": ["###", "..#", "###", "#..", "###"],
+  "3": ["###", "..#", ".##", "..#", "###"], "4": ["#.#", "#.#", "###", "..#", "..#"], "5": ["###", "#..", "###", "..#", "###"],
+  "6": ["###", "#..", "###", "#.#", "###"], "7": ["###", "..#", "..#", ".#.", ".#."], "8": ["###", "#.#", "###", "#.#", "###"],
+  "9": ["###", "#.#", "###", "..#", "###"],
+  A: [".#.", "#.#", "###", "#.#", "#.#"], B: ["##.", "#.#", "##.", "#.#", "##."], C: [".##", "#..", "#..", "#..", ".##"],
+  D: ["##.", "#.#", "#.#", "#.#", "##."], E: ["###", "#..", "##.", "#..", "###"], F: ["###", "#..", "##.", "#..", "#.."],
+  G: [".##", "#..", "#.#", "#.#", ".##"], H: ["#.#", "#.#", "###", "#.#", "#.#"], I: ["###", ".#.", ".#.", ".#.", "###"],
+  J: ["..#", "..#", "..#", "#.#", ".#."], K: ["#.#", "#.#", "##.", "#.#", "#.#"], L: ["#..", "#..", "#..", "#..", "###"],
+  M: ["#...#", "##.##", "#.#.#", "#...#", "#...#"], N: ["#..#", "##.#", "#.##", "#..#", "#..#"], O: [".#.", "#.#", "#.#", "#.#", ".#."],
+  P: ["##.", "#.#", "##.", "#..", "#.."], Q: [".#.", "#.#", "#.#", "##.", ".##"], R: ["##.", "#.#", "##.", "#.#", "#.#"],
+  S: [".##", "#..", ".#.", "..#", "##."], T: ["###", ".#.", ".#.", ".#.", ".#."], U: ["#.#", "#.#", "#.#", "#.#", "###"],
+  V: ["#.#", "#.#", "#.#", "#.#", ".#."], W: ["#...#", "#...#", "#.#.#", "##.##", "#...#"], X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
+  Y: ["#.#", "#.#", ".#.", ".#.", ".#."], Z: ["###", "..#", ".#.", "#..", "###"],
+  "+": ["...", ".#.", "###", ".#.", "..."], "-": ["...", "...", "###", "...", "..."], "!": ["#", "#", "#", ".", "#"],
+  "?": ["###", "..#", ".#.", "...", ".#."], "%": ["#.#", "..#", ".#.", "#..", "#.#"], ".": [".", ".", ".", ".", "#"],
+  ":": [".", "#", ".", "#", "."], "/": ["..#", "..#", ".#.", "#..", "#.."],
+  "♥": [".#.#.", "#####", "#####", ".###.", "..#.."], " ": ["..", "..", "..", "..", ".."],
+};
+// §52: the Godot text export reads each frame's stamp scale and center from here (set it to { cur: null }, draw, read)
+var PIX_STAMP_PROBE = null;
+const pixTextCache = new Map();
+function pixTextBitmap(text) {
+  const t = String(text || "").replace(/[−–—]/g, "-").toUpperCase().slice(0, 16);
+  if (pixTextCache.has(t)) return pixTextCache.get(t);
+  const gl = Array.from(t).map((c) => PIX_FONT[c] || PIX_FONT[c.toLowerCase()] || null).filter(Boolean);
+  const rows = ["", "", "", "", ""];
+  gl.forEach((g, k) => { for (let y = 0; y < 5; y++) rows[y] += (k ? "." : "") + g[y]; });
+  const out = rows[0].length ? rows : PIX_BITMAPS[10];
+  pixTextCache.set(t, out);
+  return out;
+}
+// a bitmap's cells: 2 = an edge (rim), 1 = body, 0 = empty
+const pixBmpCache = new Map();
+function pixBmpCells(rows) {
+  if (pixBmpCache.has(rows)) return pixBmpCache.get(rows);
+  const h = rows.length, w = rows[0].length, on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && rows[y][x] === "#";
+  const c = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (on(x, y)) c[y * w + x] = on(x - 1, y) && on(x + 1, y) && on(x, y - 1) && on(x, y + 1) ? 1 : 2;
+  const o = { w, h, c };
+  pixBmpCache.set(rows, o);
+  return o;
+}
 // §48 the shapes that are not symmetric about both axes, as inside-tests on unit coordinates (Y up); their metric is the
 // scale at which a pixel sits on the edge (found by halving: each is star-shaped round its center), squared, as the
 // round blob's x² + y², so the rim, the highlight and Break from read them the same way
 const PIX_SHAPE_IN = {
   5: (X, Y) => { const x = X * 1.14, y = Y * 1.15 + 0.14, q = x * x + y * y - 1; return q * q * q - x * x * y * y * y <= 0; },   // heart, point down
+  8: (X, Y) => {                                                       // §52 a comic burst: eight spikes, long and short
+    const t = (Math.atan2(Y, X) / (Math.PI * 2) + 1) * 8, k = Math.round(t), sp = 1 - Math.abs(t - k) * 2, len = k % 2 ? 0.72 : 1;
+    return Math.hypot(X, Y) <= 0.4 + (len - 0.4) * Math.pow(sp, 1.6);
+  },
   7: (X, Y) => (Y >= 0 ? X * X + Y * Y <= 1 : Y >= -2 && Math.abs(X) <= Math.sqrt(Math.max(0, 1 - Y * Y * 0.25)) * (1 + Y * 0.5)),   // drop: round head, pointed tail (Y = forward)
 };
 function pixShapeM(inside, X, Y) {
@@ -2504,7 +2564,7 @@ function pixNoise(seed, x, y, c, salt) {
 function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   if (st.pix <= 0) return;
   const W = g.canvas.width, H = g.canvas.height;
-  const k = Math.max(1, Math.round(Math.min(W, H) / Math.max(8, st.pixDetail)));   // frame px per art px, whole
+  const k = Math.max(1, Math.round(Math.min(W, H) / Math.max(8, st.pixDetail))), kPx = k;   // frame px per art px, whole
   const Wa = Math.ceil(W / k), Ha = Math.ceil(H / k);
   const L = Math.max(0.1, st.duration);
   const step = Math.max(1, st.pixStep || 15);
@@ -2587,10 +2647,16 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   const drawBlob = (i, cx, cy, vx, vy, r, a, hot, smoky, b, pr, erode, inv, tl) => {
     // stretch: a capsule from the tail to the head along the flight, fat at the head (a joined trail's piece: tl long)
     const sp = Math.hypot(vx, vy), ux = sp ? vx / sp : 0, uy = sp ? vy / sp : 1;
-    const tail = tl >= 0 ? tl : st.pixStretch * Math.min(r * 5, sp * 0.035);
+    const bmp = shp >= 9 ? pixBmpCells(shp === 15 ? pixTextBitmap(st.pixText || "-12") : PIX_BITMAPS[shp]) : null;   // §52 a stamp
+    // the TEXT scales by a fixed 7 cells, never its length, so every word and number is one size (and the Godot glyph
+    // atlas, one glyph per row, lays out any string as the app draws it: godotTextFiles)
+    const S = bmp ? Math.max(1, Math.round(2.2 * r / (shp === 15 ? 7 : Math.max(bmp.w, bmp.h)))) : 0;
+    const bx0 = bmp ? Math.round(cx - bmp.w * S / 2) : 0, by0s = bmp ? Math.round(cy - bmp.h * S * ys / 2) : 0;
+    if (bmp && i === 0 && PIX_STAMP_PROBE) PIX_STAMP_PROBE.cur = { S: S, cx: cx, k: kPx };   // the head is drawn last
+    const tail = bmp ? 0 : tl >= 0 ? tl : st.pixStretch * Math.min(r * 5, sp * 0.035);
     const tx = cx - ux * tail, ty = cy - uy * tail;
-    const x0 = Math.floor(Math.min(cx, tx) - r - 1), x1 = Math.ceil(Math.max(cx, tx) + r + 1);
-    const y0 = Math.floor(Math.min(cy, ty) - r - 1), y1 = Math.ceil(Math.max(cy, ty) + r + 1);
+    const x0 = bmp ? bx0 : Math.floor(Math.min(cx, tx) - r - 1), x1 = bmp ? bx0 + bmp.w * S - 1 : Math.ceil(Math.max(cx, tx) + r + 1);
+    const y0 = bmp ? by0s : Math.floor(Math.min(cy, ty) - r - 1), y1 = bmp ? by0s + Math.ceil(bmp.h * S * ys) - 1 : Math.ceil(Math.max(cy, ty) + r + 1);
     const baseF = hot > 0 ? (tone + (1 - tone) * hot) * (nR - 2) : tone * (nR - 2), base = Math.round(baseF);
     const yTop = Math.min(cy, ty) - r * ys, yH = Math.max(1, Math.abs(cy - ty) + 2 * r * ys);
     const coinW = shp === 6 ? Math.max(0.14, Math.abs(Math.cos((a * 2.5 + i * 0.37) * Math.PI))) : 1;   // §48: two and a half turns a life
@@ -2601,10 +2667,12 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       const dx = (px - (tx + ux * tail * q)) / (rr * coinW), dy = (py - (ty + uy * tail * q)) / (rr * ys);   // §48: a coin turns edge-on and back
       // a lumpy edge, not a balloon: the radius wobbles with noise round the rim
       const ex = Math.abs(dx), ey = Math.abs(dy);
-      const m = shp === 5 ? pixShapeM(PIX_SHAPE_IN[5], dx, -dy) : shp === 7 ? pixShapeM(PIX_SHAPE_IN[7], dx * uy - dy * ux, dx * ux + dy * uy)
+      let m;
+      if (bmp) { const cl = bmp.c[Math.min(bmp.h - 1, Math.floor((yy - y0) / (S * ys))) * bmp.w + Math.floor((xx - x0) / S)]; m = cl === 2 ? 0.97 : cl === 1 ? 0.45 : 9; }
+      else m = shp === 8 ? pixShapeM(PIX_SHAPE_IN[8], dx, -dy) : shp === 5 ? pixShapeM(PIX_SHAPE_IN[5], dx, -dy) : shp === 7 ? pixShapeM(PIX_SHAPE_IN[7], dx * uy - dy * ux, dx * ux + dy * uy)
               : shp === 6 ? ex * ex + ey * ey : shp === 0 ? ex * ex + ey * ey : shp === 1 ? (ex + ey) * (ex + ey) : shp === 2 ? Math.pow(Math.sqrt(ex) + Math.sqrt(ey), 4)
               : shp === 3 ? Math.max(ex, ey) * Math.max(ex, ey) : Math.pow(Math.max(Math.min(ex, ey) * 3, Math.max(ex, ey)), 2);
-      const d2 = m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && i === 0 && st.pixCore > 0 && emit < 3 && i < nB ? tick * 131 : 0)) - 0.5) : 1);
+      const d2 = bmp ? m : m * (lumps > 0 ? 1 + lumps * (pixNoise(seed, xx, yy, Math.max(1.5, r * 0.45), 470 + i + (loop && i === 0 && st.pixCore > 0 && emit < 3 && i < nB ? tick * 131 : 0)) - 0.5) : 1);
       if (d2 >= 1 || (hollow > 0 && d2 < hollow * hollow)) continue;
       if (erode > 0) {
         if (!from) {
@@ -2627,6 +2695,8 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       else put(xx, yy, RAMP0 + Math.max(0, Math.min(nR - 1, bp + shade)), pr);
     }
   };
+  const areaW = Math.max(0, st.pixAreaW == null ? 1 : st.pixAreaW) * Wa, areaH = Math.max(0, st.pixAreaH == null ? 0.1 : st.pixAreaH) * Ha;
+  const sway = clamp01(st.pixSway || 0);
   const nAll = st.pixBlobs == null || st.pixBlobs > 0 ? nB + nS : 0;   // §49: Blobs off leaves a stroke (and the bits) alone
   for (let i = 0; i < nAll; i++) {
     const isSmoke = i >= nB, r1 = rnd(seed, i, 400), r2 = rnd(seed, i, 401), r3 = rnd(seed, i, 402), r4 = rnd(seed, i, 403), r5 = rnd(seed, i, 404);
@@ -2634,7 +2704,9 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     const core = !isSmoke && i === 0 && st.pixCore > 0 && emit < 3;
     const f = nB > 1 ? i / (nB - 1) : 0;                      // an arc's blobs in order, tail (0) to head (1)
     // birth: a burst crowds the start, a stream spreads evenly through each pulse; the core is there at once
-    const b = core ? 0 : emit >= 3 && !isSmoke ? span * f : isSmoke ? span * 0.7 + 0.24 * r1 : pulse * gap + gap * (P > 1 ? 0.7 : 1) * (emit === 1 ? r1 : Math.pow(r1, 1.4));
+    // §51 AREA: born anywhere in a box round the origin (Area width x height, shares of the frame), at random times
+    // over Emit time, smoke too: weather, dust fields, embers rising off the ground
+    const b = core ? 0 : emit === 6 ? span * r1 : emit >= 3 && !isSmoke ? span * f : isSmoke ? span * 0.7 + 0.24 * r1 : pulse * gap + gap * (P > 1 ? 0.7 : 1) * (emit === 1 ? r1 : Math.pow(r1, 1.4));
     // every blob is done by the end of the clip: a late smoke puff squeezes its life rather than being cut off mid-frame
     // (Big Pixel Boom's last frame still held 5112 pixels, so its loop popped; AJ, 2026-11-02)
     const life0 = st.pixLife * (isSmoke ? 0.9 : 1) * (0.85 + 0.3 * r5);
@@ -2643,13 +2715,15 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
     if (a < 0 || a >= 1) continue;
     let th, d;
     if (emit === 2) { th = th0 + (i / nB) * Math.PI * 2; d = st.pixScatter * R0; }
+    else if (emit === 6) { th = th0 + (r2 - 0.5) * spread; d = 0; }   // §51: each flies along Direction, within Spread
     else if (emit === 4 && !isSmoke) { th = th0 + (r2 - 0.5) * spread * 0.15; d = st.pixScatter * R0 * f; }   // a line out along Direction: a muzzle flash, a thrust
     else if (emit === 5 && !isSmoke) { th = th0; d = st.pixScatter * R0 * f; }   // a bolt: along Direction, its walk added below
     else if (emit === 3 && !isSmoke) { th = th0 + (f - 0.5) * spread; d = st.pixScatter * R0 * (1 + 0.08 * (r3 - 0.5)); }   // a sweep: laid along the arc in order
     else { th = th0 + (r2 - 0.5) * spread * (P > 1 ? 1 + 0.6 * pulse / (P - 1) : 1); d = core ? 0 : st.pixScatter * R0 * Math.sqrt(r3); }
     const v = core ? 0 : R0 * st.pixSpeed * (1 - st.pixSpeedVar * r4) * (P > 1 ? 1 - 0.22 * pulse : 1) * (isSmoke ? 0.5 : 1);
     const jag = bolt && !isSmoke ? bolt[i] : 0;
-    const x0b = ax + Math.cos(th) * d - Math.sin(th0) * jag, y0b = ay + (Math.sin(th) * d * (emit === 5 ? 1 : 0.85) + Math.cos(th0) * jag) * fl;
+    const x0b = emit === 6 ? ax + (r3 - 0.5) * areaW : ax + Math.cos(th) * d - Math.sin(th0) * jag;
+    const y0b = emit === 6 ? ay + (rnd(seed, i, 406) - 0.5) * areaH : ay + (Math.sin(th) * d * (emit === 5 ? 1 : 0.85) + Math.cos(th0) * jag) * fl;
     const wC = curl ? curl * (0.7 + 0.6 * rnd(seed, i, 405)) : 0;
     // where this blob is at its own time sx (clip time uu, for Spin)
     const posAt = (sx, uu) => {
@@ -2657,6 +2731,7 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       let [fx, fy, vx, vy] = fly(ss, v, th, drag, wC);
       if (gather) { vx = -vx; vy = -vy; }                     // flying home: the stretch trails the other way
       let cx = x0b + fx, cy = y0b + fy - (isSmoke ? R0 * 0.5 : 0);
+      if (sway) cx += sway * R0 * 0.4 * Math.sin((ss / life * 1.5 + r5) * Math.PI * 2);   // §51: a flutter (snow, leaves, ash)
       if (spin) {                                              // turned round the origin in the ground's plane; a rise or a
         const sa = spin * Math.PI * 2 * uu, c = Math.cos(sa), sn = Math.sin(sa), f2 = Math.max(0.05, fl);   // fall stays upright (§46: a twister)
         const up = 0.5 * G * ss * ss - (isSmoke ? R0 * 0.5 : 0), rx = cx - ax, ry = (cy - up - ay) / f2;
@@ -2753,7 +2828,8 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
       if (hot > 0.5 && o < 0.3) return RAMP0 + nR - 1;
       return RAMP0 + Math.max(0, Math.min(nR - 1, base + (o < 0.4 ? 1 : 0) - (o > 0.8 ? 1 : 0)));
     };
-    const plot = (xx, yy, o, a, hot) => { const c = shade(o, a, xx, yy); if (c >= 0) put(xx, yy, c, 8 + 10 * hot); };
+    // behind the blobs (a CRIT's rays never cross its letters, a muzzle's core sits on its rays), over their smoke (§52)
+    const plot = (xx, yy, o, a, hot) => { const c = shade(o, a, xx, yy); if (c >= 0) put(xx, yy, c, 0.5 + 9 * hot); };
     for (let c = 0; c < N; c++) {
       const b = sk === 1 || sk === 3 ? (N > 1 ? span * c / (N - 1) : 0) : 0;
       const s = loop ? wrap(u - b) : u - b, a = loop && Ls >= 0.99 && sk !== 1 ? 0.4 : s / Ls;   // a looped stroke of full life holds steady

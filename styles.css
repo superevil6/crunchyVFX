@@ -10,7 +10,7 @@
   :root {
     /* Checked by index.html's core-files guard (CSS_BUILD there): bump both together when this file gains
        rules a feature depends on. */
-    --css-build: 16;
+    --css-build: 17;
     /* VFX's accent is violet (CONSOLIDATION-PLAN.md §9); --accent-dk is the hard step under a filled button;
        text on an accent fill is the base's --on-accent. */
     --accent: #c77dff;
@@ -1311,6 +1311,7 @@ h1.wm img { image-rendering: pixelated; display: block; margin: -14px 0; }
 .pthumb { position: relative; width: 60px; height: 60px; background: #100e15; flex: none; }
 .pthumb img, .pthumb canvas { position: absolute; inset: 0; width: 60px; height: 60px; display: block; image-rendering: pixelated; background: transparent; }
 .pthumb img:not([src]) { visibility: hidden; }
+.pcell.playing .pthumb img { visibility: hidden; }   /* the hover preview plays alone, the still under it hidden */
 .pname { width: 100%; font-size: 10.5px; line-height: 14px; padding-bottom: 1px; color: var(--ink); text-align: center;
          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* a category divider in the All view: a narrow upright label, so a page loses little to it */

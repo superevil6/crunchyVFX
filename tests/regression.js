@@ -107,7 +107,7 @@
                   bubbleText: "Hi", paletteLock: "ff0000,00ff00", duration: 0.4,
                   shapeMix: "2,3", emit2ShapeMix: "5", layerDelay: "Growth:0.2",
                   orbitShapes: "3,10", icon: "coin", colorSet: "theme:fire",
-                  lockFrom: "palette:not-planted", variety: "fh:1,r:1,b:3", fitBox: "0,0,1,1" }, "extras");   // colorSet: §37; lockFrom: §38; variety: §39
+                  lockFrom: "palette:not-planted", variety: "fh:1,r:1,b:3", fitBox: "0,0,1,1", pixText: "KO" }, "extras");   // colorSet: §37; lockFrom: §38; variety: §39; pixText: §52
     for (const k in PATCH_EXTRAS) {
       if (k === "imageSprite" || k === "customSprite") continue;
       ok(state[k] !== PATCH_EXTRAS[k], "extra travels: " + k, JSON.stringify(state[k]).slice(0, 24));
@@ -1349,7 +1349,7 @@
           [["outlineTone"], { outline: 1 }, { outline: 0 }], [["imgLoops", "imgStagger"], { imgCols: 4, imgRows: 1 }, { imgCols: 1, imgRows: 1 }],
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
           [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 1 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 0, pixBreakIn: 0.5 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }],
-          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixAreaW", "pixAreaH"], { pixEmit: 6 }, { pixEmit: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
           [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }], [["pixBitsAt"], { pixBits: 4, pixSparks: 0 }, { pixBits: 0, pixSparks: 0 }],
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
@@ -1504,6 +1504,25 @@
             return !(same(at(nm, 0, o), at(nm, L / 5, o)) && rgbAt(nm, 0, o).join() !== rgbAt(nm, L / 5, o).join() && rgbAt(nm, 0).join() === rgbAt(nm, L).join()); });
           ok(!cycBad.length, "§49: color cycling rolls the colors through a still shape, and its loops join", cycBad.join(", ") || cyc.length + " loops");
           ok(rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 1.5 }).join() === rgbAt("Pixel Portal", 0.3, { pixCycleSpeed: 2 }).join(), "§49: on a Loop the cycle speed rounds to whole cycles (so it repeats)");
+          // §51: the area emitter spreads its births across the box (Area width), Sway flutters them, and weather loops join
+          const wide = box(at("Pixel Snow", 0.5)), narrow = box(at("Pixel Snow", 0.5, { pixAreaW: 0.2 }));
+          ok(wide.w > 100 && narrow.w < wide.w * 0.6, "§51: Emit as area: births across the whole area, and Area width narrows it", wide.w + " vs " + narrow.w + " px wide");
+          ok(!same(at("Pixel Snow", 0.5), at("Pixel Snow", 0.5, { pixSway: 0 })), "§51: Sway moves them side to side");
+          const wx = ["Pixel Rain", "Pixel Snow", "Pixel Falling Leaves", "Pixel Embers", "Pixel Fireflies", "Pixel Meteor Shower", "Pixel Sandstorm"];
+          const seamW = wx.filter((nm) => { const L = PRESETS[nm].duration; return !(lit(at(nm, 0)) > 0 && same(at(nm, 0), at(nm, L)) && !same(at(nm, 0), at(nm, L / 2))); });
+          ok(!seamW.length, "§51: …and the weather loops join with no seam", seamW.join(", ") || wx.length + " loops");
+          // §52: every stamp draws; a stamp scales by whole steps (a "-12" is 11 cells of S art px, +1 of outline each side);
+          // the text is the text typed; rolls never pick a stamp
+          {                                         // its own block: these names are taken further down this one
+          const st0 = { pixBlobs: 1, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixBreak: 0, pixSpeed: 0, pixGravity: 0, pixCount: 1, pixCore: 1, pixGrow: 0, pixSwell: 0, pixLumps: 0 };
+          const noStamp = [8, 9, 10, 11, 12, 13, 14, 15].filter((k) => !(lit(at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixShape: k }))) > 30));
+          ok(!noStamp.length, "§52: every stamp draws (burst, skull, !, ?, Z, note, anger, text)", noStamp.map((k) => PIX_SHAPES[k]).join(", ") || "8 stamps");
+          const ws = [0.4, 0.8, 1.1].map((bl) => box(at("Pixel Explosion", 0.3, Object.assign({}, st0, { pixShape: 15, pixText: "-12", pixBlob: bl }))).w);
+          ok(ws.every((w) => (w / 2 - 2) % 11 === 0) && ws[2] > ws[0], "§52: stamps scale in whole steps, so their pixels stay square", ws.join(" / ") + " px");
+          ok(!same(at("Pixel Damage Number", 0.3), at("Pixel Damage Number", 0.3, { pixText: "-99" })), "§52: the text stamp draws the text typed");
+          const rolled = []; for (let k = 0; k < 300; k++) rolled.push(pixelVary(fullGenome(PRESETS["Pixel Explosion"]), Math.random, 1, false).pixShape);
+          ok(rolled.every((v) => v < 9), "§52: rolls keep to blob shapes; stamps are chosen, never rolled");
+          }
           // §46: the Palette section reaches pixel art (moods to their hand-picked ramps or "effect colors", a color set's own colors)
           applyPreset(PRESETS["Pixel Explosion"], "Pixel Explosion", true);
           const mood = (nm) => Array.from(document.querySelectorAll("#paletteGrid .pal-btn")).find((b) => b.textContent === nm).click();
@@ -1694,8 +1713,11 @@
       hv._hover = true; presetHoverPlay(hv);
       const hcv = hv.querySelector(".pthumb canvas");
       ok(!!hcv && miniPlayers.some((m) => m.canvas === hcv) && lit(hcv) > 0, "hovering a picture plays the effect", hcv ? lit(hcv) + " px" : "no canvas");
+      const himg = hv.querySelector(".pthumb img");
+      ok(getComputedStyle(himg).visibility === "hidden", "…alone: the still picture under it is hidden while it plays (AJ, 2026-11-05)");
       hv.dispatchEvent(new PointerEvent("pointerleave"));
       ok(!hv.querySelector(".pthumb canvas") && !hv._hover, "…and leaving it stops");
+      ok(!hv.classList.contains("playing") && (!himg.getAttribute("src") || getComputedStyle(himg).visibility === "visible"), "…and the still comes back");
     }
 
     // ---------------------------------------------------------------- randomize reach

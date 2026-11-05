@@ -2673,3 +2673,122 @@ after the next mood click. Its full core does the job.
 Results:
 - one new engine row (774/774); desktop 76/76, web 15/15
 - frame hash unchanged, 404 (no preset uses a mood)
+
+## 51. The area emitter and Sway: pixel weather (2026-11-05)
+
+**Emit as area** (PIX_EMITS appended):
+- **Where:** blobs, their smoke too, are born anywhere in a box round Origin. Area width and Area height are shares of
+  the frame, so a box covers the screen at any Size.
+- **When:** at random times over Emit time. A Loop wraps the births, so weather never seams.
+- **Which way:** each flies along Direction, within Spread.
+- **Sway** (every emit mode, off): a side-to-side flutter over each blob's life (snow, leaves, ash, motes).
+
+**11 presets** (76 in Pixel art), every one a loop:
+- **Falling:** Rain (streaks from Stretch), Snow, Blizzard (sideways from the left edge), Falling Leaves (sways, lit and
+  outlined), Ash Fall, Meteor Shower (trailed fire).
+- **Rising:** Embers (off the ground, cooling).
+- **Hanging:** Fireflies and Dust Motes (they materialize and dither away).
+- **Across:** Sandstorm.
+- **Spores:** rising, green.
+
+Like smooth Rain, they carry **no moment**. Weather is a full-screen layer, sparse at 64 px by nature, which the
+moments' 64 px reading bar was written to keep out. They're found under Pixel art, in Other effects and by search.
+
+Tried: Curl on leaves turned them back upward, so they sway instead. A blob under half an art pixel draws nothing, so
+motes need Blob size 0.09 or more.
+
+Results:
+- engine 777/777 (§51 rows: births across the box and Area width narrows them, Sway moves them, seven weather loops
+  join)
+- desktop 76/76, web 15/15
+- frame hash: 419, every one of the 358 shared hashes unchanged
+
+**Follow-up (2026-11-05, AJ):** a hovered effect-strip picture showed its still under the playing preview. The preview is a
+transparent canvas laid over the `<img>`, so the still showed through wherever the effect was empty. The cell now carries
+`.playing` while a preview plays (`.pcell.playing .pthumb img { visibility: hidden }`), and leaving the cell brings the
+still back. styles.css is --css-build 17. Two rows were added to the hover test (engine 779/779, desktop 76/76, web 15/15).
+
+## 52. Stamps: bitmaps and a pixel font (2026-11-05)
+
+**Stamps are Blob shapes** (PIX_SHAPES appended), so everything a blob does, a stamp does: emitting, rising, popping,
+breaking up, outline, shading, cycling.
+- **comic burst:** eight spikes, long and short. An inside-test like the heart's.
+- **Bitmaps** drawn by hand in code (`PIX_BITMAPS`, CC0): skull, exclaim (!), question (?), Z (sleep), music note, anger
+  mark.
+- **text:** `pixText`, a new PATCH_EXTRA ("" draws "-12"), set in a "Stamp text" row under Blob shape with quick picks,
+  shown only for text. It's drawn in `PIX_FONT`, a 5-row capitals font: 0–9, A–Z, + - ! ? % . : / x ♥ and space.
+- **Whole-step scaling:** a stamp draws at round(2.2 r / its larger side), at least 1, so its pixels stay square and
+  growth pops it 1×, 2×, 3×.
+- **Shading:** a cell with an empty neighbor is rim (m 0.97), the rest body (m 0.45). The highlight goes by position,
+  and the Break up / Break from logic reads it like a blob.
+- **Rolls:** Randomize, Wizard and Variations keep to the first nine shapes (blobs and the burst), so a random explosion
+  never comes out as question marks. Breed may still find one.
+
+**Strokes now draw behind blobs** (priority 0.5 + 9 × heat, over smoke): a CRIT's rays never cross its letters, and a
+muzzle's core sits on its rays. That changed Impact Rays and Muzzle Rays, both new in 1.2 (the hash moved for exactly
+those two).
+
+**13 presets** (89 in Pixel art):
+
+| Group | Presets (moment) |
+|---|---|
+| Numbers and words | Damage Number (hit), Heal Number (heal), Score Pop (pickup, ui), Crit Text (crit: rays behind, two flash frames, shake), Miss (hit), KO (death, crit) |
+| Emotes (status) | Alert, Question, Sleepy (a stream of Zs that grow as they drift), Music Notes, Anger (pulsing by color cycling) |
+| Others | Skull Rise (death), Pow (hit, crit) |
+
+A test trap worth knowing: a `const` reused in the §44 block (`ws`) was a SyntaxError that killed the whole test script.
+The run showed no banner rather than a failure. The §52 rows sit in their own block.
+
+Results:
+- engine 784/784 (§52 rows: every stamp draws, whole-step scaling, the text drawn is the text typed, rolls never pick a
+  stamp)
+- desktop 76/76, web 15/15
+- frame hash: 439, the 373 shared hashes unchanged but those two
+
+## 53. Runtime text for Godot: damage numbers the game sets (2026-11-05, AJ)
+
+AJ: "someone doesn't have a way to replace the hard baked number such as -12 themselves, so exporting it in a way the
+user can programmatically alter the number being shown is the only way to make it particularly useful."
+
+**What exports.** An effect whose one pixel blob is the text stamp (`textStampOf`: pix on, Blob shape text, Blobs 1, on)
+exports, beside the usual sheet, .tres, scene and script (the sheet keeps the baked words, for previews and engines
+without the scene):
+- **`<base>_fx.png` + `.tres`:** the effect with Blobs off (sparks, rays, debris and every other layer), as full frames
+  at the scene's scale. The scene's Sprite plays these, so timing, `impact`, sound, `finished` and the offset stay
+  exactly as before.
+- **`<base>_glyphs.png`:** every PIX_FONT character, each rendered through the whole frame pipeline with only the pixel
+  blobs on (`textOnlyGenome`), so palette lock, era crunch and shake all match. One row per character, one column per
+  frame, all cropped to one shared cell.
+- **`<base>_text.gd`** (`TEXT_SCENE_SCRIPT`) and a **Text** node in the .tscn:
+  - `text` (a setter) and `show_text(value)`.
+  - Each frame it reads the Sprite's frame and lays the string out as the app does: the whole string centered on the
+    stamp, each glyph placed from where it was drawn alone, at floor(v + 0.5), JS's rounding.
+  - The stamp's whole-step scale and center per frame come from the engine itself: drawPixelArt reports them through
+    `PIX_STAMP_PROBE` on the pixel layer's own clock and delay.
+  - The cell's corner comes from the same rounded offset as the centered Sprite, so words and sparks never sit half a
+    pixel apart.
+  - Old letters are detached at once on a change, not only queued, so no frame draws both.
+
+**Text scales by a fixed 7 cells,** never by its length, so every word is one size and one atlas serves any string. The
+text presets were retuned to keep their sizes (the hash moved only for Pixel Miss, new in 1.2). The unreachable
+lowercase "x" glyph is gone: text is uppercased before lookup, so "x2" always drew the letter X.
+
+**Moments** (crunchyCore moments.js 6): `play_at(target, text = null) -> Node` sets the words before the effect enters the
+tree and returns the effect it spawned, so `$Hit.play_at(enemy, -damage)` works. Existing calls are unchanged. The
+moment README and the Export dialog say so.
+
+**Limits:** one text blob (several would each need their own layout), and the default animation only (Variety's baked
+variations play their own frames under the default words). The dither break-up is placed by position, so a glyph's
+break-up pattern differs from the whole string's.
+
+**Proof** (`tests/godot-text.mjs`, in release.sh):
+- In the page, the exported atlas laid out by the script's math IS the app's own "-237": 16 frames, 0 pixels differ,
+  before the break-up.
+- Godot imports the files with no error.
+- The Sprite plays `_fx.tres`.
+- Text set before add_child holds four letters at exactly the page's positions and cells.
+- show_text(-5) gives two letters.
+- The one-shot shows its words and frees itself.
+- A moment's `play_at(target, -99)` returns the effect showing -99.
+
+Suites: engine 784/784, desktop 76/76, web 15/15, godot-scene 65, godot-check 19, godot-text 10, worker 61.

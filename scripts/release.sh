@@ -91,7 +91,7 @@ info "checking the Rust build…"
 ok "cargo check passed"
 
 if [[ -n "$DRY" ]]; then
-  info "--dry: skipping the browser and Godot suites (a real run runs them): node tests/run-ff.mjs web|desktop|hash, node tests/godot-check.mjs, node tests/godot-scene.mjs"
+  info "--dry: skipping the browser and Godot suites (a real run runs them): node tests/run-ff.mjs web|desktop|hash, node tests/godot-check.mjs, node tests/godot-scene.mjs, node tests/godot-text.mjs"
 else
   WIP="${XDG_CACHE_HOME:-$HOME/.cache}/crunchy-wip/vfx-release"; mkdir -p "$WIP"
   info "browser suites (headless Firefox, a few minutes)…"
@@ -104,6 +104,7 @@ else
   ok "frame hash unchanged"
   cap 3G node tests/godot-check.mjs >/dev/null || die "node tests/godot-check.mjs failed"
   cap 3G node tests/godot-scene.mjs >/dev/null || die "node tests/godot-scene.mjs failed"
+  cap 3G node tests/godot-text.mjs >/dev/null || die "node tests/godot-text.mjs failed"   # §53 runtime text
   ok "Godot checks (they skip without godot)"
   # THE SUITES ARE READ, NOT PHOTOGRAPHED (2026-11-02): crunchyCore's tools/run-suite.mjs drives each page over WebDriver
   # BiDi, waits until its banner stops saying "running…" and fails unless the banner's TEXT passes. A --screenshot fired

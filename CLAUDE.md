@@ -155,6 +155,7 @@ node tests/plant.test.mjs                # project-app.js over plant.js, in Node
 node tests/vfx-cli.test.mjs              # §42: the CLI end to end, Godot playing its scenes
 node tests/godot-check.mjs               # a REAL Godot 4 imports what the app planted (skips without godot)
 node tests/godot-scene.mjs               # §26: the WEB Export's ready Godot scene plays, signals impact, frees itself (real Godot)
+node tests/godot-text.mjs                # §53: a text effect's glyph atlas = the app's own words; the Text node + a moment's play_at(target, text) in real Godot
 python3 tests/build.py show && python3 tests/wkshot.py "file://$PWD/tests/run-show.html" "$PWD/tests/show.png" 1600 1000 40
 node tools/pull-core.mjs --check && sh .githooks/pre-commit && cargo build --manifest-path src-tauri/Cargo.toml
 ```
@@ -228,6 +229,9 @@ more particles.
 - **Quick shape knows what is drawn (§47, 2026-11-04)**: macros are PARTS (`macroRest` particles + layers, `macroPix` the pixel art), each run only while drawn; a macro with nothing to move hides (`macroShows`); Hue turns a pixel ramp onto its hue (`pixLeadHue`); pixel-only Crumble / Streak / Shading (`layer: "Pixel art"`). A new layer that stands in for the particles gets its own part.
 - **The Look switch + 11 pixel effects (§48, 2026-11-04)**: Any look / Smooth / Pixel art at the head of the strip (`presetLook`, `presetLookOk` in presetQueryHit; per game in `crunchyvfx.look`) narrows every list and steers Randomize, Breed and the Wizard; PIX_SHAPES + heart, coin, drop; 53 Pixel art presets (pickups, UI, crit, shield, spawn, emotes).
 - **Strokes + color cycling (§49, 2026-11-04)**: `pixStroke` (ring/beam/swoosh/rays: banded ramp lines that cool and break up like blobs), `pixBlobs` (on; off = a stroke alone), `pixCycle` (flow/rings/spiral/spin/shimmer: palette rotation over the layer's own shape, whole cycles on a Loop); 12 presets (65 in Pixel art).
+- **Area emitter + Sway (§51, 2026-11-05)**: Emit as `area` (Area width/height, shares of the frame; random births), `pixSway`; 11 weather/field loops (76 in Pixel art), no moment (weather is a layer, like smooth Rain).
+- **Runtime text for Godot (§53, 2026-11-05)**: a text effect (one text blob) also exports <base>_fx (text-free frames, the scene's Sprite), <base>_glyphs.png (every PIX_FONT glyph through the whole pipeline, one row each) and <base>_text.gd (the Text node: `text`, show_text(); the app's layout per frame from PIX_STAMP_PROBE). Text scales by a fixed 7 cells. crunchyCore moments.js 6: `play_at(target, text) -> Node`.
+- **Stamps (§52, 2026-11-05)**: Blob shapes comic burst, skull, !, ?, Z, note, anger mark and text (`pixText` PATCH_EXTRA, `PIX_FONT` 5-row capitals); whole-step scaling; rolls keep to the first 9 shapes; strokes draw behind blobs; 13 presets (89 in Pixel art).
 - **Pixel art round 4 (§45, 2026-11-04)**: the elements: Gather, Spin, Bits at, four ramps (shadow, holy, ice, electric); 12 presets (33 in Pixel art).
 - **Pixel art round 3 (§44, 2026-11-04)**: Loop (births wrap, so the end IS the start; counts as a loop, no cross-dissolve), Emit as bolt,
   Hollow, Flatten; 9 presets (21 in Pixel art); Randomize makes a pixel roll 1 in 5 (`pixelRollInto`/`pixelVary`), Breed varies a pixel

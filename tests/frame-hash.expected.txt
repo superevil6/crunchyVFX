@@ -309,9 +309,9 @@ VFX FRAME "Pixel Laser" 00dc1c25526ee986
 VFX FRAME "Pixel Ring Blast" f1b1b405a9a513c6
 VFX FRAME "nofit:Pixel Ring Blast" f1b1b405a9a513c6
 VFX FRAME "Pixel Swoosh" f482ac6d3f8945c2
-VFX FRAME "Pixel Impact Rays" 718907fd277db3ba
-VFX FRAME "Pixel Muzzle Rays" e1086855e54f4046
-VFX FRAME "nofit:Pixel Muzzle Rays" e1086855e54f4046
+VFX FRAME "Pixel Impact Rays" 13c5945d147328da
+VFX FRAME "Pixel Muzzle Rays" d0396d758e24ead6
+VFX FRAME "nofit:Pixel Muzzle Rays" d0396d758e24ead6
 VFX FRAME "Pixel Twin Swoosh" 37ec4245695d77ee
 VFX FRAME "Pixel Portal" f45ecaf59240082e
 VFX FRAME "Pixel Waterfall" c3f09e75a7947006
@@ -321,6 +321,38 @@ VFX FRAME "Pixel Lava Pool" 2df59e4bd16bc776
 VFX FRAME "Pixel Spinner" 60d618d501401b06
 VFX FRAME "nofit:Pixel Spinner" 60d618d501401b06
 VFX FRAME "Pixel Warp Rings" 3b4be115c4eecf6e
+VFX FRAME "Pixel Rain" a3a5b61532d52106
+VFX FRAME "Pixel Snow" ad0756356f3b5746
+VFX FRAME "nofit:Pixel Snow" ad0756356f3b5746
+VFX FRAME "Pixel Blizzard" 70f578951c816a06
+VFX FRAME "Pixel Falling Leaves" 959e95256aa14646
+VFX FRAME "Pixel Embers" 5dc2ebf31a744e46
+VFX FRAME "nofit:Pixel Embers" 5dc2ebf31a744e46
+VFX FRAME "Pixel Ash Fall" b1fe7535c64ec506
+VFX FRAME "Pixel Fireflies" a4844a05cce67646
+VFX FRAME "Pixel Sandstorm" 461d255536707f06
+VFX FRAME "nofit:Pixel Sandstorm" 461d255536707f06
+VFX FRAME "Pixel Meteor Shower" 32bda8c3319a7416
+VFX FRAME "Pixel Dust Motes" fd02df6559211386
+VFX FRAME "Pixel Spores" 9082c4d52d6e7386
+VFX FRAME "nofit:Pixel Spores" 9082c4d52d6e7386
+VFX FRAME "Pixel Damage Number" 0325743d2669100e
+VFX FRAME "Pixel Heal Number" 9d1acac10b5edd42
+VFX FRAME "Pixel Score Pop" c743b2fbe70c401a
+VFX FRAME "nofit:Pixel Score Pop" c743b2fbe70c401a
+VFX FRAME "Pixel Crit Text" 42ca1715af9f577e
+VFX FRAME "Pixel Miss" edf84a1f8fa6b6c2
+VFX FRAME "Pixel KO" 983a7df58619b34e
+VFX FRAME "nofit:Pixel KO" 983a7df58619b34e
+VFX FRAME "Pixel Alert" deef13e905474422
+VFX FRAME "Pixel Question" e1980ffb4c4078c6
+VFX FRAME "Pixel Sleepy" b42b621fa0b0653a
+VFX FRAME "nofit:Pixel Sleepy" b42b621fa0b0653a
+VFX FRAME "Pixel Music Notes" f494ea9d5123b7be
+VFX FRAME "Pixel Anger" 9ea8dd4de059ac0e
+VFX FRAME "Pixel Skull Rise" 9cf1d43f7b20d2fa
+VFX FRAME "nofit:Pixel Skull Rise" 9cf1d43f7b20d2fa
+VFX FRAME "Pixel Pow" e8415da5904a9fc2
 VFX FRAME "Rain On Glass" 2f884b29fd2a5242
 VFX FRAME "Glint Field" 84669d2e343b7d6b
 VFX FRAME "nofit:Glint Field" 5b871147121a4a76
@@ -394,13 +426,16 @@ VFX EXPORT "Pixel Lightning|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\
 VFX EXPORT "Pixel Gust|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" fff841bdcca68dd6
 VFX EXPORT "Pixel Meteor|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" b3deed1510dc875e
 VFX EXPORT "Pixel Crit Star|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 7f5329c76e80aeaa
-VFX EXPORT "Pixel Muzzle Rays|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" c747de267be21491
-VFX EXPORT "Glint Field|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 3fefe8af7f4686c0
-VFX EXPORT "Bloom Cycle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" c002235e8785c305
-VFX EXPORT "Jump Dust|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 7b1c7b3a9f47b871
-VFX EXPORT "Alert Pop|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 39c52b77409d0736
+VFX EXPORT "Pixel Muzzle Rays|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" fda3f1b6ab8789dd
+VFX EXPORT "Pixel Snow|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 9a5aeff5b86d4438
+VFX EXPORT "Pixel Spores|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" a6f1f40293d6301d
+VFX EXPORT "Pixel Sleepy|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 253eba959d8b8a08
+VFX EXPORT "Portal Open|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 21307ba2f15a4bbb
+VFX EXPORT "Energy Bolt|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" d9f1126d1470d670
+VFX EXPORT "Burning|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" cac40ceca11deb0b
+VFX EXPORT "Trophy Win|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" 8aa7c6dc192d852f
 VFX EXPORT "sound:Hit Spark" 16c59af5226c06c6
 VFX BATCH "crunchyvfx-pack.zip" a162e7a392c9fde2
-VFX BATCH "crunchyvfx-pack.zip" 9af7908abedd186f
-VFX FRAMEHASH 7f1f7106a46bc0c1 over 404
-VFX END PASS 404 hashes
+VFX BATCH "crunchyvfx-pack.zip" b3a37188e697f12d
+VFX FRAMEHASH 22faba545e7b2b43 over 439
+VFX END PASS 439 hashes

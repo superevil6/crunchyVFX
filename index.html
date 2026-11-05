@@ -384,7 +384,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 16;   // must match --css-build in styles.css
+  const CSS_BUILD = 17;   // must match --css-build in styles.css
   const CORE = [
     { file: "suite.js", want: 16, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 12, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -803,6 +803,8 @@ const PARAMS = [
   ["pixCount", "Blobs", 1, 80, 1, 9, "", "Pixel art"],
   ["pixPulses", "Pulses", 1, 6, 1, 1, "", "Pixel art"],
   ["pixSpan", "Emit time", 0, 1, 0.01, 0.2, "", "Pixel art"],
+  ["pixAreaW", "Area width", 0.05, 1.5, 0.01, 1, "", "Pixel art"],     // §51: Emit as area; shares of the frame
+  ["pixAreaH", "Area height", 0, 1.5, 0.01, 0.1, "", "Pixel art"],
   ["pixLoop", "Loop", 0, 1, 1, 0, "", "Pixel art"],
   ["pixAngle", "Direction", -180, 180, 1, -90, "°", "Pixel art"],
   ["pixSpread", "Spread", 0, 360, 1, 360, "°", "Pixel art"],
@@ -811,6 +813,7 @@ const PARAMS = [
   ["pixScatter", "Scatter", 0, 3, 0.01, 0.95, "", "Pixel art"],
   ["pixGravity", "Gravity", -40, 80, 0.5, -7, "", "Pixel art"],
   ["pixDrag", "Drag", 0, 10, 0.1, 0, "", "Pixel art"],
+  ["pixSway", "Sway", 0, 1, 0.01, 0, "", "Pixel art"],                  // §51: a side-to-side flutter
   ["pixGather", "Gather", 0, 1, 1, 0, "", "Pixel art"],
   ["pixCurl", "Curl", -3, 3, 0.05, 0, "", "Pixel art"],
   ["pixStretch", "Stretch", 0, 1, 0.01, 0, "", "Pixel art"],
@@ -1133,7 +1136,9 @@ const PATCH_EXTRAS = { glyph: GLYPH_DEFAULT, customSprite: "", imageSprite: "", 
                        variety: "",
                        // §42 a box Fit always takes in ("x0,y0,x1,y1", fractions of the frame), so a set of effects (the CLI's
                        // strengths) shares one scale: a weak one draws smaller. Not in the editor; "" changes no effect.
-                       fitBox: "" };
+                       fitBox: "",
+                       // §52 the pixel art's TEXT stamp ("-12", "CRIT"): read only by Blob shape "text"; "" draws "-12"
+                       pixText: "" };
 for (const k in PATCH_EXTRAS) state[k] = PATCH_EXTRAS[k];
 const PARAM_BY_KEY = {};
 for (const p of PARAMS) PARAM_BY_KEY[p[0]] = p;
@@ -1605,6 +1610,7 @@ const PARAM_WHEN = {
   pixBreakAt:  (s) => s.pixBreak > 0,
   pixTrailN:   (s) => s.pixTrail > 0,
   pixLandAs:   (s) => s.pixFloor > 0,
+  pixAreaW:    (s) => Math.round(s.pixEmit) === 6, pixAreaH: (s) => Math.round(s.pixEmit) === 6,
   pixStrokeSize: (s) => s.pixStroke > 0, pixStrokeW: (s) => s.pixStroke > 0, pixStrokeLife: (s) => s.pixStroke > 0,
   pixStrokeN:  (s) => s.pixStroke > 0, pixStrokeWobble: (s) => Math.round(s.pixStroke) === 2 || Math.round(s.pixStroke) === 4,
   pixCycleSpeed: (s) => s.pixCycle > 0, pixCycleBands: (s) => s.pixCycle > 0,
@@ -1630,7 +1636,9 @@ function updateParamWhen() {
     const row = paramRows[k];
     if (row) row.hidden = !PARAM_WHEN[k](state);
   }
+  if (pixTextRow) pixTextRow.hidden = Math.round(state.pixShape) !== PIX_SHAPES.indexOf("text");   // §52
 }
+var pixTextRow = null, pixTextInput = null;   // var: updateParamWhen runs before the row is built
 
 // ---------- Panels generated from PARAMS ----------
 const groups = {};
@@ -2311,6 +2319,30 @@ function ratioLabel(w, h) {
 
 // ---------- Speech bubble text ----------
 // Text, so it lives in PATCH_EXTRAS rather than a slider row. "|" splits lines, because a single
+// §52 the TEXT stamp's words, under Blob shape (shown only for "text"): a damage number, CRIT, MISS, a score
+const PIX_TEXT_PICKS = ["-12", "+50", "CRIT", "MISS", "x2", "LV UP!", "KO", "?!", "100%", "♥"];
+{
+  const at = paramRows.pixShape;
+  if (at) {
+    const row = document.createElement("div");
+    row.className = "glyph-row";
+    row.innerHTML = '<label for="pixTextInput">Stamp text</label>' +
+      '<input id="pixTextInput" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="-12">' +
+      '<div class="glyph-picks"></div>';
+    at.parentNode.insertBefore(row, at.nextSibling);
+    pixTextRow = row; pixTextInput = row.querySelector("input");
+    pixTextInput.value = state.pixText;
+    pixTextInput.addEventListener("input", () => { state.pixText = pixTextInput.value; scheduleRender(); });
+    pixTextInput.addEventListener("change", () => commitHistory());
+    for (const txt of PIX_TEXT_PICKS) {
+      const b = document.createElement("button");
+      b.textContent = txt; b.className = "bubble-pick";
+      b.addEventListener("click", () => { state.pixText = txt; pixTextInput.value = txt; rerender(); commitHistory(); });
+      row.querySelector(".glyph-picks").appendChild(b);
+    }
+    updateParamWhen();
+  }
+}
 // -line <input> can't hold a newline and "!|?" is a lot less annoying than a textarea here.
 let bubbleInput = null;
 const BUBBLE_PICKS = ["!", "?", "!?", "…", "Hey!", "+10", "CRIT!", "Level up!", "z z z", "♥|♥|♥"];
@@ -3365,6 +3397,7 @@ function syncUI() {
   if (glyphInput) glyphInput.value = state.glyph;
   if (window.syncIconPicker) window.syncIconPicker();
   if (bubbleInput) bubbleInput.value = state.bubbleText;
+  if (pixTextInput) pixTextInput.value = state.pixText;
   syncPaletteUI();
   if (window.syncColorSetUI) window.syncColorSetUI();
   if (window.syncCustomSprite) window.syncCustomSprite();
@@ -4871,6 +4904,7 @@ function presetHoverPlay(cell) {
   const cv = document.createElement("canvas");
   cv.width = cv.height = PTHUMB;
   cell.querySelector(".pthumb").appendChild(cv);
+  cell.classList.add("playing");               // AJ, 2026-11-05: the still showed through the playing (transparent) canvas
   const g = cv.getContext("2d"), i = Math.floor(fr.frames.length * 0.35);
   g.drawImage(fr.frames[i], 0, 0);
   miniPlayers.push({ g, canvas: cv, frames: fr.frames, fps: fr.fps, i, last: 0 });
@@ -4898,6 +4932,7 @@ function presetCell(name) {
     clearTimeout(hover);
     const cv = b.querySelector(".pthumb canvas");
     if (cv) cv.remove();                       // the mini-player loop drops a canvas that left the page
+    b.classList.remove("playing");             // the still comes back
   });
   if (name === effectLabel) b.classList.add("on");
   return b;
@@ -5411,7 +5446,7 @@ function pixelVary(g, R, amt, colors) {
   if (g.pixLumps > 0) set("pixLumps", g.pixLumps + (R() - 0.5) * amt * 0.5);
   if (g.pixSparks > 0) mul("pixSparks", 1);
   if (g.pixBits > 0) mul("pixBits", 1);
-  if (R() < 0.35 * amt * 2) g.pixShape = Math.floor(R() * PIX_SHAPES.length);
+  if (R() < 0.35 * amt * 2) g.pixShape = Math.floor(R() * 9);   // §52: rolls keep to blob shapes (and the burst); stamps are chosen
   if (g.pixBreak > 0 && R() < 0.3) g.pixBreakAs = 1 - Math.round(g.pixBreakAs || 0);
   if (colors) {
     if (R() < 0.3) g.pixColors = Math.floor(R() * PIX_RAMPS.length);
@@ -6688,17 +6723,190 @@ function godotSceneInfo(base, files, o, C) {
 // The two scene files ({ name, data }, as buildExportFiles's), or none if no .tres was written to point at.
 function godotSceneFiles(info, files) {
   if (!files.some((x) => x.name === info.tres)) return [];
-  const res = ['[ext_resource type="Script" path="' + info.base + '.gd" id="1"]', '[ext_resource type="SpriteFrames" path="' + info.tres + '" id="2"]'];
+  const T = info.text;   // §53: a runtime-text effect plays its text-free frames, and the Text node draws the words
+  const res = ['[ext_resource type="Script" path="' + info.base + '.gd" id="1"]', '[ext_resource type="SpriteFrames" path="' + (T ? info.base + "_fx.tres" : info.tres) + '" id="2"]'];
   if (info.stream) res.push('[ext_resource type="AudioStream" path="' + info.stream + '" id="3"]');
+  if (T) res.push('[ext_resource type="Script" path="' + info.base + '_text.gd" id="4"]', '[ext_resource type="Texture2D" path="' + info.base + '_glyphs.png" id="5"]');
   const node = String(info.name).replace(/[^A-Za-z0-9_]/g, "_") || "Effect";
   const off = info.offset.x || info.offset.y ? "offset = Vector2(" + info.offset.x + ", " + info.offset.y + ")\n" : "";
   const tscn = "[gd_scene format=3]\n\n" + res.join("\n") + "\n\n" +
     '[node name="' + node + '" type="Node2D"]\ntexture_filter = 1\nscript = ExtResource("1")\n' +
     "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n" + varietyProps(info) + "\n" +
     '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\n' + off +
-    (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "");
+    (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "") +
+    (T ? '\n[node name="Text" type="Node2D" parent="."]\nscript = ExtResource("4")\ntext = ' + JSON.stringify(T.word) + '\nglyphs = ExtResource("5")\nchars = ' + JSON.stringify(T.chars) +
+      "\nwidths = PackedInt32Array(" + T.widths.join(", ") + ")\ncell = Vector2i(" + T.cell[0] + ", " + T.cell[1] + ")\ncell_origin = Vector2(" + T.origin[0] + ", " + T.origin[1] + ")\npx = " + T.px +
+      "\nscales = PackedInt32Array(" + T.scales.join(", ") + ")\ncenters = PackedFloat32Array(" + T.centers.join(", ") + ")\n" : "");
   const enc = new TextEncoder();
   return [{ name: info.base + ".gd", data: enc.encode(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT) }, { name: info.base + ".tscn", data: enc.encode(tscn) }];
+}
+// ---------- §53 RUNTIME TEXT for Godot (AJ, 2026-11-05: a baked "-12" is no use; "exporting it in a way the user can
+// programmatically alter the number being shown is the only way to make it particularly useful") ----------
+// An effect whose one pixel blob is a TEXT stamp exports, beside its sheet: <base>_fx (the effect WITHOUT the text: sparks,
+// rays, debris, every other layer; the scene's Sprite plays it, so timing, impact and sound are as ever), <base>_glyphs.png
+// (every font character, rendered through the whole pipeline with only the pixel blobs on, one row each, one column per
+// frame, all cropped to one cell) and <base>_text.gd, which lays out any string from that atlas each frame exactly as the
+// app draws text: the stamp's scale and center per frame come from the engine (PIX_STAMP_PROBE), and the same rounding.
+// The plain sheet keeps the baked words (a preview, or engines without the scene).
+const TEXT_SCENE_SCRIPT = [
+  "extends Node2D",
+  "## Runtime text for a CrunchyVFX text effect: the effect's own pixel font, colors and animation, any words you like.",
+  "##",
+  "##     var fx = preload(\"res://damage_number.tscn\").instantiate()",
+  "##     fx.get_node(\"Text\").text = str(-damage)",
+  "##     fx.position = pos; add_child(fx)",
+  "##",
+  "## Capitals, digits and + - ! ? % . : / ♥ and space are drawn; any other character is skipped.",
+  "",
+  "## The words shown. Set it before or after add_child, or call show_text().",
+  "@export var text := \"-12\":",
+  "\tset(v):",
+  "\t\ttext = v",
+  "\t\t_build()",
+  "## The glyph atlas: one row per character in [member chars], one column per frame of the effect.",
+  "@export var glyphs: Texture2D",
+  "@export var chars := \"\"",
+  "## Each character's width, in font cells.",
+  "@export var widths := PackedInt32Array()",
+  "## One atlas cell, in pixels, and where its top-left sits from this node.",
+  "@export var cell := Vector2i(1, 1)",
+  "@export var cell_origin := Vector2.ZERO",
+  "## Screen pixels per font cell at scale 1.",
+  "@export var px := 1",
+  "## The stamp's whole-step scale on every frame (0: not drawn yet, or gone) and its center, in font cells.",
+  "@export var scales := PackedInt32Array()",
+  "@export var centers := PackedFloat32Array()",
+  "",
+  "var _letters: Array[Sprite2D] = []",
+  "",
+  "## Show these words (a number is fine: show_text(-237)).",
+  "func show_text(value) -> void:",
+  "\ttext = str(value)",
+  "",
+  "func _ready() -> void:",
+  "\t_build()",
+  "",
+  "func _norm(t: String) -> String:",
+  "\treturn t.to_upper().replace(\"−\", \"-\").replace(\"–\", \"-\").replace(\"—\", \"-\")",
+  "",
+  "func _build() -> void:",
+  "\tif not is_node_ready():",
+  "\t\treturn",
+  "\tfor s in _letters:",
+  "\t\tremove_child(s)",
+  "\t\ts.queue_free()",
+  "\t_letters.clear()",
+  "\tfor ch in _norm(text):",
+  "\t\tvar row := chars.find(ch)",
+  "\t\tif row < 0:",
+  "\t\t\tcontinue",
+  "\t\tvar s := Sprite2D.new()",
+  "\t\ts.texture = glyphs",
+  "\t\ts.centered = false",
+  "\t\ts.region_enabled = true",
+  "\t\ts.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST",
+  "\t\ts.set_meta(\"row\", row)",
+  "\t\tadd_child(s)",
+  "\t\t_letters.append(s)",
+  "\t_show(_frame())",
+  "",
+  "func _frame() -> int:",
+  "\tvar sp := get_parent().get_node_or_null(\"Sprite\") as AnimatedSprite2D",
+  "\treturn sp.frame if sp else 0",
+  "",
+  "func _process(_delta: float) -> void:",
+  "\t_show(_frame())",
+  "",
+  "# The app's own layout: the whole string centered on the stamp, each glyph from its own cell, whole font cells.",
+  "func _show(f: int) -> void:",
+  "\tvar S := scales[f] if f >= 0 and f < scales.size() else 0",
+  "\tvisible = S > 0",
+  "\tif S <= 0:",
+  "\t\treturn",
+  "\tvar cx := centers[f]",
+  "\tvar w := 0",
+  "\tfor i in _letters.size():",
+  "\t\tw += widths[int(_letters[i].get_meta(\"row\"))] + (1 if i > 0 else 0)",
+  "\tvar x0s := floorf(cx - w * S / 2.0 + 0.5)",
+  "\tvar off := 0",
+  "\tfor s in _letters:",
+  "\t\tvar row: int = s.get_meta(\"row\")",
+  "\t\tvar gw := widths[row]",
+  "\t\tvar x0g := floorf(cx - gw * S / 2.0 + 0.5)",
+  "\t\ts.region_rect = Rect2(f * cell.x, row * cell.y, cell.x, cell.y)",
+  "\t\ts.position = cell_origin + Vector2((x0s + off * S - x0g) * px, 0)",
+  "\t\toff += gw + 1",
+  ""].join("\n");
+const PIX_TEXT_SHAPE = PIX_SHAPES.indexOf("text");
+// a runtime-text effect: pixel art whose ONE blob is the text stamp (several would each need their own layout)
+function textStampOf(st) {
+  return st.pix > 0 && Math.round(st.pixShape) === PIX_TEXT_SHAPE && Math.round(st.pixCount) === 1 && !(st.pixBlobs === 0);
+}
+// the effect with only its pixel blobs (every other layer and the hidden particles off; strokes, debris, sparks too)
+function textOnlyGenome(st) {
+  const g = Object.assign({}, st);
+  for (const L of LAYER_GROUPS) if (L.g !== "Pixel art") for (const p of PARAMS) if (p[7] === L.g) g[p[0]] = p[5];
+  g.opacity = 0; g.pixStroke = 0; g.pixBits = 0; g.pixSparks = 0;
+  return g;
+}
+const nnScale = (cv, m) => { if (m === 1) return cv; const o = document.createElement("canvas"); o.width = cv.width * m; o.height = cv.height * m;
+  const g = o.getContext("2d"); g.imageSmoothingEnabled = false; g.drawImage(cv, 0, 0, o.width, o.height); return o; };
+async function pngFile(name, cv) { return { name: name, data: new Uint8Array(await (await canvasBlob(cv)).arrayBuffer()) }; }
+// the files and the scene's Text-node data (info.text); C is the export's context, `mult` the scene's scale
+async function godotTextFiles(info, C, mult) {
+  const st = C.st, n = C.r.canvases.length, W = C.r.w, H = C.r.h, fps = C.r.fps, files = [];
+  // the effect without its text: one row of full frames (the same size and offset as the sheet, so the scene's offset holds)
+  const fx = renderFrames(Object.assign({}, st, { pixBlobs: 0 }), { fit: C.fit });
+  const cols = Math.min(n, 16), rows = Math.ceil(n / cols), fcv = document.createElement("canvas");
+  fcv.width = cols * W * mult; fcv.height = rows * H * mult;
+  const fg = fcv.getContext("2d"); fg.imageSmoothingEnabled = false;
+  fx.canvases.forEach((cv, i) => fg.drawImage(cv, (i % cols) * W * mult, Math.floor(i / cols) * H * mult, W * mult, H * mult));
+  files.push(await pngFile(info.base + "_fx.png", fcv));
+  files.push({ name: info.base + "_fx.tres", data: new TextEncoder().encode(godotTresBaked([{ sh: { n: n, cols: cols, w: W * mult, h: H * mult, trim: null }, y: 0, fps: fps }], info.base + "_fx", info.loop)) });
+  for (const cv of fx.canvases) releaseCanvas(cv);
+  releaseCanvas(fcv);
+  // every glyph's frames, then one crop for them all
+  const chars = Object.keys(PIX_FONT), base = textOnlyGenome(st), sets = [];
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (const c of chars) {
+    const r = renderFrames(Object.assign({}, base, { pixText: c }), { fit: C.fit });
+    for (const cv of r.canvases) {
+      const d = cv.getContext("2d").getImageData(0, 0, W, H).data;
+      for (let p = 0; p < W * H; p++) if (d[p * 4 + 3]) { const x = p % W, y = (p / W) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    sets.push(r.canvases);
+  }
+  if (x1 < 0) { x0 = 0; y0 = 0; x1 = 0; y1 = 0; }
+  // room either side for the widest glyph's neighbours is not needed: each glyph is drawn alone and placed by the script
+  const cw = (x1 - x0 + 1) * mult, ch = (y1 - y0 + 1) * mult, gcv = document.createElement("canvas");
+  gcv.width = n * cw; gcv.height = chars.length * ch;
+  const gg = gcv.getContext("2d"); gg.imageSmoothingEnabled = false;
+  sets.forEach((cvs, row) => cvs.forEach((cv, f) => { gg.drawImage(cv, x0, y0, x1 - x0 + 1, y1 - y0 + 1, f * cw, row * ch, cw, ch); releaseCanvas(cv); }));
+  files.push(await pngFile(info.base + "_glyphs.png", gcv));
+  releaseCanvas(gcv);
+  // the stamp's scale and center per frame, from the engine itself (the pixel layer's own clock and delay)
+  const delay = parseLayerDelays(st.layerDelay)["Pixel art"] || 0, probe = document.createElement("canvas");
+  probe.width = W; probe.height = H;
+  const pg = probe.getContext("2d"), scales = [], centers = [];
+  let kpx = 1;
+  for (let f = 0; f < n; f++) {
+    PIX_STAMP_PROBE = { cur: null };
+    const t = f / fps - delay;
+    if (t >= 0) drawPixelArt(pg, base, t, null, 0, 0, 0, Math.max(1, Math.round(st.seed)) | 0);
+    const c = PIX_STAMP_PROBE.cur;
+    PIX_STAMP_PROBE = null;
+    if (c) kpx = c.k;
+    scales.push(c ? c.S : 0); centers.push(c ? +c.cx.toFixed(4) : 0);
+  }
+  releaseCanvas(probe);
+  if (st.reverse) { scales.reverse(); centers.reverse(); }
+  // the cell's corner from the node, from the SAME rounded offset the scene's centered Sprite uses (godotSceneInfo), so the
+  // words and the sparks never sit half a pixel apart
+  const tlx = info.offset.x - W * mult / 2, tly = info.offset.y - H * mult / 2;
+  info.text = { word: st.pixText || "-12", chars: chars.join(""), widths: chars.map((c) => PIX_FONT[c][0].length),
+    cell: [cw, ch], origin: [tlx + x0 * mult, tly + y0 * mult], px: kpx * mult, scales: scales, centers: centers };
+  files.push({ name: info.base + "_text.gd", data: new TextEncoder().encode(TEXT_SCENE_SCRIPT) });
+  return files;
 }
 // §39: the scene node's Variety settings ("" for an effect without Variety, so its .tscn is what it was).
 function varietyProps(info) {
@@ -6754,7 +6962,14 @@ function godotReadme(infos) {
     "",
     "METHODS  play() starts it again from frame 0 · stop() stops it and its sound · is_playing()",
     "",
-  ].concat(infos.some((i) => i.variety) ? [
+  ].concat(infos.some((i) => i.text) ? [
+    "TEXT (a text effect: damage numbers, scores, words)",
+    "  Its Text node draws any words in the effect's own pixel font and animation, so the number is yours:",
+    "                fx.get_node(\"Text\").text = str(-damage)     (before or after add_child; or show_text(-damage))",
+    "  Capitals, digits and + - ! ? % . : / and space are drawn; anything else is skipped. The plain sheet",
+    "  (" + infos.find((i) => i.text).base + ".png) keeps the words it was made with, " + JSON.stringify(infos.find((i) => i.text).text.word) + ".",
+    "",
+  ] : []).concat(infos.some((i) => i.variety) ? [
     "VARIETY (set in CrunchyVFX's Export dialog; change it in the Inspector)",
     "  Every play picks again: a baked variation (each keeps its own impact frame), a flip, a turn, a scale,",
     "  a speed and a jitter, as set. The node's position stays where you put it; the sprite varies.",
@@ -6787,7 +7002,8 @@ async function buildExportBundle(onProgress, o) {
   const out = await buildExportFiles(onProgress, o);
   out.scene = null;
   if (o.format === "sheet" && o.meta === "godot") {
-    const info = godotSceneInfo(out.base, out.files, o, o.ctx || liveExportCtx());
+    const C = o.ctx || liveExportCtx(), info = godotSceneInfo(out.base, out.files, o, C);
+    if (textStampOf(C.st) && out.files.some((x) => x.name === info.tres)) for (const f of await godotTextFiles(info, C, o.scales.indexOf(1) >= 0 ? 1 : o.scales[0])) out.files.push(f);   // §53
     const sc = godotSceneFiles(info, out.files);
     if (sc.length) {
       out.scene = info;
@@ -7070,6 +7286,9 @@ function refreshExpInfo() {
               (expTrim.checked
                 ? "Trimmed cells carry an AtlasTexture <b>margin</b>, so they line up in-engine exactly as if untrimmed."
                 : "Verified against Godot 4.7 for grid, strip and trimmed sheets."));
+    // §53: a text effect's words are the game's
+    if (textStampOf(state)) bits.push("<b>Its words are yours:</b> the scene's <b>Text</b> node draws any number or word in this effect's pixel font and animation: " +
+      "<code>fx.get_node(\"Text\").text = str(-damage)</code>, or through a game moment, <code>$Hit.play_at(enemy, -damage)</code>. The sheet keeps \"" + esc(state.pixText || "-12") + "\".");
   }
   if (expEmis.checked) {
     bits.push(state.glow > 0
@@ -7371,7 +7590,8 @@ async function batchExport(which, opts) {
                     emissive: false, sound: false, scales: [1], playback: expPlay.value };
       // a Godot pack: each folder's ready scene (§26), and one README.txt at the root
       if (exp.meta === "godot") {
-        const info = Object.assign(godotSceneInfo(base, mine, exp, Object.assign(liveExportCtx(), { soundFrame: 0 })), { dir: base });
+        const PC = Object.assign(liveExportCtx(), { soundFrame: 0 }), info = Object.assign(godotSceneInfo(base, mine, exp, PC), { dir: base });
+        if (textStampOf(PC.st) && mine.some((x) => x.name === info.tres)) for (const f of await godotTextFiles(info, PC, 1)) mine.push(f);   // §53
         const sc = godotSceneFiles(info, mine);
         if (sc.length) { scenes.push(info); for (const f of sc) mine.push(f); }
       }
