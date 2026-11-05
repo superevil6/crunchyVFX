@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/moments.js @ a7f05c3 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 a1d9baee5012cfc631f9428deea2e027b62a2edf31810ce8100a97bcdf54ece1
+// GENERATED from crunchyCore/moments.js @ 030b4c5 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 4c800b186863e4f8712e5539fc11bb37ba938ad92acdf9d578fb4358a6a7177e
 "use strict";
 // crunchyCore — GAME MOMENTS (MOMENTS.md, AJ 2026-10-24): a hit is not one asset. A moment puts a CrunchyVFX effect, a
 // CrunchySFX sound, a CrunchyShader hit look, a screen shake and a beat of hit stop into ONE Godot node:
@@ -15,7 +15,7 @@
 // played through: frame_override 0 -> last, or progress 0 -> 100 -> 0) and gets its own material back.
 // Pure: strings only.
 
-const MOMENT_BUILD = 5;   // 5: the stage previews only a varied effect's FIRST animation (VFX Variety bakes one per variation); 4: overlapping moments (rapid hits) hand back the ORIGINAL look, camera offset and time scale, never an earlier hit's (AJ: the fire look stayed on Skelly); 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
+const MOMENT_BUILD = 6;   // 6: play_at(target, text): the words for a text effect (a damage number, VFX §53), set before it enters the tree, and the spawned effect returned; 5: the stage previews only a varied effect's FIRST animation (VFX Variety bakes one per variation); 4: overlapping moments (rapid hits) hand back the ORIGINAL look, camera offset and time scale, never an earlier hit's (AJ: the fire look stayed on Skelly); 3: a README.txt in every moment's folder; the node named in PascalCase (FireHit); 2: share links in the Sound and Hit look slots (MOMENTS.md step 3)
 
 const MOMENT_GD = [
   "class_name CrunchyMoment",
@@ -57,11 +57,15 @@ const MOMENT_GD = [
   "var _running := 0",
   "",
   "## Play the moment at a target (a Node2D: its position; any node: the screen's sound, no position).",
-  "func play_at(target: Node = null) -> void:",
+  "## [param text]: the words for an effect that shows them (a CrunchyVFX text effect: a damage number, a score), so",
+  "## play_at(enemy, -damage) shows that number. Returns the effect it spawned (null when the moment has none).",
+  "func play_at(target: Node = null, text: Variant = null) -> Node:",
   "\t_running = 0",
   "\tvar fx: Node = null",
   "\tif effect:",
   "\t\tfx = effect.instantiate()",
+  "\t\tif text != null and fx.has_node(\"Text\"):",
+  "\t\t\tfx.get_node(\"Text\").text = str(text)",
   "\t\tvar host: Node = target.get_parent() if target and target.get_parent() else get_tree().current_scene",
   "\t\tif host == null:",
   "\t\t\thost = get_tree().root",
@@ -80,6 +84,7 @@ const MOMENT_GD = [
   "\t\t_rest(target)",
   "\tif _running == 0:",
   "\t\tfinished.emit.call_deferred()",
+  "\treturn fx",
   "",
   "func _free_effect(fx: Node) -> void:",
   "\tif is_instance_valid(fx):",
@@ -424,6 +429,7 @@ function momentReadme(o) {
     "       $" + node + ".play_at(enemy)        # enemy: the Node2D that was hit (the body, or its sprite)",
     "",
     "   The node stays in the scene: call play_at as often as you like, on any target.",
+    "   An effect that shows words (a damage number) takes them second: $" + node + ".play_at(enemy, -damage)",
     "",
     "WHAT THE TARGET AND THE SCENE NEED (when a part doesn't show, it is one of these)", "",
     "  - The TARGET is a Node2D. The effect and the sound happen at the middle of its sprite, so a character whose",
