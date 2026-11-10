@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ f1153c1 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 f9795b9d0871e14f2c470bc57a9e28cc9e1e60a8a0a4d6d6ee588f4c55903bea
+// GENERATED from crunchyCore/shader.js @ 425432d by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 f249c2d1e6e1c9908ad4deda54e5dd422105880a5eac5078091ab8fe8368d78e
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -99,7 +99,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 47;
+const SHADER_BUILD = 48;
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -14694,4 +14694,1756 @@ SHADER_DEFS.wavelayers = {
     return S.palAt("colors", idx);
   },
   variants: [{ layers: 2, swell: 24, drift: 4, horizon: 0 }, { layers: 8, swell: 0, drift: 0, horizon: 80 }, { swell: 12, drift: 2 }],
+};
+
+// ============================================================================================
+// THE PRETTY ROUND, BACKGROUNDS (build 48, 2026-11-08; AJ: "how about some fun pretty stuff. What about some more
+// shaders?"). Eight generators made to be backgrounds (group "Backgrounds", each with `backdrop`), strict: only their
+// palette params' colors come out, crisp bands with Bayer dithers between them, no mushy gradients:
+//   kaleidoscope  colored glass pieces (or the picture) mirrored into wedges round the middle, turning as they tumble
+//   lavalamp      big soft wax blobs rising and sinking, merging into the pools at the top and bottom, in a glowing lamp
+//   nebula        layered gas clouds drifting round each other in banded colors, dark dust in them, twinkling stars
+//   caustics      the dancing net of light on a pool floor, over its tiles
+//   galaxy        a spiral galaxy slowly turning: arms, a bright core, dust lanes, stars
+//   mandala       concentric rings of outlined petals turning in opposite directions, their colors flowing outward
+//   crystalcells  drifting cells cut like gems: faceted, lit from the upper left, bright edges, glints
+//   truchet       quarter-arc tiles turning one at a time, an endless maze of colored tubes
+// Private helpers `shaderPrettyBg*`.
+// ============================================================================================
+SHADER_EFFECTS.push("kaleidoscope", "lavalamp", "nebula", "caustics", "galaxy", "mandala", "crystalcells", "truchet");
+
+// the angle (whole degrees) that runs k whole turns over the loop: every wave of it closes
+function shaderPrettyBgTurn(S, k) { return S.div(S.mul(S.frame, 360 * k), S.FRAMES); }
+// a ramp of n palette entries read at v (0 .. n x step), as an index: each band `step` wide, dithered (4 x 4 Bayer) into
+// the next over its band
+function shaderPrettyBgRampIdx(S, n, v, step) {
+  const i = S.clamp(S.div(v, step), 0, S.sub(n, 1)), f = S.div(S.mul(S.mod(v, step), 16), step);
+  return S.sel(S.gt(f, shaderWxBayer(S, 1)), S.min(S.add(i, 1), S.sub(n, 1)), i);
+}
+// sin(a) x 1000 for a in TENTHS of a degree (Bhaskara I, as shaderMotionSin, but smooth to a tenth: fine at a large radius)
+function shaderPrettyBgSin10(S, a) {
+  const d = S.mod(a, 3600), h = S.mod(d, 1800), p = S.mul(h, S.sub(1800, h));
+  const v = S.mul(S.div(S.mul(p, 2000), S.sub(4050000, p)), 2);
+  return S.sel(S.lt(d, 1800), v, S.neg(v));
+}
+function shaderPrettyBgCos10(S, a) { return shaderPrettyBgSin10(S, S.add(a, 900)); }
+// the angle round the screen's middle in TENTHS of a degree (0..3599, clockwise from twelve; shaderMotionAtan's octant
+// formula, kept to tenths so wedges and rings stay smooth far out) and the radius in half pixels
+function shaderPrettyBgPolar(S) {
+  const X = S.sub(S.add(S.mul(S.x, 2), 1), S.w), Y = S.sub(S.add(S.mul(S.y, 2), 1), S.h);
+  const ax = S.abs(X), ay = S.abs(Y), r = S.div(S.mul(S.min(ax, ay), 1000), S.max(S.max(ax, ay), 1));
+  const a0 = S.div(S.add(S.add(S.mul(r, 450), S.div(S.mul(S.mul(r, S.sub(1000, r)), 1564), 10000)), 500), 1000);
+  const a1 = S.sel(S.gt(ay, ax), S.sub(900, a0), a0), a2 = S.sel(S.lt(X, 0), S.sub(1800, a1), a1);
+  const a = S.mod(S.sel(S.lt(Y, 0), S.sub(3600, a2), a2), 3600);
+  return { a: S.mod(S.add(a, 900), 3600), d2: shaderPaintSqrt(S, S.add(S.mul(X, X), S.mul(Y, Y))) };
+}
+// two bools differ (xor)
+function shaderPrettyBgXor(S, a, b) { return S.ne(S.sel(a, 1, 0), S.sel(b, 1, 0)); }
+// value noise 0..1000 at (x, y) on a lattice of `cell` px (a JS constant), smoothstepped between hashed corners
+function shaderPrettyBgNoise(S, x, y, cell, salt) {
+  const ix = S.div(x, cell), iy = S.div(y, cell);
+  const fx = S.div(S.mul(S.mod(x, cell), 1000), cell), fy = S.div(S.mul(S.mod(y, cell), 1000), cell);
+  const sx = S.div(S.mul(S.mul(fx, fx), S.sub(3000, S.mul(fx, 2))), 1000000), sy = S.div(S.mul(S.mul(fy, fy), S.sub(3000, S.mul(fy, 2))), 1000000);
+  const h = function (i, j) { return S.div(S.mul(S.hash(S.add(ix, i), S.add(iy, j), salt), 1000), 65535); };
+  const top = S.mix(h(0, 0), h(1, 0), sx, 1000), bot = S.mix(h(0, 1), h(1, 1), sx, 1000);
+  return S.mix(top, bot, sy, 1000);
+}
+
+// ---- KALEIDOSCOPE -----------------------------------------------------------------------------------------------------
+// The screen's middle is the tube's eye: each pixel's angle folds into one wedge (mirrored every other wedge), and the
+// point at that angle and distance reads a field of glass pieces (discs, diamonds and squares on a jittered grid, two
+// layers) that tumbles round a circle once a loop while the mirrors turn one wedge pair. "the picture" reads the screen
+// there instead (over a game, not behind one).
+const shaderPrettyBgWedges = [60, 45, 36, 30, 20, 18, 15];   // degrees a wedge: 6, 8, 10, 12, 18, 20, 24 wedges
+function shaderPrettyBgPieces(S, u, v, P, n) {
+  let idx = S.i(0);
+  // two layers of pieces: the big ones under, a finer offset grid over them
+  [[P, 0, 401], [S.max(S.div(S.mul(P, 2), 3), 3), 7, 409]].forEach(function (L) {
+    const Q = L[0], gx = S.div(S.add(u, L[1]), Q), gy = S.div(S.add(v, L[1]), Q), h = S.hash(gx, gy, L[2]);
+    const lx = S.sub(S.mod(S.add(u, L[1]), Q), S.div(Q, 2)), ly = S.sub(S.mod(S.add(v, L[1]), Q), S.div(Q, 2));
+    const r = S.add(S.div(Q, 3), S.mod(S.div(h, 7), S.max(S.div(Q, 4), 1))), shape = S.mod(h, 3), ax = S.abs(lx), ay = S.abs(ly);
+    const inside = S.pick([
+      [S.eq(shape, 0), S.lt(S.add(S.mul(lx, lx), S.mul(ly, ly)), S.mul(r, r))],
+      [S.eq(shape, 1), S.lt(S.add(ax, ay), S.add(r, S.div(r, 3)))],
+    ], S.and(S.lt(ax, r), S.lt(ay, r)));
+    const rw = S.sel(S.ge(Q, 12), 2, 1), ri = S.sub(r, rw);
+    const rim = S.pick([
+      [S.eq(shape, 0), S.ge(S.add(S.mul(lx, lx), S.mul(ly, ly)), S.mul(ri, ri))],
+      [S.eq(shape, 1), S.ge(S.add(ax, ay), S.sub(S.add(r, S.div(r, 3)), rw))],
+    ], S.or(S.ge(ax, ri), S.ge(ay, ri)));
+    // a glint toward the upper left of each piece
+    const gx0 = S.add(lx, S.div(r, 2)), gy0 = S.add(ly, S.div(r, 2)), gr = S.max(S.div(r, 4), 1);
+    const glint = S.lt(S.add(S.mul(gx0, gx0), S.mul(gy0, gy0)), S.mul(gr, gr));
+    const present = S.lt(S.mod(S.div(h, 3), 10), 9);
+    idx = S.sel(S.and(present, inside), S.pick([[rim, 1], [glint, -1]], S.add(2, S.mod(S.div(h, 31), S.max(S.sub(n, 2), 1)))), idx);
+  });
+  return idx;
+}
+SHADER_DEFS.kaleidoscope = {
+  label: "Kaleidoscope", title: "a kaleidoscope: pieces of colored glass (or the picture) mirrored into wedges round the middle, turning as they tumble",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["kaleidoscope", "mirror", "symmetry", "glass", "psychedelic", "trippy", "background", "backdrop", "menu", "pattern"],
+  params: {
+    wedges: { type: "int", min: 0, max: 6, def: 3, label: "Wedges", choices: ["6", "8", "10", "12", "18", "20", "24"] },
+    size: { type: "int", min: 4, max: 40, def: 20, label: "Piece size (px)" },
+    tumble: { type: "int", min: 0, max: 64, def: 20, label: "Tumble (px)" },
+    spin: { type: "int", min: 0, max: 2, def: 1, label: "Mirrors", choices: ["stay still", "turn", "turn faster"] },
+    source: { type: "int", min: 0, max: 1, def: 0, label: "Mirrors", choices: ["glass pieces", "the picture"] },
+    colors: { type: "palette", def: ["#2a1848", "#0c0618", "#e83a6a", "#ffb03a", "#3ad0c8", "#7a5aff", "#ffe8a0", "#4ae06a"], max: 16, label: "Ground, rims, then glass" },
+    shine: { type: "colour", def: "#fff6e0", label: "Glints" },
+  },
+  fragment: function (S) {
+    const K = shaderPrettyBgPolar(S), per = S.mul(S.table(shaderPrettyBgWedges, S.p("wedges")), 10), two = S.mul(per, 2);   // tenths
+    const rot = S.div(S.mul(S.mul(S.frame, two), S.p("spin")), S.FRAMES);
+    const m = S.mod(S.add(K.a, rot), two), phi = S.sel(S.gt(m, per), S.sub(two, m), m);
+    const r = S.div(K.d2, 2), t = shaderPrettyBgTurn(S, 1), T = S.p("tumble");
+    const u = S.add(S.div(S.mul(r, shaderPrettyBgCos10(S, phi)), 1000), S.div(S.mul(shaderMotionCos(S, t), T), 1000));
+    const v = S.add(S.div(S.mul(r, shaderPrettyBgSin10(S, phi)), 1000), S.div(S.mul(shaderMotionSin(S, S.mul(t, 2)), T), 2000));
+    const n = S.palCount("colors");
+    const gi = shaderPrettyBgPieces(S, S.add(u, 4000), S.add(v, 4000), S.p("size"), n);
+    const glass = S.sel(S.lt(gi, 0), S.p("shine"), S.palAt("colors", gi));
+    const pic = S.texAt(S.add(S.div(S.w, 2), u), S.add(S.div(S.h, 2), v), "wrap");
+    return S.sel(S.eq(S.p("source"), 1), pic, glass);
+  },
+  variants: [{ wedges: 0, size: 6, tumble: 64, spin: 2 }, { wedges: 6, size: 30, tumble: 0, spin: 0 }, { source: 1, wedges: 2 }],
+};
+
+// ---- LAVA LAMP --------------------------------------------------------------------------------------------------------
+// Metaballs that rise and sink on slow sines (whole turns a loop), each at its own pace, plus a wax pool along the bottom
+// and one along the top (a field of the distance to a wavy line), so blobs pull off the pools, rise, merge and fall
+// back. The field is banded: a dim glow round the wax in the liquid, a dark rim, the body, a hot core.
+SHADER_DEFS.lavalamp = {
+  label: "Lava lamp", title: "a lava lamp: big soft blobs of wax rising and sinking, merging and splitting, in a glowing liquid",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 96, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["lava lamp", "blobs", "wax", "retro", "groovy", "70s", "chill", "background", "backdrop", "menu"],
+  params: {
+    blobs: { type: "int", min: 1, max: 7, def: 5, label: "Blobs" },
+    size: { type: "int", min: 4, max: 40, def: 15, label: "Blob size (% of the height)" },
+    pools: { type: "int", min: 0, max: 1, def: 1, label: "Wax pools", choices: ["off", "top and bottom"] },
+    wax: { type: "palette", def: ["#7a1438", "#d8305a", "#ff7a4a", "#ffd27a"], max: 8, label: "Wax, rim to core" },
+    liquid: { type: "palette", def: ["#160626", "#2a0a3a", "#48124a", "#6e1c4e", "#9a2c4a"], max: 8, label: "Liquid, top to bottom" },
+  },
+  fragment: function (S) {
+    const W = S.w, H = S.h, R = S.max(S.div(S.mul(H, S.p("size")), 100), 2), R2 = S.mul(S.mul(R, R), 1000), t = shaderPrettyBgTurn(S, 1), B = S.p("blobs");
+    let f = S.i(0);
+    // [laps a loop up/down, laps sideways, phase, size %]
+    const paths = [[1, 2, 0, 100], [2, 1, 140, 80], [1, 3, 250, 120], [3, 1, 60, 70], [2, 3, 300, 95], [1, 1, 200, 110], [3, 2, 100, 85]];
+    for (let k = 0; k < 7; k++) {
+      const [a, b, ph, sz] = paths[k];
+      const bx = S.add(S.div(S.mul(W, 2 * k + 1), S.mul(B, 2)), S.div(S.mul(shaderMotionSin(S, S.add(S.mul(t, b), ph)), S.div(W, 10)), 1000));
+      const by = S.sub(S.div(H, 2), S.div(S.mul(shaderMotionSin(S, S.add(S.mul(t, a), ph * 2)), S.add(S.div(H, 2), S.div(R, 2))), 1000));
+      const dx = S.sub(S.x, bx), dy = S.div(S.mul(S.sub(S.y, by), 4), 5);       // a touch tall, as wax hangs
+      const Rk = S.div(S.mul(R, sz), 100), fk = S.div(S.mul(S.mul(Rk, Rk), 1000), S.add(S.add(S.mul(dx, dx), S.mul(dy, dy)), 1));
+      f = S.add(f, S.sel(S.lt(k, B), S.min(fk, 8000), 0));
+    }
+    // the pools: wavy lines just past the bottom and top edges, swelling and ebbing
+    const sw = S.wave(S.add(S.mul(S.x, 3), S.mul(t, 2)), 360, S.div(R, 3));
+    const db = S.max(S.sub(S.add(H, S.div(R, 3)), S.add(S.y, sw)), 1), dt = S.max(S.add(S.add(S.y, S.div(R, 2)), sw), 1);
+    const pool = S.add(S.div(S.div(R2, 2), S.mul(db, db)), S.div(S.div(R2, 6), S.mul(dt, dt)));
+    f = S.add(f, S.sel(S.eq(S.p("pools"), 1), S.min(pool, 8000), 0));
+    // the liquid: a dithered gradient, a step brighter in the glow round the wax
+    const nl = S.palCount("liquid"), lv = S.add(S.div(S.mul(S.y, S.mul(nl, 16)), S.max(H, 1)), S.sel(S.ge(f, 700), 9, 0));
+    const liquid = S.palAt("liquid", shaderPrettyBgRampIdx(S, nl, lv, 16));
+    // the wax: 1000 is the surface; rim, body, core, hottest heart (lit from the lamp below: hotter lower down)
+    const nw = S.palCount("wax"), heat = S.add(f, S.div(S.mul(S.y, 600), S.max(H, 1)));
+    const wv = S.add(16, S.div(S.mul(S.sub(heat, 1000), 16), 2200));
+    const wax = S.palAt("wax", S.sel(S.lt(f, 1120), 0, shaderPrettyBgRampIdx(S, nw, S.max(wv, 16), 16)));
+    return S.sel(S.ge(f, 1000), wax, liquid);
+  },
+  variants: [{ blobs: 1, size: 40, pools: 0 }, { blobs: 7, size: 4 }, { blobs: 3, size: 24 }],
+};
+
+// ---- NEBULA -----------------------------------------------------------------------------------------------------------
+// Two layers of value noise (three octaves each) circling round each other in opposite directions (circles close the
+// loop), banded into the gas ramp with dithers; where the second layer is thick a dark dust lane cuts the gas; a few
+// bright knots. Stars over the dark: most a pixel, some twinkling into small crosses.
+SHADER_DEFS.nebula = {
+  label: "Nebula", title: "a nebula: layered clouds of gas drifting round each other in banded colors, dark dust lanes, twinkling stars",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 10, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["nebula", "space", "stars", "cosmos", "galaxy", "clouds", "gas", "background", "backdrop", "sci-fi"],
+  params: {
+    scale: { type: "int", min: 0, max: 2, def: 1, label: "Clouds", choices: ["small", "medium", "big"] },
+    drift: { type: "int", min: 0, max: 24, def: 8, label: "Drift (px)" },
+    dust: { type: "int", min: 0, max: 100, def: 50, label: "Dust (%)" },
+    stars: { type: "int", min: 0, max: 100, def: 40, label: "Stars (%)" },
+    gas: { type: "palette", def: ["#06040e", "#120a26", "#24103e", "#3e1656", "#6a1e6a", "#a82e72", "#e05a78", "#ff9a8a", "#ffe0c0"], max: 12, label: "Space to brightest gas" },
+    starcolor: { type: "colour", def: "#f0f4ff", label: "Stars" },
+    dim: { type: "colour", def: "#7a86b8", label: "Faint stars" },
+  },
+  fragment: function (S) {
+    const t = shaderPrettyBgTurn(S, 1), D = S.p("drift"), sc = S.p("scale");
+    const ox = S.div(S.mul(shaderMotionCos(S, t), D), 1000), oy = S.div(S.mul(shaderMotionSin(S, t), D), 1000);
+    const fbm = function (x, y, salt) {
+      // three octaves at each cloud size (the size picks the lattices: 24/12/6, 48/24/12, 96/48/24)
+      const oct = function (c) {
+        return S.add(S.add(S.mul(shaderPrettyBgNoise(S, x, y, c, salt), 4), S.mul(shaderPrettyBgNoise(S, S.add(x, 17), y, c / 2, salt + 1), 2)), shaderPrettyBgNoise(S, x, S.add(y, 29), c / 4, salt + 2));
+      };
+      return S.div(S.pick([[S.eq(sc, 0), oct(24)], [S.eq(sc, 1), oct(48)]], oct(96)), 7);          // 0..1000
+    };
+    const a = fbm(S.add(S.add(S.x, ox), 5000), S.add(S.add(S.y, oy), 5000), 811);
+    const b = fbm(S.add(S.sub(S.x, ox), 6000), S.add(S.sub(S.y, S.div(oy, 2)), 6000), 823);
+    // gas: the first layer's body low on the ramp; bright filaments where the second layer crosses its middle (a ridge),
+    // only inside the gas; dust: the second layer's lower ridge darkens it
+    const body = S.clamp(S.mul(S.sub(a, 420), 2), 0, 560);
+    const fil = S.div(S.mul(S.mul(S.max(S.sub(200, S.abs(S.sub(b, 520))), 0), 3), S.min(body, 280)), 280);
+    const dustCut = S.div(S.mul(S.mul(S.max(S.sub(140, S.abs(S.sub(b, 380))), 0), 3), S.p("dust")), 100);
+    const n = S.palCount("gas"), v = S.max(S.sub(S.add(body, fil), dustCut), 0);
+    const gi = shaderPrettyBgRampIdx(S, n, S.div(S.mul(v, S.mul(n, 16)), 1150), 16);
+    // stars: one in 40 pixels at 100%, a third of them bright, twinkling into crosses (a whole number of twinkles a loop)
+    const sh = S.hash(S.x, S.y, 857), on = S.lt(S.mod(sh, 4000), S.p("stars"));
+    const bright = S.and(on, S.lt(S.mod(S.div(sh, 7), 3), 1));
+    // a neighbor that is a bright star in its twinkle makes this pixel its cross arm
+    let arm = S.lt(1, 0);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (o) {
+      const h2 = S.hash(S.add(S.x, o[0]), S.add(S.y, o[1]), 857);
+      const on2 = S.and(S.lt(S.mod(h2, 4000), S.p("stars")), S.lt(S.mod(S.div(h2, 7), 3), 1));
+      const tw2 = S.lt(S.mod(S.add(S.frame, S.mod(S.div(h2, 3), 64)), 16), 5);
+      arm = S.or(arm, S.and(on2, tw2));
+    });
+    const space = S.lt(gi, 3);
+    return S.pick([
+      [bright, S.p("starcolor")],
+      [S.and(on, space), S.p("dim")],
+      [S.and(arm, space), S.p("dim")],
+    ], S.palAt("gas", gi));
+  },
+  variants: [{ scale: 0, drift: 24, dust: 0, stars: 100 }, { scale: 2, drift: 0, dust: 100, stars: 0 }],
+};
+
+// ---- CAUSTICS ---------------------------------------------------------------------------------------------------------
+// Two Voronoi layers whose seeds circle their cells (whole turns a loop), the second finer and turning the other way;
+// the light is the cells' edges (the distance to the bisector of the two nearest seeds), wobbled so they curve. Where
+// both nets cross the light is brightest. Under it a pool floor of tiles.
+function shaderPrettyBgNet(S, x, y, P, dir, salt) {
+  const gx = S.div(x, P), gy = S.div(y, P), t = shaderPrettyBgTurn(S, 1);
+  let d1 = S.i(99999999), d2 = S.i(99999999), ax = S.i(0), ay = S.i(0), bx = S.i(0), by = S.i(0);
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const nx = S.add(gx, i), ny = S.add(gy, j), h = S.hash(nx, ny, salt), ph = S.mod(h, 360), rr = S.add(S.div(P, 5), S.mod(S.div(h, 360), S.max(S.div(P, 6), 1)));
+    const ang = dir > 0 ? S.add(t, ph) : S.sub(ph, t);
+    // each seed jittered in its cell (so the net is no grid), then circling
+    const jx = S.div(S.mul(S.sub(S.mod(S.div(h, 13), 21), 10), P), 32), jy = S.div(S.mul(S.sub(S.mod(S.div(h, 273), 21), 10), P), 32);
+    const sx = S.add(S.add(S.mul(nx, P), S.add(S.div(P, 2), jx)), S.div(S.mul(shaderMotionCos(S, ang), rr), 1000));
+    const sy = S.add(S.add(S.mul(ny, P), S.add(S.div(P, 2), jy)), S.div(S.mul(shaderMotionSin(S, ang), rr), 1000));
+    const ex = S.sub(x, sx), ey = S.sub(y, sy), d = S.add(S.mul(ex, ex), S.mul(ey, ey));
+    const first = S.lt(d, d1), second = S.lt(d, d2);
+    d2 = S.sel(first, d1, S.sel(second, d, d2)); bx = S.sel(first, ax, S.sel(second, sx, bx)); by = S.sel(first, ay, S.sel(second, sy, by));
+    d1 = S.sel(first, d, d1); ax = S.sel(first, sx, ax); ay = S.sel(first, sy, ay);
+  }
+  // the distance to the edge, in quarter pixels: (d2 - d1) / (2 |b - a|)
+  const ux = S.sub(bx, ax), uy = S.sub(by, ay), len = S.max(shaderPaintSqrt(S, S.add(S.mul(ux, ux), S.mul(uy, uy))), 1);
+  return S.div(S.mul(S.sub(d2, d1), 2), len);
+}
+SHADER_DEFS.caustics = {
+  label: "Caustics", title: "the dancing net of light on a pool floor: bright wavy lines meeting and parting over the tiles",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["caustics", "water", "pool", "underwater", "sea", "light", "ripple", "summer", "background", "backdrop"],
+  params: {
+    cell: { type: "int", min: 8, max: 48, def: 22, label: "Net size (px)" },
+    wobble: { type: "int", min: 0, max: 8, def: 3, label: "Wobble (px)" },
+    glow: { type: "int", min: 1, max: 6, def: 2, label: "Line width" },
+    tiles: { type: "int", min: 0, max: 32, def: 16, label: "Floor tiles (px, 0 none)" },
+    colors: { type: "palette", def: ["#0c3a5c", "#105070", "#1a6e8e", "#3a9cb8", "#8ad8e6", "#e6fcff"], max: 8, label: "Grout, floor, then light" },
+  },
+  fragment: function (S) {
+    const P = S.p("cell"), Wb = S.p("wobble"), t = shaderPrettyBgTurn(S, 1);
+    const x = S.add(S.add(S.x, S.wave(S.add(S.mul(S.y, 4), t), 360, Wb)), 4000), y = S.add(S.add(S.y, S.wave(S.sub(S.mul(S.x, 3), S.mul(t, 2)), 360, Wb)), 4000);
+    const e1 = shaderPrettyBgNet(S, x, y, P, 1, 911);
+    const e2 = shaderPrettyBgNet(S, S.add(x, 7), S.add(y, 3), S.add(S.div(S.mul(P, 2), 3), 1), -1, 919);
+    // light: each net's line strength (its width in quarter px, fading out to twice that), the finer net weaker
+    const G = S.mul(S.p("glow"), 2);
+    const l1 = S.max(S.sub(S.mul(G, 2), e1), 0), l2 = S.max(S.sub(S.mul(G, 2), e2), 0);
+    const light = S.add(S.mul(l1, 3), S.mul(l2, 2));                                 // 0 .. 10 G
+    const n = S.palCount("colors"), TL = S.p("tiles"), nl = S.sub(n, 2);
+    const grout = S.and(S.gt(TL, 0), S.or(S.eq(S.mod(S.x, S.max(TL, 1)), 0), S.eq(S.mod(S.y, S.max(TL, 1)), 0)));
+    // the light ramp over the floor: colors 2 .. n-1 as it brightens; a dim glow first, the lines, the crossings
+    const lvl = S.sub(S.div(S.mul(light, S.mul(nl, 16)), S.mul(G, 8)), 22);
+    const li = S.sel(S.lt(lvl, 0), -1, shaderPrettyBgRampIdx(S, nl, lvl, 16));
+    return S.palAt("colors", S.pick([[S.ge(li, 0), S.add(li, 2)], [grout, 0]], 1));
+  },
+  variants: [{ cell: 8, wobble: 0, glow: 6, tiles: 0 }, { cell: 48, wobble: 8, glow: 1, tiles: 5 }],
+};
+
+// ---- GALAXY -----------------------------------------------------------------------------------------------------------
+// A tilted disc (y stretched), its angle and radius; the arms are cos(arms · angle − twist · radius − turn) (a wound
+// spiral), turned one arm's period a loop (so it closes), brighter toward the core; a dust lane trails each arm; clumps
+// of stars in the arms from a hash in the turning frame (arm-fold symmetric, so the loop still closes); stars behind.
+SHADER_DEFS.galaxy = {
+  label: "Galaxy", title: "a spiral galaxy slowly turning: glowing arms wound round a bright core, dust lanes, clusters, stars behind",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 8, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["galaxy", "spiral", "space", "stars", "cosmos", "milky way", "sci-fi", "background", "backdrop", "astronomy"],
+  params: {
+    arms: { type: "int", min: 1, max: 4, def: 2, label: "Arms" },
+    size: { type: "int", min: 20, max: 100, def: 60, label: "Size (% of the screen)" },
+    twist: { type: "int", min: 0, max: 720, def: 400, label: "Wind (degrees)" },
+    tilt: { type: "int", min: 0, max: 2, def: 1, label: "Seen", choices: ["face on", "tilted", "steeply tilted"] },
+    stars: { type: "int", min: 0, max: 100, def: 40, label: "Stars (%)" },
+    colors: { type: "palette", def: ["#04040c", "#0e1030", "#1c2458", "#2e4a8a", "#5a86c0", "#a8c8ea", "#fff0d0", "#ffd890"], max: 12, label: "Space to core" },
+    dustcolor: { type: "colour", def: "#1a0e1c", label: "Dust" },
+    starcolor: { type: "colour", def: "#e8f0ff", label: "Stars" },
+  },
+  fragment: function (S) {
+    const A = S.p("arms"), tilt = S.p("tilt");
+    const X = S.sub(S.mul(S.x, 2), S.sub(S.w, 1)), Y0 = S.sub(S.mul(S.y, 2), S.sub(S.h, 1));          // half pixels
+    const Y = S.pick([[S.eq(tilt, 0), Y0], [S.eq(tilt, 1), S.div(S.mul(Y0, 8), 5)]], S.div(S.mul(Y0, 5), 2));
+    const R = S.max(S.div(S.mul(S.min(S.w, S.h), S.p("size")), 50), 4);                                 // radius in half px: size% of the short side
+    const r = shaderPaintSqrt(S, S.add(S.mul(X, X), S.mul(Y, Y))), rn = S.div(S.mul(r, 1000), R);       // 0 at the core, 1000 at the rim
+    const th = shaderMotionAtan(S, X, Y), turn = shaderPrettyBgTurn(S, 1);
+    const ph = S.sub(S.sub(S.mul(th, A), S.div(S.mul(rn, S.p("twist")), 1000)), turn);
+    const arm = shaderMotionCos(S, ph), lane = shaderMotionCos(S, S.sub(ph, 55));
+    const env = S.max(S.sub(1000, rn), 0);                                                               // fades to the rim
+    const armB = S.div(S.mul(S.max(S.add(arm, 200), 0), env), 1200);                                    // 0..1000
+    const core = S.max(S.sub(1000, S.mul(rn, 4)), 0), halo = S.div(S.max(S.sub(1000, S.mul(rn, 2)), 0), 3);
+    // clumps along the arms: a hash on a polar grid in the turning frame (folded to one arm's period)
+    const per = S.div(360, A), rel = S.mod(S.sub(th, S.div(turn, A)), S.max(per, 1));
+    const clump = S.lt(S.mod(S.hash(S.div(r, 5), S.div(S.mul(rel, S.add(r, 20)), 400), 941), 100), S.div(armB, 14));
+    const b = S.add(S.add(S.div(S.mul(armB, 7), 10), S.mul(core, 1)), S.add(halo, S.sel(clump, 260, 0)));
+    const n = S.palCount("colors"), gi = shaderPrettyBgRampIdx(S, n, S.div(S.mul(b, S.mul(n, 16)), 1250), 16);
+    const dusty = S.and(S.gt(lane, 940), S.gt(rn, 150), S.gt(armB, 220));
+    const sh = S.hash(S.x, S.y, 947), star = S.and(S.lt(S.mod(sh, 6000), S.p("stars")), S.lt(gi, 2));
+    const tw = S.lt(S.mod(S.add(S.frame, S.mod(S.div(sh, 7), 32)), 32), 22);
+    return S.pick([[star, S.sel(tw, S.p("starcolor"), S.palAt("colors", 3))], [dusty, S.p("dustcolor")]], S.palAt("colors", gi));
+  },
+  variants: [{ arms: 4, size: 100, twist: 0, tilt: 0, stars: 100 }, { arms: 1, size: 20, twist: 720, tilt: 2, stars: 0 }],
+};
+
+// ---- MANDALA ----------------------------------------------------------------------------------------------------------
+// Rings of a fixed width out from the middle; ring i holds a count of petals that divides 360 (so each closes), drawn in
+// pixels (a petal's half-width at its radius, from its angle offset times the radius) with a one-pixel outline: lenses,
+// drops, diamonds and beads in turn; dots where petals meet; the rings turn one petal a loop, every other one backward,
+// and the colors step outward round the palette.
+const shaderPrettyBgPetals = [12, 18, 24, 30, 40, 45, 60, 60, 72, 72, 90, 90, 90, 120, 120, 120, 120, 180, 180, 180];
+SHADER_DEFS.mandala = {
+  label: "Mandala", title: "a mandala: rings of outlined petals turning in opposite directions, their colors flowing outward",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["mandala", "rings", "petals", "flower", "symmetry", "hypnotic", "psychedelic", "meditation", "background", "backdrop"],
+  params: {
+    ring: { type: "int", min: 5, max: 40, def: 16, label: "Ring width (px)" },
+    spin: { type: "int", min: 0, max: 3, def: 1, label: "Petals turned a loop" },
+    flow: { type: "int", min: 0, max: 1, def: 1, label: "Colors", choices: ["stay", "flow outward"] },
+    colors: { type: "palette", def: ["#ff5a5a", "#ffa83a", "#ffe05a", "#6ad86a", "#3ac0d8", "#5a7aff", "#b05aff", "#ff5ac0"], max: 16, label: "Petal colors (a loop)" },
+    ink: { type: "colour", def: "#1a0c24", label: "Outlines" },
+    back: { type: "colour", def: "#3a1a4a", label: "Between the petals" },
+  },
+  fragment: function (S) {
+    const K = shaderPrettyBgPolar(S), RW = S.p("ring"), r10 = S.mul(K.d2, 5);                         // radius in tenths of a px
+    const i = S.div(r10, S.mul(RW, 10)), rho = S.sub(r10, S.mul(i, S.mul(RW, 10)));            // the ring, and 0..10 RW across it
+    const cnt = S.table(shaderPrettyBgPetals, S.sub(i, 1)), per = S.div(360000, cnt);        // millidegrees a petal
+    const back = S.eq(S.mod(i, 2), 1), spun = S.div(S.mul(S.mul(S.frame, per), S.p("spin")), S.FRAMES);
+    const am = S.add(S.mul(K.a, 100), S.sel(back, S.neg(spun), spun));
+    const loc = S.mod(S.add(am, S.sel(back, S.div(per, 2), 0)), per), off = S.abs(S.sub(loc, S.div(per, 2)));   // 0 at the petal's middle
+    const rr = S.div(r10, 10), ax10 = S.div(S.mul(S.div(S.mul(rr, off), 1000), 1745), 10000);   // tenths of a px off the petal's spine
+    const arc10 = S.div(S.mul(S.div(S.mul(rr, per), 1000), 1745), 10000), RW10 = S.mul(RW, 10);
+    const hw = S.div(S.mul(S.min(arc10, RW10), 10), 20);                                        // the petal's widest half-width
+    const tn = S.div(S.mul(rho, 1000), RW10), cen = S.abs(S.sub(S.mul(tn, 2), 1000));         // 0..1000 out across the ring
+    const shape = S.mod(i, 4);
+    const prof = S.pick([
+      [S.eq(shape, 0), S.wave(tn, 2000, 1000)],                                                 // a lens
+      [S.eq(shape, 1), S.div(S.mul(S.wave(tn, 2000, 1000), S.sub(1500, tn)), 1000)],            // a drop, fat end in
+      [S.eq(shape, 2), S.sub(1000, cen)],                                                       // a diamond
+    ], shaderPaintSqrt(S, S.max(S.sub(1000000, S.mul(cen, cen)), 0)));                           // a bead
+    const allow = S.div(S.mul(hw, prof), 1000), inside = S.lt(ax10, allow), edge = S.ge(ax10, S.sub(allow, 11));
+    const vein = S.and(S.lt(ax10, 9), S.gt(tn, 250), S.lt(tn, 750), S.gt(allow, 40));
+    // a dot where petals meet, on the ring's inner line; the line itself
+    const gap10 = S.sub(S.div(arc10, 2), ax10), dot = S.lt(S.add(S.mul(gap10, gap10), S.mul(rho, rho)), 400);
+    const line = S.lt(rho, 8);
+    const n = S.palCount("colors"), flow = S.sel(S.eq(S.p("flow"), 1), S.div(S.mul(S.frame, n), S.FRAMES), 0);
+    const ci = S.mod(S.sub(S.add(i, S.mul(n, 64)), flow), n);
+    const petal = S.palAt("colors", ci), veinC = S.palAt("colors", S.mod(S.add(ci, 2), n));
+    // the heart: a disc of the first ring's width, outlined, a ring of the next color
+    const heart = S.lt(i, 1), hr = S.div(S.mul(rho, 1000), RW10);
+    const heartC = S.pick([[S.gt(hr, 900), S.p("ink")], [S.gt(hr, 600), S.palAt("colors", S.mod(S.add(ci, 3), n))], [S.gt(hr, 500), S.p("ink")]], petal);
+    return S.pick([
+      [heart, heartC],
+      [S.and(dot, S.not(inside)), S.palAt("colors", S.mod(S.add(ci, 1), n))],
+      [S.and(line, S.not(inside)), S.p("ink")],
+      [S.and(inside, edge), S.p("ink")],
+      [S.and(inside, vein), veinC],
+      [inside, petal],
+    ], S.p("back"));
+  },
+  variants: [{ ring: 5, spin: 3, flow: 0 }, { ring: 32, spin: 0 }],
+};
+
+// ---- CRYSTAL CELLS ----------------------------------------------------------------------------------------------------
+// Voronoi cells whose seeds circle (closed); each cell is one gem (a hue from the palette's triples: dark, mid, light),
+// cut in six facets round its seed (turned per cell) and shaded by each facet's side against a light from the upper
+// left, a light table in the middle, a bright edge where cells meet, and now and then a glint.
+SHADER_DEFS.crystalcells = {
+  label: "Crystal cells", title: "a wall of crystal cells drifting: each a gem cut in facets, lit from the upper left, bright edges, glints",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["crystal", "gems", "jewels", "voronoi", "cells", "facets", "cave", "treasure", "background", "backdrop"],
+  params: {
+    cell: { type: "int", min: 8, max: 48, def: 20, label: "Gem size (px)" },
+    drift: { type: "int", min: 0, max: 100, def: 30, label: "Drift (% of a gem)" },
+    facets: { type: "int", min: 3, max: 8, def: 6, label: "Facets" },
+    glints: { type: "int", min: 0, max: 100, def: 30, label: "Glints (%)" },
+    gems: { type: "palette", def: ["#5a0a24", "#b81e44", "#ff6a7a", "#0e2a6a", "#2a5ad0", "#7ab0ff", "#0a4a2e", "#1e9a5a", "#7aeaa0", "#3a1a6a", "#8a3ad0", "#d09aff", "#6a3a0a", "#d8901e", "#ffe07a"], max: 24, label: "Gems (dark, mid, light each)" },
+    edge: { type: "colour", def: "#f4fcff", label: "Edges and glints" },
+  },
+  fragment: function (S) {
+    const P = S.p("cell"), t = shaderPrettyBgTurn(S, 1), x = S.add(S.x, 4000), y = S.add(S.y, 4000);
+    const gx = S.div(x, P), gy = S.div(y, P), dr = S.div(S.mul(P, S.p("drift")), 250);
+    let d1 = S.i(99999999), d2 = S.i(99999999), ax = S.i(0), ay = S.i(0), bx = S.i(0), by = S.i(0), ah = S.i(0);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+      const nx = S.add(gx, i), ny = S.add(gy, j), h = S.hash(nx, ny, 971), ang = S.add(S.mul(t, S.add(1, S.mod(h, 2))), S.mod(h, 360));
+      const sx = S.add(S.add(S.mul(nx, P), S.div(P, 2)), S.add(S.div(S.mul(S.sub(S.mod(S.div(h, 7), 9), 4), P), 20), S.div(S.mul(shaderMotionCos(S, ang), dr), 1000)));
+      const sy = S.add(S.add(S.mul(ny, P), S.div(P, 2)), S.add(S.div(S.mul(S.sub(S.mod(S.div(h, 63), 9), 4), P), 20), S.div(S.mul(shaderMotionSin(S, ang), dr), 1000)));
+      const ex = S.sub(x, sx), ey = S.sub(y, sy), d = S.add(S.mul(ex, ex), S.mul(ey, ey));
+      const first = S.lt(d, d1), second = S.lt(d, d2);
+      d2 = S.sel(first, d1, S.sel(second, d, d2)); bx = S.sel(first, ax, S.sel(second, sx, bx)); by = S.sel(first, ay, S.sel(second, sy, by));
+      d1 = S.sel(first, d, d1); ax = S.sel(first, sx, ax); ay = S.sel(first, sy, ay); ah = S.sel(first, h, ah);
+    }
+    const ux = S.sub(bx, ax), uy = S.sub(by, ay), len = S.max(shaderPaintSqrt(S, S.add(S.mul(ux, ux), S.mul(uy, uy))), 1);
+    const e4 = S.div(S.mul(S.sub(d2, d1), 2), len);                                              // quarter px to the edge
+    // the facet: the angle round the seed, turned per gem, cut in F sectors; its middle's side against the light
+    const F = S.p("facets"), sec = S.max(S.div(360, F), 1), tw = S.mod(S.div(ah, 11), 360);
+    const fa = S.mod(S.add(shaderMotionAtan(S, S.sub(x, ax), S.sub(y, ay)), tw), 360), k = S.div(fa, sec);
+    const mid = S.sub(S.add(S.mul(k, sec), S.div(sec, 2)), tw), lit = shaderMotionCos(S, S.sub(mid, 225));
+    const ng = S.max(S.div(S.palCount("gems"), 3), 1), g = S.mul(S.mod(S.div(ah, 5), ng), 3);
+    const table = S.lt(S.mul(d1, 16), S.mul(P, P));
+    const shade = S.pick([[table, 2], [S.gt(lit, 450), 2], [S.gt(lit, -350), 1]], 0);
+    // a glint: some gems, for a few frames of the loop, a cross on their upper-left facet
+    const gl = S.and(S.lt(S.mod(S.div(ah, 17), 100), S.p("glints")), S.lt(S.mod(S.add(S.frame, S.mod(S.div(ah, 3), 64)), 64), 6));
+    const gx0 = S.sub(ax, S.div(P, 6)), gy0 = S.sub(ay, S.div(P, 6)), gdx = S.abs(S.sub(x, gx0)), gdy = S.abs(S.sub(y, gy0));
+    const glint = S.and(gl, S.or(S.and(S.eq(gdx, 0), S.le(gdy, 2)), S.and(S.eq(gdy, 0), S.le(gdx, 2))));
+    return S.pick([[S.lt(e4, 4), S.p("edge")], [glint, S.p("edge")], [S.lt(e4, 8), S.palAt("gems", g)]], S.palAt("gems", S.add(g, shade)));
+  },
+  variants: [{ cell: 8, drift: 100, facets: 3, glints: 100 }, { cell: 48, drift: 0, facets: 8, glints: 0 }],
+};
+
+// ---- TRUCHET ----------------------------------------------------------------------------------------------------------
+// Quarter-arc tiles: each tile two arcs round opposite corners, one way or the other by a hash. Each tile turns a quarter
+// once a loop at its own moment (over six frames, the arcs rotating about its middle) and turns back half a loop later,
+// so the maze rewires one tile at a time and the loop closes. The arcs are tubes: an ink outline, the color (stepping
+// along the screen diagonal through the palette, flowing), a shine line; the two sides of the maze two grounds.
+SHADER_DEFS.truchet = {
+  label: "Truchet maze", title: "an endless maze of quarter-arc tiles, each turning in its own moment, colored tubes weaving through",
+  group: "Backgrounds", kind: "screen", palette: "strict", frames: 64, fps: 12, pad: [0, 0, 0, 0], backdrop: {},
+  tags: ["truchet", "maze", "tiles", "pattern", "arcs", "weave", "geometric", "puzzle", "background", "backdrop"],
+  params: {
+    tile: { type: "int", min: 8, max: 48, def: 16, label: "Tile (px)" },
+    tube: { type: "int", min: 1, max: 8, def: 3, label: "Tube width (px)" },
+    turns: { type: "int", min: 0, max: 100, def: 40, label: "Tiles turning (%)" },
+    colors: { type: "palette", def: ["#ff4a6a", "#ff9a3a", "#ffe04a", "#5ad86a", "#3ab8e8", "#8a6aff"], max: 16, label: "Tube colors (a loop)" },
+    ink: { type: "colour", def: "#140a1e", label: "Outlines" },
+    shine: { type: "colour", def: "#fff6e0", label: "Shine" },
+    ground: { type: "colour", def: "#2a1e40", label: "Ground" },
+    ground2: { type: "colour", def: "#22183a", label: "Other ground" },
+  },
+  fragment: function (S) {
+    const T = S.p("tile"), x = S.add(S.x, 4096), y = S.add(S.y, 4096), tx = S.div(x, T), ty = S.div(y, T);
+    const h = S.hash(tx, ty, 983), F = S.FRAMES, at = S.mod(S.div(h, 4), F), moves = S.lt(S.mod(S.div(h, 256), 100), S.p("turns"));
+    // its state: flipped from `at` for half the loop, a quarter turn animating over the 6 frames after each flip
+    const since = S.mod(S.sub(S.frame, at), F), half = F / 2;
+    const flipped = S.and(moves, S.lt(since, half));
+    const into = S.sel(S.lt(since, half), since, S.sub(since, half));                                  // frames since the last flip
+    const anim = S.and(moves, S.lt(into, 6)), ang = S.sel(anim, S.sub(S.mul(into, 15), 90), 0);         // -90 .. -15 degrees, then 0
+    const base = shaderPrettyBgXor(S, S.eq(S.mod(h, 2), 0), flipped);
+    // the tile's own coordinates (half pixels about its middle), turned back by the animation's angle
+    const lx = S.sub(S.add(S.mul(S.mod(x, T), 2), 1), T), ly = S.sub(S.add(S.mul(S.mod(y, T), 2), 1), T);
+    const cs = shaderMotionCos(S, ang), sn = shaderMotionSin(S, ang);
+    const rx = S.div(S.add(S.mul(lx, cs), S.mul(ly, sn)), 1000), ry = S.div(S.sub(S.mul(ly, cs), S.mul(lx, sn)), 1000);
+    // orientation: arcs round (-T,-T) and (T,T), or (T,-T) and (-T,T) (half px); the arc radius is T (half the tile)
+    const qx = S.sel(base, S.neg(rx), rx);
+    const dA = shaderPaintSqrt(S, S.add(S.mul(S.add(qx, T), S.add(qx, T)), S.mul(S.add(ry, T), S.add(ry, T))));
+    const dB = shaderPaintSqrt(S, S.add(S.mul(S.sub(qx, T), S.sub(qx, T)), S.mul(S.sub(ry, T), S.sub(ry, T))));
+    const oA = S.sub(dA, T), oB = S.sub(dB, T), off = S.sel(S.lt(S.abs(oA), S.abs(oB)), oA, oB), ao = S.abs(off);
+    const W = S.p("tube"), tubeOn = S.le(ao, S.mul(W, 2)), rimOn = S.and(tubeOn, S.gt(ao, S.sub(S.mul(W, 2), 2)));
+    const shineOn = S.and(S.ge(off, S.sub(0, S.div(W, 2))), S.lt(off, S.sub(1, S.div(W, 2))), S.gt(W, 1));
+    const n = S.palCount("colors"), hue = S.mod(S.add(S.div(S.add(S.x, S.y), 24), S.div(S.mul(S.frame, n), F)), n);
+    // the two sides of the maze: inside a corner disc or between them, alternating like a checkerboard
+    const side = shaderPrettyBgXor(S, shaderPrettyBgXor(S, S.lt(oA, 0), S.lt(oB, 0)), shaderPrettyBgXor(S, S.eq(S.mod(S.add(tx, ty), 2), 0), base));
+    return S.pick([[rimOn, S.p("ink")], [S.and(tubeOn, shineOn), S.p("shine")], [tubeOn, S.palAt("colors", hue)]], S.sel(side, S.p("ground"), S.p("ground2")));
+  },
+  variants: [{ tile: 8, tube: 1, turns: 100 }, { tile: 48, tube: 8, turns: 0 }],
+};
+
+// crunchyCore wip: the PRETTY round, part fx (CrunchyShader 1.2 / shader.js build 48, 2026-11-08). AJ: "how about some fun
+// pretty stuff". Three World overlays (godrays, confetti, bounce) and three Sprite FX (cosmic, holofoil, lovestruck).
+// Loaded after shader.js; private helpers are prefixed shaderPrettyFx. Every time term runs whole periods over the loop.
+
+SHADER_EFFECTS.push("godrays", "confetti", "bounce", "cosmic", "holofoil", "lovestruck");
+
+// ---- helpers ------------------------------------------------------------------------------------------------------------
+// a field of C px cells that REPEATS every Rx cells across and Ry down (Rx 0: never across), so moving it whole repeats
+// a loop closes the loop: one particle in some cells, at a hashed spot inside its cell (room px kept clear at its right
+// and foot); returns the hash and the pixel's offset from the spot
+function shaderPrettyFxField(S, x, y, C, Rx, Ry, pct, salt, room) {
+  const big = C * Math.max(Rx, 1) * Ry * 64, X = S.add(x, big), Y = S.add(y, big), cx = S.div(X, C);
+  const h = S.hash(Rx ? S.mod(cx, Rx) : cx, S.mod(S.div(Y, C), Ry), salt), span = C - room;
+  const fx = S.mod(S.div(h, 100), span), fy = S.mod(S.div(h, 1000), span);
+  return { on: S.lt(S.mod(h, 100), pct), h: h, dx: S.sub(S.mod(X, C), fx), dy: S.sub(S.mod(Y, C), fy) };
+}
+// smooth value noise 0..255 that WRAPS every cell x per px (knots hashed mod per), smoothstep-weighted
+function shaderPrettyFxNoise(S, x, y, cell, per, seed) {
+  const big = cell * per * 64, X = S.add(x, big), Y = S.add(y, big), cx = S.div(X, cell), cy = S.div(Y, cell);
+  const sm = function (v) { const f = S.div(S.mul(S.mod(v, cell), 256), cell); return S.div(S.mul(S.mul(f, f), S.sub(768, S.mul(f, 2))), 65536); };
+  const wx = sm(X), wy = sm(Y);
+  const k = function (i, j) { return S.mod(S.hash(S.mod(S.add(cx, i), per), S.mod(S.add(cy, j), per), seed), 256); };
+  return S.mix(S.mix(k(0, 0), k(1, 0), wx, 256), S.mix(k(0, 1), k(1, 1), wx, 256), wy, 256);
+}
+// a palette read as a ramp: v 0..255 across its colors, Bayer-dithered between neighbors (hard pixels, no mush)
+function shaderPrettyFxRamp(S, k, v) {
+  const n = S.palCount(k), q = S.div(S.mul(S.clamp(v, 0, 255), S.mul(S.sub(n, 1), 16)), 256), i = S.div(q, 16);
+  return S.sel(S.gt(S.mod(q, 16), shaderWxBayer(S, 1)), S.palAt(k, S.min(S.add(i, 1), S.sub(n, 1))), S.palAt(k, i));
+}
+
+// ---- GOD RAYS: shafts of light fanning down from a light above the screen, broad faint ones and narrow bright ones,
+// each breathing in its own time, the whole fan drifting a cell a loop; three hard steps with a dither between, fading
+// with depth; dust motes twinkling in the light.
+SHADER_DEFS.godrays = {
+  label: "God rays", title: "shafts of light slanting down from the top of the screen, breathing softly, dust motes drifting in them",
+  group: "World", kind: "screen", palette: "free", frames: 64, fps: 8, pad: [0, 0, 0, 0],
+  tags: ["god rays", "light shafts", "sunbeams", "crepuscular", "forest", "cathedral", "dust", "holy", "morning", "atmosphere"],
+  params: {
+    strength: { type: "int", min: 0, max: 100, def: 55, label: "Brightness (%)" },
+    shafts: { type: "int", min: 0, max: 100, def: 70, label: "Shafts (%)" },
+    reach: { type: "int", min: 20, max: 100, def: 80, label: "Reach (% of the screen)" },
+    lean: { type: "int", min: 0, max: 2, def: 0, label: "Light from", choices: ["the upper left", "the upper right", "straight above"] },
+    light: { type: "colour", def: "#fff0c0", label: "Light" },
+    dust: { type: "int", min: 0, max: 100, def: 40, label: "Dust motes (%)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Shafts" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("strength"), sd = S.add(S.mul(S.p("seed"), 4), 4801), F = S.FRAMES;
+    // the rays fan out from a light two screens above the top: u is the angle, in 1/256ths of a px across per px down
+    const D = S.max(S.mul(S.h, 2), 8), lx = S.table([0, 2, 1], S.p("lean")), sx = S.div(S.mul(S.w, lx), 2);
+    const u0 = S.div(S.mul(S.sub(S.x, sx), 256), S.add(S.y, D));
+    // a layer of shafts in cells of P angle units, drifting a cell a loop; each its own middle, width and brightness,
+    // breathing a unit either way twice a loop, out of step: 0..100 across it (the triangle of its profile)
+    const layer = function (P, w0, wn, b0, bn, pct, salt) {
+      const u = S.add(S.add(u0, S.div(S.mul(S.frame, P), F)), P * 512), h = S.hash(S.div(u, P), salt, sd), lu = S.mod(u, P);
+      const half = S.add(S.add(w0, S.mod(S.div(h, 7), wn)), S.wave(S.add(S.mul(S.frame, 2), S.mod(S.div(h, 13), F)), F, 2));
+      const mid = S.add(S.add(w0, wn), S.mod(S.div(h, 100), S.max(S.sub(P, (w0 + wn) * 2), 1)));
+      const across = S.div(S.mul(S.max(S.sub(half, S.abs(S.sub(lu, mid))), 0), 100), S.max(half, 1));
+      return S.sel(S.lt(S.mod(h, 100), pct), S.div(S.mul(across, S.add(b0, S.mod(S.div(h, 31), bn))), 100), 0);
+    };
+    const shafts = S.p("shafts");
+    const t0 = S.min(S.add(layer(44, 6, 9, 45, 30, shafts, 1), layer(22, 2, 3, 70, 31, S.div(shafts, 2), 2)), 100);
+    // fading with depth, gone at `reach`
+    const R = S.max(S.div(S.mul(S.h, S.p("reach")), 100), 1), down = S.max(S.sub(100, S.div(S.mul(S.y, 100), R)), 0);
+    const step = shaderUiSteps(S, S.min(S.div(S.mul(t0, down), 60), 100));
+    const lit = shaderPaintMix(S, c, S.p("light"), S.div(S.mul(step, A), 3));
+    // dust: motes in a 7 px field drifting down 28 px a loop, twinkling; seen only in the light
+    const fall = S.div(S.mul(S.frame, 28), F);
+    const m = shaderPrettyFxField(S, S.x, S.sub(S.y, fall), 7, 0, 4, S.p("dust"), S.add(sd, 3), 1);
+    const tw = S.mod(S.add(S.frame, S.div(m.h, 7)), 16);
+    const mote = S.and(m.on, S.eq(m.dx, 0), S.eq(m.dy, 0), S.ge(step, 1), S.lt(tw, 11), S.gt(A, 0));
+    return S.sel(mote, shaderPaintMix(S, S.p("light"), S.rgba(255, 255, 255, 255), S.sel(S.lt(tw, 3), 70, 0)), S.sel(S.gt(step, 0), lit, c));
+  },
+};
+
+// ---- CONFETTI: two layers of paper flakes falling (near: 12 px cells, 96 px a loop; far: 8 px cells, 64 px a loop), the
+// near ones swaying and tumbling through eight shapes, their backs a shade darker; a few catch the light.
+const shaderPrettyFxFlakes = [
+  // 3 x 3 masks, row by row; the 10th entry says whether the back shows (1)
+  ["###", "###", "..."], ["##.", ".##", "..."], ["#..", ".#.", "..#"], [".#.", ".#.", ".#."],
+  ["..#", ".#.", "#.."], [".##", "##.", "..."], ["###", "###", "..."], ["###", "...", "..."],
+].map(function (rows) { return rows.join("").split("").map(function (ch) { return ch === "#" ? 1 : 0; }); });
+const shaderPrettyFxFlakeBack = [0, 0, 1, 1, 1, 1, 1, 0];
+SHADER_DEFS.confetti = {
+  label: "Confetti", title: "confetti falling over the scene: paper flakes in bright colors tumbling and fluttering, near and far",
+  group: "World", kind: "screen", palette: "free", frames: 64, fps: 12, pad: [0, 0, 0, 0],
+  tags: ["confetti", "party", "celebration", "victory", "win", "birthday", "festival", "paper", "falling", "particles"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 45, label: "Confetti (%)" },
+    colors: { type: "palette", def: ["#ff4a6e", "#ffd23a", "#3ac8ff", "#6ae85a", "#b46aff", "#ff9a3a"], max: 8, label: "Paper colors" },
+    sway: { type: "int", min: 0, max: 3, def: 2, label: "Flutter (px)" },
+    size: { type: "int", min: 0, max: 1, def: 1, label: "Near flakes", choices: ["small", "big"] },
+    far: { type: "int", min: 0, max: 1, def: 0, label: "Far layer", choices: ["shown", "hidden"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Flakes" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 4811), n = S.palCount("colors");
+    const shade = function (col, k) { return S.rgba(S.div(S.mul(S.r(col), k), 100), S.div(S.mul(S.g(col), k), 100), S.div(S.mul(S.b(col), k), 100), 255); };
+    // far: single pixels (or two across), falling 32 px a loop, flickering front to back
+    const fallF = S.div(S.mul(S.frame, 64), S.FRAMES);
+    const f = shaderPrettyFxField(S, S.x, S.sub(S.y, fallF), 8, 0, 8, S.div(A, 2), sd, 2);
+    const fFlip = S.eq(S.mod(S.add(S.div(S.frame, 2), S.div(f.h, 7)), 2), 0);
+    const farOn = S.and(S.eq(S.p("far"), 0), f.on, S.eq(f.dy, 0), S.or(S.eq(f.dx, 0), S.and(fFlip, S.eq(f.dx, 1))));
+    const farCol = shade(S.palAt("colors", S.mod(S.div(f.h, 11), n)), S.sel(fFlip, 85, 62));
+    // near: 3 x 3 flakes, falling 48 px a loop, each swaying on its own phase (kept inside its cell) and tumbling
+    // (big: every flake doubled, in 24 px cells falling twice as far)
+    const k = S.add(S.p("size"), 1), C = S.mul(12, k), fallN = S.div(S.mul(S.frame, S.mul(96, k)), S.FRAMES);
+    const big = 24 * 8 * 64, X = S.add(S.x, big), Y = S.add(S.sub(S.y, fallN), big);
+    const h = S.hash(S.div(X, C), S.mod(S.div(Y, C), 8), S.add(sd, 1));
+    const sw = S.mul(S.wave(S.add(S.mul(S.frame, 4), S.mod(S.div(h, 7), S.FRAMES)), S.FRAMES, S.p("sway")), k);
+    const ox = S.sub(S.mod(X, C), S.add(S.mul(S.add(4, S.mod(S.div(h, 100), 3)), k), sw)), oy = S.sub(S.mod(Y, C), S.mul(S.add(1, S.mod(S.div(h, 1000), 8)), k));
+    const dx = S.div(ox, k), dy = S.div(oy, k);
+    const st = S.mod(S.add(S.frame, S.div(h, 37)), 8), inBox = S.and(S.ge(dx, 0), S.le(dx, 2), S.ge(dy, 0), S.le(dy, 2));
+    const idx = S.clamp(S.add(S.mul(dy, 3), dx), 0, 8);
+    const bit = S.table([].concat.apply([], shaderPrettyFxFlakes), S.add(S.mul(st, 9), idx));
+    const nearOn = S.and(S.lt(S.mod(h, 100), A), inBox, S.eq(bit, 1));
+    const back = S.eq(S.table(shaderPrettyFxFlakeBack, st), 1), col = S.palAt("colors", S.mod(S.div(h, 11), n));
+    const glint = S.and(S.eq(S.mod(S.div(h, 5), 4), 0), S.eq(st, 0), S.eq(dy, 0));
+    const nearCol = S.pick([[glint, shaderPaintMix(S, col, S.rgba(255, 255, 255, 255), 65)], [back, shade(col, 74)]], col);
+    return S.pick([[nearOn, nearCol], [farOn, farCol]], c);
+  },
+};
+
+// ---- BOUNCE: the picture shrunk to a half, a third or a quarter, bouncing round the screen (two laps across and three
+// down a loop, so it starts in a corner and finds another halfway), tinted a new color at every wall it hits, a burst of
+// sparks when it lands exactly in a corner. Behind it, a flat color or the picture darkened.
+SHADER_DEFS.bounce = {
+  label: "Bounce", title: "the picture shrunk and bouncing round the screen like an old screensaver, changing color at every wall it hits",
+  group: "World", kind: "screen", palette: "free", frames: 128, fps: 16, pad: [0, 0, 0, 0],
+  tags: ["bounce", "screensaver", "bouncing", "retro", "idle", "pause", "corner", "goofy", "silly", "tv"],
+  params: {
+    size: { type: "int", min: 0, max: 2, def: 0, label: "Size", choices: ["half", "a third", "a quarter"] },
+    tints: { type: "palette", def: ["#ff4a6e", "#ffd23a", "#4ae87a", "#3ac8ff", "#b46aff", "#ff8a3a"], max: 8, label: "Colors (one per wall)" },
+    tint: { type: "int", min: 0, max: 100, def: 70, label: "Tint (%)" },
+    behind: { type: "int", min: 0, max: 1, def: 0, label: "Behind it", choices: ["a flat color", "the picture, darkened"] },
+    back: { type: "colour", def: "#0a0a14", label: "Flat color" },
+    border: { type: "int", min: 0, max: 1, def: 0, label: "Border", choices: ["in the tint", "none"] },
+  },
+  fragment: function (S) {
+    const F = S.FRAMES, k = S.table([2, 3, 4], S.p("size")), n = S.palCount("tints");
+    const bw = S.div(S.w, k), bh = S.div(S.h, k), Dx = S.sub(S.w, bw), Dy = S.sub(S.h, bh);
+    // a triangle wave per axis: x crosses 4 times a loop, y 6 times; each crossing ends at a wall
+    const qx = S.mod(S.mul(S.frame, 4), 2 * F), qy = S.mod(S.mul(S.frame, 6), 2 * F);
+    const bx = S.div(S.mul(Dx, S.sub(F, S.abs(S.sub(qx, F)))), F), by = S.div(S.mul(Dy, S.sub(F, S.abs(S.sub(qy, F)))), F);
+    const hits = S.add(S.div(S.mul(S.frame, 4), F), S.div(S.mul(S.frame, 6), F));
+    const tc = S.palAt("tints", S.mod(hits, n));
+    const lx = S.sub(S.x, bx), ly = S.sub(S.y, by), inside = S.and(S.ge(lx, 0), S.lt(lx, bw), S.ge(ly, 0), S.lt(ly, bh));
+    const edge = S.and(inside, S.eq(S.p("border"), 0), S.or(S.eq(lx, 0), S.eq(ly, 0), S.eq(lx, S.sub(bw, 1)), S.eq(ly, S.sub(bh, 1))));
+    const pic = S.texAt(S.add(S.mul(lx, k), S.div(k, 2)), S.add(S.mul(ly, k), S.div(k, 2)), "clamp");
+    const behind = S.sel(S.eq(S.p("behind"), 0), S.p("back"), shaderPaintMix(S, S.tex(0, 0), S.rgba(0, 0, 0, 255), 70));
+    // the tint: the picture's light and dark in the wall's color (bright parts washing toward white), mixed in
+    const L = S.luma(pic), ch = function (v) { return S.add(S.div(S.mul(v, L), 150), S.div(S.mul(S.max(S.sub(L, 150), 0), 3), 2)); };
+    const mono = S.rgba(ch(S.r(tc)), ch(S.g(tc)), ch(S.b(tc)), 255);
+    // the corner: frames 0 and F/2 (top left, then bottom left): sparks fly out of it along five rays for 10 frames,
+    // and the border flashes white for the first four
+    const age = S.mod(S.frame, F / 2), cy = S.sel(S.lt(S.frame, F / 2), 0, S.sub(S.h, 1));
+    const ax = S.x, ay = S.abs(S.sub(S.y, cy)), r = S.add(4, S.mul(age, 4));
+    const ray = function (a, b, q) {   // along (a, b) / q: the pixel lies on the ray, its distance between r - 3 and r
+      const t = S.div(S.mul(S.add(S.mul(ax, a), S.mul(ay, b)), 1), q);
+      return S.and(S.eq(S.mul(ax, b), S.mul(ay, a)), S.ge(t, S.sub(r, 3)), S.le(t, r));
+    };
+    const spark = S.and(S.lt(age, 10), S.or(ray(1, 0, 1), ray(0, 1, 1), ray(1, 1, 2), ray(2, 1, 2), ray(1, 2, 2)));
+    const sparkCol = S.palAt("tints", S.mod(S.add(S.div(S.add(ax, ay), 3), age), n));
+    const flash = S.lt(age, 4);
+    return S.pick([[spark, sparkCol], [edge, S.sel(flash, S.rgba(255, 255, 255, 255), tc)], [inside, shaderPaintMix(S, pic, mono, S.p("tint"))]], behind);
+  },
+};
+
+// ---- COSMIC: the sprite's silhouette opened onto deep space: a nebula of two wrapping noises drifting at their own
+// speeds through a dark-to-bright ramp (shaded by the sprite's own light and dark, so its form still reads), far stars
+// creeping one way, near stars faster and twinkling into little crosses, a second cloud in its own color where the
+// fine noise rises over the big one; its outline (and dark lines) kept.
+SHADER_DEFS.cosmic = {
+  label: "Cosmic", title: "the sprite's silhouette filled with deep space: a drifting nebula and stars flowing past, its outline kept",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 64, fps: 10, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["cosmic", "galaxy", "space", "nebula", "stars", "starfield", "celestial", "void", "skin", "rare"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    space: { type: "palette", def: ["#06051a", "#120e40", "#2a1868", "#5a2290", "#a8309a", "#f0609e", "#ffb4d4"], max: 8, label: "Space (dark to bright)" },
+    glow: { type: "colour", def: "#3ac8e8", label: "Second cloud" },
+    star: { type: "colour", def: "#ffffff", label: "Stars" },
+    shading: { type: "int", min: 0, max: 100, def: 35, label: "Sprite's shading kept (%)" },
+    keep: { type: "int", min: 0, max: 2, def: 1, label: "Keep", choices: ["the outline", "the outline and dark lines", "nothing"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Stars" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 4821), F = S.FRAMES;
+    // the nebula: a big noise drifting right 32 px a loop, a finer one drifting up 30 px; brightened into wisps
+    const n1 = shaderPrettyFxNoise(S, S.sub(S.x, S.div(S.mul(S.frame, 32), F)), S.y, 8, 4, sd);
+    const n2 = shaderPrettyFxNoise(S, S.x, S.add(S.y, S.div(S.mul(S.frame, 30), F)), 6, 5, S.add(sd, 1));
+    const neb = S.mul(S.sub(S.div(S.add(S.mul(n1, 2), n2), 3), 118), 3);
+    const v = S.add(neb, S.div(S.mul(S.sub(S.luma(c), 110), S.p("shading")), 100));
+    // a second cloud in its own color: thin filaments where the fine noise crosses over the big one, three dithered steps
+    const veil = shaderUiSteps(S, S.div(S.mul(S.max(S.sub(30, S.abs(S.sub(S.sub(n2, n1), 50))), 0), 100), 30));
+    const sky = shaderPaintMix(S, shaderPrettyFxRamp(S, "space", v), S.p("glow"), S.mul(veil, 22));
+    // far stars: single dim points in a 4 px field drifting up and left 32 px a loop
+    const fs = S.div(S.mul(S.frame, 32), F);
+    const far = shaderPrettyFxField(S, S.add(S.x, fs), S.sub(S.y, fs), 4, 8, 8, 14, S.add(sd, 2), 0);
+    const farOn = S.and(far.on, S.eq(far.dx, 0), S.eq(far.dy, 0));
+    // near stars: a 8 px field drifting left 64 px a loop, each twinkling into a cross once a loop
+    const ns = S.div(S.mul(S.frame, 64), F);
+    const near = shaderPrettyFxField(S, S.add(S.x, ns), S.y, 8, 8, 64, 45, S.add(sd, 3), 2);
+    const tw = S.mod(S.add(S.frame, S.div(near.h, 7)), 16);
+    const centre = S.and(near.on, S.eq(near.dx, 0), S.eq(near.dy, 0));
+    const arm = S.and(near.on, S.lt(tw, 5), S.eq(S.add(S.abs(near.dx), S.abs(near.dy)), 1));
+    const space = S.pick([[centre, S.p("star")], [arm, shaderPaintMix(S, sky, S.p("star"), 60)], [farOn, shaderPaintMix(S, sky, S.p("star"), 65)]], sky);
+    const keep = S.p("keep"), rim = S.eq(shaderEnchDepth(S, 1), 0);
+    const kept = S.or(S.and(S.le(keep, 1), rim), S.and(S.eq(keep, 1), S.lt(S.luma(c), 56)));
+    return S.pick([[S.not(S.solid(c)), c], [S.or(kept, S.eq(A, 0)), c]], shaderPaintMix(S, c, space, A));
+  },
+};
+
+// ---- HOLOFOIL: a trading card's foil as the card tilts: a glare band sweeps diagonally across the sprite once a loop
+// (with a pause off its edge), rainbow bands inside it shifting with the angle and the sprite's own light and dark; a
+// faint foil pattern always there; sparkles flaring along the glare's crest.
+SHADER_DEFS.holofoil = {
+  label: "Holofoil", title: "a trading card's holo foil: a rainbow glare sweeping across the sprite at an angle, the foil pattern glinting, sparkles at its crest",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 32, fps: 12, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["holofoil", "holographic", "foil", "trading card", "rare", "shiny", "rainbow", "sheen", "collectible", "sparkle"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 70, label: "Amount (%)" },
+    colors: { type: "palette", def: ["#ff5a8a", "#ffb84a", "#fff27a", "#6aff9a", "#5ad0ff", "#a87aff"], max: 8, label: "Foil colors" },
+    pattern: { type: "int", min: 0, max: 3, def: 0, label: "Foil pattern", choices: ["diamonds", "stripes", "dots", "plain"] },
+    dir: { type: "int", min: 0, max: 1, def: 0, label: "Sweeps", choices: ["down to the right", "up to the right"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Sparkles" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 4831), F = S.FRAMES;
+    const up = S.eq(S.p("dir"), 1), yy = S.sel(up, S.sub(S.sub(S.h, 1), S.y), S.y), u = S.add(S.x, yy);
+    // the glare's middle: from a band's width before the sprite to well past it (a pause), once a loop
+    // the glare: 10 px either side of its middle, crossing from before the sprite to past it in 70 % of the loop, then
+    // resting off its edge
+    const B = 10, L = S.add(S.add(S.w, S.h), B * 4), g = S.sub(S.div(S.mul(S.mul(S.frame, L), 10), F * 7), B * 2);
+    const d = S.abs(S.sub(u, g)), glare = S.max(S.sub(B, d), 0);
+    // rainbow: the colors run along u in 3 px bands, shifting a little with the glare (the angle) and the sprite's luma
+    const ph = S.add(S.add(S.mul(u, 5), S.mul(g, 2)), S.div(S.luma(c), 3));
+    const bow = shaderDmCycle(S, "colors", ph);
+    // the foil pattern: where it lies the rainbow always shows a little, and brighter in the glare
+    const pat = S.p("pattern");
+    const dia = S.or(S.eq(S.mod(S.add(S.x, S.y), 4), 0), S.eq(S.mod(S.sub(S.x, S.y), 4), 0));
+    const str = S.eq(S.mod(S.sub(S.x, yy), 3), 0), dot = S.and(S.eq(S.mod(S.x, 3), 0), S.eq(S.mod(S.y, 3), 0));
+    const onPat = S.pick([[S.eq(pat, 0), dia], [S.eq(pat, 1), str], [S.eq(pat, 2), dot]], S.lt(1, 0));
+    const step = shaderUiSteps(S, S.div(S.mul(glare, 100), B));
+    const foil = shaderPaintMix(S, c, bow, S.div(S.mul(S.add(S.mul(step, 22), S.sel(onPat, 30, 6)), A), 100));
+    // sparkles: a few hashed pixels within 4 px of the crest flare white as it passes, their four neighbors lit
+    const sp = function (dx, dy) {
+      const h = S.hash(S.add(S.x, dx), S.add(S.y, dy), sd);
+      return S.and(S.solid(S.tex(dx, dy)), S.lt(S.mod(h, 100), 4), S.le(S.abs(S.sub(S.add(S.add(S.x, dx), S.sel(up, S.sub(S.sub(S.h, 1), S.add(S.y, dy)), S.add(S.y, dy))), g)), 4));
+    };
+    const me = sp(0, 0), arms = S.or(sp(1, 0), sp(-1, 0), sp(0, 1), sp(0, -1));
+    const white = S.rgba(255, 255, 255, 255), on = S.gt(A, 0);
+    return S.pick([
+      [S.not(S.solid(c)), c],
+      [S.and(on, me), white],
+      [S.and(on, arms), shaderPaintMix(S, c, white, 70)],
+      [S.gt(A, 0), foil],
+    ], c);
+  },
+};
+
+// ---- LOVESTRUCK: hearts float up out of the sprite and pop, a pink blush pulsing through it twice a loop with a rim of
+// pink at the peak. Hearts live in 6 px columns, two a column a loop, out of step; a heart rises only from a spot ON
+// the sprite (two tries a heart), so it never strays past the pad: 12 px over its 16-frame life, swaying, then it pops
+// in four specks. Each heart is 7 x 6 with its own dark outline, so it reads over the sprite and over any ground.
+const shaderPrettyFxHeart = [   // 0 none, 1 outline, 2 fill, 3 shine
+  0, 1, 1, 0, 1, 1, 0,
+  1, 3, 2, 1, 2, 2, 1,
+  1, 2, 2, 2, 2, 2, 1,
+  0, 1, 2, 2, 2, 1, 0,
+  0, 0, 1, 2, 1, 0, 0,
+  0, 0, 0, 1, 0, 0, 0,
+];
+SHADER_DEFS.lovestruck = {
+  label: "Lovestruck", title: "lovestruck: little hearts floating up off the sprite and popping, a pink blush pulsing through it",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 32, fps: 10, pad: [16, 5, 0, 5], strength: "amount",
+  tags: ["love", "hearts", "lovestruck", "crush", "romance", "valentine", "charm", "blush", "cute", "dating"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 60, label: "Amount (%)" },
+    hearts: { type: "palette", def: ["#ff3a6e", "#ff7aac", "#ff5a8a"], max: 6, label: "Hearts" },
+    ink: { type: "colour", def: "#6a0a2e", label: "Heart outline" },
+    shine: { type: "colour", def: "#ffe4f0", label: "Shine" },
+    blush: { type: "int", min: 0, max: 100, def: 35, label: "Blush (%)" },
+    pink: { type: "colour", def: "#ff6aa0", label: "Blush" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Hearts" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 4841), F = S.FRAMES, L = 16, C = 6, RISE = 12;
+    const n = S.palCount("hearts");
+    let part = S.i(0), hcol = S.palAt("hearts", 0), pop = S.lt(1, 0);
+    const col0 = S.div(S.add(S.x, C * 64), C);
+    for (let j = -1; j <= 1; j++) for (let s = 0; s < 2; s++) {
+      const cx = S.add(col0, j), t = S.mod(S.add(S.frame, S.add(s * 8, S.mod(S.hash(cx, 1, sd), 8))), F), cyc = S.div(t, L), a = S.mod(t, L);
+      const h = S.hash(cx, S.add(cyc, s * 2), sd), on = S.lt(S.mod(h, 100), S.div(S.mul(A, 3), 2));
+      // the spawn spot: a column inside the cell and a row hashed down the image (a second row if that one is clear);
+      // it must be on the sprite
+      const sx = S.add(S.sub(S.mul(cx, C), C * 64), S.add(1, S.mod(S.div(h, 100), C - 2)));
+      const y1 = S.mod(S.hash(h, 3), S.max(S.h, 1)), y2 = S.mod(S.hash(h, 4), S.max(S.h, 1)), s1 = S.solid(S.texAt(sx, y1));
+      const sy = S.sel(s1, y1, y2), ok = S.and(on, S.or(s1, S.solid(S.texAt(sx, y2))));
+      const hy = S.sub(sy, S.div(S.mul(a, RISE), L)), hx = S.add(sx, S.wave(S.add(S.mul(a, 2), S.mod(h, 16)), 16, 1));
+      const dx = S.add(S.sub(S.x, hx), 3), dy = S.add(S.sub(S.y, hy), 5);
+      const living = S.lt(a, L - 3), inBox = S.and(S.ge(dx, 0), S.le(dx, 6), S.ge(dy, 0), S.le(dy, 5));
+      const v = S.table(shaderPrettyFxHeart, S.clamp(S.add(S.mul(dy, 7), dx), 0, 41));
+      const me = S.and(ok, living, inBox, S.gt(v, 0));
+      part = S.sel(me, v, part);
+      hcol = S.sel(me, S.palAt("hearts", S.mod(S.div(h, 7), n)), hcol);
+      // the pop: four specks flying out from its middle (where it stopped), 2 then 3 then 4 px
+      const r = S.sub(a, L - 5), py0 = S.sub(sy, ((L - 4) * RISE) / L + 2), px = S.abs(S.sub(S.x, hx)), py = S.abs(S.sub(S.y, py0));
+      pop = S.or(pop, S.and(ok, S.not(living), S.or(S.and(S.eq(px, r), S.eq(py, r)), S.and(S.eq(px, 0), S.eq(py, S.add(r, 1))))));
+    }
+    // the blush: twice a loop, in three dithered steps; at its height a rim of pink round the sprite
+    const pulse = S.div(S.add(S.wave(S.sub(S.mul(S.frame, 2), F / 4), F, 100), 100), 2);    // 0..100, 0 at frame 0
+    const step = shaderUiSteps(S, pulse), B = S.div(S.mul(S.p("blush"), A), 100);
+    const body = shaderPaintMix(S, c, S.p("pink"), S.div(S.mul(step, B), 3));
+    const rim = S.and(S.gt(B, 0), S.ge(step, 3), shaderEnchRing1(S), S.eq(S.mod(S.add(S.x, S.y), 2), 0));
+    return S.pick([
+      [S.eq(part, 3), S.p("shine")],
+      [S.eq(part, 2), hcol],
+      [S.eq(part, 1), S.p("ink")],
+      [pop, S.palAt("hearts", 1)],
+      [rim, S.p("pink")],
+      [S.solid(c), body],
+    ], c);
+  },
+};
+
+// The materials round, "precious" (2026-11-09): stone, metal, glass. Seven Sprite FX that turn the sprite INTO a
+// material, each read from the sprite itself (its luminance as height, its edge distance for rims and bevels, its top
+// edges for highlights) and drawn only in its own palettes (strict), so the tones stay crisp. Every one has an `amount`
+// that SPREADS the material (from the feet up, the top down, the edges in or from deep inside outward) with a lit
+// front, so a game can drive it as a live uniform for a "turn to bronze" moment; amount 0 is the sprite exactly as it was.
+// Private helpers `shaderMatPrecious*`.
+
+SHADER_EFFECTS.push("marble", "bronze", "jade", "porcelain", "woodcarved", "figurine", "pearl");
+
+// ---- helpers ---------------------------------------------------------------------------------------------------------
+// a texel's luma, 0 off the silhouette (so an edge reads as a fall to the ground)
+function shaderMatPreciousLum(S, dx, dy) { const q = S.tex(dx, dy); return S.sel(S.solid(q), S.luma(q), 0); }
+// light from the upper left on the sprite read as a relief (its luma the height): -255..255, + facing the light
+function shaderMatPreciousLit(S) { return S.sub(shaderMatPreciousLum(S, 1, 1), shaderMatPreciousLum(S, -1, -1)); }
+// v 0..255 across `n` tones of palette k from `base` (n an int or a node; default: the whole palette): flat tones, a
+// checker only in a narrow seam between two (crisp bands, not a mushy dither)
+function shaderMatPreciousTone(S, k, v, base, n) {
+  const N = n === undefined ? S.palCount(k) : n, q = S.div(S.mul(S.clamp(v, 0, 255), S.mul(S.sub(N, 1), 16)), 256);
+  const i = S.div(q, 16), f = S.mod(q, 16), up = S.or(S.ge(f, 9), S.and(S.ge(f, 7), S.eq(S.mod(S.add(S.x, S.y), 2), 0)));
+  return S.palAt(k, S.add(base || 0, S.sel(up, S.min(S.add(i, 1), S.sub(N, 1)), i)));
+}
+// the same with no seam at all: v rounded to the nearest of the palette's tones (flat areas stay one flat tone)
+function shaderMatPreciousFlat(S, k, v) {
+  const N = S.palCount(k);
+  return S.palAt(k, S.div(S.add(S.mul(S.clamp(v, 0, 255), S.sub(N, 1)), 128), 255));
+}
+// a 1 px contour where a noise crosses its middle (between this pixel and the one right or below): a winding line
+function shaderMatPreciousContour(S, x, y, cell, sd, lvl) {
+  const at = function (dx, dy) { return S.lt(shaderPaintNoise(S, S.add(x, dx), S.add(y, dy), cell, sd), lvl); };
+  const me = at(0, 0);
+  return S.or(S.ne(S.sel(me, 1, 0), S.sel(at(1, 0), 1, 0)), S.ne(S.sel(me, 1, 0), S.sel(at(0, 1), 1, 0)));
+}
+// the four spreads ("up", "down", "in", "out"): { on, front } for amount A (0 none, 100 all). A ragged front from a noise; the front is the
+// material's last pixel before the sprite's own colors.
+function shaderMatPreciousSpread(S, way, A, sd) {
+  const rag = S.div(S.sub(shaderPaintNoise(S, S.x, S.y, 3, sd), 128), 48);           // -2..2
+  const live = S.gt(A, 0), part = S.lt(A, 100);
+  if (way === "up" || way === "down") {
+    const reach = S.div(S.mul(A, S.add(S.h, 4)), 100);
+    const at = function (dy) {
+      const y = S.add(S.add(S.y, dy), rag);
+      return way === "up" ? S.ge(y, S.sub(S.sub(S.h, reach), 2)) : S.lt(y, S.sub(reach, 2));
+    };
+    const on = S.and(live, at(0));
+    return { on: on, front: S.and(on, part, S.not(at(way === "up" ? -1 : 1))) };
+  }
+  if (way === "in") {
+    // edge distance in 4-way rings up to 6; amount 100 reaches past the deepest
+    const d = shaderEnchDepth(S, 6), t = S.add(S.mul(d, 100), S.mul(rag, 20)), lim = S.mul(A, 7);
+    const on = S.and(live, S.lt(t, lim));
+    return { on: on, front: S.and(on, part, S.ge(t, S.sub(lim, 100))) };
+  }
+  // "out": from deep inside the silhouette outward (edge distance in 4-way rings up to 4), the thin parts last
+  const d = shaderEnchDepth(S, 4), t = S.add(S.add(S.mul(d, 100), S.mul(rag, 20)), 50), lim = S.mul(S.sub(100, A), 5);
+  const on = S.and(live, S.gt(t, lim));
+  return { on: on, front: S.and(on, part, S.le(t, S.add(lim, 100))) };
+}
+// open to the upper left (a top or left rim, facing the light) and to the lower right
+function shaderMatPreciousOpenUL(S) { return S.or(S.not(S.solid(S.tex(-1, 0))), S.not(S.solid(S.tex(0, -1))), S.not(S.solid(S.tex(-1, -1)))); }
+function shaderMatPreciousOpenDR(S) { return S.or(S.not(S.solid(S.tex(1, 0))), S.not(S.solid(S.tex(0, 1))), S.not(S.solid(S.tex(1, 1)))); }
+// a dark line of the drawing (an outline or a crease): darker than both neighbors on some axis, or simply dark
+function shaderMatPreciousGroove(S, l) {
+  const dk = function (ax, ay) { return S.and(S.lt(S.add(l, 30), shaderMatPreciousLum(S, ax, ay)), S.lt(S.add(l, 30), shaderMatPreciousLum(S, -ax, -ay))); };
+  return S.or(S.lt(l, 64), dk(1, 0), dk(0, 1));
+}
+
+// ---- MARBLE: polished white stone. The sprite's light and dark become a few soft grays of the stone (its creases a
+// shade deeper, its upper-left rims polished white), with veins winding through it: 1 px contours of a warped noise
+// (fainter hairlines too when Veins is past 60 %); a gloss band crossing it slowly once a loop. Spreads from the feet up.
+SHADER_DEFS.marble = {
+  label: "Marble", title: "the sprite turned to polished white marble, gray veins winding through it, a slow gloss sliding over",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 32, fps: 8, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["marble", "statue", "stone", "polished", "white", "veins", "petrify", "sculpture", "museum", "classical"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    stone: { type: "palette", def: ["#5c5a66", "#9c9aa6", "#cbc9d0", "#e9e7ea", "#fdfcf8"], max: 8, label: "Stone (dark to light)" },
+    vein: { type: "colour", def: "#7a7488", label: "Veins" },
+    veins: { type: "int", min: 0, max: 100, def: 50, label: "Veins (%)" },
+    gloss: { type: "int", min: 0, max: 1, def: 0, label: "Gloss", choices: ["slides over", "still"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Veins" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5101), F = S.FRAMES;
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "up", A, sd);
+    const n = S.palCount("stone"), groove = shaderMatPreciousGroove(S, l);
+    // the stone: bright, the sprite's shading squeezed into the top of the ramp, relief from the light
+    let v = S.add(S.add(180, S.div(S.sub(l, 128), 4)), S.div(lit, 4));
+    v = S.sel(groove, S.sub(v, 70), v);
+    v = S.sel(S.and(shaderMatPreciousOpenUL(S), S.not(groove)), S.add(v, 70), S.sel(shaderMatPreciousOpenDR(S), S.sub(v, 45), v));
+    // the gloss: a 5 px band on the diagonal crossing the whole image in 60 % of the loop, then resting off it
+    const L = S.add(S.add(S.w, S.h), 16), g = S.sel(S.eq(S.p("gloss"), 1), S.div(S.mul(S.add(S.w, S.h), 2), 5), S.sub(S.div(S.mul(S.mul(S.frame, L), 10), F * 6), 8));
+    const gd = S.abs(S.sub(S.add(S.x, S.y), g));
+    v = S.add(v, S.sel(S.le(gd, 1), 60, S.sel(S.le(gd, 3), 30, 0)));
+    const stone = shaderMatPreciousTone(S, "stone", v);
+    // the veins: 1 px contours of a warped noise (winding lines), a main one and fainter hairlines of a finer noise
+    const warp = S.div(S.sub(shaderPaintNoise(S, S.y, S.x, 7, S.add(sd, 2)), 128), 12);
+    const W = S.p("veins"), lv = S.add(128, S.div(S.mul(S.sub(W, 50), 3), 2));
+    const vein = S.and(S.gt(W, 0), shaderMatPreciousContour(S, S.add(S.x, warp), S.add(S.y, S.div(S.x, 2)), 8, S.add(sd, 1), lv));
+    const hair = S.and(S.gt(W, 60), shaderMatPreciousContour(S, S.sub(S.x, warp), S.y, 5, S.add(sd, 3), 128), S.eq(S.mod(S.add(S.x, S.y), 2), 0));
+    const body = S.pick([
+      [S.and(vein, S.not(groove)), S.p("vein")],
+      [S.and(hair, S.not(groove)), S.palAt("stone", S.sub(n, 3))],
+    ], stone);
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("stone", 1)]], body);
+  },
+};
+
+// ---- BRONZE: a cast bronze statue. Warm metal tones from the sprite's own light and dark, worn bright gold on its high
+// points and upper-left rims, dark in its creases; green verdigris gathering in the creases, along the lower edges and
+// toward the feet, in patches (its own amount, apart from the main one). Spreads from the feet up, a molten front.
+SHADER_DEFS.bronze = {
+  label: "Bronze", title: "the sprite cast in bronze: warm metal worn bright on its high points, green verdigris in the creases and lower edges",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 1, fps: 1, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["bronze", "statue", "metal", "verdigris", "patina", "copper", "monument", "cast", "antique", "petrify"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    metal: { type: "palette", def: ["#1e1008", "#3e2412", "#64401e", "#8e6230", "#ba8c4a", "#ecc886"], max: 8, label: "Bronze (dark to bright)" },
+    patina: { type: "int", min: 0, max: 100, def: 50, label: "Verdigris (%)" },
+    green: { type: "palette", def: ["#24584a", "#3e8a70", "#74c09c"], max: 6, label: "Verdigris (dark to light)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Patches" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5111);
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "up", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), ul = shaderMatPreciousOpenUL(S), dr = shaderMatPreciousOpenDR(S);
+    const rim = S.eq(shaderEnchDepth(S, 1), 0);
+    const ul2 = S.and(S.not(ul), S.or(S.not(S.solid(S.tex(-2, 0))), S.not(S.solid(S.tex(0, -2))), S.not(S.solid(S.tex(-1, -2))), S.not(S.solid(S.tex(-2, -1)))));
+    // the metal: strong relief (metal shows its form in hard light and dark), worn bright on the upper-left rims and
+    // the high (light) points, dark in the creases and along the lower-right edges
+    let v = S.add(S.add(105, S.div(S.sub(l, 128), 2)), S.div(S.mul(lit, 3), 4));
+    v = S.sel(groove, S.sub(v, 90), v);
+    v = S.add(v, S.pick([[S.and(ul, S.not(groove)), 95], [S.and(ul2, S.not(groove)), 45], [S.and(S.gt(l, 170), S.not(groove)), 40], [dr, -45]], 0));
+    const metal = shaderMatPreciousFlat(S, "metal", v);
+    // verdigris: never on the outline itself; a score from the inner creases, next to them, the lower edges, the depth
+    // down the image and a patchy noise
+    const low = S.or(S.not(S.solid(S.tex(0, 2))), S.not(S.solid(S.tex(0, 3))));
+    const nearGroove = S.or(S.lt(shaderMatPreciousLum(S, 0, -1), 64), S.lt(shaderMatPreciousLum(S, -1, 0), 64), S.lt(shaderMatPreciousLum(S, 1, 0), 64));
+    const score = S.add(S.add(S.add(S.div(shaderPaintNoise(S, S.x, S.y, 4, S.add(sd, 1)), 2), S.sel(groove, 90, S.sel(nearGroove, 50, 0))),
+      S.sel(low, 70, 0)), S.div(S.mul(S.y, 80), S.max(S.h, 1)));
+    const P = S.p("patina"), worn = S.or(S.gt(v, 200), S.and(ul, S.not(groove)));
+    const green = S.and(S.gt(P, 0), S.not(rim), S.not(worn), S.gt(S.add(score, S.div(S.mul(P, 26), 10)), 300));
+    // the green's own tone: lighter where the metal would be lighter, with a fleck of noise
+    const gt = shaderMatPreciousFlat(S, "green", S.add(S.add(S.div(v, 2), 40), S.div(S.sub(shaderPaintNoise(S, S.x, S.y, 2, S.add(sd, 2)), 128), 2)));
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("metal", S.sub(S.palCount("metal"), 1))], [green, gt]], metal);
+  },
+};
+
+// ---- JADE: carved translucent green stone. Lighter the deeper inside the sprite (light glowing through it, breathing
+// slowly), its drawn lines cut as dark grooves with lit lips, a cloudy mottle and pale inclusions, and a soft waxy sheen
+// on the upper-left rims. Spreads from deep inside it outward.
+SHADER_DEFS.jade = {
+  label: "Jade", title: "the sprite carved from translucent green jade, glowing softly from within, its grooves cut dark, a waxy sheen",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 32, fps: 8, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["jade", "carved", "stone", "green", "translucent", "gem", "jadeite", "talisman", "precious", "statue"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    jade: { type: "palette", def: ["#082a1c", "#145236", "#227a4e", "#3aa468", "#74cc90", "#c4f0cc"], max: 8, label: "Jade (dark to light)" },
+    glow: { type: "int", min: 0, max: 100, def: 55, label: "Inner glow (%)" },
+    cloud: { type: "int", min: 0, max: 100, def: 40, label: "Clouding (%)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Clouds" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5121), F = S.FRAMES;
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "out", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), d = shaderEnchDepth(S, 5);
+    // the glow from within: deeper is lighter, breathing a little once a loop
+    const breathe = S.div(S.add(S.wave(S.frame, F, 100), 100), 2);               // 0..100
+    const G = S.div(S.mul(S.p("glow"), S.add(65, S.div(S.mul(breathe, 35), 100))), 100);
+    let v = S.add(S.add(S.add(45, S.div(S.mul(S.mul(d, G), 4), 5)), S.div(S.sub(l, 128), 4)), S.div(lit, 4));
+    // clouds: a slow mottle, and pale inclusions where it peaks
+    const m = shaderPaintNoise(S, S.x, S.y, 5, S.add(sd, 1)), C = S.p("cloud");
+    v = S.add(v, S.div(S.mul(S.sub(m, 128), C), 300));
+    v = S.sel(S.gt(m, S.sub(255, S.div(C, 3))), S.add(v, 70), v);
+    // grooves cut dark; the lip under-right of a groove catches the light
+    v = S.sel(groove, 10, v);
+    v = S.sel(S.and(S.not(groove), S.lt(shaderMatPreciousLum(S, -1, -1), 64), S.solid(S.tex(-1, -1))), S.add(v, 40), v);
+    // the waxy sheen: the upper-left rim and the pixel inside it, softly
+    const ul = shaderMatPreciousOpenUL(S), ul2 = S.and(S.not(ul), S.or(S.not(S.solid(S.tex(-2, 0))), S.not(S.solid(S.tex(0, -2)))));
+    v = S.add(v, S.sel(S.and(ul, S.not(groove)), 90, S.sel(ul2, 40, 0)));
+    v = S.sel(S.and(shaderMatPreciousOpenDR(S), S.not(ul)), S.sub(v, 30), v);
+    const jade = shaderMatPreciousTone(S, "jade", v);
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("jade", S.sub(S.palCount("jade"), 1))]], jade);
+  },
+};
+
+// ---- PORCELAIN: white glazed porcelain painted in cobalt blue. The sprite's own drawing redone as blue brushwork (its
+// outline deep blue, its lines blue, its darker areas a pale blue wash), a blue border band a pixel inside the edge,
+// little swirls and leaves painted on its broad light areas, the glaze shaded softly with a gloss streak on the upper
+// left. Spreads from the top down, as a glaze poured over it. (No cracks: kintsugi is the broken one.)
+const shaderMatPreciousSwirl = [   // 5 x 5: a curl
+  0, 1, 1, 1, 0,
+  1, 0, 0, 0, 1,
+  1, 0, 1, 0, 1,
+  1, 0, 1, 1, 0,
+  0, 1, 0, 0, 0,
+];
+const shaderMatPreciousLeaf = [    // 5 x 5: a leaf on a stem
+  0, 0, 0, 1, 1,
+  0, 0, 1, 1, 1,
+  0, 1, 1, 1, 0,
+  0, 1, 1, 0, 0,
+  1, 0, 0, 0, 0,
+];
+SHADER_DEFS.porcelain = {
+  label: "Porcelain", title: "the sprite as blue-and-white porcelain: white glaze with cobalt brushwork following its drawing, swirls and a border band, a gloss streak",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 1, fps: 1, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["porcelain", "ceramic", "china", "blue and white", "glaze", "vase", "pottery", "cobalt", "delicate", "antique"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    glaze: { type: "palette", def: ["#a8b8d0", "#d4dce8", "#eef1f5", "#ffffff"], max: 6, label: "Glaze (shadow to white)" },
+    blue: { type: "palette", def: ["#14287a", "#2a4eaa", "#7e9ad8"], max: 4, label: "Brushwork (deep to pale)" },
+    motifs: { type: "int", min: 0, max: 100, def: 60, label: "Swirls and leaves (%)" },
+    band: { type: "int", min: 0, max: 1, def: 0, label: "Border band", choices: ["painted", "none"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Brushwork" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5131);
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "down", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), d = shaderEnchDepth(S, 3);
+    // the glaze: white, the sprite's light and dark kept as a soft blue-gray, relief from the light, a gloss streak
+    let v = S.add(S.add(185, S.div(S.sub(l, 128), 3)), S.div(lit, 3));
+    const streak = S.and(S.ge(d, 1), S.le(S.abs(S.sub(S.add(S.x, S.y), S.div(S.mul(S.add(S.w, S.h), 2), 5))), 0));
+    v = S.sel(S.or(streak, S.and(shaderMatPreciousOpenUL(S), S.ge(d, 1))), 255, v);
+    const glaze = shaderMatPreciousTone(S, "glaze", v);
+    // motifs: one in some 7 px cells, a curl or a leaf, mirrored by the cell's hash, only on broad light glaze
+    const P = 7, cx = S.div(S.x, P), cy = S.div(S.y, P), h = S.hash(cx, cy, S.add(sd, 1));
+    const fx = S.mod(S.x, P), fy = S.mod(S.y, P), mx = S.sel(S.eq(S.mod(S.div(h, 4), 2), 0), S.sub(fx, 1), S.sub(5, fx));
+    const inBox = S.and(S.ge(mx, 0), S.le(mx, 4), S.ge(fy, 1), S.le(fy, 5)), idx = S.add(S.mul(S.sub(fy, 1), 5), mx);
+    const bit = S.sel(S.eq(S.mod(h, 2), 0), S.table(shaderMatPreciousSwirl, S.clamp(idx, 0, 24)), S.table(shaderMatPreciousLeaf, S.clamp(idx, 0, 24)));
+    const motif = S.and(inBox, S.eq(bit, 1), S.lt(S.mod(S.div(h, 16), 100), S.p("motifs")), S.ge(d, 3), S.gt(l, 110));
+    // the band: a ring of blue one pixel inside the edge (the edge itself kept white between)
+    const band = S.and(S.eq(S.p("band"), 0), S.eq(d, 2));
+    const wash = S.or(S.lt(l, 100), S.and(S.lt(l, 130), S.eq(S.mod(S.add(S.x, S.y), 2), 0)));
+    const body = S.pick([
+      [S.eq(d, 0), S.palAt("blue", 0)],
+      [groove, S.palAt("blue", 0)],
+      [band, S.palAt("blue", 1)],
+      [motif, S.palAt("blue", 1)],
+      [wash, S.palAt("blue", 2)],
+    ], glaze);
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("blue", 2)]], body);
+  },
+};
+
+// ---- WOOD CARVING: the sprite carved from a block of wood. Grain rings follow its shape (contours of its edge distance,
+// wavering with a noise), fine fibers run down it, its drawn lines are cut dark and its upper-left edges worn light;
+// four woods in one palette (five tones each, dark to light). Spreads from the top down, as a chisel works.
+SHADER_DEFS.woodcarved = {
+  label: "Wood carving", title: "the sprite carved from wood: grain rings following its shape, darker in the cuts, lighter on the worn edges",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 1, fps: 1, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["wood", "carved", "carving", "wooden", "grain", "whittled", "figure", "puppet", "toy", "rustic"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    wood: { type: "int", min: 0, max: 3, def: 0, label: "Wood", choices: ["oak", "walnut", "pine", "cherry"] },
+    woods: { type: "palette", max: 20, label: "Woods (oak, walnut, pine, cherry: five tones each, dark to light)",
+      def: ["#3a2412", "#6a4422", "#9a6a38", "#c4945a", "#e6c08a",
+        "#1e120a", "#3e2616", "#5e3c24", "#86603e", "#ac8660",
+        "#5a3a1a", "#9a6a32", "#c89a58", "#e6c486", "#f8e2b0",
+        "#3a140c", "#6a2a18", "#9a4628", "#c46a42", "#e4966a"] },
+    rings: { type: "int", min: 2, max: 6, def: 3, label: "Ring spacing (px)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Grain" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5141);
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "down", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), d = shaderEnchDepth(S, 6), base = S.mul(S.p("wood"), 5);
+    let v = S.add(S.add(140, S.div(S.sub(l, 128), 4)), S.div(lit, 2));
+    // rings: contours of the edge distance wavering with a noise; the line a tone darker, the next a touch lighter
+    const R = S.p("rings"), u = S.add(S.add(S.mul(d, 8), S.div(shaderPaintNoise(S, S.x, S.y, 6, S.add(sd, 1)), 7)), S.div(S.y, 2));
+    const ph = S.mod(u, S.mul(R, 8));
+    v = S.add(v, S.sel(S.lt(ph, 6), -60, S.sel(S.lt(ph, 12), 25, 0)));
+    // fibers: a noise stretched down the sprite, a little light or dark
+    v = S.add(v, S.div(S.sub(shaderPaintNoise(S, S.x, S.div(S.y, 4), 2, S.add(sd, 2)), 128), 8));
+    // cut dark; worn light
+    v = S.sel(groove, S.sel(S.lt(l, 40), 0, 30), v);
+    v = S.sel(S.and(shaderMatPreciousOpenUL(S), S.not(groove)), 250, v);
+    const wood = shaderMatPreciousTone(S, "woods", v, base, 5);
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("woods", S.add(base, 4))]], wood);
+  },
+};
+
+// ---- GLASS FIGURINE: the sprite as clear blown glass. Its rim bright (white where it faces the light), a dark refracted
+// band just inside its lower-right edge, its body the tint with the sprite's own light and dark kept as darker and
+// paler glass (so a face survives), the ground showing through a clear band across its middle where the light passes
+// (or a solid tint if chosen). A glint slides across it once a loop. Spreads from the edges in.
+SHADER_DEFS.figurine = {
+  label: "Glass figurine", title: "the sprite as a clear glass figurine: tinted glass with its features kept, a bright rim, a refracted inner edge, a sliding glint",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 32, fps: 12, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["glass", "figurine", "crystal", "clear", "transparent", "ornament", "blown glass", "fragile", "ghostly", "shiny"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    glass: { type: "palette", def: ["#1e4e74", "#4a98c4", "#a8e2f4", "#ffffff"], max: 4, label: "Glass (deep, edge, light, glint)" },
+    tint: { type: "colour", def: "#7ccce6", label: "Tint" },
+    body: { type: "int", min: 0, max: 1, def: 0, label: "Body", choices: ["tinted, the ground showing through a clear band", "tinted solid"] },
+    clarity: { type: "int", min: 0, max: 100, def: 60, label: "Clear band (%)" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), F = S.FRAMES, sd = 5151;
+    const l = S.luma(c), sp = shaderMatPreciousSpread(S, "in", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), d = shaderEnchDepth(S, 2);
+    const ul = shaderMatPreciousOpenUL(S), dr = shaderMatPreciousOpenDR(S);
+    // inner lower-right: a pixel in from an edge open below or to the right (the refracted edge)
+    const inDR = S.and(S.ge(d, 1), S.or(S.not(S.solid(S.tex(2, 0))), S.not(S.solid(S.tex(0, 2))), S.not(S.solid(S.tex(2, 2)))));
+    const inUL = S.and(S.ge(d, 1), S.or(S.not(S.solid(S.tex(-2, 0))), S.not(S.solid(S.tex(0, -2)))));
+    // the glint: two steep lines leaning right, crossing the whole image in half the loop, then resting off it
+    const gu = S.add(S.x, S.div(S.y, 2));
+    const L = S.add(S.add(S.w, S.div(S.h, 2)), 8), g = S.sub(S.div(S.mul(S.mul(S.frame, L), 2), F), 4);
+    const glint = S.or(S.eq(gu, g), S.eq(gu, S.sub(g, 3)));
+    // the body: the sprite's own light and dark as four glass tones, so its features read (dark lines deep, darker
+    // areas the edge blue, the middle the tint, the light parts pale)
+    const tone = S.pick([[S.or(groove, S.lt(l, 64)), S.palAt("glass", 0)], [S.lt(l, 120), S.palAt("glass", 1)], [S.gt(l, 200), S.palAt("glass", 2)]], S.p("tint"));
+    const plainTint = S.and(S.not(groove), S.ge(l, 120), S.le(l, 200));
+    // the clear band: where the light passes through, parallel to the glint, across the middle of the image; only on
+    // the tint (never on a feature), its sides a checker
+    const B = S.div(S.p("clarity"), 25), bd = S.abs(S.sub(gu, S.div(S.add(S.w, S.div(S.h, 2)), 2)));
+    const band = S.and(S.eq(S.p("body"), 0), S.ge(d, 2), plainTint,
+      S.or(S.lt(bd, B), S.and(S.eq(bd, B), S.gt(B, 0), S.eq(S.mod(S.add(S.x, S.y), 2), 0))));
+    const rim = S.eq(d, 0);
+    const body = S.pick([
+      [S.and(glint, S.ge(d, 1)), S.palAt("glass", 3)],
+      [S.and(rim, ul), S.palAt("glass", 3)],
+      [S.and(rim, dr), S.palAt("glass", 1)],
+      [rim, S.palAt("glass", 2)],
+      [S.and(inDR, S.not(groove)), S.palAt("glass", 0)],
+      [S.and(inUL, plainTint), S.palAt("glass", 2)],
+      [band, S.clear],
+    ], tone);
+    return S.sel(S.and(S.solid(c), sp.on), S.sel(sp.front, S.palAt("glass", 2), body), c);
+  },
+};
+
+// ---- PEARL: nacre. Pale and soft, a little darker toward its rim (a round form from its edge distance and its own
+// light and dark), with pastel bands in its mid tones following the form (contours of the edge distance and the
+// sprite's light), drifting slowly inward once a loop, and a soft sheen gliding across it and back. Spreads from the
+// edges in, as nacre is laid. (Not the oil slick: pale and pastel, the bands keyed to the form, not to the colors.)
+SHADER_DEFS.pearl = {
+  label: "Pearl", title: "the sprite turned to pearl: pale nacre with soft pastel bands following its form, a gentle sheen gliding over it",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 32, fps: 8, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["pearl", "nacre", "mother of pearl", "pastel", "shell", "iridescent", "lustrous", "sea", "precious", "soft"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    nacre: { type: "palette", def: ["#857890", "#b8aabc", "#ddd2da", "#f2ebe8", "#fffcf8"], max: 8, label: "Nacre (dark to light)" },
+    pastels: { type: "palette", def: ["#ffbcd6", "#cdbcff", "#b2ead8", "#ffe2a8"], max: 6, label: "Pastel bands" },
+    bands: { type: "int", min: 0, max: 100, def: 60, label: "Bands (%)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Bands" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 5161), F = S.FRAMES;
+    const l = S.luma(c), lit = shaderMatPreciousLit(S), sp = shaderMatPreciousSpread(S, "in", A, sd);
+    const groove = shaderMatPreciousGroove(S, l), d = shaderEnchDepth(S, 6);
+    let v = S.add(S.add(S.add(95, S.mul(S.min(d, 3), 25)), S.div(S.sub(l, 128), 3)), S.div(lit, 4));
+    v = S.sel(groove, S.sub(v, 70), v);
+    // the sheen: a soft spot gliding across the upper half and back once a loop
+    const sx = S.add(S.div(S.w, 2), S.wave(S.frame, F, S.div(S.w, 4))), sy = S.add(S.div(S.h, 3), S.wave(S.add(S.frame, F / 4), F, S.div(S.h, 10)));
+    const ex = S.sub(S.x, sx), ey = S.sub(S.y, sy), r2 = S.add(S.mul(ex, ex), S.mul(S.mul(ey, ey), 2));
+    v = S.add(v, S.sel(S.lt(r2, 6), 90, S.sel(S.lt(r2, 20), 45, 0)));
+    v = S.sel(S.and(shaderMatPreciousOpenUL(S), S.not(groove)), S.add(v, 40), v);
+    const nac = shaderMatPreciousTone(S, "nacre", v);
+    // the bands: contours of depth + light, warped a little, drifting one period a loop; pastel on the mid tones only
+    const u = S.add(S.add(S.add(S.mul(d, 6), S.div(l, 20)), S.div(shaderPaintNoise(S, S.x, S.y, 5, S.add(sd, 1)), 24)), S.div(S.mul(S.frame, 12), F));
+    const k = S.mod(S.div(u, 6), S.palCount("pastels")), inBand = S.lt(S.mod(u, 6), S.div(S.mul(S.p("bands"), 5), 100));
+    const mid = S.and(S.ge(v, 100), S.lt(v, 215), S.not(groove));
+    const body = S.sel(S.and(inBand, mid), S.palAt("pastels", k), nac);
+    return S.pick([[S.not(S.and(S.solid(c), sp.on)), c], [sp.front, S.palAt("nacre", S.sub(S.palCount("nacre"), 1))]], body);
+  },
+};
+
+// The materials round, "fun" (2026-11-09): sweets
+// and toys. Eight Sprite FX, each with an `amount` (0 draws the plain sprite, so a game can drive it live):
+// chocolate, gingerbread, cottoncandy, balloon, origami, cardboard, bottled, gelatin. Loaded after shader.js; private
+// helpers are prefixed shaderMatFun*.
+
+SHADER_EFFECTS.push("chocolate", "gingerbread", "cottoncandy", "balloon", "origami", "cardboard", "bottled", "gelatin");
+
+// ---- shared helpers ----------------------------------------------------------------------------------------------------
+// a fixed color list read by index (free effects): each channel a table
+function shaderMatFunList(S, hexes, i) {
+  const ch = function (k) { return hexes.map(function (h) { return parseInt(h.slice(1 + k * 2, 3 + k * 2), 16); }); };
+  return S.rgba(S.table(ch(0), i), S.table(ch(1), i), S.table(ch(2), i), 255);
+}
+// the first solid texel walking in from a corner along its diagonal (step px a step, n steps): its step count, or n
+// corner 0 top left, 1 top right, 2 bottom right, 3 bottom left. Returns { t, ox, oy, dx, dy } (ints; dx, dy = +-1 inward)
+function shaderMatFunCornerHit(S, corner, n, step) {
+  const right = S.or(S.eq(corner, 1), S.eq(corner, 2)), bottom = S.or(S.eq(corner, 2), S.eq(corner, 3));
+  const ox = S.sel(right, S.sub(S.w, 1), 0), oy = S.sel(bottom, S.sub(S.h, 1), 0);
+  const dx = S.sel(right, -1, 1), dy = S.sel(bottom, -1, 1);
+  let t = S.i(n * step);
+  for (let k = n - 1; k >= 0; k--) t = S.sel(S.solid(S.texAt(S.add(ox, S.mul(dx, k * step)), S.add(oy, S.mul(dy, k * step)))), k * step, t);
+  return { t: t, ox: ox, oy: oy, dx: dx, dy: dy };
+}
+// squared distance from the pixel to (px, py)
+function shaderMatFunD2(S, px, py) { const ex = S.sub(S.x, px), ey = S.sub(S.y, py); return S.add(S.mul(ex, ex), S.mul(ey, ey)); }
+
+// ---- CHOCOLATE: molded chocolate poured over the sprite from the top, its front running in drips; the sprite's own
+// light and dark pressed into it as relief (a lit edge where it steps up, a shade where it steps down), a bevel round
+// the mold, a gloss streak inside the upper-left edge and a sheen sliding across; optionally a bite out of one corner
+// (a scalloped row of tooth marks, the broken chocolate paler, crumbs on the edge).
+const shaderMatFunChoc = [
+  "#fbe0c4", "#a8683a", "#7a4422", "#52280f", "#2c1305",   // milk
+  "#d8a68a", "#5e3422", "#3e2014", "#28130b", "#140704",   // dark
+  "#fffcf2", "#f6ead0", "#e6d0a8", "#c8a87e", "#8a6a48",   // white
+  "#ffe4ee", "#ffa8c8", "#ee78a4", "#c04a78", "#782446",   // strawberry
+];
+SHADER_DEFS.chocolate = {
+  label: "Chocolate", title: "the sprite as molded chocolate: poured over from the top in drips, its details pressed in as relief, glossy, with a bite taken out if you like",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 24, fps: 10, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["chocolate", "candy", "sweet", "cocoa", "dessert", "molded", "easter", "treat", "bite", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    flavor: { type: "int", min: 0, max: 3, def: 0, label: "Chocolate", choices: ["milk", "dark", "white", "strawberry"] },
+    bite: { type: "int", min: 0, max: 4, def: 1, label: "Bite", choices: ["none", "top right", "top left", "bottom right", "bottom left"] },
+    size: { type: "int", min: 0, max: 2, def: 1, label: "Bite size", choices: ["nibble", "bite", "chomp"] },
+    relief: { type: "int", min: 0, max: 100, def: 60, label: "Relief (%)" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), F = S.FRAMES;
+    // the pour: a front coming down the sprite, with 2 px drips of 0..6 px below it
+    const L = S.sub(S.div(S.mul(A, S.add(S.h, 8)), 100), 8);
+    const dh = S.hash(S.div(S.x, 2), 7, 3101), drip = S.table([0, 0, 1, 1, 2, 3, 5, 7], S.mod(dh, 8));
+    const reach = S.add(L, drip), tipRow = S.eq(S.y, S.sub(reach, 1));
+    const covered = S.and(on, S.solid(c), S.or(S.ge(A, 100), S.lt(S.y, reach)));
+    // the bite: walk in from the corner to the sprite, then take a disc and five teeth there
+    const B = S.p("bite"), corner = S.table([0, 1, 0, 2, 3], B);
+    const hit = shaderMatFunCornerHit(S, corner, 40, 2), R = S.table([3, 4, 6], S.p("size"));
+    const into = S.add(hit.t, S.div(R, 3));
+    const px = S.add(hit.ox, S.mul(hit.dx, into)), py = S.add(hit.oy, S.mul(hit.dy, into));
+    const bitten = function (ox, oy) {
+      const qx = S.add(S.x, ox), qy = S.add(S.y, oy);
+      const d2 = function (ax, ay) { const ex = S.sub(qx, ax), ey = S.sub(qy, ay); return S.add(S.mul(ex, ex), S.mul(ey, ey)); };
+      const core = S.lt(d2(px, py), S.mul(R, R));
+      const tr = S.div(S.mul(R, 5), 9), tr2 = S.mul(tr, tr), far = S.div(S.mul(R, 7), 8);
+      // five teeth along the quarter circle facing into the sprite
+      const teeth = [[1000, 0], [924, 383], [707, 707], [383, 924], [0, 1000]].map(function (u) {
+        return S.lt(d2(S.add(px, S.div(S.mul(S.mul(hit.dx, far), u[0]), 1000)), S.add(py, S.div(S.mul(S.mul(hit.dy, far), u[1]), 1000))), tr2);
+      });
+      return S.and(S.gt(B, 0), S.or.apply(null, [core].concat(teeth)));
+    };
+    const gone = S.and(covered, bitten(0, 0));
+    const broken = S.and(covered, S.not(gone), S.or(bitten(1, 0), bitten(-1, 0), bitten(0, 1), bitten(0, -1)));
+    // crumbs: a pixel or two inside the bite, not touching the edge
+    const crumb = S.and(gone, bitten(1, 0), bitten(-1, 0), bitten(0, 1), bitten(0, -1),
+      S.not(S.and(bitten(2, 0), bitten(-2, 0), bitten(0, 2), bitten(0, -2), bitten(2, 2), bitten(-2, -2), bitten(2, -2), bitten(-2, 2))),
+      S.lt(S.mod(S.hash(S.x, S.y, 3102), 100), 30));
+    // the relief: brighter than the pixel down-right of it = a lit step, darker than the one up-left = a shaded step
+    const l = S.luma(c), Rl = S.sub(100, S.p("relief")), thr = S.add(14, S.mul(Rl, 2));
+    const solidUL = S.solid(S.tex(-1, -1)), solidDR = S.solid(S.tex(1, 1));
+    const up = S.and(solidDR, S.gt(S.sub(l, S.luma(S.tex(1, 1))), thr));
+    const down = S.and(solidUL, S.gt(S.sub(S.luma(S.tex(-1, -1)), l), thr));
+    // the mold's bevel: open up or left = lit, open down or right = shade (the corner nearest the light lit most)
+    const openU = S.not(S.solid(S.tex(0, -1))), openL = S.not(S.solid(S.tex(-1, 0)));
+    const openD = S.not(S.solid(S.tex(0, 1))), openR = S.not(S.solid(S.tex(1, 0)));
+    // gloss: one pixel in from an edge open up and to the left; a sheen band sliding down-right, resting half the loop
+    const inUL = S.and(S.not(S.or(openU, openL, openD, openR)), S.or(S.not(S.solid(S.tex(-2, -1))), S.not(S.solid(S.tex(-1, -2)))), solidUL);
+    const u = S.add(S.x, S.y), band = S.sub(S.div(S.mul(S.frame, S.mul(S.add(S.w, S.h), 2)), F), 6);
+    const sheen = S.and(S.ge(u, band), S.le(u, S.add(band, 2))), crest = S.eq(u, S.add(band, 1));
+    const base = S.sel(S.gt(l, 170), 1, S.sel(S.lt(l, 60), 3, 2));
+    const tone = S.pick([
+      [broken, S.add(1, S.mod(S.add(S.x, S.y), 2))],
+      [S.and(openU, openL), 0], [S.or(openU, openL), 1], [S.and(openD, openR), 4], [S.or(openD, openR), 3],
+      [up, 1], [down, 4],
+      [S.and(tipRow, S.lt(A, 100)), 1],
+      [inUL, 0],
+    ], base);
+    const lit = S.pick([[S.and(crest, S.lt(tone, 3)), 0], [S.and(sheen, S.gt(tone, 0)), S.sub(tone, 1)]], tone);
+    const col = shaderMatFunList(S, shaderMatFunChoc, S.add(S.mul(S.p("flavor"), 5), S.sel(crumb, 3, lit)));
+    return S.pick([[crumb, col], [gone, S.clear], [covered, col]], c);
+  },
+  variants: [{ flavor: 1, bite: 2, size: 2, amount: 60 }, { flavor: 2, bite: 0 }, { flavor: 3, bite: 4, size: 0 }],
+};
+
+// ---- GINGERBREAD: the sprite baked as a cookie: the dough puffed a pixel past its silhouette, darker where it baked at
+// the rim (darkest down and right), little pores in it; white icing piped along its outline and over its dark lines (each
+// line casting a pixel of shade down-right), a few 2 x 2 candy buttons pressed in. The amount bakes it from the middle out.
+SHADER_DEFS.gingerbread = {
+  label: "Gingerbread", title: "the sprite baked as a gingerbread cookie: puffed dough browned at the edges, white icing piped along its outline, candy buttons",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 1, fps: 1, pad: [1, 1, 1, 1], strength: "amount",
+  tags: ["gingerbread", "cookie", "baked", "icing", "christmas", "holiday", "sweet", "biscuit", "candy", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    dough: { type: "palette", def: ["#e8a868", "#c87e40", "#9a5426", "#5e2e12"], max: 6, label: "Dough (light to dark)" },
+    icing: { type: "colour", def: "#fffaf2", label: "Icing" },
+    lines: { type: "int", min: 0, max: 2, def: 0, label: "Icing on", choices: ["the outline and dark lines", "the outline only", "the dark lines only"] },
+    candy: { type: "palette", def: ["#e8324a", "#3ab04a", "#3a7ae8", "#f0c020"], max: 6, label: "Candy buttons" },
+    buttons: { type: "int", min: 0, max: 100, def: 40, label: "Candy buttons (%)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Buttons" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), sd = S.add(S.mul(S.p("seed"), 4), 3201), nd = S.palCount("dough");
+    const so = function (dx, dy) { return S.solid(S.tex(dx, dy)); };
+    // the cookie: the sprite and one pixel round it (4-way)
+    const ck = function (dx, dy) { return S.or(so(dx, dy), so(dx + 1, dy), so(dx - 1, dy), so(dx, dy + 1), so(dx, dy - 1)); };
+    const cookie = ck(0, 0);
+    // baked from the middle out: a noisy reach that covers the whole image at 100
+    const dx = S.sub(S.x, S.div(S.w, 2)), dy = S.sub(S.y, S.div(S.h, 2));
+    const d = S.add(shaderPaintSqrt(S, S.add(S.mul(dx, dx), S.mul(dy, dy))), S.div(S.sub(shaderPaintNoise(S, S.x, S.y, 3, sd), 128), 24));
+    const baked = S.and(S.gt(A, 0), cookie, S.or(S.ge(A, 100), S.lt(d, S.div(S.mul(A, S.add(S.w, S.h)), 280))));
+    // icing: the sprite's own rim (one pixel in from the cookie's edge) and its dark lines inside
+    // a dark line: a dark pixel with a much brighter solid pixel beside it (the dark side of a drawn edge)
+    const L = S.p("lines"), dark = function (dx, dy) {
+      const l = S.luma(S.tex(dx, dy)), br = function (ex, ey) { return S.and(so(dx + ex, dy + ey), S.gt(S.luma(S.tex(dx + ex, dy + ey)), S.add(l, 60))); };
+      return S.and(so(dx, dy), S.lt(l, 110), S.or(br(1, 0), br(-1, 0), br(0, 1), br(0, -1)));
+    };
+    const rimAt = function (dx, dy) { return S.and(so(dx, dy), S.not(S.and(so(dx + 1, dy), so(dx - 1, dy), so(dx, dy + 1), so(dx, dy - 1)))); };
+    const iceAt = function (dx, dy) { return S.or(S.and(S.ne(L, 2), rimAt(dx, dy)), S.and(S.ne(L, 1), dark(dx, dy), S.not(rimAt(dx, dy)))); };
+    const ice = iceAt(0, 0), shade = S.and(S.not(ice), S.solid(c), S.or(iceAt(-1, -1), iceAt(0, -1)));
+    // candy buttons: one 2 x 2 in some 7 px cells, where all four pixels and their ring are plain dough
+    const gx = S.div(S.x, 7), gy = S.div(S.y, 7), h = S.hash(gx, gy, S.add(sd, 1));
+    const bx = S.add(S.mul(gx, 7), S.add(2, S.mod(S.div(h, 100), 3))), by = S.add(S.mul(gy, 7), S.add(2, S.mod(S.div(h, 1000), 3)));
+    const ox = S.sub(S.x, bx), oy = S.sub(S.y, by), inBtn = S.and(S.ge(ox, 0), S.le(ox, 1), S.ge(oy, 0), S.le(oy, 1));
+    const clearAt = function (ax, ay) { return S.and(S.solid(S.texAt(ax, ay)), S.not(S.lt(S.luma(S.texAt(ax, ay)), 70))); };
+    let room = S.lt(S.mod(h, 100), S.p("buttons"));
+    for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) room = S.and(room, clearAt(S.add(bx, i), S.add(by, j)));
+    const btn = S.and(inBtn, room), shine = S.and(btn, S.eq(ox, 0), S.eq(oy, 0));
+    // the dough: pale inside, browned on the rim (darker facing down and right), pores here and there
+    const openD = S.or(S.not(ck(0, 1)), S.not(ck(1, 0))), edge = S.not(S.and(ck(1, 0), ck(-1, 0), ck(0, 1), ck(0, -1)));
+    const pore = S.lt(S.mod(S.hash(S.x, S.y, S.add(sd, 2)), 100), 9);
+    const tone = S.pick([[S.and(edge, openD), S.sub(nd, 1)], [edge, S.sub(nd, 2)], [shade, S.sub(nd, 2)], [S.or(pore, S.lt(S.luma(c), 110)), 1]], 0);
+    return S.pick([
+      [S.not(baked), c],
+      [shine, S.p("icing")],
+      [btn, S.palAt("candy", S.mod(S.div(h, 7), S.palCount("candy")))],
+      [ice, S.p("icing")],
+    ], S.palAt("dough", tone));
+  },
+  variants: [{ lines: 1, buttons: 100, amount: 50 }, { lines: 2, seed: 7 }],
+};
+
+// ---- COTTON CANDY: the sprite spun from sugar floss as round puffs: a jittered grid of puff centers rising 20 px a loop
+// through it; every center ON the sprite swells into a disc a little wider than its cell, so the silhouette goes bumpy
+// and breathes as they pass; each pixel is shaded by where it sits in its puff (lit up and left, deep down and right),
+// each puff one of two pastel flosses. Little wisps puff off its top and drift up. The amount spins it puff by puff.
+// the nearest of a jittered grid of P px cells' centers to (x, y) whose rows repeat every R cells (so a grid moved R x P
+// px a loop closes), among those that `keep(sx, sy, h)` allows (sx, sy: the center on the image): { d, ex, ey, h, any }
+function shaderMatFunPuffs(S, x, y, P, R, sd, keep) {
+  const big = 1680, X = S.add(x, big), Y = S.add(y, big), gx = S.div(X, P), gy = S.div(Y, P);
+  let d = S.i(999999), ex = S.i(0), ey = S.i(0), h = S.i(0), any = S.lt(1, 0);
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const nx = S.add(gx, i), ny = S.add(gy, j), hh = S.hash(nx, S.mod(ny, R), sd);
+    const sx = S.add(S.mul(nx, P), S.mod(hh, P)), sy = S.add(S.mul(ny, P), S.mod(S.div(hh, 64), P));
+    const ox = S.sub(X, sx), oy = S.sub(Y, sy), dd = S.add(S.mul(ox, ox), S.mul(oy, oy));
+    const ok = keep(S.sub(sx, S.sub(X, S.x)), S.sub(sy, S.sub(Y, S.y)), hh), better = S.and(ok, S.lt(dd, d));
+    d = S.sel(better, dd, d); ex = S.sel(better, ox, ex); ey = S.sel(better, oy, ey); h = S.sel(better, hh, h); any = S.or(any, ok);
+  }
+  return { d: d, ex: ex, ey: ey, h: h, any: any };
+}
+SHADER_DEFS.cottoncandy = {
+  label: "Cotton candy", title: "the sprite spun from cotton candy: round pastel puffs of floss rising through it, its edge bumpy and breathing, wisps drifting up",
+  group: "Sprite FX", kind: "sprite", palette: "strict", frames: 32, fps: 8, pad: [6, 6, 6, 6], strength: "amount",
+  tags: ["cotton candy", "candy floss", "fairy floss", "sugar", "pastel", "fluffy", "carnival", "sweet", "cloud", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    pink: { type: "palette", def: ["#fff4fa", "#ffcfe6", "#ffa6cf", "#e07ab0"], max: 6, label: "First floss (light to dark)" },
+    blue: { type: "palette", def: ["#f2faff", "#cbe6ff", "#a2cbff", "#7aa4e8"], max: 6, label: "Second floss (light to dark)" },
+    swirl: { type: "int", min: 0, max: 100, def: 35, label: "Second floss (%)" },
+    puff: { type: "int", min: 0, max: 2, def: 1, label: "Puffs", choices: ["small", "medium", "big"] },
+    fluff: { type: "int", min: 0, max: 2, def: 2, label: "Fluff (px)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Puffs" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), sd = S.add(S.mul(S.p("seed"), 4), 3301), F = S.FRAMES;
+    const P = S.table([4, 5, 7], S.p("puff")), Fl = S.p("fluff");
+    // a puff center counts when it lies on the sprite and its puff is spun (some of them as the amount grows)
+    const keep = function (sx, sy, hh) { return S.and(S.solid(S.texAt(sx, sy)), S.lt(S.mod(S.div(hh, 7), 100), A)); };
+    const all = function () { return S.lt(0, 1); };
+    // the grid rises 4 rows a loop (P is 4, 5 or 7, so 4 P px: whole rows, the loop closes)
+    const yy = S.add(S.y, S.div(S.mul(S.frame, S.mul(P, 4)), F));
+    const pf = shaderMatFunPuffs(S, S.x, yy, P, 4, sd, keep), any = shaderMatFunPuffs(S, S.x, yy, P, 4, sd, all);
+    // a puff's disc reaches its cell's half plus the fluff
+    const r = S.add(S.div(S.add(P, 1), 2), Fl), inPuff = S.and(pf.any, S.le(pf.d, S.mul(r, r)));
+    const floss = S.and(on, S.or(S.and(S.solid(c), S.or(inPuff, S.ge(A, 100))), S.and(S.not(S.solid(c)), inPuff)));
+    // shading: across the puff along the light (up-left lit), from the puff it is in (or, on a thin part with no puff
+    // center of its own, the nearest center of all)
+    const use = S.and(pf.any, S.le(pf.d, S.mul(r, r)));
+    const ex = S.sel(use, pf.ex, any.ex), ey = S.sel(use, pf.ey, any.ey), h = S.sel(use, pf.h, any.h);
+    const s = S.add(S.add(ex, ey), S.sel(S.and(S.solid(c), S.lt(S.luma(c), 70)), 2, 0));
+    // a soft ball: lit up-left, the body, a shade down-right; the darkest only where the floss ends down-right
+    const tone = function (k) {
+      const n = S.palCount(k), body = S.clamp(S.div(S.mul(S.add(s, r), S.sub(n, 1)), S.add(S.mul(r, 2), 1)), 0, S.sub(n, 2));
+      return S.palAt(k, S.sel(S.and(S.not(S.solid(c)), S.gt(s, S.div(r, 2))), S.sub(n, 1), body));
+    };
+    const second = S.lt(S.mod(h, 100), S.p("swirl"));
+    // wisps: 2 px puffs in a 6 px field rising 24 px a loop and swaying, shown above the floss and beside it
+    const so = function (dx, dy) { return S.solid(S.tex(dx, dy)); };
+    const side = S.or(so(3, 0), so(-3, 0), so(2, 1), so(-2, 1), so(2, -1), so(-2, -1));
+    const sway = S.wave(S.add(S.frame, S.div(S.y, 3)), F, 1);
+    const wf = shaderPrettyFxField(S, S.add(S.x, sway), S.add(S.y, S.div(S.mul(S.frame, 24), F)), 6, 0, 4, S.div(S.mul(A, 40), 100), S.add(sd, 3), 2);
+    const wisp = S.and(on, S.not(S.solid(c)), S.not(floss), S.or(S.le(shaderEnchBelow(S, 6), 6), side), wf.on, S.eq(wf.dy, 0),
+      S.or(S.eq(wf.dx, 0), S.and(S.eq(wf.dx, 1), S.lt(S.mod(wf.h, 3), 2))));
+    const wcol = S.sel(S.lt(S.mod(S.div(wf.h, 7), 100), S.p("swirl")), S.palAt("blue", 0), S.palAt("pink", 1));
+    return S.pick([
+      [wisp, wcol],
+      [S.not(floss), c],
+      [second, tone("blue")],
+    ], tone("pink"));
+  },
+  variants: [{ amount: 50, fluff: 0, puff: 0 }, { swirl: 0, seed: 9, puff: 2 }],
+};
+
+// ---- BALLOON: the sprite blown up like a rubber balloon: bulged from its middle (the middle magnified, its edge held),
+// puffed a pixel or two past its silhouette, its colors made rubbery and saturated (or one rubber color), lit up and left,
+// a darker rubber rim down and right, a big shine inset from its upper-left edge; tied off in a rubber knot under its foot, on a
+// string that sways, the whole balloon bobbing. The amount inflates it.
+SHADER_DEFS.balloon = {
+  label: "Balloon", title: "the sprite inflated like a rubber balloon: bulged and puffed, shiny and saturated, a knot and a swaying string under it, bobbing",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 32, fps: 10, pad: [7, 5, 14, 5], strength: "amount",
+  tags: ["balloon", "inflate", "inflated", "rubber", "party", "float", "bob", "string", "shiny", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    inflate: { type: "int", min: 0, max: 60, def: 35, label: "Bulge (%)" },
+    rubber: { type: "int", min: 0, max: 1, def: 0, label: "Rubber", choices: ["its own colors", "one color"] },
+    colour: { type: "colour", def: "#ff3a5c", label: "Rubber color (the knot, or all of it)" },
+    shine: { type: "colour", def: "#ffffff", label: "Shine" },
+    string: { type: "colour", def: "#e8e2d8", label: "String" },
+    bob: { type: "int", min: 0, max: 3, def: 2, label: "Bob (px)" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), F = S.FRAMES;
+    // the middle of the image (the pad is uneven: the original box's middle), and the bulge's reach from it
+    const top = 7, bot = 14, cx = S.div(S.w, 2), cy = S.div(S.add(S.sub(S.h, bot), top), 2);
+    const Rr = S.div(S.max(S.sub(S.w, 10), S.sub(S.h, top + bot)), 2), R2 = S.max(S.mul(Rr, Rr), 1);
+    const bob = S.div(S.mul(S.wave(S.frame, F, 100), S.mul(A, S.p("bob"))), 10000);
+    const G = S.div(S.mul(A, S.p("inflate")), 100);
+    // the bulge: read nearer the middle by G (1 - d2 / R2) of the way, at most 2 px (so the pad always holds it)
+    const push = function (d, d2) { return S.clamp(S.div(S.mul(S.mul(d, G), S.sub(R2, d2)), S.mul(R2, 100)), -2, 2); };
+    const yb = S.sub(S.y, bob), dx = S.sub(S.x, cx), dy = S.sub(yb, cy), d2 = S.min(S.add(S.mul(dx, dx), S.mul(dy, dy)), R2);
+    const sx = S.sub(S.x, push(dx, d2)), sy = S.sub(yb, push(dy, d2));
+    const at = function (i, j) { return S.texAt(S.add(sx, i), S.add(sy, j)); };
+    const me = at(0, 0), so = function (i, j) { return S.solid(at(i, j)); };
+    // the puff: up to 2 px (1 below 50 %), the nearest solid neighbor's color; which side it is on decides its light
+    const P2 = S.ge(A, 50);
+    const ring1 = [[-1, 0], [0, -1], [1, 0], [0, 1]], ring2 = [[-1, -1], [1, -1], [-1, 1], [1, 1], [-2, 0], [0, -2], [2, 0], [0, 2]];
+    let pc = S.clear, pfar = S.lt(1, 0), pdark = S.lt(1, 0);
+    for (const [i, j] of ring2.slice().reverse()) {
+      const hit = S.and(P2, so(i, j));
+      pc = S.sel(hit, at(i, j), pc); pfar = S.sel(hit, S.lt(0, 1), pfar); pdark = S.sel(hit, S.lt(S.add(i, j), 0), pdark);
+    }
+    for (const [i, j] of ring1.slice().reverse()) {
+      const hit = so(i, j);
+      pc = S.sel(hit, at(i, j), pc); pfar = S.sel(hit, S.lt(1, 0), pfar); pdark = S.sel(hit, S.lt(S.add(i, j), 0), pdark);
+    }
+    const body = S.solid(me), puffed = S.and(S.not(body), S.solid(pc)), col = S.sel(body, me, pc);
+    // light: a rim down-right in shade, a band inside the upper-left edge lit, a shine streak and a dot inside that
+    const openDR = S.or(S.not(so(1, 1)), S.not(so(2, 0)), S.not(so(0, 2)), S.not(so(2, 2)));
+    const nearUL = S.or(S.not(so(-2, -2)), S.not(so(-3, 0)), S.not(so(0, -3)));
+    const streak = S.and(body, so(-1, -1), so(-2, 0), so(0, -2), S.or(S.not(so(-3, -2)), S.not(so(-2, -3))), so(2, 2), so(3, 3));
+    const streak2 = S.and(body, S.not(streak), so(-2, -2), so(-3, -1), so(-1, -3), S.or(S.not(so(-4, -3)), S.not(so(-3, -4))), so(2, 2), so(3, 3));
+    const dot = S.and(body, S.not(streak), S.not(streak2), so(-1, -1), S.not(so(-4, -4)), so(-2, -2), so(3, 3), S.or(S.not(so(-3, -4)), S.not(so(-4, -3))));
+    const tone = S.pick([[S.and(puffed, pdark), 70], [puffed, S.sel(pfar, 100, 115)], [openDR, 72], [nearUL, 118]], 100);
+    // the rubber: its own colors, saturated, or one color shaded by its brightness
+    const own = shaderPaintPunch(S, col, 165), L = S.luma(col);
+    const one = shaderPaintShade(S, S.p("colour"), S.add(55, S.div(S.mul(L, 70), 255)), 0);
+    const rub = S.sel(S.eq(S.p("rubber"), 1), one, own);
+    const lit = shaderPaintShade(S, rub, tone, S.sel(S.gt(tone, 110), 18, 0));
+    const shiny = S.pick([[streak, S.p("shine")], [streak2, shaderPaintMix(S, lit, S.p("shine"), 55)], [dot, shaderPaintMix(S, lit, S.p("shine"), 70)]], lit);
+    // the knot: under the foot (the lowest solid pixel in the middle column, scanned up 40 px), moved down by the
+    // bulge, the puff and the bob; then the string, swaying more the lower it hangs, never more than 13 px under the foot
+    let fy = S.i(-1);
+    for (let k = 39; k >= 0; k--) fy = S.sel(S.solid(S.texAt(cx, S.sub(S.sub(S.h, bot + 1), k))), S.sub(S.sub(S.h, bot + 1), k), fy);
+    const fdy = S.sub(fy, cy), ky = S.add(S.add(S.add(fy, push(fdy, S.min(S.mul(fdy, fdy), R2))), S.sel(P2, 3, 2)), bob);
+    const ox = S.sub(S.x, cx), oy = S.sub(S.y, ky), tied = S.ge(fy, 0);
+    const knot = S.and(tied, S.or(S.and(S.eq(oy, 0), S.le(S.abs(ox), 1)), S.and(S.eq(oy, -1), S.eq(ox, 0))));
+    const sway = S.div(S.mul(S.wave(S.add(S.mul(oy, 4), S.div(S.mul(S.frame, 64), F)), 64, 100), S.min(S.div(oy, 4), 2)), 100);
+    const str = S.and(tied, S.ge(oy, 1), S.le(oy, S.div(S.mul(A, 12), 100)), S.le(S.y, S.add(fy, 13)), S.eq(ox, sway));
+    const knotCol = shaderPaintShade(S, S.p("colour"), 80, 0);
+    return S.pick([
+      [S.not(on), c],
+      [S.or(body, puffed), S.rgba(S.r(shiny), S.g(shiny), S.b(shiny), 255)],
+      [knot, S.rgba(S.r(knotCol), S.g(knotCol), S.b(knotCol), 255)],
+      [str, S.p("string")],
+    ], S.clear);
+  },
+  variants: [{ rubber: 1, amount: 40 }, { inflate: 0, bob: 0 }, { inflate: 60, bob: 3, rubber: 1, colour: "#3a9cff" }],
+};
+
+// ---- ORIGAMI: the sprite folded from paper: creases on a diagonal lattice cut it into diamonds, each diamond folded once
+// more down its middle (across or down, by a hash) into two flat triangular facets, one turned to the light and one away
+// (a mountain or a valley); within a facet the sprite's own colors, flattened and lifted toward the paper, all take the
+// facet's one light; the creases drawn in, lit on a mountain and dark in a valley; a paper grain; its edge shaded down and
+// right. The amount folds it facet by facet.
+SHADER_DEFS.origami = {
+  label: "Origami", title: "the sprite folded from paper: big flat facets in light and shade, crisp creases between them, a matte paper grain",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 1, fps: 1, pad: [0, 0, 0, 0], strength: "amount",
+  tags: ["origami", "paper", "folded", "papercraft", "low poly", "facets", "crane", "craft", "crease", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    fold: { type: "int", min: 0, max: 2, def: 1, label: "Folds", choices: ["small", "medium", "big"] },
+    paper: { type: "colour", def: "#fff6e6", label: "Paper" },
+    pale: { type: "int", min: 0, max: 80, def: 22, label: "Paper showing (%)" },
+    depth: { type: "int", min: 0, max: 40, def: 24, label: "Fold shading (%)" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Folds" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), sd = S.add(S.mul(S.p("seed"), 4), 3501), D = S.p("depth");
+    const P = S.table([7, 10, 14], S.p("fold")), big = 14 * 10 * 7 * 16;
+    // the lattice: diamonds between the lines x + y = kP and x - y = kP
+    const u = S.add(S.add(S.x, S.y), big), v = S.add(S.sub(S.x, S.y), big), gu = S.div(u, P), gv = S.div(v, P);
+    const lu = S.mod(u, P), lv = S.mod(v, P), h = S.hash(gu, gv, sd);
+    // the middle fold: down (left / right halves: lu < lv) or across (top / bottom: lu + lv < P)
+    const across = S.eq(S.mod(h, 2), 0), mountain = S.eq(S.mod(S.div(h, 2), 2), 0);
+    const first = S.sel(across, S.lt(S.add(lu, lv), S.sub(P, 1)), S.lt(lu, lv));       // top half, or left half
+    const onMid = S.sel(across, S.eq(S.add(lu, lv), S.sub(P, 1)), S.eq(lu, lv));
+    const onLat = S.or(S.eq(lu, 0), S.eq(lv, 0));
+    // light from the upper left: the top or left facet lit on a mountain, shaded in a valley
+    const lit = S.sel(mountain, first, S.not(first));
+    const k = S.sel(lit, S.add(100, D), S.sub(100, D));
+    const fh = S.hash(gu, gv, S.add(sd, S.sel(first, 1, 2)));
+    const folded = S.and(on, S.solid(c), S.lt(S.mod(S.div(fh, 7), 100), A));
+    // paper: the sprite's color a little flatter, lifted toward the paper; edges, creases and grain
+    // flat paper: each color brought to one brightness (its own shading pressed out; dark lines stay dark)
+    const L = S.max(S.luma(c), 1), dk = S.lt(L, 64);
+    const T = S.div(S.add(S.mul(L, 2), 540), 5), nrm = function (ch) { return S.div(S.mul(ch, T), L); };
+    const flat = S.sel(dk, shaderPaintShade(S, c, 120, 10), S.rgba(nrm(S.r(c)), nrm(S.g(c)), nrm(S.b(c)), 255));
+    const paper = shaderPaintMix(S, flat, S.p("paper"), S.p("pale"));
+    const edge = S.or(S.not(S.solid(S.tex(1, 0))), S.not(S.solid(S.tex(0, 1))));
+    const fiber = S.lt(S.mod(S.hash(S.x, S.y, S.add(sd, 3)), 100), 7);
+    const kk = S.pick([
+      [edge, S.sub(k, 24)],
+      [S.and(onMid, mountain), S.add(k, 22)], [onMid, S.sub(k, 30)],
+      [S.and(onLat, S.lt(S.mod(S.div(h, 4), 3), 2)), S.sub(k, 12)],
+      [fiber, S.sub(k, 6)],
+    ], k);
+    const out = shaderPaintShade(S, paper, kk, 0);
+    return S.sel(folded, S.rgba(S.r(out), S.g(out), S.b(out), 255), c);
+  },
+  variants: [{ fold: 0, amount: 60 }, { fold: 2, pale: 60, seed: 3, depth: 30 }],
+};
+
+// the sprite's box { l, r, t, b, ok }, found by walking in from each edge along seven rows (eighths of the height) and
+// five columns (sixths of the width), 3 px a step, up to 48 px in: so it follows the sprite, not the image's margin
+// (an approximation, up to 2 px short at a side, more where a corner pokes out between the lines; never overstated)
+function shaderMatFunBox(S) {
+  const n = 16, st = 3, scan = function (fixed, along, rev) {
+    let t = S.i(9999);
+    for (let k = n - 1; k >= 0; k--) {
+      const p = rev ? S.sub(S.sub(along, 1), k * st) : S.i(k * st);
+      t = S.sel(S.solid(fixed(p)), p, t);
+    }
+    return t;
+  };
+  let l = S.i(9999), r = S.i(-9999), t = S.i(9999), b = S.i(-9999);
+  const lo = function (v) { return S.sel(S.eq(v, 9999), -9999, v); };
+  for (let q = 1; q <= 7; q++) {
+    const ry = S.div(S.mul(S.h, q), 8);
+    l = S.min(l, scan(function (p) { return S.texAt(p, ry); }, S.w, false));
+    r = S.max(r, lo(scan(function (p) { return S.texAt(p, ry); }, S.w, true)));
+  }
+  for (let q = 1; q <= 5; q++) {
+    const cx = S.div(S.mul(S.w, q), 6);
+    t = S.min(t, scan(function (p) { return S.texAt(cx, p); }, S.h, false));
+    b = S.max(b, lo(scan(function (p) { return S.texAt(cx, p); }, S.h, true)));
+  }
+  return { l: l, r: r, t: t, b: b, ok: S.and(S.lt(l, 9999), S.lt(t, 9999), S.ge(r, l), S.ge(b, t)) };
+}
+
+// ---- BOTTLED: the sprite sealed in a glass bottle like a ship in a bottle: a bottle round the sprite's box (straight
+// sides, sloping shoulders, a neck with a lip, a cork pushed in), the sprite seen through the tinted glass, the glass
+// thicker at its walls and floor, a long highlight down its left curve and a glint running down it, a dimmer one on the
+// right. The amount makes the glass from the floor up; the cork goes in last.
+SHADER_DEFS.bottled = {
+  label: "Bottled", title: "the sprite sealed in a glass bottle like a ship in a bottle: a cork in its neck, a glint running down the curve, the sprite seen through the glass",
+  // turns: the bottle fills the sprite's whole box, so (like a turned sprite) it may put a pixel anywhere in the pad; its
+  // corners can lie further from a thin diagonal sprite than the pad is wide. The pad still holds all of it (roomy).
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 16, fps: 8, pad: [12, 4, 4, 4], strength: "amount", turns: true,
+  tags: ["bottle", "bottled", "ship in a bottle", "glass", "cork", "sealed", "trapped", "jar", "collectible", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    glass: { type: "colour", def: "#8ed8c0", label: "Glass" },
+    tint: { type: "int", min: 0, max: 60, def: 22, label: "Tint through the glass (%)" },
+    shine: { type: "colour", def: "#ffffff", label: "Shine" },
+    cork: { type: "colour", def: "#c8945a", label: "Cork" },
+    neck: { type: "int", min: 0, max: 2, def: 1, label: "Neck", choices: ["narrow", "medium", "wide"] },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), F = S.FRAMES, bx = shaderMatFunBox(S);
+    // the inside: the box and 2 px of slack, shoulders 3 rows, the neck 3 rows, then the cork
+    const L = S.sub(bx.l, 2), R = S.add(bx.r, 2), T = S.sub(bx.t, 2), B = S.add(bx.b, 2);
+    const cx2 = S.add(L, R), half2 = S.sub(R, L);                                   // twice the middle, twice the half width
+    const nh2 = S.max(S.div(S.mul(half2, S.table([2, 3, 4], S.p("neck"))), 9), 2);  // twice the neck's half width
+    const shTop = S.sub(T, 3), nTop = S.sub(shTop, 3);
+    const inside = function (dx, dy) {
+      const x = S.add(S.x, dx), y = S.add(S.y, dy), e2 = S.abs(S.sub(S.mul(x, 2), cx2));
+      // shoulders: the half width narrows from the body's to the neck's over 3 rows (rounded at the body's corners)
+      const k = S.sub(y, shTop), hw2 = S.add(nh2, S.div(S.mul(S.sub(half2, nh2), S.add(k, 1)), 4));
+      const body = S.and(S.ge(y, T), S.le(y, B), S.le(e2, S.sel(S.eq(y, T), S.sub(half2, 2), half2)));
+      const shoulder = S.and(S.ge(y, shTop), S.lt(y, T), S.le(e2, hw2));
+      const neck = S.and(S.ge(y, nTop), S.lt(y, shTop), S.le(e2, nh2));
+      return S.or(body, shoulder, neck);
+    };
+    const inn = inside(0, 0), around = S.or(inside(1, 0), inside(-1, 0), inside(0, 1), inside(0, -1));
+    const wall = S.and(S.not(inn), around), floor = S.and(S.not(inn), S.not(around), inside(0, -2), S.gt(S.y, B));
+    // the lip: the wall a pixel wider at the neck's top; the cork: in the neck's top 2 rows and 3 above it, a bit wider
+    const e2 = S.abs(S.sub(S.mul(S.x, 2), cx2));
+    const lip = S.and(S.or(S.eq(S.y, nTop), S.eq(S.y, S.add(nTop, 1))), S.le(e2, S.add(nh2, 4)), S.gt(e2, nh2));
+    const corked = S.ge(A, 90);
+    const cork = S.and(corked, S.ge(S.y, S.sub(nTop, 3)), S.le(S.y, S.add(nTop, 1)), S.le(e2, S.add(nh2, S.sel(S.lt(S.y, nTop), 2, 0))));
+    // formed from the floor up
+    const Hh = S.sub(S.add(B, 2), S.sub(nTop, 4)), level = S.sub(S.add(B, 2), S.div(S.mul(A, Hh), 100));
+    const made = S.and(S.gt(A, 0), bx.ok, S.ge(S.y, level));
+    // glass colors
+    const G = S.p("glass"), dark = shaderPaintShade(S, G, 55, 0), mid = shaderPaintShade(S, G, 80, 0), sh = S.p("shine");
+    // highlights inside: a long one 1 px in from the left wall, a dimmer one 1 px in from the right; a glint running down
+    const dl = S.sub(S.mul(S.x, 2), S.sub(cx2, half2)), dr = S.sub(S.add(cx2, half2), S.mul(S.x, 2));   // 2 x px in from each wall
+    const bodyRow = S.and(S.gt(S.y, T), S.lt(S.y, B));
+    const streakL = S.and(inn, bodyRow, S.eq(dl, 2), S.lt(S.y, S.sub(B, 2)));
+    const streakR = S.and(inn, bodyRow, S.eq(dr, 2), S.gt(S.y, S.add(T, 2)), S.lt(S.y, S.sub(B, 1)));
+    const run = S.add(S.sub(B, T), 8), gy = S.add(S.sub(T, 4), S.div(S.mul(S.frame, run), F));
+    const glint = S.or(S.and(streakL, S.ge(S.y, gy), S.le(S.y, S.add(gy, 3))), S.and(inn, bodyRow, S.eq(dl, 4), S.eq(S.y, S.add(gy, 1))));
+    const edgeIn = S.and(inn, S.not(inside(0, 1)));
+    const seen = shaderPaintMix(S, c, G, S.p("tint"));
+    const corkC = S.sel(S.lt(S.y, S.sub(nTop, 1)), shaderPaintShade(S, S.p("cork"), 112, 0),
+      S.sel(S.eq(S.mod(S.hash(S.x, S.y, 3601), 4), 0), shaderPaintShade(S, S.p("cork"), 75, 0), S.p("cork")));
+    return S.pick([
+      [S.not(made), c],
+      [cork, S.rgba(S.r(corkC), S.g(corkC), S.b(corkC), 255)],
+      [S.or(wall, lip), S.sel(S.and(S.lt(S.mul(S.x, 2), cx2), S.lt(S.y, S.div(S.add(T, B), 2))), mid, dark)],
+      [floor, mid],
+      [glint, sh],
+      [S.and(streakL, S.solid(c)), shaderPaintMix(S, c, sh, 45)],
+      [streakL, shaderPaintMix(S, G, sh, 35)],
+      [streakR, S.sel(S.solid(c), shaderPaintMix(S, c, G, 50), mid)],
+      [S.and(inn, S.solid(c)), seen],
+      [edgeIn, G],
+    ], c);
+  },
+  variants: [{ amount: 50, neck: 0 }, { neck: 2, glass: "#c8e8ff", tint: 50 }],
+};
+
+// ---- GELATIN: the sprite set inside a wobbly gelatin cube round its box: a front face of tinted jelly with the sprite
+// seen through it (refracted a pixel side to side), a lighter top face, a darker rim and foot, a long highlight inside
+// its left edge and a shine on its top corner, a few bubbles; once a loop it is tapped and jiggles (its top swings more
+// than its foot, dying away), then rests. The amount fills the mold from the bottom up.
+const shaderMatFunJiggle = [0, 2, 3, 2, 0, -2, -3, -2, 0, 2, 2, 1, 0, -1, -1, -1, 0, 1, 1, 0, 0, -1, 0, 0];
+SHADER_DEFS.gelatin = {
+  label: "Gelatin", title: "the sprite set inside a wobbly gelatin cube: tinted and refracted through the jelly, shiny, jiggling when tapped",
+  // turns: the cube fills the sprite's whole box (see bottled)
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 24, fps: 12, pad: [6, 9, 2, 6], strength: "amount", turns: true,
+  tags: ["gelatin", "jelly", "jello", "wobble", "jiggle", "dessert", "cube", "trapped", "encased", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    jelly: { type: "colour", def: "#f0385a", label: "Jelly" },
+    tint: { type: "int", min: 0, max: 80, def: 38, label: "Tint through the jelly (%)" },
+    shine: { type: "colour", def: "#ffffff", label: "Shine" },
+    jiggle: { type: "int", min: 0, max: 2, def: 2, label: "Jiggle", choices: ["still", "gentle", "wobbly"] },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Bubbles" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), F = S.FRAMES, sd = S.add(S.mul(S.p("seed"), 4), 3701);
+    const bx = shaderMatFunBox(S);
+    const L = S.sub(bx.l, 2), R = S.add(bx.r, 2), T = S.sub(bx.t, 2), B = S.add(bx.b, 1), TT = S.sub(T, 3);
+    // the jiggle: the top row shifted J px, the foot not at all
+    const amp = S.table([0, 2, 3], S.p("jiggle")), J = S.div(S.mul(S.table(shaderMatFunJiggle, S.frame), amp), 3);
+    const off = function (y) { return S.div(S.mul(J, S.sub(B, y)), S.max(S.sub(B, TT), 1)); };
+    const X = S.sub(S.x, off(S.y));
+    // the cube seen a little from above and the right: the front face, the top and the right side slanting 3 px back
+    const face = function (dx, dy) {
+      const y = S.add(S.y, dy), x = S.sub(S.add(S.x, dx), off(y)), kt = S.sub(T, y), ks = S.sub(x, R);
+      const front = S.and(S.ge(y, T), S.le(y, B), S.ge(x, L), S.le(x, R));
+      const top = S.and(S.ge(kt, 1), S.le(kt, 3), S.ge(x, S.add(L, kt)), S.le(x, S.add(R, kt)));
+      const side = S.and(S.ge(ks, 1), S.le(ks, 3), S.ge(y, S.sub(T, ks)), S.le(y, S.sub(B, ks)));
+      return S.sel(front, 1, S.sel(top, 2, S.sel(side, 3, 0)));
+    };
+    const cube = function (dx, dy) { return S.gt(face(dx, dy), 0); };
+    const fc = face(0, 0), inn = S.gt(fc, 0), rim = S.and(S.not(inn), S.or(cube(1, 0), cube(-1, 0), cube(0, 1), cube(0, -1)));
+    const topFace = S.eq(fc, 2), sideFace = S.eq(fc, 3), lip = S.and(S.eq(fc, 1), S.eq(S.y, T));
+    const ridge = S.or(S.and(topFace, S.eq(face(0, 1), 3)), S.and(sideFace, S.eq(face(0, -1), 2)), S.and(sideFace, S.eq(face(-1, 0), 1)));
+    // the sprite seen through it: sheared with the cube and wobbled a pixel by row
+    const wob = S.wave(S.add(S.mul(S.y, 24), S.div(S.mul(S.frame, 720), F)), 360, 2);
+    const see = S.texAt(S.add(X, S.div(wob, 2)), S.y);
+    // filled from the foot: the level, its surface catching the light
+    const Hh = S.add(S.sub(B, TT), 2), level = S.sub(S.add(B, 1), S.div(S.mul(A, Hh), 100));
+    const full = S.ge(A, 100), filled = S.and(on, S.or(full, S.ge(S.y, level))), surface = S.and(S.not(full), S.eq(S.y, level));
+    const G = S.p("jelly"), sh = S.p("shine");
+    const dark = shaderPaintShade(S, G, 55, 0), deep = shaderPaintShade(S, G, 78, 0), light = shaderPaintMix(S, G, sh, 35);
+    // highlights: a streak 1 px in from the left edge (gapped), a 2 px shine at the front's top-left, bubbles
+    const lx = S.sub(X, L);
+    const streak = S.and(S.eq(fc, 1), S.eq(lx, 1), S.gt(S.y, S.add(T, 3)), S.lt(S.y, S.sub(B, 2)), S.ne(S.mod(S.sub(S.y, T), 7), 0));
+    const shineDot = S.and(S.eq(fc, 1), S.or(S.and(S.eq(lx, 1), S.le(S.sub(S.y, T), 2), S.ge(S.sub(S.y, T), 1)), S.and(S.eq(lx, 2), S.eq(S.sub(S.y, T), 1))));
+    const bubble = S.and(inn, S.lt(S.mod(S.hash(X, S.y, sd), 100), 3));
+    const foot = S.and(S.eq(fc, 1), S.ge(S.y, S.sub(B, 1)));
+    const body = S.pick([[foot, deep], [sideFace, deep]], G);
+    const jel = S.pick([
+      [shineDot, sh],
+      [streak, light],
+      [ridge, light],
+      [S.or(topFace, lip, surface), light],
+      [S.and(S.eq(fc, 1), S.solid(see)), shaderPaintMix(S, see, body, S.p("tint"))],
+      [S.and(S.eq(fc, 1), bubble), light],
+    ], body);
+    return S.pick([
+      [S.not(on), c],
+      [rim, S.sel(S.or(full, S.ge(S.y, level)), dark, deep)],
+      [S.and(inn, filled), S.rgba(S.r(jel), S.g(jel), S.b(jel), 255)],
+    ], c);
+  },
+  variants: [{ amount: 50, jiggle: 0 }, { jelly: "#5ad84a", tint: 70, seed: 5, jiggle: 1 }],
+};
+
+// ---- CARDBOARD: the sprite as a cardboard cutout colored in with markers: its cut edge showing as a corrugated strip on
+// one side (the flutes a light-dark run, the liner darker), the face colored in flat marker with streaks where strokes
+// overlap, bare cardboard peeking through near the edge where the coloring missed, a thick black marker outline and the
+// sprite's dark lines gone over in it; a strip of tape across one top corner (torn ends, over the edge onto nothing).
+// The amount turns it to cardboard from the left, along a torn edge.
+SHADER_DEFS.cardboard = {
+  label: "Cardboard", title: "the sprite as a cardboard cutout: colored in with markers, a thick marker outline, the corrugated edge showing at one side, a strip of tape",
+  group: "Sprite FX", kind: "sprite", palette: "free", frames: 1, fps: 1, pad: [4, 4, 4, 4], strength: "amount",
+  tags: ["cardboard", "cutout", "marker", "craft", "box", "homemade", "tape", "paper", "school play", "goofy"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 100, label: "Amount (%)" },
+    card: { type: "colour", def: "#c4945a", label: "Cardboard" },
+    ink: { type: "colour", def: "#1e1a20", label: "Marker outline" },
+    colored: { type: "int", min: 0, max: 100, def: 75, label: "Colored in (%)" },
+    side: { type: "int", min: 0, max: 1, def: 0, label: "Cut edge shows", choices: ["on the right", "on the left"] },
+    tape: { type: "int", min: 0, max: 2, def: 0, label: "Tape", choices: ["top left", "top right", "none"] },
+    tapecolor: { type: "colour", def: "#e8ddb0", label: "Tape" },
+    seed: { type: "int", min: 0, max: 99, def: 0, label: "Coloring" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), A = S.p("amount"), on = S.gt(A, 0), sd = S.add(S.mul(S.p("seed"), 4), 3801);
+    const so = function (dx, dy) { return S.solid(S.tex(dx, dy)); };
+    const sx = S.sel(S.eq(S.p("side"), 0), 1, -1);
+    // the cutout: the drawing and a pixel of bare card round it (cut loosely); its edge 2 px thick down and to one side
+    const cutAt = function (i, j) {
+      const x = S.add(S.x, i), y = S.add(S.y, j);
+      let any = S.lt(1, 0);
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) any = S.or(any, S.solid(S.texAt(S.add(x, a), S.add(y, b))));
+      return any;
+    };
+    const cut = cutAt(0, 0), soS = function (k, j) { return cutAt(S.mul(sx, -k), -j); };
+    const e1 = S.and(S.not(cut), S.or(soS(1, 1), soS(1, 0), soS(0, 1)));
+    const e2 = S.and(S.not(cut), S.not(e1), S.or(soS(2, 2), soS(2, 1), soS(1, 2)));
+    // from the left along a torn edge (all of it at 100)
+    const tear = S.div(S.sub(shaderPaintNoise(S, S.x, S.y, 3, sd), 128), 30);
+    const done = S.and(on, S.or(S.ge(A, 100), S.lt(S.add(S.x, tear), S.sub(S.div(S.mul(A, S.add(S.w, 4)), 100), 2))));
+    const K = S.p("card"), cl = shaderPaintShade(S, K, 116, 0), cd = shaderPaintShade(S, K, 78, 0), cdd = shaderPaintShade(S, K, 58, 0);
+    // the drawing: its outline and dark lines in marker; flat marker color in diagonal strokes 3 px apart, darker where
+    // they overlap; near the outline the card shows between the strokes (how much: the coloring-in)
+    const rim = S.and(S.solid(c), S.not(S.and(so(1, 0), so(-1, 0), so(0, 1), so(0, -1))));
+    const darkLine = S.and(S.solid(c), S.lt(S.luma(c), 60));
+    const near = S.and(S.solid(c), S.not(S.and(so(2, 0), so(-2, 0), so(0, 2), so(0, -2), so(1, 1), so(-1, -1), so(1, -1), so(-1, 1))));
+    const wob = S.mod(S.hash(S.div(S.sub(S.x, S.y), 3), 1, sd), 3), ph = S.mod(S.add(S.add(S.x, S.y), wob), 3);
+    const gap = S.and(S.eq(ph, 2), S.lt(S.mod(S.hash(S.x, S.y, S.add(sd, 1)), 100), S.sel(near, S.sub(110, S.p("colored")), S.div(S.sub(100, S.p("colored")), 3))));
+    const marker = shaderPaintMix(S, shaderPaintPunch(S, c, 140), K, 14);
+    const face = S.pick([[S.or(rim, darkLine), S.p("ink")], [gap, K], [S.eq(ph, 0), shaderPaintShade(S, marker, 84, 0)]], marker);
+    // the tape: across the top corner where the sprite begins, 3-4 px wide, torn at its ends, never more than 3 px off it
+    const T = S.p("tape"), hit = shaderMatFunCornerHit(S, T, 30, 2);
+    const hx = S.add(hit.ox, S.mul(hit.dx, S.add(hit.t, 1))), hy = S.add(hit.oy, S.mul(hit.dy, S.add(hit.t, 1)));
+    const ex = S.sub(S.x, hx), ey = S.sub(S.y, hy);
+    const along = S.add(S.mul(ex, hit.dx), S.mul(ey, hit.dy)), across = S.sub(S.mul(ex, hit.dy), S.mul(ey, hit.dx));
+    const lenT = S.add(8, S.mod(S.hash(along, S.sel(S.lt(across, 0), 1, 2), sd), 2));
+    let n3 = S.lt(1, 0);
+    for (const [i, j] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2], [3, 0], [-3, 0], [0, 3], [0, -3], [1, 1], [-1, 1], [1, -1], [-1, -1], [2, 2], [-2, 2], [2, -2], [-2, -2], [3, 3], [-3, 3], [3, -3], [-3, -3], [3, 1], [-3, 1], [3, -1], [-3, -1], [1, 3], [-1, 3], [1, -3], [-1, -3]]) n3 = S.or(n3, so(i, j));
+    const tape = S.and(S.lt(T, 2), S.lt(hit.t, 60), S.ge(along, -3), S.le(along, 1), S.le(S.abs(across), lenT), S.or(S.solid(c), n3));
+    const tapeEdge = S.or(S.eq(along, -3), S.eq(along, 1)), tapeShine = S.eq(along, -1);
+    const under = S.pick([[S.solid(c), face], [cut, S.sel(S.eq(S.mod(S.hash(S.x, S.y, S.add(sd, 2)), 6), 0), cd, K)], [e1, S.sel(S.eq(S.mod(S.add(S.x, S.y), 2), 0), cl, cd)], [e2, cdd]], S.clear);
+    const tp0 = S.sel(S.solid(under), shaderPaintMix(S, under, S.p("tapecolor"), S.sel(tapeEdge, 82, 68)), shaderPaintShade(S, S.p("tapecolor"), S.sel(tapeEdge, 86, 100), 0));
+    const tp = S.sel(tapeShine, shaderPaintMix(S, tp0, S.rgba(255, 255, 255, 255), 35), tp0);
+    return S.pick([
+      [S.not(done), c],
+      [tape, S.rgba(S.r(tp), S.g(tp), S.b(tp), 255)],
+      [S.solid(under), S.rgba(S.r(under), S.g(under), S.b(under), 255)],
+    ], c);
+  },
+  variants: [{ amount: 50, side: 1, tape: 1 }, { tape: 2, colored: 30, seed: 4 }],
 };
