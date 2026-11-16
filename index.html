@@ -409,7 +409,7 @@
   const css = parseInt(root.getPropertyValue("--css-build"), 10) || 0;
   const bad = CORE.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
   // ONE LINE, as tools/pull-core.mjs matches it to move the want when it pulls a new crunchy-base.css.
-  if (base !== "16") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 16");
+  if (base !== "17") bad.push("crunchy-base.css is build " + (base || "missing") + ", index.html wants 17");
   if (css !== CSS_BUILD) bad.push("styles.css is build " + css + ", index.html wants " + CSS_BUILD);
   if (!bad.length) return;
   console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
