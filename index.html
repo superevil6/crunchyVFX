@@ -386,7 +386,7 @@
 (function guardCoreFiles() {
   const CSS_BUILD = 18;   // must match --css-build in styles.css
   const CORE = [
-    { file: "suite.js", want: 19, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
+    { file: "suite.js", want: 20, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 13, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
     { file: "plant.js", want: 19, got: () => (typeof PLANT_BUILD === "undefined" ? 0 : PLANT_BUILD) },
     { file: "library.js", want: 7, got: () => (typeof LIBRARY_BUILD === "undefined" ? 0 : LIBRARY_BUILD) },
@@ -395,7 +395,7 @@
     { file: "feedback.js", want: 1, got: () => (typeof FEEDBACK_BUILD === "undefined" ? 0 : FEEDBACK_BUILD) },
     { file: "glyphs.js", want: 4, got: () => (typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD) },
     // GAME MOMENTS (crunchyCore MOMENTS.md): the modal, its pure half, and the shader engine for the real hit-look preview
-    { file: "shader.js", want: 48, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
+    { file: "shader.js", want: 49, got: () => (typeof SHADER_BUILD === "undefined" ? 0 : SHADER_BUILD) },
     { file: "hero.js", want: 2, got: () => (typeof CRUNCHY_HERO_BUILD === "undefined" ? 0 : CRUNCHY_HERO_BUILD) },
     { file: "moments.js", want: 6, got: () => (typeof MOMENT_BUILD === "undefined" ? 0 : MOMENT_BUILD) },
     { file: "moments-ui.js", want: 2, got: () => (typeof MOMENTS_UI_BUILD === "undefined" ? 0 : MOMENTS_UI_BUILD) },

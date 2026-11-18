@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ d3ad1e7 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 f249c2d1e6e1c9908ad4deda54e5dd422105880a5eac5078091ab8fe8368d78e
+// GENERATED from crunchyCore/shader.js @ 8910176 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 2e8e0c17b9f70d8732a78da406afd6aaf79120d6d66486d5fafedacd03033b40
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -99,7 +99,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 48;
+const SHADER_BUILD = 49;
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -16447,3 +16447,101 @@ SHADER_DEFS.cardboard = {
   },
   variants: [{ amount: 50, side: 1, tape: 1 }, { tape: 2, colored: 30, seed: 4 }],
 };
+
+// ======================================================================================================================
+// FUNCTION MODE (shaderPrintFn, SHADER_FN_BUILD; appended for shader3d.js's texture bridge, 2026-11-17). For a HOST that
+// runs a 2D effect inside a shader of its own (a 3D material: shader3d.js's "texture2d" kind). It returns PIECES, not a
+// program, and it prints them from the same building blocks as the 2D printers (shaderCompile, shaderBody, shaderHelpers,
+// shaderPalHelpers), so the effect's body is the 2D body line for line; only the texel readers and a color param's
+// expression differ (tests/shader-fn.test.mjs proves it on every effect). The 2D printers above are untouched, and
+// SHADER_BUILD (printed in every 2D header) does not move: this mode has its own stamp, printed only in its own output.
+//
+//   shaderPrintFn(name, params, opts) -> {
+//     build, frames, fps,
+//     head:     "a comment line (the effect, its label, both stamps, CC0)",
+//     uniforms: [lines]    the 2D params, fps and frame_override, declared as the target declares them. GLSL: u_<name>
+//                          (a color vec4, a palette vec4[max] + int u_<name>_count, every int an int). Godot: <name>, ints
+//                          with hint_range and the setting's words as a doc comment, colors and palettes source_color (the
+//                          Inspector's pickers; Godot linearizes a Color and a PackedColorArray in Forward+ and Mobile, so the
+//                          host turns them back to display bytes through opts.colour: a palette's entries too) + <name>_count,
+//     helpers:  "text"     shaderHelpers + shaderPalHelpers, unchanged but for a palette entry's read through opts.colour
+//                          (they come BEFORE the host's sh_img, which may call sh_mod; Godot: AFTER the host's sh_disp),
+//     readers:  "text"     sh_tex / sh_texc / sh_texw (only those the effect uses) over the host's sh_img,
+//     fn:       "text"     vec4 sh_run(ivec2 sh_xy, ivec2 sh_size, int sh_f, int sh_edge<, ctx>): the effect at texel sh_xy
+//                          of a canvas sh_size, frame sh_f (the host works the frame out: loop, trigger or override),
+//     values:   { uniform: { type: "int" | "vec4" | "vec4[]", value } }   the uniforms as the host sets them: ints as
+//                          they are (frame_override and a palette's _count -1: play on time, the printed palette), a color
+//                          [r, g, b, 1] (display 0..1), a palette padded to its max with black,
+//   }
+//   opts = { target: "glsl" (the default) | "godot",
+//            ctx: "ivec2 sh_org, vec3 sh_lt"   the host's own parameters, threaded unchanged through sh_run and every
+//                                              reader to sh_img (Godot has no mutable globals); "" or absent: none,
+//            colour: function (u) -> text }   a color param's expression given its uniform's name, and a palette entry's
+//                                              given "<name>[sh_i]" (Godot spatial: "sh_disp(" + u + ")"); absent: as is.
+// The HOST supplies, between `helpers` and `readers`: vec4 sh_img(ivec2 sh_p<, ctx>), the image at canvas texel sh_p (in
+// range: the readers have applied the edge rule). THE EDGE RULE (sh_edge): sh_tex reads outside the canvas as clear (0, the
+// 2D rule), wrapped (1, a repeating tile) or clamped (2, a surface's own edge); sh_texc wraps when sh_edge is 1 and clamps
+// otherwise; sh_texw always wraps. Every reader keeps the 2D rule that a clear texel reads as vec4(0.0).
+// Combos (shaderCombo) are ordinary definitions: they print here unchanged.
+const SHADER_FN_BUILD = 1;
+function shaderPrintFn(name, params, opts) {
+  opts = opts || {};
+  const G = opts.target === "godot";
+  if (opts.target !== undefined && opts.target !== "glsl" && !G) throw new Error("shader: shaderPrintFn's target is \"glsl\" or \"godot\"");
+  const ir = shaderCompile(name), def = ir.def, P = shaderParamDefs(def), prm = shaderParams(def, params), u = shaderUses(ir);
+  const ctxP = String(opts.ctx || "").trim();
+  const ctxA = ctxP ? ctxP.split(",").map(function (s) { const w = s.trim().split(/\s+/); return w[w.length - 1]; }).join(", ") : "";
+  const U = function (k) { return G ? k : "u_" + k; };
+  const colour = typeof opts.colour === "function" ? opts.colour : function (n) { return n; };
+  const uni = [], values = {};
+  Object.keys(P).forEach(function (k) {
+    const d = P[k];
+    if (G && d.label) uni.push("/** " + String(d.label).replace(/\*\//g, "* /") + (d.choices ? ": " + d.choices.map(function (c, i) { return (d.min + i) + " " + c; }).join(", ") : "") + " */");
+    if (d.type === "colour") {
+      uni.push(G ? "uniform vec4 " + k + " : source_color = " + shaderColourVec(prm[k], "vec4") + ";" : "uniform vec4 u_" + k + "; // display 0..1");
+      values[U(k)] = { type: "vec4", value: shaderHex(prm[k]).map(function (c) { return c / 255; }).concat([1]) };
+    } else if (d.type === "palette") {
+      uni.push(G ? "uniform vec4 " + k + "[" + d.max + "] : source_color;" : "uniform vec4 u_" + k + "[" + d.max + "]; // sRGB 0..1",
+        G ? "uniform int " + k + "_count : hint_range(-1, " + d.max + ") = -1; // -1: the palette printed below (" + prm[k].join(" ") + ")"
+          : "uniform int u_" + k + "_count; // -1: the palette printed as sh_def_" + k + "; 0.." + d.max + ": u_" + k);
+      values[U(k)] = { type: "vec4[]", value: shaderPalPadded(d, prm[k]).map(function (h) { return shaderHex(h).map(function (c) { return c / 255; }).concat([1]); }) };
+      values[U(k) + "_count"] = { type: "int", value: -1 };
+    } else {
+      uni.push(G ? "uniform int " + k + " : hint_range(" + d.min + ", " + d.max + ") = " + prm[k] + ";" : "uniform int u_" + k + "; // " + d.min + ".." + d.max);
+      values[U(k)] = { type: "int", value: prm[k] };
+    }
+  });
+  uni.push(G ? "uniform int frame_override : hint_range(-1, " + (def.frames - 1) + ") = -1;" : "uniform int u_frame_override; // -1: play on time");
+  values[U("frame_override")] = { type: "int", value: -1 };
+  const pass = ctxA ? ", " + ctxA : "", sig = ctxP ? ", " + ctxP : "";
+  const body = shaderBody(ir, {
+    type: { i: "int", b: "bool", c: "vec4" }, clear: "vec4(0.0)",
+    uni: function (n) { return P[n.v] && P[n.v].type === "colour" ? colour(U(n.v)) : U(n.v); },
+    tex: function (x, y, m) { return "sh_tex" + (m || "") + "(sh_size, sh_edge" + pass + ", " + x + ", " + y + ")"; },
+    sel: function (t, c, a, b) { return c + " ? " + a + " : " + b; },
+  });
+  const T = { u: "u", vec4: "vec4", ivec3: "ivec3" };
+  const helpers = shaderHelpers(T, u).concat(shaderPalHelpers(def, u, Object.assign({}, T, {
+    uni: U, cnt: function (k) { return U(k) + "_count"; }, constInt: "const int",
+    constArr: function (t, n, M, items) { return "const " + t + " " + n + "[" + M + "] = " + t + "[" + M + "](" + items.join(", ") + ");"; },
+  }), prm).map(function (l) {
+    // a palette's entries go through the host's color expression, as color params do (Godot linearizes a PackedColorArray
+    // whatever the uniform's hint: T2 measured it, so the palette is source_color and read back through sh_disp)
+    const m = /^vec4 sh_palraw_(\w+)\(int sh_i\) \{ if \(/.exec(l), k = m && m[1];
+    return k && P[k] && P[k].type === "palette" ? l.replace("return " + U(k) + "[sh_i];", "return " + colour(U(k) + "[sh_i]") + ";") : l;
+  }));
+  const open = function (n) { return "vec4 " + n + "(ivec2 sh_ts, int sh_edge" + sig + ", int sh_tx, int sh_ty) {"; };
+  const ret = ["\tvec4 sh_c = sh_img(sh_p" + pass + ");", "\treturn sh_c.a > 0.0 ? sh_c : vec4(0.0);", "}"];
+  const wrap = "ivec2(sh_mod(sh_tx, sh_ts.x), sh_mod(sh_ty, sh_ts.y))", clamp = "clamp(ivec2(sh_tx, sh_ty), ivec2(0), sh_ts - 1)";
+  const readers = [open("sh_tex"), "\tivec2 sh_p = ivec2(sh_tx, sh_ty);", "\tif (sh_tx < 0 || sh_ty < 0 || sh_tx >= sh_ts.x || sh_ty >= sh_ts.y) {",
+    "\t\tif (sh_edge == 0) return vec4(0.0);", "\t\tsh_p = sh_edge == 1 ? " + wrap + " : " + clamp + ";", "\t}"].concat(ret);
+  if (u.ops.texc) readers.push.apply(readers, [open("sh_texc"), "\tivec2 sh_p = sh_edge == 1 ? " + wrap + " : " + clamp + ";"].concat(ret));
+  if (u.ops.texw) readers.push.apply(readers, [open("sh_texw"), "\tivec2 sh_p = " + wrap + ";"].concat(ret));
+  const fn = ["vec4 sh_run(ivec2 sh_xy, ivec2 sh_size, int sh_f, int sh_edge" + sig + ") {", "\tint sh_w = sh_size.x;", "\tint sh_h = sh_size.y;",
+    "\tint sh_x = sh_xy.x;", "\tint sh_y = sh_xy.y;"].concat(body.lines, ["\treturn " + body.out + ";", "}"]);
+  return {
+    build: SHADER_FN_BUILD, frames: def.frames, fps: prm.fps,
+    head: "// 2D effect \"" + shaderNameOf(name) + "\" (" + def.label + "), from crunchyCore shader.js build " + SHADER_BUILD + " (function mode " + SHADER_FN_BUILD + "). CC0: drawn in code, no generative AI, no samples.",
+    uniforms: uni, helpers: helpers.join("\n") + "\n", readers: readers.join("\n") + "\n", fn: fn.join("\n") + "\n", values: values,
+  };
+}
