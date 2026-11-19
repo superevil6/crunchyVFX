@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/suite.js @ ee2377b by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 5dfa7040d135b4b13928e0454cebd70d630899c21e2eca05e18bcea27a4412c0
+// GENERATED from crunchyCore/suite.js @ 4e7c941 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 961b917eceb6867fcb8ae99b17c4055200af8207ba942b35f07cfe1c03571edb
 "use strict";
 // THE CRUNCHY SUITE (TILE-DESIGN.md §80): one button, one dialog listing every Crunchy tool with a line
 // about what it makes and where to get it. AJ, 2026-10-09: "A Crunchy Suite Button that pops open a modal
@@ -29,7 +29,7 @@
 // PRICE (build 9): `price` is the desktop app's one-time price as shown ("$6"), set only beside a `desktop` link;
 // desktop.js's tour says it in its pitch. Change it HERE when the store page's price changes.
 
-const SUITE_BUILD = 20;
+const SUITE_BUILD = 21;
 const CRUNCHY_SUITE = [
   { id: "tile", name: "CrunchyTile", icon: "▦", pxi: "grid", accent: "#ff7a45",
     what: "Tilesets, backdrops, objects and rooms for top-down and side-scrolling games, ready for Godot and Unity.",
@@ -45,7 +45,7 @@ const CRUNCHY_SUITE = [
     web: "https://crunchyvfx.com/", desktop: "https://sevi66.itch.io/crunchyvfx", price: "$6" },
   { id: "bgm", name: "CrunchyBGM", icon: "♫", pxi: "music", accent: "#3ddc97",
     what: "Background music: whole game scores in seamless loops, with layers your engine mixes live.",
-    web: "https://crunchybgm.com/", desktop: "" },
+    web: "https://crunchybgm.com/", desktop: "https://sevi66.itch.io/crunchybgm", price: "$6" },   // launch: build 21, 2026-11-19
   // Added 2026-10-09 (build 3) from CrunchyCharacter, at AJ's request. No domain or store page yet.
   { id: "character", name: "CrunchyCharacter", icon: "♟", pxi: "person", accent: "#ff5c8a",
     what: "Animated pixel-art characters for top-down RPGs: idle and walk in every facing, ready for Godot and RPG Maker.",
