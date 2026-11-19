@@ -217,7 +217,8 @@
   });
   // §29: the About page is its own file (about.html); the app page keeps its layout and carries one plain link to it
   await t("seo/the-about-link-is-on-the-web-and-the-app-page-keeps-its-layout", function () {
-    const a = document.querySelector('a[href="about.html"]');
+    // the license footer's link (suite.js 19's promise line links to about.html too, above it)
+    const a = document.querySelector('footer.license a[href="about.html"]');
     if (!shown(a)) return ok(false, "no About link shown on the web");
     if (document.querySelector("section.about, footer.suitelinks")) return ok(false, "an About section or suite footer is still on the app page");
     const lic = document.querySelector("footer.license");

@@ -10947,6 +10947,9 @@ const suiteDialog = suiteMount("vfx", {
   button: document.getElementById("suiteBtn"),
   openUrl: window.__TAURI__ && window.__TAURI__.opener ? (url) => window.__TAURI__.opener.openUrl(url) : null,
 });
+// The suite's promise line (crunchyCore suite.js 19, 2026-11-17): "No generative AI" and "CC0", one slim row under the
+// header (body is normal flow, so it needs no layout of its own). about.html on the web; the core opens a popover on the desktop.
+suitePromise({ made: "effect", about: "about.html" });
 
 // ---------- Feedback (§20; crunchyCore feedback.js, CrunchyTile TILE-DESIGN §118; no telemetry) ----------
 // The person writes, sees every line that would go with it (untick any; the link to the effect is OFF unless they tick

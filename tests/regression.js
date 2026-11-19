@@ -1132,7 +1132,7 @@
       const genBar = document.getElementById("genbar");
       const lostGen = gens.filter((id) => !document.getElementById(id) || !genBar.contains(document.getElementById(id)));
       // §22.1: their own full-width row between the header and the strip (CrunchyUI's toolbar row)
-      ok(lostGen.length === 0 && genBar.previousElementSibling === hdr && genBar.nextElementSibling === document.getElementById("presetbar"),
+      ok(lostGen.length === 0 && (genBar.previousElementSibling === hdr || (genBar.previousElementSibling.matches(".crunchy-promise") && genBar.previousElementSibling.previousElementSibling === hdr)) && genBar.nextElementSibling === document.getElementById("presetbar"),
          "the generators have their own row between the header and the strip", lostGen.join(", "));
       const gr = genBar.getBoundingClientRect();
       ok(gr.width >= innerWidth - 20 && gr.height < 50, "…full width, and one line at this width", Math.round(gr.width) + " x " + Math.round(gr.height));
