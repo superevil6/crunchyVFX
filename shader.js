@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ 4e7c941 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 2e8e0c17b9f70d8732a78da406afd6aaf79120d6d66486d5fafedacd03033b40
+// GENERATED from crunchyCore/shader.js @ 7e9bc7b by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 5e41362ebb4148de22a4fc2e14c78373659a9391f6c28a08f59ad2b8ebf474bc
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -99,7 +99,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 49;
+const SHADER_BUILD = 50;
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -16379,6 +16379,48 @@ SHADER_DEFS.gelatin = {
   },
   variants: [{ amount: 50, jiggle: 0 }, { jelly: "#5ad84a", tint: 70, seed: 5, jiggle: 1 }],
 };
+
+// ---- FLAT (build 50; CrunchyCharacter §238, its "flat" look, §54, for its 3D sprites and any sprite): ONE SHADE PER PART,
+// no shading, the lines kept. Character draws Flat knowing each part; a shader sees only pixels, so a part is a COLOR
+// FAMILY (one hue, its brightness within reach: see below) and each pixel settles on the family's MIDDLE shade: of the family's
+// pixels sampled every 2 px within `reach` (x 2 px), the one whose brightness is nearest the family's mean there. The
+// silhouette's edge and the dark lines inside it (darker than 72 with a neighbor brighter by 40) are kept as they are.
+// STRICT: only the sprite's own colors come out. AJ (2026-11-21): "It's worth it to build the shader rather than a custom
+// solution if it can be avoided. Any new shader is a welcome addition to CrunchyShader."
+SHADER_EFFECTS.push("flatcolor");
+SHADER_DEFS.flatcolor = {
+  label: "Flat", title: "one shade per part: each color settles on its family's middle shade, the lines kept",
+  group: "Looks", kind: "both", frames: 1, fps: 1, pad: [0, 0, 0, 0],
+  tags: ["character", "flat", "cel", "unshaded", "flat color", "posterize", "cartoon", "lines kept"],
+  params: {
+    family: { type: "int", min: 16, max: 300, def: 150, label: "Same color within (hue x 4, brightness x 2)" },
+    reach: { type: "int", min: 1, max: 3, def: 3, label: "Reach (x 2 px)" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), Y = S.luma(c), fam = S.p("family"), reach = S.p("reach"), cand = [];
+    let sum = S.mul(Y, 1), n = S.i(1);
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {
+      if (dx === 0 && dy === 0) continue;
+      const q = shaderLooksAt(S, dx * 2, dy * 2), k = Math.max(Math.abs(dx), Math.abs(dy));
+      // (a family is one HUE, the shades of a ramp sharing it: r - g and g - b within `family` / 4 of this pixel's, its
+      // brightness within `family` / 2; a pixel's whole part is one family, so its neighbors settle on the same shade)
+      const hue = S.add(S.abs(S.sub(S.sub(S.r(q), S.g(q)), S.sub(S.r(c), S.g(c)))), S.abs(S.sub(S.sub(S.g(q), S.b(q)), S.sub(S.g(c), S.b(c)))));
+      const same = S.and(S.solid(q), S.le(S.mul(hue, 4), fam), S.le(S.mul(S.abs(S.sub(S.luma(q), Y)), 2), fam), S.ge(reach, k));
+      sum = S.add(sum, S.sel(same, S.luma(q), 0)); n = S.add(n, S.sel(same, 1, 0));
+      cand.push([q, same]);
+    }
+    const aim = S.div(sum, n);
+    let best = c, bd = S.abs(S.sub(Y, aim));
+    cand.forEach(function (p) {
+      const d = S.abs(S.sub(S.luma(p[0]), aim)), win = S.and(p[1], S.lt(d, bd));
+      best = S.sel(win, p[0], best); bd = S.sel(win, d, bd);
+    });
+    const rim = S.or.apply(null, shaderCharN4.map(function (o) { return shaderCharClear(S, o[0], o[1]); }));
+    const keep = S.or(rim, shaderCharLine(S, Y, shaderCharBright(S, c), 72));
+    return S.pick([[S.not(S.solid(c)), c], [keep, c]], best);
+  },
+};
+SHADER_DEFS.flatcolor.variants = [{ family: 60, reach: 1 }, { family: 300, reach: 2 }];
 
 // ---- CARDBOARD: the sprite as a cardboard cutout colored in with markers: its cut edge showing as a corrugated strip on
 // one side (the flutes a light-dark run, the liner darker), the face colored in flat marker with streaks where strokes
