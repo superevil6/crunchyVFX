@@ -1,5 +1,5 @@
-// GENERATED from crunchyCore/shader.js @ 62cea14 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
-// sha256 5e41362ebb4148de22a4fc2e14c78373659a9391f6c28a08f59ad2b8ebf474bc
+// GENERATED from crunchyCore/shader.js @ c0ab086 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// sha256 3848b32bbe903b10cde8389d0939f82137c8944f37ab03adaebcfdbee3090a8a
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM
 // EFFECTS for CrunchyItems. AJ, 2026-10-14: "Basic shaders that can be represented in browser, like a flame overlay, or
@@ -99,7 +99,7 @@
 // imported with sRGB OFF, and in a Linear project the printed shader turns its color params back to sRGB and its output
 // to linear; see shaderPrintUnity). Alpha is straight, never premultiplied; every pixel out is fully opaque or clear.
 
-const SHADER_BUILD = 50;
+const SHADER_BUILD = 51;   // 51 (2026-11-22): hueshift, CrunchyCharacter §247
 
 // ---- the builder -------------------------------------------------------------------------------------------------------
 function shaderDef(name) {
@@ -16421,6 +16421,40 @@ SHADER_DEFS.flatcolor = {
   },
 };
 SHADER_DEFS.flatcolor.variants = [{ family: 60, reach: 1 }, { family: 300, reach: 2 }];
+
+// ---- HUE SHIFT (build 51; CrunchyCharacter §247, a house style's hue shift, for its 3D sprites and any sprite): the painter's
+// ramp. Shadows lean toward a cool color and lights toward a warm one, each pixel's BRIGHTNESS KEPT: a pixel darker than
+// `pivot` moves by (shadow - its own brightness) x how far below the pivot it is, a brighter one by (light - its own
+// brightness) x how far above; so a ramp's middle stays and its ends turn, as a hand-made ramp does. Each color maps to
+// ONE color (nothing reads a neighbor), so a pixel-art sprite keeps as many colors as it had, and clean edges. Pixels
+// at or below `keep` (the outline, the darkest lines) are left as they are. FREE (computed colors). AJ (2026-11-22): round
+// two of house styles, "hue shift as a CrunchyShader effect".
+SHADER_EFFECTS.push("hueshift");
+SHADER_DEFS.hueshift = {
+  label: "Hue shift", title: "shadows lean cool and lights lean warm, each color's brightness kept, as a painter's ramp",
+  group: "Looks", kind: "both", palette: "free", frames: 1, fps: 1, pad: [0, 0, 0, 0],
+  tags: ["character", "hue shift", "ramp", "painterly", "warm lights", "cool shadows", "color grading", "temperature"],
+  params: {
+    amount: { type: "int", min: 0, max: 100, def: 50, label: "Amount (%)" },
+    shadow: { type: "colour", def: "#3a2c8c", label: "Shadows lean toward" },
+    light: { type: "colour", def: "#ffd25a", label: "Lights lean toward" },
+    pivot: { type: "int", min: 32, max: 224, def: 128, label: "Unshifted brightness" },
+    keep: { type: "int", min: 0, max: 96, def: 0, label: "Lines kept (darker than)" },
+  },
+  fragment: function (S) {
+    const c = S.tex(0, 0), Y = S.luma(c), amt = S.p("amount"), piv = S.p("pivot"), sh = S.p("shadow"), li = S.p("light");
+    const ys = S.luma(sh), yl = S.luma(li);
+    // how far into the shadows and into the lights, 0 .. 256
+    const dark = S.div(S.mul(S.max(0, S.sub(piv, Y)), 256), piv), lit = S.div(S.mul(S.max(0, S.sub(Y, piv)), 256), S.sub(256, piv));
+    // each channel moved by the tints' own color (each less its brightness, so the pixel's brightness stays)
+    const ch = function (get) {
+      const off = S.add(S.mul(S.sub(get(sh), ys), dark), S.mul(S.sub(get(li), yl), lit));
+      return S.add(get(c), S.div(S.mul(off, amt), 25600));
+    };
+    return S.pick([[S.not(S.solid(c)), c], [S.le(Y, S.p("keep")), c]], S.rgba(ch(S.r), ch(S.g), ch(S.b), 255));
+  },
+};
+SHADER_DEFS.hueshift.variants = [{ amount: 100, pivot: 96, keep: 24 }, { amount: 30, shadow: "#1e5a8c", light: "#ffe6b4" }];
 
 // ---- CARDBOARD: the sprite as a cardboard cutout colored in with markers: its cut edge showing as a corrugated strip on
 // one side (the flutes a light-dark run, the liner darker), the face colored in flat marker with streaks where strokes
