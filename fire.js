@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/fire.js @ b1ff26d by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/fire.js @ b35e065 by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 78c9998321dbb12cd0327b30072051a013f1196ced5f25f6880c624ff8cef790
 "use strict";
 // THE FIRE AUTOMATON (moved from CrunchyVFX's vfx.js pixFireSim, VFX-DESIGN.md §55; 2026-11-23, for CrunchyTexture's torches).
