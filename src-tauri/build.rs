@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 27] = [
+const FRONTEND: [&str; 29] = [
     "index.html",
     "favicon.png",
     // The header logo (an <img> in index.html), drawn in code by crunchyCore tools/make-wordmarks.mjs.
@@ -18,6 +18,10 @@ const FRONTEND: [&str; 27] = [
     // Vendored CrunchySFX synthesis engine (tools/pull-synth.py) — the desktop build
     // must carry it or the app loses in-app sound.
     "crunchysfx-synth.js",
+    // The fire automaton (crunchyCore fire.js, GENERATED; VFX-DESIGN §59): vfx.js's pixel fire calls it.
+    "fire.js",
+    // The pixel-art layer (crunchyCore pixart.js, GENERATED; VFX-DESIGN §60): vfx.js's drawPixelArt paints its frames.
+    "pixart.js",
     "vfx.js",
     "gif.js",
     "apng.js",

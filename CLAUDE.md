@@ -79,7 +79,7 @@ keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `bor
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
 
-**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js`, `glyphs.js` (and the game moment's and palette's files: `shader.js`, `hero.js`, `moments*.js`, `palette.js`, `palette-ui.js`, `colorsets.js`) are GENERATED from crunchyCore too** (§18, §20, §28, §32, §37), with the stamp
+**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js`, `glyphs.js` (and the game moment's and palette's files: `shader.js`, `hero.js`, `moments*.js`, `palette.js`, `palette-ui.js`, `colorsets.js`, since §59 `fire.js`, the pixel fire's automaton, and since §60 `pixart.js`, the Pixel art layer's frames: vfx.js keeps only the canvas paint and the particle blob's mask, set as `pixArtHooks`) are GENERATED from crunchyCore too** (§18, §20, §28, §32, §37, §59), with the stamp
 guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
 before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
 with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the

@@ -5,7 +5,7 @@
 # design document, the working notes, the test suite, the Tauri and Flatpak sources — on every path
 # a crawler can find. Same file, same reason, as CrunchyBGM's.
 #
-# The published set is deliberately small: index.html, the twenty-two sibling scripts (suite.js 2026-10-09, crunchy-icons.js
+# The published set is deliberately small: index.html, the twenty-four sibling scripts (fire.js with §59, pixart.js with §60; suite.js 2026-10-09, crunchy-icons.js
 # 2026-10-11; project.js left and project-app.js, plant.js, library.js, settings.js, desktop.js joined with VFX-DESIGN §18;
 # feedback.js with §20; glyphs.js with §28; shader.js, hero.js, moments.js, moments-ui.js with §32; palette.js,
 # palette-ui.js, colorsets.js with §37), the two stylesheets (crunchy-base.css, styles.css), and the

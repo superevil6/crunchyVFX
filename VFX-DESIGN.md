@@ -2929,3 +2929,43 @@ blew their overlaps out to white), turbulence for the wander.
 
 Results: engine 796/796; desktop 76/76, web 15/15, Godot scene 65; frame hash 467: only the five rebuilt presets
 changed, plus the two new ones.
+
+## 59. The fire automaton moved to crunchyCore (2026-11-23, for CrunchyTexture's torches)
+
+AJ, on CrunchyTexture's places: "Torches aren't animated, they are 3d models … I think VFX is the correct lever here, we have
+it already, and it's a natural cross promotion." So §55's automaton is now crunchyCore's `fire.js` (GENERATED here, listed in
+tools/core-files.json, never edited in this repo): `fireSim({ w, h, ax, ay, frames, loop, seed, speed, height, width, wind,
+spread, heat })` and `fireIndex(heat, max, n)`, the math moved to the bit with its own copy of the hash RNG (`fireRnd`).
+`pixFireSim` keeps VFX's knobs and its cache (the same key) and calls `fireSim`; the coloring calls `fireIndex`. CrunchyTexture
+draws its torch, candle and brazier flames with the same function (TEXTURE-DESIGN.md §62).
+- Registered like any core file: `<script src="fire.js">` before vfx.js, src-tauri/build.rs FRONTEND (28), the stamp guard's
+  want (FIRE_BUILD 1), the subresource counts in worker.js, DEPLOY.md and .assetsignore.
+- **Nothing changed**: the frame hash before and after is the same, 467 hashes (FRAMEHASH b524a27fe1e9ed1e both times; the
+  committed tests/frame-hash.expected.txt is older than several meant render changes, so the proof is a run on HEAD's code beside
+  a run on this one, the same machine). crunchyCore's core.test runs fireSim against a frozen copy of the old pixFireSim and
+  against VFX's committed vfx.js: the same Float32 grids for six fires.
+- Results: engine 796/796; desktop 71/76 and web 13/15, the same five and two legacy-fixture failures as an untouched copy of
+  HEAD (they predate this; fixtures from 11e8d14); plant 14, worker 61, Godot check 19, scene 65, text 10, the CLI all pass;
+  pull-core --check intact; cargo build.
+
+## 60. The pixel-art layer moved to crunchyCore (2026-11-24, for CrunchyTexture's ambient effects)
+
+AJ, on CrunchyTexture's places: "more VFX that can be put in in other places to liven things up. Maybe a glimmer on orbs." So the
+pure part of the Pixel art layer (§41-§58: the tables, stamps and font, the shape metrics, the palette, the noise, `pixFireSim`, and
+the frame itself as palette indices) is now crunchyCore's `pixart.js` (GENERATED here, listed in tools/core-files.json, never edited
+in this repo): `pixArtFrame(st, t, W, H, seed)` -> `{ col, Wa, Ha, k, pal, n, ramp0, tick, frames }`. Its names are this app's own
+(`PIX_EMITS` … `PIX_RAMPS`, `PIX_FONT`, `PIX_STAMP_PROBE`, `pixPalette`), so index.html, the Godot text export and the tests read
+them unchanged. What stays in vfx.js is the canvas: `drawPixelArt` paints the indices (a fresh scratch canvas per frame, §41's
+WebKit lesson), and the two hooks it sets on `pixArtHooks`: `effect` (the "effect colors" ramp from the effect's own color or its
+color set: layerColour, parseRamp, sampleRamp) and `part` / `parts` (the "particle" blob's mask, drawn from shapes.js on a canvas).
+CrunchyTexture bakes the Pixel Glint (and the Smoke Column, Dust Motes, Spores and Spark colors) from the presets' rows over
+`PIX_DEFAULTS` (TEXTURE-DESIGN.md §66).
+- Registered like fire.js: `<script src="pixart.js">` after fire.js and before vfx.js, src-tauri/build.rs FRONTEND (29), the stamp
+  guard's want (PIXART_BUILD 2), the subresource counts in worker.js, DEPLOY.md and .assetsignore.
+- **Nothing changed**: the frame hash on this code and on the code before it (the uncommitted fire.js switch), the same machine:
+  467 hashes, FRAMEHASH b524a27fe1e9ed1e both times, every line the same. crunchyCore's core.test draws 20 frozen presets and every
+  pixel preset in presets.js (100) with pixArtFrame and with a frozen copy of this layer (tests/pixart-frozen.js) and with the
+  committed vfx.js's own: every pixel the same; and PIX_DEFAULTS equal this app's PARAMS defaults (86 rows).
+- Results: engine 796/796 (at 1600 px wide; at 1200 the "one line at this width" row fails before and after alike); desktop 71/76
+  and web 13/15, the same legacy-fixture failures as before; worker 61, plant 14, the CLI all pass (real Godot plays every scene),
+  Godot check 19, scene 65, text 10; pull-core --check intact (trial copies until the core is committed).

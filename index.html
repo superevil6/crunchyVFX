@@ -348,6 +348,12 @@
      Pure; loaded before shapes.js, whose "icon" shape draws them. -->
 <script src="glyphs.js"></script>
 <script src="shapes.js"></script>
+<!-- The fire automaton (crunchyCore fire.js, GENERATED: never edit it here; VFX-DESIGN §59): vfx.js's pixel fire calls its
+     fireSim and fireIndex. Pure; loaded before vfx.js. -->
+<script src="fire.js"></script>
+<!-- The pixel-art layer (crunchyCore pixart.js, GENERATED: never edit it here; VFX-DESIGN §60): vfx.js's drawPixelArt paints the
+     frame its pixArtFrame draws. Pure; needs fire.js; loaded before vfx.js, which sets its hooks. -->
+<script src="pixart.js"></script>
 <script src="vfx.js"></script>
 <script src="gif.js"></script>
 <script src="apng.js"></script>
@@ -403,6 +409,10 @@
     { file: "palette.js", want: 2, got: () => (typeof PALETTE_BUILD === "undefined" ? 0 : PALETTE_BUILD) },
     { file: "palette-ui.js", want: 2, got: () => (typeof PALETTE_UI_BUILD === "undefined" ? 0 : PALETTE_UI_BUILD) },
     { file: "colorsets.js", want: 3, got: () => (typeof COLORSETS_BUILD === "undefined" ? 0 : COLORSETS_BUILD) },
+    // THE FIRE AUTOMATON (crunchyCore fire.js, §59): the pixel fire's simulation
+    { file: "fire.js", want: 1, got: () => (typeof FIRE_BUILD === "undefined" ? 0 : FIRE_BUILD) },
+    // THE PIXEL-ART LAYER (crunchyCore pixart.js, §60): every pixel effect's frames
+    { file: "pixart.js", want: 2, got: () => (typeof PIXART_BUILD === "undefined" ? 0 : PIXART_BUILD) },
   ];
   const root = getComputedStyle(document.documentElement);
   const base = root.getPropertyValue("--base-build").trim();
