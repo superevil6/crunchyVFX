@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/shader.js @ 582c4af by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/shader.js @ 68bd26d by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 3848b32bbe903b10cde8389d0939f82137c8944f37ab03adaebcfdbee3090a8a
 "use strict";
 // Crunchy suite: SHADER, the first piece of CrunchyShader (~/Code/crunchyTile/SHADER-HANDOFF.md §2), proved on ITEM

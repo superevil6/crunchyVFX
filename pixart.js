@@ -1,4 +1,4 @@
-// GENERATED from crunchyCore/pixart.js @ 582c4af by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
+// GENERATED from crunchyCore/pixart.js @ 68bd26d by tools/pull-core.mjs. DO NOT EDIT HERE: edit crunchyCore, then pull.
 // sha256 c2933f618d9bd0b79d219b5c72a81c0feebdc4df8cf8ee55ac77b75035997d6d
 "use strict";
 // PIXEL ART EFFECTS (moved from CrunchyVFX's vfx.js drawPixelArt, VFX-DESIGN.md §41-§58; 2026-11-24, for CrunchyTexture's ambient
