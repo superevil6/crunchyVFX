@@ -1072,7 +1072,7 @@
       const layerGroups = LAYER_GROUPS.map((x) => x.g);
       const shapeGroups = Object.keys(PANEL_SHAPES);
       const ALWAYS = ["Emitter", "Motion", "Life", "Color", "Crunch", "Output", "Master",
-                      "Trails", "Glow"];
+                      "Trails", "Glow", "3D"];   // §61: the 3D panel is always there (folded)
       const orphan = groups.filter((g) => layerGroups.indexOf(g) < 0 &&
                                           shapeGroups.indexOf(g) < 0 && ALWAYS.indexOf(g) < 0);
       ok(orphan.length === 0, "every panel is reachable somehow", orphan.join(", "));
@@ -1253,6 +1253,59 @@
       const url = presetThumbURL("Big Boom");
       ok(/^data:image\/png/.test(url) && url.length > 400, "a picture is a rendered frame", url.length + " chars");
       ok(JSON.stringify(snapshotState()) === before, "…drawn without disturbing the effect in the editor");
+      // VFX 1.3, THE BAKED PICTURES (AJ: at launch "the previews slowly pour in"): every preset's and layer's strip picture
+      // is drawn ahead of time into preset-thumbs.png by tools/bake-thumbs.mjs, with this very code. Here EVERY picture is
+      // drawn again, live, and must be exactly the baked one: the same fingerprint (what draws it) and the same pixels. A
+      // render change, a preset or layer edited, added or renamed all land here until the sheet is baked again.
+      {
+        const T = typeof PRESET_THUMBS === "undefined" ? null : PRESET_THUMBS, stale = [], keep = JSON.stringify(snapshotState());
+        ok(!!T && T.size === PTHUMB && T.rule === PTHUMB_RULE && T.stamps === thumbStamps(), "the strip's pictures are baked (preset-thumbs.js loads; its size, rule and render stamps are this build's)",
+           T ? T.size + " px · rule " + T.rule + " · stamps " + T.stamps + " (this build: " + thumbStamps() + ")" : "no PRESET_THUMBS");
+        if (T) {
+          const jobs = Object.keys(PRESETS).map((n) => ["presets", n]).concat(LAYER_GROUPS.map((L) => ["layers", L.g]));
+          for (const [kind, key] of jobs) {
+            const e = T[kind][key];
+            if (!e) { stale.push(key + " (not baked)"); continue; }
+            let cv = null;
+            try { cv = kind === "presets" ? presetStillCanvas(Object.assign({}, PRESETS[key])) : layerStillCanvas(LAYER_GROUPS.find((L) => L.g === key)); } catch (err) { cv = null; }
+            const px = cv ? thumbPixelHash(cv) : "";
+            if (e[1] !== thumbPrint(kind, key)) stale.push(key + " (its settings changed)");
+            else if (e[2] !== px) stale.push(key + " (draws differently now)");
+          }
+          const gone = Object.keys(T.presets).filter((n) => !PRESETS[n]).concat(Object.keys(T.layers).filter((g) => !LAYER_GROUPS.some((L) => L.g === g)));
+          ok(!stale.length && !gone.length, "…and every baked picture is what this build draws, live (if not: run node tools/bake-thumbs.mjs)",
+             stale.length || gone.length ? stale.slice(0, 8).concat(gone.slice(0, 4).map((n) => n + " (baked, but gone)")).join(", ") + (stale.length > 8 ? " … " + stale.length + " stale" : "")
+                                         : jobs.length + " pictures redrawn, all the same");
+          ok(JSON.stringify(snapshotState()) === keep, "…redrawn without disturbing the effect in the editor");
+          // the strip SHOWS them with no render: a fresh strip's first page is all sheet cells, at their own positions, and
+          // nothing is queued to draw (no game palette on the web, so a picture's key is its name)
+          presetThumbs.clear(); thumbBakedOk.clear(); presetPage = 0; buildPresetStrip();
+          const shownImgs = Array.from(presetBar.querySelectorAll(".pcell:not([hidden]) img"));
+          const wrong = shownImgs.filter((img) => {
+            const n = img.closest(".pcell").dataset.name, e = T.presets[n], at = e ? thumbCellAt(e[0]) : [0, 0];
+            return !e || img.dataset.baked !== String(e[0]) || !/preset-thumbs\.png$/.test(img.getAttribute("src") || "") ||
+              img.style.objectPosition !== -at[0] + "px " + -at[1] + "px" || getComputedStyle(img).objectFit !== "none";
+          }).map((img) => img.closest(".pcell").dataset.name);
+          ok(shownImgs.length > 4 && !wrong.length && thumbQueue.length === 0 && presetThumbs.size === 0,
+             "…and the strip shows them straight from the sheet: no picture drawn, none queued", wrong.join(", ") || shownImgs.length + " pictures, " + thumbQueue.length + " queued");
+          // NEGATIVE: a preset whose settings no longer match its baked picture is drawn live, as before (and back again)
+          const NAME = shownImgs.length ? shownImgs[0].closest(".pcell").dataset.name : "Explosion", orig = PRESETS[NAME];
+          PRESETS[NAME] = Object.assign({}, orig, { count: (orig.count || 40) + 1 });
+          thumbBakedOk.clear(); presetPage = 0; buildPresetStrip();
+          const cellE = presetBar.querySelector('.pcell[data-name="' + NAME + '"]'), imgE = cellE && cellE.querySelector("img");
+          const liveQueued = !!cellE && thumbBaked("presets", NAME) < 0 && thumbQueue.indexOf(cellE) >= 0 && !imgE.dataset.baked;
+          for (let i = 0; i < 40 && imgE && !imgE.getAttribute("src") && thumbQueue.length; i++) pumpPresetThumbs();
+          const liveShown = !!imgE && /^data:image\/png/.test(imgE.getAttribute("src") || "") && !imgE.style.objectPosition;
+          PRESETS[NAME] = orig;
+          clearTimeout(thumbTimer); thumbTimer = 0; thumbBakedOk.clear(); presetThumbs.clear(); buildPresetStrip();
+          ok(liveQueued && liveShown && thumbBaked("presets", NAME) >= 0, "…a preset edited since the bake (" + NAME + ") is drawn live instead, and its baked picture is back with its settings",
+             "queued " + liveQueued + " · shown " + liveShown);
+          // the layer strip too: a baked layer's cell is painted from the sheet, with no render
+          const lc = layerBar.querySelector(".layer-chip.baked");
+          ok(!!lc && !layerThumbs.has(lc.dataset.layer) && thumbBaked("layers", lc.dataset.layer) >= 0, "…and the layer strip paints its baked pictures from the sheet, unrendered",
+             lc ? lc.dataset.layer : "no baked layer cell");
+        }
+      }
       ok(/fireball/.test(document.getElementById("presetSearch").placeholder), "the strip's search says what it searches, in a game developer's words");
       // §22.1: the shape pickers are pictures. Every button in all three is a picture tile whose text is still exactly the
       // shape's name; the pictures draw (all of them, pumped here), never through the renderer's sprite cache; a filter
@@ -1629,7 +1682,10 @@
           const cells = [...layerBar.querySelectorAll(".layer-chip")];
           cells.forEach((c) => { if (!c.classList.contains("drawn")) layerCellPaint(c); });
           const lit = (cv) => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data.some((v, i) => i % 4 === 3 && v > 0);
-          const bare = cells.filter((c) => !c.querySelector("canvas") || !lit(c.querySelector("canvas"))).map((c) => c.dataset.layer);
+          // a BAKED cell (VFX 1.3) is its sheet cell, whose pixels the baked-pictures rows above prove (on file:// its canvas
+          // can't be read back: the sheet is another file, so it taints the canvas; the app never reads these)
+          const bare = cells.filter((c) => c.classList.contains("baked") ? thumbBaked("layers", c.dataset.layer) < 0
+            : !c.querySelector("canvas") || !lit(c.querySelector("canvas"))).map((c) => c.dataset.layer);
           ok(cells.length && !bare.length, "the layer strip: every off layer has a picture", bare.join(", ") || cells.length + " pictures");
           const sig = (cv) => Array.from(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data).join(",");
           const t = layerThumb(LAYER_GROUPS.find((L) => L.g === "Weather"));
@@ -2137,7 +2193,7 @@
     // The rule is derived from the schema, so what's worth pinning is that it selects exactly the
     // boolean params — too broad and a real range silently loses its middle.
     {
-      const isBool = (p) => p[2] === 0 && p[3] === 1 && p[4] === 1;
+      const isBool = (p) => p[2] === 0 && p[3] === 1 && p[4] === 1 && p[8] !== "enum";   // §61: a two-way enum (d3Light) is a select
       const bools = PARAMS.filter(isBool).map((p) => p[0]);
       ok(bools.length > 0, "there are boolean params to switch", bools.join(", "));
       const wrongType = [], missed = [];
@@ -4227,6 +4283,93 @@
       const plainInfo = godotSceneInfo("hs", [{ name: "hs.tres" }], Object.assign(exportSettingsNow(), { scales: [1] }), liveExportCtx());
       const pt = new TextDecoder().decode(godotSceneFiles(plainInfo, [{ name: "hs.tres" }])[1].data);
       ok(!plainInfo.variety && !/flip_h|animations/.test(pt) && /sound_frame = \d+\n\n\[node name="Sprite"/.test(pt), "variety: off, the scene is the plain one", pt.slice(150, 400));
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+    }
+
+    // ---------------------------------------------------------------- §61: effects in 3D (fx3d.js, the export half)
+    {
+      const STANDS = ["face", "upright", "flat", "screen"], names = Object.keys(PRESETS);
+      // AUTO_STAND covers the list: every shipped preset in exactly one list, no list naming a preset that is gone
+      const seen = {}, stale = [], twice = [];
+      for (const k in FX3D_AUTO_STAND) for (const n of FX3D_AUTO_STAND[k]) { if (!PRESETS[n]) stale.push(n); if (seen[n]) twice.push(n); seen[n] = k; }
+      const missing = names.filter((n) => !seen[n]);
+      ok(Object.keys(FX3D_AUTO_STAND).sort().join() === STANDS.slice().sort().join() && !missing.length && !stale.length && !twice.length,
+        "§61 AUTO_STAND places every shipped preset (" + names.length + ") in exactly one stand", "missing " + missing.slice(0, 6).join(", ") + " · stale " + stale.join(", ") + " · twice " + twice.join(", "));
+      // every preset resolves: by its name, and (no name: an edited or renamed preset) through the nearest shipped preset
+      const byState = [], edited = [];
+      for (const n of names) {
+        const st = presetOutcome(PRESETS[n], true);
+        if (fx3dStand(st, n) !== seen[n]) byState.push(n + " by name");
+        if (fx3dStand(st) !== seen[n]) byState.push(n);
+        const ed = Object.assign({}, st, { hue: (st.hue + 40) % 360, seed: st.seed + 7 });   // a person's edit: the same effect
+        if (fx3dStand(ed) !== seen[n]) edited.push(n);
+      }
+      ok(!byState.length, "§61 every preset resolves a stand, by its name and from its state alone (nearest shipped preset)", byState.slice(0, 8).join(", "));
+      ok(edited.length <= 2, "§61 an edited preset (new hue, new seed) still stands as its preset (" + edited.length + " of " + names.length + " do not)", edited.join(", "));
+      // the person's own choice wins; a custom effect goes by its systems
+      const ex = presetOutcome(PRESETS["Explosion"], true);
+      ok(STANDS.every((k, i) => fx3dStand(Object.assign({}, ex, { d3Stand: i + 1 }), "Explosion") === k), "§61 d3Stand's choice wins over auto (faces you, upright, flat, on the screen)");
+      const custom = (patch) => fx3dStandRule(Object.assign(presetOutcome({}, true), patch));
+      ok(custom({ weather: 1 }) === "screen" && custom({ fracture: 1 }) === "flat" && custom({ sigil: 1 }) === "flat" && custom({ pix: 1, pixFire: 1 }) === "upright" &&
+        custom({ pix: 1, pixEmit: 6, pixLoop: 1 }) === "screen" && custom({}) === "face", "§61 a custom effect stands by its systems (weather on the screen, marks flat, fire upright, the rest faces you)");
+      // the rows: appended, neutral, in a 3D panel of their own, the light a select
+      const rows = PARAMS.filter((p) => p[7] === "3D").map((p) => p[0]);
+      ok(rows.join() === "d3Stand,d3Size,d3Light,d3LightPower" && PARAMS.slice(-4).every((p) => p[7] === "3D") &&
+        PARAM_BY_KEY.d3Stand[5] === 0 && PARAM_BY_KEY.d3Size[5] === 0 && PARAM_BY_KEY.d3Light[5] === 0 && PARAM_BY_KEY.d3LightPower[5] === 1,
+        "§61 the four 3D rows are APPENDED to PARAMS with auto defaults", rows.join());
+      const pnl = document.querySelector('#panels .panel[data-group="3D"]');
+      ok(!!pnl && rows.every((k) => pnl.contains(inputs[k])) && inputs.d3Light.tagName === "SELECT" && inputs.d3Stand.tagName === "SELECT" &&
+        [...inputs.d3Stand.options].map((o) => o.textContent).join("|") === FX3D_STAND_WORDS.join("|"),
+        "§61 the 3D panel holds the four rows (Stands and Light as selects)", pnl ? pnl.textContent.slice(0, 80) : "no panel");
+      ok(!names.some((n) => rows.some((k) => k in PRESETS[n])), "§61 no preset sets a 3D row (auto is the table's job)");
+      // old links decode exactly: a default 3D row adds nothing to a share string, and every fixture link reopens with them at default
+      let linkSame = true;
+      for (const n of ["Explosion", "Pixel Torch", "Rain"]) {
+        applyPreset(PRESETS[n], n, true);
+        const sh = encodePatch(n);
+        if (/"d3/.test(JSON.stringify(decodePatch(sh)))) linkSame = false;
+        const st = stateOfShare(sh);
+        if (rows.some((k) => st[k] !== PARAM_BY_KEY[k][5])) linkSame = false;
+      }
+      ok(linkSame, "§61 a share link carries no 3D row at its default, and an old link opens with them at auto");
+      // breeding and variations never move a 3D row (and draw no random number for them: the 2D rolls stay as they were)
+      ok(rows.every((k) => BREED_SKIP.has(k)), "§61 the 3D rows are in BREED_SKIP");
+      // the light: deterministic, off for what does not glow, on (and warm) for an explosion, off when asked
+      const lightOf = (n, patch) => { applyPreset(PRESETS[n], n, true); if (patch) { Object.assign(state, patch); rerender(); } return fx3dLightOf(state, rendered); };
+      const a = lightOf("Explosion"), b = lightOf("Explosion");
+      ok(a.on && JSON.stringify(a) === JSON.stringify(b) && a.energies.length === rendered.canvases.length && Math.max.apply(null, a.energies) === a.peak &&
+        a.energies.every((e) => e >= 0 && e <= a.peak) && a.color[0] > a.color[2], "§61 fx3dLight: an Explosion lights (warm), the same numbers every time, one energy per frame up to its peak",
+        JSON.stringify({ peak: a.peak, color: a.color, range: a.range, n: a.energies.length }));
+      const dark = ["Smoke Puff", "Blood Splat", "Dust Kick", "Paint Splatter"].filter((n) => PRESETS[n] && lightOf(n).on);
+      ok(!dark.length, "§61 fx3dLight: smoke, blood, dust and paint have no glowing pixels, so no light", dark.join(", "));
+      ok(!lightOf("Explosion", { d3Light: 1 }).on && lightOf("Explosion", { d3LightPower: 2 }).peak > a.peak, "§61 Light off: no light; Light power scales the peak");
+      // the stand's numbers: flat ground marks are stretched back to round; meters per pixel follow Size
+      ok(fx3dFlatDepth(presetOutcome(PRESETS["Scorch Mark"], true)) > 2 && fx3dFlatDepth(presetOutcome(PRESETS["Rune Circle"], true)) === 1 &&
+        Math.abs(fx3dMetersPerPixel(Object.assign(presetOutcome({}, true), { d3Size: 4 }), { x0: 10, y0: 0, x1: 109, y1: 49 }) * 100 - 4) < 1e-9,
+        "§61 a squashed ground mark lies flat stretched back to round; Size sets the meters of what is DRAWN (its longer side)");
+      // 1.3.1 AUTO SIZE: by what is drawn and how it stands (the persona test: a 192 px torch came out 4.8 m)
+      const sizeOf = (n) => { applyPreset(PRESETS[n], n, true); const m = fx3dMasksOf(rendered.canvases, state); return fx3dSize(state, fx3dBounds(m), n).m; };
+      const sz = { torch: sizeOf("Torch Flicker"), ptorch: sizeOf("Pixel Torch"), boom: sizeOf("Big Boom"), hit: sizeOf("Hit Spark"), circle: sizeOf("Summon Circle"), gem: sizeOf("Gem Pickup"), bolt: sizeOf("Pixel Lightning"), zap: sizeOf("Lightning Zap") };
+      ok(sz.torch >= 1 && sz.torch <= 2.2 && sz.ptorch >= 1 && sz.ptorch <= 2.2 && sz.boom >= 2 && sz.boom <= 3 && sz.hit >= 1 && sz.hit <= 1.6 &&
+        sz.circle >= 2 && sz.circle <= 3.2 && sz.gem < sz.hit && sz.bolt >= 2.6 && sz.zap >= 2.4 && fx3dStand(presetOutcome(PRESETS["Pixel Lightning"], true), "Pixel Lightning") === "upright",
+        "1.3.1 auto size: torches 1-2.2 m, a big explosion 2-3 m, a hit about 1.3 m, a circle 2-3 m across, a pickup smaller, a strike about 3 m (Pixel Lightning upright, on its foot)", JSON.stringify(sz));
+      // 1.3.1 LIGHT "always" (appended): a non-glowing effect lights in its own color; a loop is gentle and near
+      const sm = lightOf("Smoke Puff", { d3Light: 2 });
+      ok(FX3D_LIGHTS.join() === "auto,off,always" && sm.on && sm.energies.length === rendered.canvases.length && Math.abs(sm.color[0] - sm.color[2]) < 0.35,
+        "1.3.1 Light \u201cAlways\u201d: Smoke Puff lights, in its own gray, following what it draws", JSON.stringify({ on: sm.on, color: sm.color, peak: sm.peak }));
+      const tl = lightOf("Pixel Torch"), boomL = lightOf("Explosion");
+      ok(tl.on && tl.loop && tl.range <= 6 && tl.peak < boomL.peak && Math.min.apply(null, tl.energies) >= tl.peak * 0.69,
+        "1.3.1 a loop's light (Pixel Torch) is gentle, steady and near: peak under the Explosion's, range at most 6 m, never under 70 % of its peak", JSON.stringify({ peak: tl.peak, range: tl.range, boom: boomL.peak }));
+      // fx3d.js is pure: no function of it touches the page, the window, storage or the editor's state
+      const impure = Object.getOwnPropertyNames(window).filter((k) => /^fx3d/.test(k) && typeof window[k] === "function" &&
+        ["fx3dMasksOf", "fx3dLightOf", "fx3dPanelNote", "fx3dFramesOf", "fx3dMeasureNow", "fx3dSizeReadout", "fx3dInPlay", "fx3dExpSet", "fx3dExpWasSet"].indexOf(k) < 0 && /\b(document|window|localStorage|sessionStorage|state)\b/.test(String(window[k])));
+      ok(!impure.length, "§61 fx3d.js's functions are pure (no document, window, storage or state)", impure.join(", "));
+      // the 3D script is the 2D one turned (the same API), with the light; and the text node billboards as one
+      const g3 = fx3dScript(EFFECT_SCENE_SCRIPT), v3 = fx3dScript(EFFECT_SCENE_SCRIPT_VARIETY), t3 = fx3dTextScript(TEXT_SCENE_SCRIPT);
+      ok(/^extends Node3D/.test(g3) && /AnimatedSprite3D/.test(g3) && /AudioStreamPlayer3D/.test(g3) && /@export var energies/.test(g3) && !/2D/.test(g3.replace(/res:\/\/[^"]*/g, "")) &&
+        ["signal impact", "signal finished", "@export var autoplay := true", "@export var free_when_done := true", "@export var impact_frame := 0", "func play() -> void:", "func stop() -> void:"].every((l) => g3.split("\n").indexOf(l) >= 0) &&
+        /func _vary\(\)/.test(v3) && /energy_starts/.test(v3) && /flip_h = fh/.test(v3) && /^extends Node3D/.test(t3) && /Sprite3D\.new\(\)/.test(t3) && /s\.offset = /.test(t3),
+        "§61 the 3D scene's script is the 2D one turned 3D (the same signals, options and methods) with the light; Variety and Text too");
       applyPreset(PRESETS["Explosion"], "Explosion", true);
     }
 

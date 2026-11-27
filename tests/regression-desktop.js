@@ -424,14 +424,15 @@
       // other pixels than this renderer's (as the CLI's Firefox ones), written by THIS version: current, no render
       put("explosion", Object.assign(sidecar("explosion"), { hash: "2:1111111111111111", appVersion: APP_VERSION }));
       const sameVersion = (await check()) === 0 && !card("Explosion").querySelector(".lib-badge.hot");
-      // every effect from an older version: each rendered once; the unchanged ones are remembered, the changed one is not
+      // every effect from an older version: each rendered once, and BOTH verdicts remembered (1.3, AJ's launch chug: the changed
+      // ones used to render again on every open), so a second check renders nothing and the changed one keeps its badge
       for (const slug in keep) put(slug, Object.assign(sidecar(slug), { appVersion: "0.9.0" }));
       const n = Object.keys(keep).length, first = await check();
       const marked = !!card("Explosion").querySelector(".lib-badge.hot");
       renders = 0; await projCheckUpdates();
-      const again = renders;
-      return ok(sameVersion && first === n && marked && again === 1,
-                "same version: " + sameVersion + "; older: " + first + " of " + n + " rendered, then " + again + " (the changed one)");
+      const again = renders, still = !!card("Explosion").querySelector(".lib-badge.hot");
+      return ok(sameVersion && first === n && marked && again === 0 && still,
+                "same version: " + sameVersion + "; older: " + first + " of " + n + " rendered, then " + again + " (none), the changed one still marked: " + still);
     } finally {
       plantedRender = real;
       for (const slug in keep) M.put(ROOT + "/" + slug + "/" + slug + ".crunchy", keep[slug]);
@@ -1102,8 +1103,18 @@
     box.click();
     const names = Object.keys(PRESETS).slice(0, 6).concat([N]);
     const headSame = !gamePalOn() && names.every(function (n) { return presetThumbURL(n) === headThumb(n); }) && presetThumbURL(N) !== tOn;
-    await wait(function () { const i = shownCell.querySelector("img"); return i && i.getAttribute("src") === presetThumbURL(shownCell.dataset.name); });
-    const stripOff = shownCell.querySelector("img").getAttribute("src") === headThumb(shownCell.dataset.name);
+    // OFF, a picture is HEAD's again: live, exactly HEAD's data URL; or (VFX 1.3) its BAKED cell of the sheet, whose pixels
+    // are exactly what HEAD's procedure draws (the canvas before its data URL) and whose fingerprint is its settings'
+    const headPixels = function (name) {
+      return thumbPixelHash(withState(PRESETS[name], function () {
+        const prep = renderPrep(state, { size: PTHUMB, fit: true }), at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+        return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null);
+      }));
+    };
+    await wait(function () { const i = shownCell.querySelector("img"); return i && (i.dataset.baked || i.getAttribute("src") === presetThumbURL(shownCell.dataset.name)); });
+    const offImg = shownCell.querySelector("img"), offName = shownCell.dataset.name, baked = PRESET_THUMBS.presets[offName];
+    const stripOff = offImg.dataset.baked ? !!baked && offImg.dataset.baked === String(baked[0]) && baked[1] === thumbPrint("presets", offName) && baked[2] === headPixels(offName)
+                                          : offImg.getAttribute("src") === headThumb(offName);
     const wst2 = wizardState(c, wizard.answers), wizOff = wst2.lockFrom === "" && wizardStill(wst2).toDataURL() !== still;
     box.click();
     return ok(on && sameOn && stripOn && wizOn && headSame && stripOff && wizOff && gamePalOn(),

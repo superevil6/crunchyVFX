@@ -79,12 +79,17 @@ keeps VFX's layout and its violet `--accent` only. Square is for CHROME: no `bor
 glows or decorative gradients; anything round by meaning sets `border-radius: 50%` itself. Chrome uses pixel icons
 (`data-icon`, `iconsIn`, and `setIconLabel` for a label a script rewrites), not emoji.
 
-**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js`, `glyphs.js` (and the game moment's and palette's files: `shader.js`, `hero.js`, `moments*.js`, `palette.js`, `palette-ui.js`, `colorsets.js`, since §59 `fire.js`, the pixel fire's automaton, and since §60 `pixart.js`, the Pixel art layer's frames: vfx.js keeps only the canvas paint and the particle blob's mask, set as `pixArtHooks`) are GENERATED from crunchyCore too** (§18, §20, §28, §32, §37, §59), with the stamp
+**`plant.js`, `library.js`, `settings.js`, `desktop.js`, `feedback.js`, `glyphs.js` (and the game moment's and palette's files: `shader.js`, `hero.js`, `moments*.js`, `palette.js`, `palette-ui.js`, `colorsets.js`, since §59 `fire.js`, the pixel fire's automaton, and since §60 `pixart.js`, the Pixel art layer's frames: vfx.js keeps only the canvas paint and the particle blob's mask, set as `pixArtHooks`, and since §61.3 `textures.js`, `texgen.js` and `ramps.js`, the 3D room's textures, loaded LAZILY with `room3d.js` the first time the stage's 3D view opens: no `<script src>`, but in build.rs FRONTEND) are GENERATED from crunchyCore too** (§18, §20, §28, §32, §37, §59, §61). `fx3d.js` (the 3D export's decisions: stand, size, light) and `room3d.js` (the room's software renderer) are VFX's OWN, pure, with the stamp
 guard checking their builds. `project-app.js` is VFX's OWN (its `PROJECT_APP`: what a planted effect is) and loads
 before plant.js. **The planted Library must write exactly what the Export dialog writes**: it calls `buildExportFiles`
 with a context (`liveExportCtx()` is the default); a change to the export path is a change to planted files, and the
 frame hash (below) is how you know the Export bytes did not move by accident. **Never rename or reshape a
 `crunchyvfx.*` storage key**: people's My Effects live there; planting COPIES from it and never writes it.
+
+**`preset-thumbs.png` and `preset-thumbs.js` are GENERATED** (VFX-DESIGN §63): the strip's preset and layer pictures,
+baked by `node tools/bake-thumbs.mjs` with the app's own `presetStillCanvas` / `layerStillCanvas`. Never edit them. After
+changing a preset, a layer's switch, either still function (then bump `PTHUMB_RULE`) or the render itself, bake again: the
+sync suite redraws every picture and fails on a stale one, and until then a stale preset just draws live.
 
 **`crunchysfx-synth.js` is GENERATED.** Never edit it. Change the CrunchySFX sources and run
 `python3 tools/pull-synth.py`. See VFX-DESIGN §9.
@@ -162,7 +167,11 @@ node tools/pull-core.mjs --check && sh .githooks/pre-commit && cargo build --man
 
 `tests/fixtures/` was made ONCE on HEAD 11e8d14 (before the planted Library) by `make-fixtures.js`; never regenerate it
 on a later build — it is the proof that what people saved before keeps opening. Regenerate `frame-hash.expected.txt`
-only when a render change is MEANT (and say so in VFX-DESIGN).
+only when a render change is MEANT (and say so in VFX-DESIGN). ONE exception (§62): when Firefox itself rasterizes
+differently (a browser update; the protected builds rendered TODAY give the new fingerprints), re-record the fingerprints
+ON THE PROTECTED BUILDS THEMSELVES (11e8d14 for head.js and its siblings, 04c23ea for locked-links.js via
+tests/make-locked-links.js, the v1.x tag for the frame hash) and prove every other byte of data is unchanged. Never from
+the current build.
 
 **For anything visual, render a contact sheet and actually look at it.** Assertions prove an effect
 draws; only your eyes prove it looks like the thing it's named after. Several presets passed every
@@ -209,6 +218,7 @@ more particles.
 | `vfx.js` | pure sim + raster — `simulate`, `renderFrames`, `streamFrames`, layer systems, post chain |
 | `shapes.js` | particle drawings only, one `SHAPE_DEFS` record each |
 | `presets.js` | preset data + category layout |
+| `preset-thumbs.png`, `preset-thumbs.js` | **generated** (`node tools/bake-thumbs.mjs`): the strip's baked pictures and their index (§63) |
 | `crunchysfx-synth.js` | **generated** — vendored CrunchySFX audio engine |
 | `styles.css` | VFX's CSS: layout and the accent (the shared look is `crunchy-base.css`) |
 | `suite.js`, `crunchy-base.css`, `crunchy-icons.js` | **generated** from crunchyCore — the suite dialog, the shared look, the pixel icons |
@@ -225,6 +235,10 @@ more particles.
 
 ## Status
 
+- **Baked strip pictures (§63, 2026-11-27, VFX 1.3)**: every preset's and layer's strip picture drawn at build time into
+  preset-thumbs.png (+ its index preset-thumbs.js) by `node tools/bake-thumbs.mjs`; shown with no render while its
+  fingerprint matches, live otherwise (edited preset, game palette, sheet missing). Startup chug in AJ's planted game is
+  §43's update check, not the pictures (measured in §63).
 - **Pixel art round 5 (§46, 2026-11-04)**: more from dithering (Break in / from / at, See-through, Soft steps), Flash frames, Curl + Trail (streaks, afterimages), Land as stick; 9 presets (42 in Pixel art); Gust, Ice Shards and Rock Burst rebuilt (no longer water recolors).
 - **Quick shape knows what is drawn (§47, 2026-11-04)**: macros are PARTS (`macroRest` particles + layers, `macroPix` the pixel art), each run only while drawn; a macro with nothing to move hides (`macroShows`); Hue turns a pixel ramp onto its hue (`pixLeadHue`); pixel-only Crumble / Streak / Shading (`layer: "Pixel art"`). A new layer that stands in for the particles gets its own part.
 - **The Look switch + 11 pixel effects (§48, 2026-11-04)**: Any look / Smooth / Pixel art at the head of the strip (`presetLook`, `presetLookOk` in presetQueryHit; per game in `crunchyvfx.look`) narrows every list and steers Randomize, Breed and the Wizard; PIX_SHAPES + heart, coin, drop; 53 Pixel art presets (pickups, UI, crit, shield, spawn, emotes).

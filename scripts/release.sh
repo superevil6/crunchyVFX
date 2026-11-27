@@ -31,13 +31,22 @@ info(){ printf '\033[36m→\033[0m %s\n' "$*"; }
 warn(){ printf '\033[33m! %s\033[0m\n' "$*"; }
 
 VERSION="${1:-}"
-DRY=""
-[[ "${2:-}" == "--dry" || "${2:-}" == "-n" ]] && DRY=1
-
-[[ -n "$VERSION" ]] || die "usage: $0 <version> [--dry]   e.g. $0 1.0.1"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be x.y.z (got '$VERSION')"
+DRY="" FULL="" SUITES_ONLY=""
+for a in "${@:2}"; do case "$a" in --dry|-n) DRY=1;; --full) FULL=1;; esac; done
+[[ "$VERSION" == "--suites" ]] && SUITES_ONLY=1
 
 cd "$(git rev-parse --show-toplevel)" || die "not inside a git repo"
+
+# THE SUITES RECEIPT (2026-11-27, AJ: a release is hours now). `./scripts/release.sh --suites` runs only the heavy browser and
+# Godot suites below, on the tree AS IT IS (uncommitted changes allowed) and, when every one passes, writes a receipt: the
+# sha256 of every file git would commit (tracked + untracked, not ignored), kept in .git/ (never committed). A real release
+# whose tree hashes the same skips those suites (the quick checks always run); a single changed byte runs them all again.
+# --full ignores the receipt.
+RECEIPT="$(git rev-parse --git-dir)/crunchy-suites.receipt"
+tree_hash() { git ls-files -co --exclude-standard -z | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1; }
+if [[ -z "$SUITES_ONLY" ]]; then
+[[ -n "$VERSION" ]] || die "usage: $0 <version> [--dry] [--full]   e.g. $0 1.0.1   (or: $0 --suites, to run the suites now and keep a receipt)"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be x.y.z (got '$VERSION')"
 TAG="v$VERSION"
 META=flatpak/com.crunchyvfx.app.metainfo.xml
 FILES=(src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json "$META" index.html version.json)
@@ -71,6 +80,8 @@ else
   info "current version: $CURRENT  →  new version: $VERSION"
 fi
 
+fi   # (not --suites)
+
 # ---------------------------------------------------------------- pre-flight: the checks (CLAUDE.md "Verifying changes")
 info "version agreement + test pages (tests/build.py)…"
 python3 tests/build.py >/dev/null || die "tests/build.py failed (version drift?)"
@@ -90,7 +101,10 @@ info "checking the Rust build…"
   || die "cargo check failed: fix the build before releasing"
 ok "cargo check passed"
 
-if [[ -n "$DRY" ]]; then
+HASH="$(tree_hash)"
+if [[ -z "$SUITES_ONLY$FULL$DRY" && -f "$RECEIPT" && "$(cut -d' ' -f1 "$RECEIPT")" == "$HASH" ]]; then
+  ok "the browser and Godot suites passed on exactly this tree ($(cut -d' ' -f2- "$RECEIPT")): skipped (--full runs them)"
+elif [[ -n "$DRY" ]]; then
   info "--dry: skipping the browser and Godot suites (a real run runs them): node tests/run-ff.mjs web|desktop|hash, node tests/godot-check.mjs, node tests/godot-scene.mjs, node tests/godot-text.mjs"
 else
   WIP="${XDG_CACHE_HOME:-$HOME/.cache}/crunchy-wip/vfx-release"; mkdir -p "$WIP"
@@ -114,7 +128,9 @@ else
   node "$CORE/tools/run-suite.mjs" tests/run.html --size=1400,3600 --mem=8G --timeout=900 --banner="body > div:last-of-type" --shot="$WIP/run.png" \
     || die "tests/run.html did not pass (its result box is above; the page: $WIP/run.png)"
   ok "screenshot suite (tests/run.html)"
+  [[ "$(tree_hash)" == "$HASH" ]] && echo "$HASH $(date '+%F %H:%M')" > "$RECEIPT" && ok "receipt written: a release of this exact tree skips these suites"
 fi
+if [[ -n "$SUITES_ONLY" ]]; then ok "suites done (--suites): nothing committed, tagged or pushed"; exit 0; fi
 
 # ---------------------------------------------------------------- bump versions
 TODAY="$(date +%F)"

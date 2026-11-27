@@ -150,8 +150,37 @@
 
 <div class="workspace">
 <section class="ws-stage" id="stageCol">
+  <!-- vfx3d-preview -->
+  <!-- THE VIEW (VFX-DESIGN §61.3): the effect as it ships, or standing in a small room in 3D, lit by its own light. The
+       room's files (textures.js, texgen.js, ramps.js, room3d.js) load the first time 3D opens, never before. -->
+  <div class="r3v-tabs zoomgroup" id="viewTabs" role="tablist" aria-label="View">
+    <button type="button" role="tab" id="tab2d" data-view="2d" aria-selected="true" aria-controls="stageWrap" class="active" title="The effect as it exports: its frames, flat">2D</button><button type="button" role="tab" id="tab3d" data-view="3d" aria-selected="false" aria-controls="r3vView" tabindex="-1" data-icon="layers" title="The effect standing in a small 3D room, lit by its own light, the way the Godot 3D scene stands it. Drag to look around">3D</button>
+  </div>
+  <!-- /vfx3d-preview -->
   <div class="stage-box">
     <div class="stage-wrap" id="stageWrap"><canvas id="stage"></canvas></div>
+    <!-- vfx3d-preview -->
+    <div class="r3v" id="r3vView" role="tabpanel" aria-labelledby="tab3d" hidden>
+      <canvas id="r3vCv" width="320" height="200" aria-label="The effect in a 3D room. Drag or use the arrow keys to look around; the mouse wheel, a pinch or + and - to zoom" title="Drag to look around the room; the wheel or a pinch zooms"></canvas>
+      <div class="r3v-bar">
+        <label class="r3v-ctl">Room <select id="r3vRoom" aria-label="Room" disabled><option>Loading…</option></select></label>
+        <span class="zoomgroup r3v-cam" role="group" aria-label="Camera">
+          <button type="button" id="r3vOrbit" class="active" aria-pressed="true" title="Look round it from a little above: drag to turn, the wheel or a pinch to zoom">Orbit</button><button type="button" id="r3vEye" aria-pressed="false" title="A first-person look: the camera at eye height (1.6 m), a few meters away. Drag to turn, the wheel or a pinch to step nearer or back">Eye height</button>
+        </span>
+        <button type="button" id="r3vReset" data-icon="refresh" title="Back to the first view">Reset view</button>
+      </div>
+      <!-- the effect's own 3D rows (the 3D panel's d3Stand, d3Size, d3Light, d3LightPower), right where they show -->
+      <div class="r3v-bar r3v-set" id="r3vSet" role="group" aria-label="How it stands in 3D">
+        <label class="r3v-ctl" title="How it stands in a 3D game: facing the camera, upright, flat on the ground or over the whole screen. Auto picks from the effect">Stand <select id="r3vStand"></select></label>
+        <label class="r3v-ctl" title="How big it is in a 3D game: the longer side of what it draws, in meters (Auto sizes it by what it is)">Size <input type="range" id="r3vSize"><span class="hint r3v-val" id="r3vSizeV"></span></label>
+        <label class="r3v-ctl" title="The light it casts in a 3D game, following its frames: auto lights the room from its glow">Light <select id="r3vLight"></select></label>
+        <label class="r3v-ctl" title="How bright its light is">Power <input type="range" id="r3vPower"><span class="hint r3v-val" id="r3vPowerV"></span></label>
+        <a href="#" id="r3vMore" title="Open the 3D panel in the editor">More 3D settings</a>
+      </div>
+      <p class="hint r3v-info" id="r3vInfo" role="status"></p>
+      <p class="hint r3v-line" id="r3vLine">These rooms are drawn with CrunchyTexture's textures. <a id="r3vLink" href="https://crunchytexture.com/" target="_blank" rel="noopener" title="CrunchyTexture: retro 3D textures, models and walkable places for Godot, Unity and Blender">Build whole places in CrunchyTexture</a></p>
+    </div>
+    <!-- /vfx3d-preview -->
   </div>
   <div class="stage-transport">
     <button class="primary" id="playBtn" data-icon="pause" title="Play / pause (Space). , and . step one frame; Home and End jump to the ends">Pause</button>
@@ -340,6 +369,9 @@
 </footer>
 
 <script src="presets.js"></script>
+<!-- Every preset's and layer's strip picture, drawn ahead of time by this app's own code (tools/bake-thumbs.mjs, VFX 1.3):
+     the index of preset-thumbs.png. GENERATED, never edited; a picture that no longer matches is drawn live instead. -->
+<script src="preset-thumbs.js"></script>
 <!-- The CrunchySFX synthesis engine, vendored. GENERATED — never edit it here; change the
      CrunchySFX sources and run `python3 tools/pull-synth.py`. Exposes one global, CrunchySynth.
      Optional: if it's missing the app still runs, minus in-app sound synthesis. -->
@@ -355,6 +387,7 @@
      frame its pixArtFrame draws. Pure; needs fire.js; loaded before vfx.js, which sets its hooks. -->
 <script src="pixart.js"></script>
 <script src="vfx.js"></script>
+<!-- vfx3d-export --><script src="fx3d.js"></script><!-- /vfx3d-export -->
 <script src="gif.js"></script>
 <script src="apng.js"></script>
 <!-- The "Crunchy suite" dialog and the suite's pixel icons: GENERATED from crunchyCore by
@@ -390,7 +423,7 @@
 // tools/pull-core.mjs moves these `want`s itself when it pulls a new stamp (it finds `file:` then `want:`, and the
 // one-line "crunchy-base.css is build " check), so keep each on the shape it has. --css-build is VFX's own.
 (function guardCoreFiles() {
-  const CSS_BUILD = 18;   // must match --css-build in styles.css
+  const CSS_BUILD = 22;   // must match --css-build in styles.css (19: §61 the 3D panel, vfx3d-export; 20: §61.3 the room, vfx3d-preview; 21: vfx3d-export 1.3.1; 22: the room's 3D rows + the chips at 1000 px, vfx3d-preview)
   const CORE = [
     { file: "suite.js", want: 22, got: () => (typeof SUITE_BUILD === "undefined" ? 0 : SUITE_BUILD) },
     { file: "crunchy-icons.js", want: 13, got: () => (typeof CRUNCHY_ICONS_BUILD === "undefined" ? 0 : CRUNCHY_ICONS_BUILD) },
@@ -1125,6 +1158,14 @@ const PARAMS = [
   ["frameW",     "Frame width", 0, 512, 1, 0, "px", "Output", "size"],
   ["frameH",     "Frame height",0, 512, 1, 0, "px", "Output", "size"],
   ["seed",       "Seed",        1, 9999, 1, 1, "",     "Output"],
+  // <vfx3d-export>
+  // §61 (VFX 1.3): how the effect stands in a 3D game (fx3d.js). Nothing in 2D reads these: no frame, no 2D export byte
+  // moves; the Godot export's "3D scene too" and the 3D preview do. Defaults: auto, auto size (0), auto light, power 1.
+  ["d3Stand",    "Stands",      0, FX3D_STANDS.length - 1, 1, 0, "", "3D", "enum", FX3D_STAND_WORDS],
+  ["d3Size",     "Size",        0, 8, 0.05, 0, "m",    "3D"],   // the longer side of what it DRAWS, in meters; 0 = auto (1.3.1)
+  ["d3Light",    "Light",       0, FX3D_LIGHTS.length - 1, 1, 0, "", "3D", "enum", FX3D_LIGHT_WORDS],
+  ["d3LightPower","Light power",0, 2, 0.05, 1, "x",    "3D"],
+  // </vfx3d-export>
 ];
 
 const state = {};
@@ -1221,6 +1262,7 @@ function rerender() {
   if (typeof syncSoundUI === "function") syncSoundUI();   // the loop length may have moved
   if (typeof sizeDock === "function") { sizeDock(); updateDock(); }
   drawStage();
+  if (typeof fx3dPanelNote === "function") fx3dPanelNote();   // vfx3d-export: §61, the 3D panel says what auto decided
 }
 
 // Preview-only guides. Everything here draws on the stage canvas AFTER the effect and is never
@@ -1272,6 +1314,9 @@ function drawStage() {
   if (ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   drawGuides(sctx, stage.width, stage.height);
   paintDock();
+  // <vfx3d-preview>
+  if (r3v && r3v.open) r3vPaint();            // §61.3: the room shows the same frame
+  // </vfx3d-preview>
   scrub.value = String(frameIdx);
   // §25: one-based, of the real count, and it says "paused" (a preset loaded while paused looked static, not stopped)
   scrubVal.textContent = (playing ? "" : "paused · ") + (frameIdx + 1) + " / " + rendered.canvases.length;
@@ -1606,6 +1651,293 @@ function tick() {
 }
 requestAnimationFrame(tick);
 
+// <vfx3d-preview>
+
+// THE ROOM (VFX-DESIGN §61.3): a 2D | 3D switch on the stage. 3D shows the playing frame standing in a small room
+// (room3d.js, a software renderer: no WebGL), made of exactly what the Godot 3D scene is (fx3d.js: the stand, size,
+// anchor, alpha mode, flat depth, and the light's color, per-frame energies, range and position). The room's
+// files load LAZILY the first time 3D opens (CrunchyItem's DEPS_3D shape), so the app's start is unchanged; each is
+// stamped and checked once it has loaded. Drag to look round; it sways slowly by itself while playing, never under
+// reduced motion. WebKitGTK drops a hidden canvas's pixels, so it repaints whenever it is shown again.
+var r3v = { open: false, loading: null, failed: "", room: "dungeon", yaw: 0, pitch: 0, user: false, sway: 0, swayAt: 0,
+            drag: null, key: null, frames: null, place: null, light: null, stand: "", zoom: 1, eye: false, pts: {}, pinch: null };
+const R3V_DEPS = [
+  { file: "textures.js", want: 20, got: () => (typeof TEXTURES_BUILD === "undefined" ? 0 : TEXTURES_BUILD) },
+  { file: "texgen.js", want: 8, got: () => (typeof TEXGEN_BUILD === "undefined" ? 0 : TEXGEN_BUILD) },
+  { file: "ramps.js", want: 3, got: () => (typeof CT_RAMPS_BUILD === "undefined" ? 0 : CT_RAMPS_BUILD) },
+  { file: "room3d.js", want: 1, got: () => (typeof ROOM3D_BUILD === "undefined" ? 0 : ROOM3D_BUILD) },
+];
+// this browser only: { room, open (the 3D view was showing), eye (the camera at eye height) }; a bare room id is read too
+const R3V_PREF = "crunchyvfx.room3d.v1";
+const R3V_STANDS = { face: "faces you", upright: "stands upright", flat: "lies on the floor", screen: "on the screen" };
+const R3V_ZOOM = [0.45, 1.6];
+let r3vWasOpen = false;
+try {
+  const v = localStorage.getItem(R3V_PREF);
+  if (v) {
+    let o = null; try { o = JSON.parse(v); } catch (e) { o = null; }
+    if (o && typeof o === "object") { if (typeof o.room === "string") r3v.room = o.room; r3vWasOpen = !!o.open; r3v.eye = !!o.eye; }
+    else r3v.room = v;
+  }
+} catch (e) { /* private mode */ }
+function r3vSave() {
+  try { localStorage.setItem(R3V_PREF, JSON.stringify({ room: r3v.room, open: r3v.open, eye: r3v.eye })); } catch (e) { /* private mode */ }
+}
+function r3vReady() { return typeof room3dRender === "function" && typeof textureIndex === "function" && typeof CT_RAMPS !== "undefined"; }
+// where the page's scripts are, and their deploy stamp: the room's files are fetched as vfx.js was (the test pages live
+// in tests/ and load "../vfx.js"; the web's worker stamps "vfx.js?v=<deploy>", so they share its cache lifetime)
+function r3vUrl(file) {
+  const s = document.querySelector('script[src*="vfx.js"]'), m = s ? /^(.*?)vfx\.js(\?.*)?$/.exec(s.getAttribute("src")) : null;
+  return m ? m[1] + file + (m[2] || "") : file;
+}
+function r3vLoad() {
+  if (r3v.loading) return r3v.loading;
+  if (r3vReady()) return (r3v.loading = Promise.resolve(true));
+  r3v.loading = R3V_DEPS.reduce((p, d) => p.then(() => new Promise((ok, no) => {
+    if (d.got()) return ok();
+    const sc = document.createElement("script");
+    sc.src = r3vUrl(d.file); sc.async = false; sc.dataset.lazy = "3d";
+    sc.onload = () => ok();
+    sc.onerror = () => no(new Error(d.file + " did not load"));
+    document.head.appendChild(sc);
+  })), Promise.resolve()).then(() => {
+    const bad = R3V_DEPS.filter((d) => d.got() !== d.want).map((d) => d.file + " is build " + d.got() + ", index.html wants " + d.want);
+    if (bad.length) console.warn("CrunchyVFX: stale or missing files: " + bad.join("; ") + ". Hard-reload (Ctrl+Shift+R).");
+    if (!r3vReady()) throw new Error("the room's files are incomplete");
+    return true;
+  });
+  r3v.loading.catch((e) => { r3v.failed = e && e.message ? e.message : String(e); r3v.loading = null; });
+  return r3v.loading;
+}
+function r3vLoaded() {
+  const sel = document.getElementById("r3vRoom");
+  sel.textContent = "";
+  for (const R of ROOM3D_ROOMS) { const o = document.createElement("option"); o.value = R.id; o.textContent = R.name; sel.appendChild(o); }
+  if (!ROOM3D_ROOMS.some((R) => R.id === r3v.room)) r3v.room = ROOM3D_ROOMS[0].id;
+  sel.value = r3v.room;
+  sel.disabled = false;
+  r3vPaint();
+}
+function r3vSet(which) {
+  r3v.open = which === "3d";
+  document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
+    const on = b.dataset.view === which;
+    b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1;
+  });
+  stageWrap.hidden = r3v.open;
+  document.getElementById("r3vView").hidden = !r3v.open;
+  r3vSave();
+  if (r3v.open) { r3vFit(); r3vCamButtons(); r3vSync(); r3v.swayAt = performance.now(); r3vPaint(); }
+}
+// a whole-number zoom when two or more fit (pixels stay square), else the column's width
+function r3vFit() {
+  const cv = document.getElementById("r3vCv"), col = document.getElementById("stageCol");
+  const avail = Math.max(160, (col ? col.clientWidth : 640) - 36), availH = Math.max(200, innerHeight - 490);
+  const fit = Math.min(avail / 320, availH / 200);
+  const z = fit >= 2 ? Math.min(4, Math.floor(fit)) : Math.max(0.5, Math.min(avail / 320, 2));
+  cv.style.width = Math.round(320 * z) + "px";
+}
+// once per render: every frame's pixels, where it stands, and its light
+function r3vPrep() {
+  if (r3v.key === rendered) return;
+  r3v.key = rendered;
+  r3v.frames = rendered.canvases.map((cv) => { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height); return { w: d.width, h: d.height, data: d.data }; });
+  // EXACTLY what the Godot 3D scene is made of (godot3dFiles): the same stand, size, masks, bounds, anchor, alpha mode,
+  // flat depth, light and light position, all from fx3d.js
+  r3v.stand = fx3dStand(state, effectLabel);
+  const masks = fx3dMasksOf(rendered.canvases, state), bounds = fx3dBounds(masks);
+  // the size follows what is DRAWN (fx3d.js 1.3.1: bounds and the name, as the export passes them)
+  const mpp = fx3dMetersPerPixel(state, bounds, effectLabel), org = fx3dOrigin(state, rendered, fitOn);
+  r3v.size = typeof fx3dSize === "function" ? fx3dSize(state, bounds, effectLabel) : { m: mpp * Math.max(rendered.w, rendered.h), auto: !(+state.d3Size > 0) };
+  const depth = r3v.stand === "flat" ? fx3dFlatDepth(state) : 1;
+  const a = fx3dAnchor({ stand: r3v.stand, origin: org, bounds: bounds });
+  // the scene's offset is rounded to whole sheet pixels (fx3dPlacement), so the anchor the sprite really hangs from is
+  const anchor = { x: rendered.w / 2 - Math.round(rendered.w / 2 - a.x), y: rendered.h / 2 - Math.round(rendered.h / 2 - a.y) };
+  // Light "always" takes its color from the effect's own pixels (opt.frames), as the export's does
+  r3v.light = r3v.stand === "screen" ? null : fx3dLight(state, masks, rendered.fps, { frames: r3v.frames, name: effectLabel });
+  r3v.place = room3dPlace(r3v.frames, r3v.stand, mpp, anchor, {
+    alpha: fx3dAlphaMode(masks), depth: depth,
+    light: r3v.light && r3v.light.on ? fx3dLightPos(r3v.stand, bounds, anchor, mpp, depth) : null });
+  if (!r3v.user) { const V = room3dView(r3v.place); r3v.yaw = V.yaw; r3v.pitch = V.pitch; }
+  r3vSync();
+}
+// THE 3D ROWS UNDER THE ROOM: the same PARAMS rows as the 3D panel, changed THROUGH the panel's own controls (their
+// handlers do the rest: the lock, undo, the render, links), and shown from state after every render (undo, a preset).
+const R3V_ROWS = { r3vStand: "d3Stand", r3vSize: "d3Size", r3vLight: "d3Light", r3vPower: "d3LightPower" };
+function r3vRow(key) { return PARAMS.find((p) => p[0] === key); }
+function r3vSetParam(key, v, commit) {
+  const el = typeof inputs !== "undefined" ? inputs[key] : null;
+  if (!el) return;
+  el.value = String(v);
+  if (el.tagName === "SELECT") { el.dispatchEvent(new Event("change")); return; }
+  el.dispatchEvent(new Event("input"));
+  if (commit) el.dispatchEvent(new Event("change"));
+}
+function r3vSync() {
+  const set = document.getElementById("r3vSet");
+  if (!set) return;
+  for (const id in R3V_ROWS) {
+    const el = document.getElementById(id), p = r3vRow(R3V_ROWS[id]);
+    if (!el || !p) continue;
+    if (el.tagName === "SELECT" && el.options.length !== p[9].length) {
+      el.textContent = "";
+      p[9].forEach((w, i) => { const o = document.createElement("option"); o.value = String(i); o.textContent = w; el.appendChild(o); });
+    }
+    if (el.tagName === "INPUT") { el.min = p[2]; el.max = p[3]; el.step = p[4]; }   // the row's own range (Size: 0-8 m since 1.3.1)
+    if (document.activeElement !== el || el.tagName === "SELECT") el.value = String(state[p[0]]);
+  }
+  const auto = !(Math.round(state.d3Stand) > 0), autoStand = auto ? r3v.stand : fx3dStand(Object.assign({}, state, { d3Stand: 0 }), effectLabel);
+  const st0 = document.getElementById("r3vStand").options[0];
+  if (st0 && autoStand) st0.textContent = r3vRow("d3Stand")[9][0] + " (" + (R3V_STANDS[autoStand] || autoStand) + ")";
+  const meters = r3v.size ? r3v.size.m : 0;
+  document.getElementById("r3vSizeV").textContent = +state.d3Size > 0 ? (+state.d3Size).toFixed(2) + " m" : "Auto (" + meters.toFixed(1) + " m)";
+  document.getElementById("r3vPowerV").textContent = (+state.d3LightPower).toFixed(2) + "x";
+  // Power means nothing without a light: greyed, as the panel greys it
+  const pw = document.getElementById("r3vPower"), noLight = !(r3v.light && r3v.light.on);
+  pw.disabled = noLight; pw.closest("label").classList.toggle("r3v-off", noLight);
+  // the status line says what the rows above decided, in their words
+  const info = document.getElementById("r3vInfo"), lit = r3v.light && r3v.light.on;
+  const stand = (auto ? "Stand: auto, it " : "Stand: it ") + (R3V_STANDS[r3v.stand] || r3v.stand) + ".";
+  info.textContent = r3v.stand === "screen"
+    ? stand + " In a game it covers the camera, the way weather does, and casts no light. A sparse one like Rain may want Downpour or a bigger Count."
+    : stand + (lit ? " Light: it lights the room from its glow." : /^off/i.test(r3vRow("d3Light")[9][Math.round(state.d3Light)] || "") ? " Light: off."
+      : " Light: nothing in it glows, so it casts none.");
+}
+// "More 3D settings": the 3D panel in the editor, unfolded and brought into view
+function r3vMore() {
+  const panel = document.querySelector('.panel[data-group="3D"]');
+  if (!panel) return;
+  const head = panel.querySelector("h2");
+  if (panel.classList.contains("collapsed") && head) head.click();
+  panel.scrollIntoView({ block: "start", behavior: r3vReduced() ? "auto" : "smooth" });
+  if (head) head.focus({ preventScroll: true });
+}
+function r3vReduced() { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } }
+function r3vYaw() { return room3dClampYaw(r3v.yaw + (r3vReduced() ? 0 : 0.4 * Math.sin(r3v.sway))); }
+// the camera: the orbit (yaw, pitch, the framing distance x zoom), or at eye height (a first-person look); the distance
+// stays inside the room's floor
+function r3vCam() {
+  if (r3v.eye) { const E = room3dEye(r3v.place, r3v.zoom); return { yaw: r3vYaw(), pitch: E.pitch, dist: Math.min(11, E.dist), ty: E.ty }; }
+  const V = room3dView(r3v.place);
+  return { yaw: r3vYaw(), pitch: r3v.pitch, dist: Math.min(11, V.dist * r3v.zoom), ty: V.ty };
+}
+function r3vZoom(z) { r3v.zoom = Math.max(R3V_ZOOM[0], Math.min(R3V_ZOOM[1], z)); r3v.user = true; if (r3v.open) r3vPaint(); }
+function r3vCamButtons() {
+  for (const [id, on] of [["r3vOrbit", !r3v.eye], ["r3vEye", r3v.eye]]) {
+    const b = document.getElementById(id);
+    b.classList.toggle("active", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+}
+function r3vPaint() {
+  const cv = document.getElementById("r3vCv"), info = document.getElementById("r3vInfo");
+  if (!r3vReady()) {
+    info.textContent = r3v.failed ? "The room did not load (" + r3v.failed + "). Reload the page to try again." : "Loading the room…";
+    if (!r3v.failed && !r3v.loading) r3vLoad().then(r3vLoaded, () => r3vPaint());
+    return;
+  }
+  if (!rendered) return;
+  r3vPrep();
+  const now = performance.now();
+  if (playing && !r3v.drag && !r3vReduced()) r3v.sway += Math.min(0.2, Math.max(0, (now - r3v.swayAt) / 1000)) * 0.35;
+  r3v.swayAt = now;
+  const i = Math.max(0, Math.min(frameIdx, r3v.frames.length - 1)), L = r3v.light;
+  const pic = room3dRender(Object.assign({ room: r3v.room, place: r3v.place, frame: r3v.frames[i],
+                             light: L && L.on ? { color: L.color, energy: L.energies[i] || 0, range: L.range } : null }, r3vCam()));
+  cv.getContext("2d").putImageData(new ImageData(pic.data, pic.w, pic.h), 0, 0);
+}
+document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
+  b.addEventListener("click", () => r3vSet(b.dataset.view));
+  b.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const other = document.querySelector('#viewTabs [role=tab]:not([data-view="' + b.dataset.view + '"])');
+    r3vSet(other.dataset.view); other.focus();
+  });
+});
+(function r3vWire() {
+  const cv = document.getElementById("r3vCv");
+  cv.tabIndex = 0;
+  // one pointer drags (turns; tilts in the orbit), two pinch (zoom); the yaw stays where the walls are behind it
+  const pinchGap = () => { const p = Object.values(r3v.pts); return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1; };
+  cv.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (er) { /* synthetic */ }
+    r3v.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    r3v.yaw = r3vYaw(); r3v.sway = 0;               // the sway folds into where it is, so nothing jumps
+    if (Object.keys(r3v.pts).length === 2) { r3v.drag = null; r3v.pinch = { gap: pinchGap(), zoom: r3v.zoom }; return; }
+    r3v.drag = { x: e.clientX, y: e.clientY, yaw: r3v.yaw, pitch: r3v.pitch };
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (r3v.pts[e.pointerId]) r3v.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (r3v.pinch && Object.keys(r3v.pts).length === 2) { r3vZoom(r3v.pinch.zoom * r3v.pinch.gap / pinchGap()); return; }
+    const d = r3v.drag;
+    if (!d) return;
+    r3v.user = true;
+    r3v.yaw = room3dClampYaw(d.yaw - (e.clientX - d.x) * 0.012);
+    if (!r3v.eye) r3v.pitch = Math.max(0.02, Math.min(1.25, d.pitch + (e.clientY - d.y) * 0.006));
+    r3vPaint();
+  });
+  const up = (e) => { delete r3v.pts[e.pointerId]; r3v.drag = null; if (Object.keys(r3v.pts).length < 2) r3v.pinch = null; };
+  cv.addEventListener("pointerup", up);
+  cv.addEventListener("pointercancel", up);
+  cv.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const dy = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaMode === 2 ? e.deltaY * 600 : e.deltaY;
+    r3vZoom(r3v.zoom * Math.exp(Math.max(-200, Math.min(200, dy)) * 0.0015));
+  }, { passive: false });
+  cv.addEventListener("keydown", (e) => {
+    if (e.key === "+" || e.key === "=" || e.key === "-" || e.key === "_") {
+      e.preventDefault(); e.stopPropagation();
+      r3vZoom(r3v.zoom * (e.key === "-" || e.key === "_" ? 1.15 : 1 / 1.15));
+      return;
+    }
+    const k = { ArrowLeft: [0.15, 0], ArrowRight: [-0.15, 0], ArrowUp: [0, 0.08], ArrowDown: [0, -0.08] }[e.key];
+    if (!k) return;
+    e.preventDefault(); e.stopPropagation();
+    r3v.user = true;
+    r3v.yaw = room3dClampYaw(r3vYaw() + k[0]); r3v.sway = 0;
+    if (!r3v.eye) r3v.pitch = Math.max(0.02, Math.min(1.25, r3v.pitch + k[1]));
+    r3vPaint();
+  });
+  document.getElementById("r3vReset").addEventListener("click", () => {
+    r3v.user = false; r3v.sway = 0; r3v.zoom = 1;
+    if (r3v.place) { const V = room3dView(r3v.place); r3v.yaw = V.yaw; r3v.pitch = V.pitch; }
+    if (r3v.open) r3vPaint();
+  });
+  for (const [id, eye] of [["r3vOrbit", false], ["r3vEye", true]]) document.getElementById(id).addEventListener("click", () => {
+    r3v.eye = eye; r3v.zoom = 1; r3vCamButtons(); r3vSave();
+    if (r3v.open) r3vPaint();
+  });
+  document.getElementById("r3vRoom").addEventListener("change", (e) => {
+    r3v.room = e.target.value;
+    r3vSave();
+    r3vPaint();
+  });
+  // the 3D rows: a select changes at once; a slider moves the panel's slider as it is dragged and commits on release
+  for (const id in R3V_ROWS) {
+    const el = document.getElementById(id), key = R3V_ROWS[id];
+    if (el.tagName === "SELECT") el.addEventListener("change", () => r3vSetParam(key, el.value, true));
+    else {
+      el.addEventListener("input", () => { r3vSetParam(key, el.value, false); r3vSync(); });
+      el.addEventListener("change", () => r3vSetParam(key, el.value, true));
+    }
+  }
+  r3vSync();
+  document.getElementById("r3vMore").addEventListener("click", (e) => { e.preventDefault(); r3vMore(); });
+  // the view open at the last visit opens again (after the app has built itself)
+  if (r3vWasOpen) setTimeout(() => { if (!r3v.open) r3vSet("3d"); }, 0);
+  // the link is the suite's own (CRUNCHY_SUITE, crunchyCore suite.js); the desktop opens it outside the app
+  const a = document.getElementById("r3vLink"), tex = typeof CRUNCHY_SUITE !== "undefined" && CRUNCHY_SUITE.find((t) => t.id === "texture");
+  if (tex && tex.web) a.href = tex.web;
+  a.addEventListener("click", (e) => {
+    if (window.__TAURI__ && window.__TAURI__.opener) { e.preventDefault(); window.__TAURI__.opener.openUrl(a.href); }
+  });
+  addEventListener("resize", () => { if (r3v.open) r3vFit(); });
+  document.addEventListener("visibilitychange", () => { if (r3v.open && !document.hidden) r3vPaint(); });
+})();
+// </vfx3d-preview>
+
 // Re-render is cheap (a few ms), but dragging a slider fires input continuously — debounce so a
 // drag stays smooth on a 3000-particle patch.
 let renderTimer = null;
@@ -1739,7 +2071,7 @@ for (const [group, ps] of Object.entries(groups)) {
     // implies a range that doesn't exist, and it's fiddly to hit either end. Detected from the
     // schema rather than a hand-kept list, so declaring the next boolean param gets a switch for
     // free. Built by this same loop, so it keeps the identical handlers.
-    if (min === 0 && max === 1 && step === 1) {
+    if (min === 0 && max === 1 && step === 1 && kind !== "enum") {   // vfx3d-export: a two-way enum (d3Light) stays a select
       const row = document.createElement("div");
       row.className = "row switch-row";
       // The checkbox is wrapped in a second, text-less <label> for the switch styling — which
@@ -3126,6 +3458,117 @@ const LAYER_ABOUT = {
   "Haze":           ["Post & stylize", "Heat shimmer: the picture wobbles"],
 };
 let layerFilter = "", layerKind = "";
+// BAKED PICTURES (VFX 1.3, AJ 2026-11-27: "the previews slowly pour in for the presets while the application is virtually
+// unusable"). Every preset's strip picture and every layer's strip picture is drawn ONCE, at build time, by
+// tools/bake-thumbs.mjs with this very code (presetStillCanvas, layerStillCanvas) into one sheet, preset-thumbs.png,
+// indexed by preset-thumbs.js (both GENERATED: CC0 engine output, nothing drawn by hand). A picture whose FINGERPRINT
+// (what draws it: the preset's own settings, or what the layer's switch writes over its plain base, plus the picture rule
+// and the render stamps below) matches its baked one is shown straight from the sheet, with no render; anything else (an
+// edited or new preset before the next bake, the game palette's colors, a sheet that will not load) renders live exactly
+// as before. The sync suite re-renders every picture and fails on any stale one ("run node tools/bake-thumbs.mjs").
+// Function declarations and `var`s: the layer strip can paint before this part of the script has run.
+// PTHUMB_RULE: bump it when presetStillCanvas or layerStillCanvas draws differently (every baked picture goes live).
+var PTHUMB_RULE = 1;
+function thumbStamps() {
+  return [typeof PIXART_BUILD === "undefined" ? 0 : PIXART_BUILD, typeof FIRE_BUILD === "undefined" ? 0 : FIRE_BUILD,
+          typeof GLYPHS_BUILD === "undefined" ? 0 : GLYPHS_BUILD].join(".");
+}
+// a 53-bit hash (cyrb53) of a string or a byte array, written base 36 (tools/bake-thumbs.mjs has the same for the sheet)
+function thumbHash(s) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  const bytes = typeof s !== "string", n = s.length;
+  for (let i = 0; i < n; i++) {
+    const c = bytes ? s[i] : s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+// what draws a picture: a preset by name ("presets"), a layer by its group ("layers"); "" when there is no such thing
+function thumbPrint(kind, key) {
+  const head = kind + "|" + PTHUMB_RULE + "|" + thumbStamps() + "|";
+  if (kind === "presets") return PRESETS[key] ? thumbHash(head + PTHUMB + "|" + JSON.stringify(PRESETS[key])) : "";
+  const L = LAYER_GROUPS.find((x) => x.g === key);
+  return L ? thumbHash(head + LTHUMB + "|" + JSON.stringify(LAYER_BASE) + "|" + String(L.on)) : "";
+}
+// a picture's pixels, as the bake and the suite compare them
+function thumbPixelHash(cv) { return thumbHash(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data); }
+// the sheet's cell for a picture, or -1 (not baked, baked from other settings, or the sheet failed to load)
+var thumbBakedOk = new Map(), thumbSheet = null, thumbSheetBroken = false;
+function thumbBaked(kind, key) {
+  if (thumbSheetBroken || typeof PRESET_THUMBS === "undefined" || !PRESET_THUMBS[kind]) return -1;
+  const id = kind + "\n" + key;
+  if (!thumbBakedOk.has(id)) {
+    const e = Object.prototype.hasOwnProperty.call(PRESET_THUMBS[kind], key) ? PRESET_THUMBS[kind][key] : null;
+    thumbBakedOk.set(id, e && e[0] >= 0 && e[1] === thumbPrint(kind, key) ? e[0] : -1);
+  }
+  return thumbBakedOk.get(id);
+}
+// the sheet's URL: beside preset-thumbs.js and with ITS deploy stamp (the web's worker stamps "preset-thumbs.js?v=…"; the
+// test pages load "../preset-thumbs.js"), so the sheet is cached exactly as long as its index
+function thumbSheetUrl() {
+  const s = document.querySelector('script[src*="preset-thumbs.js"]'), m = s ? /^(.*?)preset-thumbs\.js(\?.*)?$/.exec(s.getAttribute("src")) : null;
+  return (m ? m[1] : "") + PRESET_THUMBS.file + (m && m[2] ? m[2] : "");
+}
+function thumbCellAt(cell) { const S = PRESET_THUMBS.size, c = PRESET_THUMBS.cols; return [(cell % c) * S, Math.floor(cell / c) * S]; }
+// an <img> shows its cell of the sheet (one decode for every picture); false when the picture is not baked
+function thumbShowBaked(img, kind, key) {
+  const cell = thumbBaked(kind, key);
+  if (cell < 0) return false;
+  const at = thumbCellAt(cell);
+  img.style.objectFit = "none";
+  img.style.objectPosition = -at[0] + "px " + -at[1] + "px";
+  img.dataset.baked = String(cell);
+  thumbSheetLoad();
+  img.src = thumbSheetUrl();
+  return true;
+}
+function thumbShowLive(img, url) {
+  img.style.objectFit = img.style.objectPosition = "";
+  delete img.dataset.baked;
+  if (url) img.src = url; else img.removeAttribute("src");
+}
+// the sheet as one Image (for the layer strip's canvases, and to hear of a failure). If it fails to load, every picture
+// renders live again.
+function thumbSheetLoad() {
+  if (thumbSheet) return thumbSheet;
+  thumbSheet = new Image();
+  thumbSheet.addEventListener("error", () => {
+    thumbSheetBroken = true; thumbBakedOk.clear();
+    for (const img of document.querySelectorAll("img[data-baked]")) thumbShowLive(img, "");
+    if (document.querySelector("#presets .pcell")) presetPageShow();
+    for (const c of document.querySelectorAll(".layer-chip.baked")) { c.classList.remove("drawn", "baked"); layerCellPaint(c); }
+  });
+  thumbSheet.src = thumbSheetUrl();
+  return thumbSheet;
+}
+// a canvas gets its cell (now, or once the sheet has loaded); false when the picture is not baked
+function thumbDrawBaked(cv, kind, key) {
+  const cell = thumbBaked(kind, key);
+  if (cell < 0) return false;
+  const img = thumbSheetLoad(), S = PRESET_THUMBS.size, at = thumbCellAt(cell);
+  const draw = () => { const g = cv.getContext("2d"); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(img, at[0], at[1], S, S, 0, 0, S, S); };
+  if (img.complete && img.naturalWidth) draw(); else img.addEventListener("load", draw, { once: true });
+  return true;
+}
+// THE PICTURES THEMSELVES, one canvas each: what the strip shows and what the bake draws. A preset: one frame ~40% in
+// (presetThumbOf). A layer: layerThumb's chosen frame, rendered fresh (its cache and the base's left as they were).
+function presetStillCanvas(st) {
+  return withState(st, () => {
+    const prep = renderPrep(state, { size: PTHUMB, fit: true });
+    const at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
+    return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null);
+  });
+}
+function layerStillCanvas(L) {
+  const had = layerThumbs.has(L.g), keep = layerThumbs.get(L.g), base = layerBaseFrames;
+  layerThumbs.delete(L.g); layerBaseFrames = null;
+  const t = layerThumb(L);
+  if (had) layerThumbs.set(L.g, keep); else layerThumbs.delete(L.g);
+  layerBaseFrames = base || layerBaseFrames;
+  return t ? t.frames[t.best] : null;
+}
 // THE LAYER STRIP (AJ, 2026-10-25: "a strip ... with preview images so the user knows what they're clicking"): each off
 // layer is a picture cell (still a .layer-chip, grouped in .layer-kind runs) along ONE scrolling strip, with kind chips
 // to narrow it. The picture is that layer switched on over ONE plain base (the default burst, fewer particles: a layer
@@ -3162,6 +3605,8 @@ function layerPageShow() {
   for (const grp of strip.querySelectorAll(".layer-kind")) grp.hidden = ![...grp.querySelectorAll(".layer-chip")].some((c) => !c.hidden);
   // this page's pictures first, then the next page's, so paging forward lands on pictures already painted
   layerQueue = [];
+  // a baked picture is painted again whenever its page shows (cheap: WebKitGTK drops a hidden canvas's pixels)
+  for (const c of pages[layerPage] || []) if (c.classList.contains("baked")) layerCellPaint(c);
   for (const i of [layerPage, layerPage + 1]) if (pages[i]) for (const c of pages[i]) if (!c.classList.contains("drawn")) layerQueue.push(c);
   if (layerQueue.length && !layerTimer) layerTimer = setTimeout(pumpLayerThumbs, 0);
   const row = strip.parentElement;
@@ -3243,6 +3688,8 @@ function layerThumb(L) {
 function layerCellPaint(cell) {
   const L = LAYER_GROUPS.find((x) => x.g === cell.dataset.layer), cv = cell.querySelector("canvas");
   if (!L || !cv) return;
+  // baked (and not rendered here yet): the sheet's cell, no render (VFX 1.3)
+  if (!layerThumbs.has(L.g) && thumbDrawBaked(cv, "layers", L.g)) { cell.classList.add("drawn", "baked"); return; }
   const t = layerThumb(L);
   if (t) cv.getContext("2d").drawImage(t.frames[t.best], 0, 0);
   cell.classList.add("drawn");
@@ -3341,7 +3788,7 @@ function updateLayerPanels() {
       pic.width = LTHUMB; pic.height = LTHUMB; pic.setAttribute("aria-hidden", "true");
       nm.className = "layer-chip-name"; nm.textContent = "＋ " + L.g;
       b.append(pic, nm);
-      if (layerThumbs.has(L.g)) layerCellPaint(b);
+      if (layerThumbs.has(L.g) || thumbBaked("layers", L.g) >= 0) layerCellPaint(b);
       const line = about(L)[1];
       b.title = line + ". Click to turn on " + L.g + " and show its controls.";
       // pointing at a cell says what it does and PLAYS it (its frames, looping, until the pointer leaves)
@@ -4949,13 +5396,7 @@ function presetMatches(name, q) {
 // cached by the lock's colors (presetThumbKey): the switch, a palette edit or another app's edit draws them again. Off
 // (or no game palette) the key is the name alone and the picture is exactly what it always was.
 function presetThumbKey(name) { const k = gamePalThumbKey(); return k ? name + "|" + k : name; }
-function presetThumbOf(st) {
-  return withState(st, () => {
-    const prep = renderPrep(state, { size: PTHUMB, fit: true });
-    const at = Math.min(prep.n - 1, Math.round(prep.n * 0.4));
-    return renderOneFrame(prep, state.reverse ? prep.n - 1 - at : at, null).toDataURL("image/png");
-  });
-}
+function presetThumbOf(st) { return presetStillCanvas(st).toDataURL("image/png"); }
 function presetThumbURL(name) {
   const key = presetThumbKey(name);
   if (presetThumbs.has(key)) return presetThumbs.get(key);
@@ -4968,8 +5409,10 @@ function presetThumbURL(name) {
 function presetThumbWant(cell) {
   const img = cell.querySelector("img");
   if (!img || img.getAttribute("src")) return;
-  const key = presetThumbKey(cell.dataset.name);
-  if (presetThumbs.has(key)) { const u = presetThumbs.get(key); if (u) img.src = u; return; }
+  const name = cell.dataset.name, key = presetThumbKey(name);
+  // VFX 1.3: a baked picture (and no game palette recoloring it) is its cell of the sheet, at once and with no render
+  if (key === name && thumbShowBaked(img, "presets", name)) return;
+  if (presetThumbs.has(key)) { const u = presetThumbs.get(key); if (u) thumbShowLive(img, u); return; }
   if (thumbQueue.indexOf(cell) < 0) thumbQueue.push(cell);
 }
 function pumpPresetThumbs() {
@@ -4978,7 +5421,7 @@ function pumpPresetThumbs() {
   if (!cell) return;
   if (cell.isConnected) {
     const url = presetThumbURL(cell.dataset.name), img = cell.querySelector("img");
-    if (url && img) img.src = url;
+    if (url && img) thumbShowLive(img, url);
   }
   if (thumbQueue.length) thumbTimer = setTimeout(pumpPresetThumbs, 15);
 }
@@ -5234,7 +5677,10 @@ function buildPresetStrip() {
     // names that carry the words come first, then the aliases' presets in the order the alias lists them (so
     // "fireball" opens on Meteor Hit)
     const rank = (n) => {
-      if (q.split(/\s+/).every((w) => (n + " " + (PRESET_CAT_OF[n] || "")).toLowerCase().indexOf(w) >= 0)) return -1;
+      const hay = (n + " " + (PRESET_CAT_OF[n] || "")).toLowerCase(), ws = q.split(/\s+/).filter(Boolean);
+      // vfx3d-preview (the persona round): a word that STARTS a word ("rain" in "Rain", not in "Soul Drain") ranks first
+      if (ws.every((w) => new RegExp("(^|[^a-z0-9])" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(hay))) return -2;
+      if (ws.every((w) => hay.indexOf(w) >= 0)) return -1;
       let at = 999;
       for (const w of q.split(/\s+/).filter(Boolean)) {
         const r = searchWordReach(w);
@@ -5424,7 +5870,7 @@ function renderMyEffects() {
     el.className = "up-item";
     el.innerHTML =
       '<img class="up-thumb" alt="" title="Load into the editor">' +
-      '<input class="up-name" spellcheck="false">' +
+      '<input class="up-name" spellcheck="false" aria-label="Effect name">' +
       '<button class="up-use pxonly" title="Load into the editor" aria-label="Load into the editor" data-icon="edit"></button>' +
       '<button class="up-del" title="Delete">✕</button>';
     iconsIn(el);
@@ -6830,11 +7276,15 @@ function godotSceneFiles(info, files) {
     "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n" + varietyProps(info) + "\n" +
     '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\n' + off +
     (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "") +
-    (T ? '\n[node name="Text" type="Node2D" parent="."]\nscript = ExtResource("4")\ntext = ' + JSON.stringify(T.word) + '\nglyphs = ExtResource("5")\nchars = ' + JSON.stringify(T.chars) +
-      "\nwidths = PackedInt32Array(" + T.widths.join(", ") + ")\ncell = Vector2i(" + T.cell[0] + ", " + T.cell[1] + ")\ncell_origin = Vector2(" + T.origin[0] + ", " + T.origin[1] + ")\npx = " + T.px +
-      "\nscales = PackedInt32Array(" + T.scales.join(", ") + ")\ncenters = PackedFloat32Array(" + T.centers.join(", ") + ")\n" : "");
+    (T ? '\n[node name="Text" type="Node2D" parent="."]\nscript = ExtResource("4")\n' + textNodeProps(T) : "");
   const enc = new TextEncoder();
   return [{ name: info.base + ".gd", data: enc.encode(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT) }, { name: info.base + ".tscn", data: enc.encode(tscn) }];
+}
+// the Text node's settings in a scene (§53; the 3D scene's Text node takes the same, §61)
+function textNodeProps(T) {
+  return "text = " + JSON.stringify(T.word) + '\nglyphs = ExtResource("5")\nchars = ' + JSON.stringify(T.chars) +
+    "\nwidths = PackedInt32Array(" + T.widths.join(", ") + ")\ncell = Vector2i(" + T.cell[0] + ", " + T.cell[1] + ")\ncell_origin = Vector2(" + T.origin[0] + ", " + T.origin[1] + ")\npx = " + T.px +
+    "\nscales = PackedInt32Array(" + T.scales.join(", ") + ")\ncenters = PackedFloat32Array(" + T.centers.join(", ") + ")\n";
 }
 // ---------- §53 RUNTIME TEXT for Godot (AJ, 2026-11-05: a baked "-12" is no use; "exporting it in a way the user can
 // programmatically alter the number being shown is the only way to make it particularly useful") ----------
@@ -7074,7 +7524,7 @@ function godotReadme(infos) {
     "  variety_seed    0      different every run; any other number replays the same sequence (set it",
     "                         before add_child). `variation` says which baked one the latest play picked.",
     "",
-  ] : []).concat([
+  ] : []).concat(infos.some((i) => i.d3) ? fx3dReadme(infos) : []).concat([   // vfx3d-export: §61's 3D part, only with a 3D scene
     "FILES (per effect)",
     "  <name>.tscn  the scene        <name>.gd   its script",
     "  <name>.tres  SpriteFrames for an AnimatedSprite2D (frames, fps, loop)",
@@ -7085,11 +7535,130 @@ function godotReadme(infos) {
   for (const i of infos) {
     L.push("  " + dir(i) + i.base + ".tscn  " + i.frames + " frames at " + i.fps + " fps, " +
       (i.loop ? "loops (impact on frame " + i.impact + " every time round; never freed)" : "one-shot, impact on frame " + i.impact + ", then finished and freed") +
-      (i.stream ? "; sound on frame " + i.sound : "") + (i.variety ? "; varies each play: " + varietyWords(i.variety, i.anims) : ""));
+      (i.stream ? "; sound on frame " + i.sound : "") + (i.variety ? "; varies each play: " + varietyWords(i.variety, i.anims) : "") +
+      (i.d3 ? "; in 3D (" + i.base + "_3d.tscn) it " + FX3D_STAND_SAY[i.d3.stand] : ""));   // vfx3d-export
   }
   L.push("", "Made with CrunchyVFX. CC0: use it in anything, no credit needed.", "");
   return { name: "README.txt", data: new TextEncoder().encode(L.join("\n")) };
 }
+// <vfx3d-export>
+// §61: an effect's emissive masks as plain pixel data ({ w, h, data }: what fx3d.js reads), the mask canvases released.
+function fx3dMasksOf(canvases, st) {
+  return emissiveFrames(canvases, st).map((cv) => {
+    const m = { w: cv.width, h: cv.height, data: cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data };
+    releaseCanvas(cv);
+    return m;
+  });
+}
+// §61 (1.3.1): an effect's own frames as plain pixel data (Light "always" takes its color from them)
+function fx3dFramesOf(canvases) {
+  return canvases.map((cv) => ({ w: cv.width, h: cv.height, data: cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data }));
+}
+// The light of an effect as fx3d.js measures it: masks, and the frames when Light is "always"
+function fx3dLightOf(st, r, name, loop) {
+  return fx3dLight(st, fx3dMasksOf(r.canvases, st), r.fps,
+    { frames: Math.round(st.d3Light) === 2 ? fx3dFramesOf(r.canvases) : null, name: name, loop: loop });
+}
+// What the editor's effect measures in 3D (stand, size, light), kept for the render and the 3D rows it was asked for:
+// the panel's note, the Size readout and the Export dialog all read it, so each render measures once.
+var fx3dMeasured = { key: null, m: null };
+function fx3dMeasureNow(withLight) {
+  if (!rendered) return null;
+  const key = [Math.round(state.d3Stand), state.d3Size, Math.round(state.d3Light), state.d3LightPower, effectLabel].join("|");
+  let m = fx3dMeasured.r === rendered && fx3dMeasured.key === key ? fx3dMeasured.m : null;
+  if (!m) {
+    const masks = fx3dMasksOf(rendered.canvases, state), bounds = fx3dBounds(masks);
+    m = { masks: masks, bounds: bounds, stand: fx3dStand(state, effectLabel), size: fx3dSize(state, bounds, effectLabel),
+          mpp: fx3dMetersPerPixel(state, bounds, effectLabel), light: null };
+    fx3dMeasured = { r: rendered, key: key, m: m };
+  }
+  if (withLight && !m.light) m.light = m.stand === "screen" ? { on: false, energies: [] } :
+    fx3dLight(state, m.masks, rendered.fps, { frames: Math.round(state.d3Light) === 2 ? fx3dFramesOf(rendered.canvases) : null, name: effectLabel });
+  return m;
+}
+// The Size row reads "Auto (1.9 m)" while it is auto (0), the size auto chose; a typed size reads as itself
+function fx3dSizeReadout(m) {
+  const num = numInputs.d3Size, row = paramRows.d3Size, unit = row && row.querySelector(".row-unit");
+  if (!num || !unit || !m) return;
+  if (!(state.d3Size > 0)) {
+    if (document.activeElement !== num) num.value = "";
+    num.placeholder = "auto";
+    unit.textContent = "Auto (" + m.size.m.toFixed(1) + " m)";
+  } else { num.placeholder = ""; unit.textContent = "m"; }
+}
+// THE 3D PANEL'S NOTE (§61.1): what auto decided, in words, under the four rows. The light is measured only while the
+// panel is open (it reads every frame), a moment after the last edit. Also: Light power greys out with no light, and a
+// stale "Exported <name>" under the Export button clears once another effect is loaded.
+var fx3dNoteEl = null, fx3dNoteTimer = 0;
+function fx3dPanelNote() {
+  const panel = document.querySelector('#panels .panel[data-group="3D"]');
+  try { if (/^Exported /.test(msg.textContent) && msg.textContent !== "Exported " + sanitize(exportNameNow())) msg.textContent = ""; } catch (e) { /* booting */ }
+  if (!panel || !rendered) return;
+  if (!fx3dNoteEl) {
+    fx3dNoteEl = document.createElement("p");
+    fx3dNoteEl.className = "hint fx3d-note";
+    fx3dNoteEl.id = "fx3dNote";
+    panel.appendChild(fx3dNoteEl);
+  }
+  clearTimeout(fx3dNoteTimer);
+  fx3dNoteTimer = setTimeout(() => {
+    const open = !panel.classList.contains("collapsed"), m = fx3dMeasureNow(open), sd = m.stand;
+    fx3dSizeReadout(m);
+    const auto = !(Math.round(state.d3Stand) > 0);
+    const bits = ["In 3D it " + FX3D_STAND_SAY[sd] + (auto ? " (auto)" : "") + "."];
+    if (sd !== "screen") {
+      bits.push("What it draws is " + m.size.m.toFixed(2) + " m at its longest" + (m.size.auto ? " (auto, for how it stands; set Size to choose)." : "."));
+      if (open) {
+        const L = m.light, lightRow = paramRows.d3LightPower;
+        for (const el of [inputs.d3LightPower, numInputs.d3LightPower]) if (el) el.disabled = !L.on;
+        if (lightRow) lightRow.classList.toggle("fx3d-off", !L.on);
+        if (L.on) {
+          const c = L.color.map((v) => Math.round(v * 255)), at = L.energies.indexOf(Math.max.apply(null, L.energies));
+          bits.push('Its light: <i class="fx3d-sw" style="background:rgb(' + c.join(",") + ')"></i>' + (Math.round(state.d3Light) === 2 ? " its own color," : "") +
+            " at its brightest on frame " + at + ", reaching " + L.range.toFixed(1) + " m" + (L.loop ? " (a loop: gentle and steady)." : "."));
+        } else bits.push(Math.round(state.d3Light) === 1 ? "No light (off)." : "No light: nothing in it glows" +
+          (state.glow > 0 ? " (Glow thresh, in the Glow panel, decides what glows)" : "") + ". Set Light to \u201cAlways\u201d to light it in its own color.");
+      }
+    }
+    bits.push("Export it with Godot 4 and \u201c3D scene too\u201d.");
+    fx3dNoteEl.innerHTML = bits.join(" ");
+  }, 200);
+}
+// §61.2 "3D scene too" (Godot): <base>_3d.tscn + <base>_3d.gd (+ <base>_text_3d.gd for a text effect) + <base>_3d.json,
+// beside the 2D scene and on its SAME SpriteFrames .tres. `info`: the 2D scene's (godotSceneInfo, with its Text node);
+// `label`: the effect's name, for the auto stand. Sets info.d3 for the README's 3D part.
+async function godot3dFiles(info, files, o, C, label) {
+  const st = C.st, mult = o.scales.indexOf(1) >= 0 ? 1 : o.scales[0], stand = fx3dStand(st, label);
+  const masks = fx3dMasksOf(C.r.canvases, st), T = info.text, bounds = fx3dBounds(masks);
+  const lopt = (c) => ({ frames: Math.round(c.st.d3Light) === 2 ? fx3dFramesOf(c.r.canvases) : null, name: label, loop: info.loop });
+  const p = {
+    base: info.base, name: info.name, tres: T ? info.base + "_fx.tres" : info.tres, stream: info.stream, stand: stand,
+    mpp: fx3dMetersPerPixel(st, bounds, label), mult: mult, w: C.r.w, h: C.r.h, origin: effectOriginPx(C), bounds: bounds,
+    depth: stand === "flat" ? fx3dFlatDepth(st) : 1, alpha: fx3dAlphaMode(masks), light: stand === "screen" ? null : fx3dLight(st, masks, C.r.fps, lopt(C)),
+    impact: info.impact, sound: info.sound, varietyProps: varietyProps(info), offset2d: info.offset,
+    sheet: info.tres.replace(/\.tres$/, ".png"), frames: info.frames, fps: info.fps, loop: info.loop, text: T ? textNodeProps(T) : null,
+  };
+  // §39 baked variations: each animation's own light curve, one after another, and where each starts
+  if (info.anims && p.light && p.light.on) {
+    const VC = varietyCtxs(C) || [C], all = [], starts = [];
+    VC.forEach((c, i) => {
+      starts.push(all.length);
+      const e = i === 0 ? p.light.energies : fx3dLight(c.st, fx3dMasksOf(c.r.canvases, c.st), c.r.fps, lopt(c)).energies;
+      for (const v of e) all.push(v);
+    });
+    p.energies = all; p.energyStarts = starts;
+  }
+  const src = stand === "screen" ? fx3dScreenScript(info.base) : fx3dScript(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT, info.base);
+  const enc = new TextEncoder(), out = [
+    { name: info.base + "_3d.gd", data: enc.encode(src) },
+    { name: info.base + "_3d.tscn", data: enc.encode(fx3dTscn(p)) },
+  ];
+  if (T && stand !== "screen") out.push({ name: info.base + "_text_3d.gd", data: enc.encode(fx3dTextScript(TEXT_SCENE_SCRIPT)) });
+  out.push({ name: info.base + "_3d.json", data: enc.encode(fx3dJson(p)) });
+  info.d3 = { stand: stand, light: !!(p.light && p.light.on) };
+  return out;
+}
+// </vfx3d-export>
 // The Export dialog's files AND, for a Godot sheet, the ready scene (+ README.txt unless `o.readme === false`). Every
 // export a person makes goes through here; buildExportFiles stays the sheet and its metadata (the frame hash's EXPORT
 // lines hash exactly that). Returns { files, base, scene } (`scene`: godotSceneInfo, for a pack's one README).
@@ -7104,6 +7673,9 @@ async function buildExportBundle(onProgress, o) {
     if (sc.length) {
       out.scene = info;
       for (const f of sc) out.files.push(f);
+      // <vfx3d-export> §61.2: "3D scene too" (off: nothing here runs, every byte as before)
+      if (o.d3) for (const f of await godot3dFiles(info, out.files, o, C, o.label !== undefined ? o.label : o.ctx ? null : effectLabel)) out.files.push(f);
+      // </vfx3d-export>
       if (o.readme !== false) out.files.push(godotReadme([info]));
     }
   }
@@ -7161,6 +7733,12 @@ expModal.innerHTML =
           '<span class="exp-vy-strip" id="vyStrip"></span>' +
           '<span class="exp-vy-note" id="vyNote"></span>' +
         '</div></div></div>' +
+      // <vfx3d-export> §61.2: the 3D scene, beside the 2D one (Godot 4 chosen only); off by default, remembered
+      '<div class="exp-row" id="exp3dRow" data-only="sheet"><span>3D</span><span class="exp-3d"><label class="exp-chk" title="A second ready scene that stands the same sprite frames in a 3D game, with a light that follows the frames">' +
+        '<input type="checkbox" id="exp3d"> 3D scene too (for a 3D game: the same frames, lit)</label>' +
+        // 1.3.1: shown (disabled) with other metadata when 3D is in play, with the one click that makes it possible
+        '<button type="button" id="exp3dGodot" data-icon="swap" hidden title="3D scenes are written for Godot 4: switch Metadata to it">Use Godot 4</button></span></div>' +
+      // </vfx3d-export>
       // A Unity user scanning this list needs to know the omission is a decision, not an
       // oversight — otherwise they go looking for the option that isn't there.
       '<div class="exp-row exp-note-row" data-only="sheet"><span></span>' +
@@ -7202,6 +7780,8 @@ const expEmis = expModal.querySelector("#expEmis");
 const expSound = expModal.querySelector("#expSound");
 const expSoundRow = expModal.querySelector("#expSoundRow");
 const expPot = expModal.querySelector("#expPot");
+const exp3d = expModal.querySelector("#exp3d");   // vfx3d-export
+const exp3dGodot = expModal.querySelector("#exp3dGodot");   // vfx3d-export (1.3.1)
 const expMsg = expModal.querySelector("#expMsg");
 const expNote = expModal.querySelector("#expNote");
 // §39 VARIETY: the dialog's controls write the effect's own `variety` (a PATCH_EXTRA: undo, links, My Effects and the
@@ -7296,6 +7876,11 @@ function refreshExpInfo() {
   const fmt = expFormat.value;
   for (const el of expModal.querySelectorAll("[data-only]")) el.hidden = el.dataset.only !== fmt;
   expModal.querySelector("#expVariety").hidden = fmt !== "sheet" || expMetaSel.value !== "godot";   // §39: Godot's scene only
+  // vfx3d-export: §61, Godot's scene; 1.3.1: with other metadata too while 3D is in play (the 3D view open, or a 3D row
+  // set), the box greyed and "Use Godot 4" beside it
+  { const godot = expMetaSel.value === "godot", in3d = fx3dInPlay();
+    expModal.querySelector("#exp3dRow").hidden = fmt !== "sheet" || (!godot && !in3d);
+    exp3d.disabled = !godot; exp3dGodot.hidden = godot; }
   // the Unity note is for someone choosing generic metadata (or none), not for a Godot, Aseprite or Phaser choice (§25)
   const unityNote = expModal.querySelector(".exp-note-row");
   if (unityNote) unityNote.hidden = fmt !== "sheet" || ["godot", "aseprite", "phaser"].indexOf(expMetaSel.value) >= 0;
@@ -7382,6 +7967,16 @@ function refreshExpInfo() {
               (expTrim.checked
                 ? "Trimmed cells carry an AtlasTexture <b>margin</b>, so they line up in-engine exactly as if untrimmed."
                 : "Verified against Godot 4.7 for grid, strip and trimmed sheets."));
+    // <vfx3d-export> §61: what the 3D scene will be, as it will be exported (1.3.1: the light only when there is one)
+    if (exp3d.checked) {
+      const m = fx3dMeasureNow(true), sd = m.stand, L = m.light, always = Math.round(state.d3Light) === 2;
+      bits.push("<b>3D scene too:</b> <code>" + esc(sanitize(exportNameNow())) + "_3d.tscn</code> uses the same SpriteFrames; it " + FX3D_STAND_SAY[sd] +
+        (sd === "screen" ? "" : ", " + m.size.m.toFixed(2) + " m at its longest, " +
+          (L && L.on ? (always ? "with a light in its own color that follows what it draws" : "with a light that follows its glow") : "no light (nothing in it glows)")) +
+        "." + (loopFor(expPlay.value) ? " A loop emits <b>impact</b> each time round." : "") +
+        " Set how it stands, its size and its light in the 3D panel. A <code>_3d.json</code> says the same for other engines.");
+    }
+    // </vfx3d-export>
     // §53: a text effect's words are the game's
     if (textStampOf(state)) bits.push("<b>Its words are yours:</b> the scene's <b>Text</b> node draws any number or word in this effect's pixel font and animation: " +
       "<code>fx.get_node(\"Text\").text = str(-damage)</code>, or through a game moment, <code>$Hit.play_at(enemy, -damage)</code>. The sheet keeps \"" + esc(state.pixText || "-12") + "\".");
@@ -7401,6 +7996,25 @@ function saveExpPref() {
   try { localStorage.setItem(EXP_PREF, JSON.stringify(currentPipelineSettings())); } catch (e) { /* best-effort */ }
 }
 for (const el of [expFormat, expLayout, expMetaSel, expPlay, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", saveExpPref);
+exp3d.addEventListener("change", () => { fx3dExpSet(); refreshExpInfo(); saveExpPref(); });   // vfx3d-export
+// <vfx3d-export> 1.3.1: is 3D in play (the stage's 3D view open, or any 3D row moved off auto)? And has this person ever
+// set the option themselves? (crunchyvfx.export3d.v1, a new key: "set" once they have.) Opening Export from the 3D view
+// before they ever have starts it ticked; after that the remembered choice holds.
+function fx3dInPlay() {
+  return !!(typeof r3v !== "undefined" && r3v.open) || PARAMS.some((p) => p[7] === "3D" && state[p[0]] !== p[5]);
+}
+const FX3D_EXP_SET = "crunchyvfx.export3d.v1";
+function fx3dExpSet() { try { localStorage.setItem(FX3D_EXP_SET, "set"); } catch (e) { /* private mode */ } }
+function fx3dExpWasSet() { try { return localStorage.getItem(FX3D_EXP_SET) === "set"; } catch (e) { return true; } }
+exp3dGodot.addEventListener("click", () => {
+  expMetaSel.value = "godot";
+  if (!fx3dExpWasSet()) exp3d.checked = true;
+  refreshExpInfo(); saveExpPref();
+});
+document.getElementById("expOpen").addEventListener("click", () => {   // runs after the dialog's own opening (added later)
+  if (typeof r3v !== "undefined" && r3v.open && !fx3dExpWasSet() && !exp3d.checked) { exp3d.checked = true; refreshExpInfo(); }
+});
+// </vfx3d-export>
 for (const s of EXPORT_SCALES) expScaleBoxes[s].addEventListener("change", saveExpPref);
 try {
   const d = JSON.parse(localStorage.getItem(EXP_PREF) || "null");
@@ -7440,9 +8054,11 @@ expModal.addEventListener("click", (e) => { if (e.target === expModal) expModal.
 // `o` (optional; §18) overrides the dialog: { base, format, layout, meta, trim, pot, emissive, sound, scales, ctx }. The
 // planted Library passes its saved settings and a context; the Export button passes nothing and reads the dialog.
 function exportSettingsNow() {
-  return { format: expFormat.value, layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked,
+  const e = { format: expFormat.value, layout: expLayout.value, meta: expMetaSel.value, trim: expTrim.checked,
            pot: expPot.checked, emissive: expEmis.checked, sound: expSound.checked, scales: chosenScales(),
            playback: expPlay.value };
+  if (exp3d.checked && e.meta === "godot") e.d3 = true;   // vfx3d-export: §61, written only when on (off: the same settings as ever)
+  return e;
 }
 async function buildExportFiles(onProgress, o) {
   o = Object.assign(exportSettingsNow(), o || {});
@@ -7599,7 +8215,7 @@ function savePipelines() {
 // The settings a pipeline captures. Deliberately only export options — never the effect itself,
 // because a pipeline is "how this project ships assets", not "what this asset looks like".
 function currentPipelineSettings() {
-  return {
+  const o = {
     format: expFormat.value,
     layout: expLayout.value,
     meta: expMetaSel.value,
@@ -7610,6 +8226,8 @@ function currentPipelineSettings() {
     scales: chosenScales(),
     playback: expPlay.value,
   };
+  if (exp3d.checked) o.d3 = true;   // vfx3d-export: §61, only when on
+  return o;
 }
 function applyPipelineSettings(s) {
   if (!s) return;
@@ -7618,6 +8236,7 @@ function applyPipelineSettings(s) {
   expEmis.checked = !!s.emissive; expSound.checked = s.sound !== false;
   expPlay.value = s.playback === "loop" || s.playback === "once" ? s.playback : "auto";
   for (const k of EXPORT_SCALES) expScaleBoxes[k].checked = (s.scales || [1]).indexOf(k) >= 0;
+  exp3d.checked = !!s.d3;   // vfx3d-export
   refreshExpInfo();
 }
 
@@ -7690,6 +8309,7 @@ async function batchExport(which, opts) {
         if (textStampOf(PC.st) && mine.some((x) => x.name === info.tres)) for (const f of await godotTextFiles(info, PC, 1)) mine.push(f);   // §53
         const sc = godotSceneFiles(info, mine);
         if (sc.length) { scenes.push(info); for (const f of sc) mine.push(f); }
+        if (sc.length && exp3d.checked) { exp.d3 = true; for (const f of await godot3dFiles(info, mine, exp, PC, name)) mine.push(f); }   // vfx3d-export: §61
       }
       mine.push(effectSidecarFile(base, name, Object.assign(effectFields(name, exp), { base: base }), mine));
       for (const f of mine) files.push({ name: base + "/" + f.name, data: f.data });
@@ -8035,6 +8655,7 @@ function decodePatch(str) {
 // exactly what happened when Layer B arrived with three of them.
 const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather", "pixBlobs"]);   // §49: a child keeps its blobs (off with no stroke is nothing)   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2" || p[8] === "pshape") BREED_SKIP.add(p[0]);
+for (const p of PARAMS) if (p[7] === "3D") BREED_SKIP.add(p[0]);   // vfx3d-export: a sibling stands as its parent does (and no 2D roll moves)
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Which groups are actually IN PLAY for a given effect. Two kinds of irrelevance:
@@ -8132,7 +8753,7 @@ function mutateGenome(src, amount, opts) {
 }
 function crossGenome(a, b) {
   const g = {};
-  for (const p of PARAMS) g[p[0]] = Math.random() < 0.5 ? a[p[0]] : b[p[0]];
+  for (const p of PARAMS) g[p[0]] = p[7] === "3D" ? a[p[0]] : Math.random() < 0.5 ? a[p[0]] : b[p[0]];   // vfx3d-export: no draw for the 3D rows
   for (const k in PATCH_EXTRAS) g[k] = Math.random() < 0.5 ? a[k] : b[k];
   return g;
 }
@@ -8784,7 +9405,7 @@ async function variationFiles(genomes, base, onEach) {
     const st = fullGenome(genomes[i]);
     const r = renderFrames(st, { fit: fitOn });
     const C = { st: st, r: r, fit: fitOn, ref: NO_REF, synth: null, link: null, soundFrame: 0 };
-    const out = await buildExportBundle(null, Object.assign({}, exp, { base: nn, ctx: C, readme: false }));
+    const out = await buildExportBundle(null, Object.assign({}, exp, { base: nn, ctx: C, readme: false, label: effectLabel }));   // vfx3d-export: label, the auto stand
     if (out.scene) scenes.push(out.scene);
     // each variation's sidecar beside its files, at the zip's root (§18)
     out.files.push(effectSidecarFile(nn, nn, effectFields(nn, exp, C), out.files));
@@ -9613,6 +10234,12 @@ function wizardOpen() { wizardLookEra(); wizModal.hidden = false; wizardDraw(); 
 function wizardClose() { wizardStop(); wizModal.hidden = true; }
 // The picture on a question's card: a preset's strip picture (cached), so a card shows the kind of thing it means.
 function wizardCardPic(name) {
+  // baked (VFX 1.3): its cell of the sheet on a canvas (a card shows the picture at 48 px, which a cell of an <img> can't)
+  if (name && presetThumbKey(name) === name && thumbBaked("presets", name) >= 0) {
+    const cv = wizEl("canvas", "wiz-cpic");
+    cv.width = cv.height = PTHUMB;
+    if (thumbDrawBaked(cv, "presets", name)) return cv;
+  }
   const img = wizEl("img", "wiz-cpic");
   img.alt = ""; img.width = img.height = PTHUMB;
   const url = name ? presetThumbURL(name) : "";
@@ -9956,7 +10583,7 @@ function renderUserCats() {
     const el = document.createElement("div");
     el.className = "uc-cat";
     el.dataset.catId = cat.id;
-    el.innerHTML = '<div class="uc-head"><input class="uc-name" spellcheck="false">' +
+    el.innerHTML = '<div class="uc-head"><input class="uc-name" spellcheck="false" aria-label="Category name">' +
       '<span class="hint uc-count"></span><button class="uc-del" title="Delete this category">✕</button></div>' +
       '<div class="uc-items"></div>';
     const nameEl = el.querySelector(".uc-name");
@@ -10505,7 +11132,7 @@ makeCollapsible(document.getElementById("styleSection"),
 // "p:<group>", so the key keeps its shape and the desktop suite's pinned set of keys is unchanged). The essentials are
 // open the first time (Quick shape, Particle shape, Palette, Era style, Duration, the particle panels and every layer you
 // turn on); the long, set-once ones start folded.
-const PANEL_FOLDED = ["Master", "Crunch"];
+const PANEL_FOLDED = ["Master", "Crunch", "3D"];   // vfx3d-export: "3D" is set once, folded
 // THE ORDER: what every effect has comes first — Output (Duration), Master and Crunch, which used to sit after every
 // layer panel at the bottom of the page — then the particles (Emitter, Motion, Life, Color, the selected shapes' own
 // panels), then "Add a layer" and the layers that are on. Within a band the PARAMS order holds.
@@ -10523,7 +11150,7 @@ function orderPanels() {
   const layer = (el) => LAYER_GROUPS.some((L) => L.g === el.dataset.group);
   const band = (el) => PANEL_TOP.indexOf(el.dataset.group) >= 0 ? PANEL_TOP.indexOf(el.dataset.group)
     : PANEL_PARTICLES.indexOf(el.dataset.group) >= 0 ? 10 + PANEL_PARTICLES.indexOf(el.dataset.group)
-    : layer(el) ? 40 : 20;
+    : layer(el) ? 40 : el.dataset.group === "3D" ? 30 : 20;   // vfx3d-export: the 3D panel after every panel an effect has
   const sorted = all.map((el, i) => ({ el, i, b: band(el) })).sort((a, b) => a.b - b.b || a.i - b.i);
   // (AJ, 2026-10-25: the layer strip heads the whole editor now, "what goes into it" first; the layers' own panels keep
   // their place after the panels every effect has, under their own heading)
@@ -10817,6 +11444,29 @@ const TUTORIALS = [
           + "effect you've saved, so changing your mind about sizes isn't fifty dialogs." },
     ],
   },
+  // <vfx3d-preview> §61.3: the room, the 3D rows under it, the camera, and the way into Godot
+  {
+    id: "in3d", name: "Effects in 3D",
+    blurb: "See it standing in a room, lit by its own light, and take it into a 3D game.",
+    steps: [
+      { target: "#viewTabs", before: () => { closeAll(); r3vSet("2d"); }, title: "Your effect, in a room",
+        body: "3D stands the same frames in a small room drawn with CrunchyTexture's textures, lit by the effect's own "
+          + "light, exactly as the Godot 3D scene stands it. Nothing about the 2D effect changes." },
+      { target: "#r3vCv", before: () => { closeAll(); r3vSet("3d"); }, title: "Look round it",
+        body: "Drag to turn round it; the mouse wheel or a pinch zooms. Eye height puts the camera where a player's eyes "
+          + "are, for a first-person game. Pick a room to see it against stone, grass, metal or wood." },
+      { target: "#r3vSet", before: () => { closeAll(); r3vSet("3d"); }, title: "Stand, size and light",
+        body: "Stand says whether it faces the camera, stays upright, lies flat on the ground or covers the screen. Size "
+          + "is its frame in meters, and Light is the glow it throws on the room as it plays. Auto picks all three from "
+          + "the effect; More 3D settings opens the same rows in the editor." },
+      { target: "#expOpen", before: () => { closeAll(); r3vSet("3d"); }, title: "Into a 3D game",
+        body: "In Export, choose Godot 4 and switch on the 3D scene: it is written beside the 2D one, on the same "
+          + "frames, with this stand, size and light baked in." },
+      { target: "#viewTabs", before: () => { closeAll(); r3vSet("2d"); }, title: "Back to 2D any time",
+        body: "Both views play the same frames. The room remembers itself, so 3D opens again next time if you left it open." },
+    ],
+  },
+  // </vfx3d-preview>
 ];
 // Desktop-only, so it is listed only where it exists rather than spotlighting a hidden button.
 if (isDesktop) {
@@ -11062,7 +11712,7 @@ function expOf(f) {
 function expSummary(e) {
   const names = { godot: "Godot scene + SpriteFrames", generic: "Generic JSON", aseprite: "Aseprite JSON", phaser: "Phaser atlas", none: "no metadata" };
   return ["sheet", names[e.meta] || e.meta, e.trim ? "trimmed" : null, e.layout === "row" ? "strip" : e.layout === "col" ? "column" : null,
-          e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.playback === "loop" ? "loops" : e.playback === "once" ? "plays once" : null,
+          e.pot ? "pow2" : null, e.emissive ? "+ emissive" : null, e.d3 ? "+ 3D scene" : null, e.playback === "loop" ? "loops" : e.playback === "once" ? "plays once" : null,
           e.scales.join("×, ") + "×"].filter(Boolean).join(" · ");
 }
 // The full state a share string reopens (applyPreset's reset-then-overlay, without touching the editor).
@@ -11107,7 +11757,7 @@ async function exportFor(f, C) {
   if (l) sceneSound = project && project.engine === "godot" && await plantLinkState(project, l) === "ok" ? "res://" + plantLinkPath(project, l) : null;
   const ctx = Object.assign({}, C, { soundFrame: f.soundFrame | 0 });
   const out = await buildExportBundle(null, Object.assign({ format: "sheet" }, expOf(f),
-    { base: f.base, ctx: ctx, sceneSound: sceneSound }));
+    { base: f.base, ctx: ctx, sceneSound: sceneSound, label: f.exportName || (decodePatch(f.s) || {}).n || null }));   // vfx3d-export: label, the auto stand
   const files = out.files.map((x) => ({ path: x.name, data: x.data }));
   return { files: files, info: { frames: C.r.canvases.length, w: C.r.w, h: C.r.h, fps: C.r.fps }, thumb: plantThumb(C.r) };
 }
@@ -11316,24 +11966,32 @@ let projCheckRun = 0;
 const CHECKED_KEY = "crunchyvfx.checked.v1";
 function projCheckedMap() { try { return JSON.parse(localStorage.getItem(CHECKED_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function projCheckedId(a) { return (project ? project.dir : "") + "|" + a.slug; }
+// (1.3, AJ's launch chug: a game with 68 effects from an older version rendered every one of them again on EVERY open,
+// ~340 ms each in WebKit, because only "current" was remembered. Now "changed" is remembered too (`|changed`), so its badge
+// stays without a render until this version, its sidecar's hash or anything below changes.)
 function projChecked(a, yes) {
   try {
     const m = projCheckedMap(), id = projCheckedId(a), v = APP_VERSION + "|" + (a.data.hash || "");
-    if (yes) m[id] = v; else delete m[id];
+    m[id] = yes ? v : v + "|changed";
     localStorage.setItem(CHECKED_KEY, JSON.stringify(m));
   } catch (e) { /* storage off: it is checked again next time, nothing worse */ }
 }
+// -> false (render it), "current" or "changed" (known without a render)
 function projCheckSkips(a) {
   if (a.data.pending || followInto(stateOfShare(a.data.s))) return false;
   // a linked CrunchySFX sound that is gone (or moved) changes the export too (its scene stops playing it)
   if (projLinkStates[a.slug] && projLinkStates[a.slug] !== "ok") return false;
-  return a.data.appVersion === APP_VERSION || projCheckedMap()[projCheckedId(a)] === APP_VERSION + "|" + (a.data.hash || "");
+  if (a.data.appVersion === APP_VERSION) return "current";
+  const memo = projCheckedMap()[projCheckedId(a)], v = APP_VERSION + "|" + (a.data.hash || "");
+  return memo === v ? "current" : memo === v + "|changed" ? "changed" : false;
 }
 async function projCheckOne(a) {
   const l = plantLinks(a)[0];
   if (l) projLinkStates[a.slug] = await plantLinkState(project, l); else delete projLinkStates[a.slug];
   if (a.data.ref) return;                                        // its reference image is not in the sidecar: never second-guessed
-  if (projCheckSkips(a)) { delete projUpdates[a.slug]; return; }
+  const known = projCheckSkips(a);
+  if (known === "current") { delete projUpdates[a.slug]; return false; }
+  if (known === "changed") { projUpdates[a.slug] = true; return false; }
   let made = null;
   try { made = await plantedRender(a.data); } catch (e) { return; }
   // compared over the files its sidecar lists: an effect planted before the combined scene (or a web zip adopted here)
@@ -11342,15 +12000,19 @@ async function projCheckOne(a) {
   const stale = plantNeedsUpdate(a, listed);
   if (stale) projUpdates[a.slug] = true; else delete projUpdates[a.slug];
   projChecked(a, !stale);
+  return true;                                                   // (it rendered: the loop gives the page a breath)
 }
 // one effect at a time, yielding between them, so the app stays responsive; returns when all are checked
+const PROJ_CHECK_GAP = 120;                                       // ms after each effect that had to be rendered
 function projCheckUpdates() {
   const run = ++projCheckRun, P = project, list = P ? P.assets.slice() : [];
   return (async function () {
+    let rendered = false;
     for (const a of list) {
-      await new Promise((r) => setTimeout(r, 0));
+      // (1.3) after a render, a real pause (a few frames for the page: clicks, the strip's pictures) before the next one
+      await new Promise((r) => setTimeout(r, rendered ? PROJ_CHECK_GAP : 0));
       if (run !== projCheckRun || project !== P) return;
-      await projCheckOne(a);
+      rendered = (await projCheckOne(a)) === true;
     }
     if (run === projCheckRun) library.refresh();
   })();
@@ -11581,7 +12243,7 @@ function gamePalThumbsSync() {
   gamePalStripKey = k;
   const host = document.getElementById("presets");
   if (!host) return;
-  for (const img of host.querySelectorAll(".pcell img")) img.removeAttribute("src");
+  for (const img of host.querySelectorAll(".pcell img")) thumbShowLive(img, "");
   thumbQueue = [];
   presetPageShow();
 }

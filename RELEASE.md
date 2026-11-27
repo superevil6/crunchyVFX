@@ -79,3 +79,10 @@ page (VFX-DESIGN §29): add the desktop's operating systems and offer when the l
   hand build; a local .deb builds a Flatpak that will not RUN (glibc).
 - The Flatpak runtime (GNOME 50 since 1.1.0; 46 is end of life) brokers the host's GPU drivers and PipeWire, which is why it works where the AppImage
   did not.
+
+## The suites receipt (2026-11-27)
+
+`./scripts/release.sh --suites` runs only the heavy browser and Godot suites on the tree as it is (uncommitted changes
+allowed: run it right after a merge) and, when all pass, keeps a receipt in `.git/crunchy-suites.receipt`: a sha256 of every
+file git would commit. `./scripts/release.sh X.Y.Z` on a tree that hashes the same skips those suites (the quick checks,
+version agreement, pull-core --strict and cargo check always run). Any changed byte runs them all again; `--full` always does.

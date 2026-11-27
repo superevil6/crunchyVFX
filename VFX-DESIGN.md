@@ -1178,7 +1178,8 @@ category; the chips (All plus the 14 `PRESET_CATEGORIES`, each with its count un
 by arrows like Tile's `chipPager`) narrow to one category, and clicking the chosen chip again shows everything. A cell
 keeps the old buttons' gestures: click loads, right-click files it in a category, drag drops it in one. The loaded effect
 is marked (`presetStripMark`, called by `applyPreset`).
-- **Pictures** are one frame ~40% in (`effectThumb`'s rule), rendered alone (`renderPrep` + `renderOneFrame` at 60 px,
+- **Pictures** (partly superseded by §63, VFX 1.3: the shipped presets' and layers' pictures are BAKED into
+  preset-thumbs.png and shown with no render; what follows still holds for every picture drawn live) are one frame ~40% in (`effectThumb`'s rule), rendered alone (`renderPrep` + `renderOneFrame` at 60 px,
   Fit on): an `<img>` of a data URL, cached by name. An `<img>` keeps its pixels while hidden, so WebKitGTK (which drops
   a hidden canvas's) never shows blank cells after paging back. They paint from an idle queue (`pumpPresetThumbs`, one
   per 15 ms), the visible page first and then the next, so the first screen is not held up by 189 renders.
@@ -2969,3 +2970,261 @@ CrunchyTexture bakes the Pixel Glint (and the Smoke Column, Dust Motes, Spores a
 - Results: engine 796/796 (at 1600 px wide; at 1200 the "one line at this width" row fails before and after alike); desktop 71/76
   and web 13/15, the same legacy-fixture failures as before; worker 61, plant 14, the CLI all pass (real Godot plays every scene),
   Godot check 19, scene 65, text 10; pull-core --check intact (trial copies until the core is committed).
+
+## 61. Effects in 3D (PLANNED 2026-11-26; VFX 1.3)
+
+AJ, after Item 1.2 and Texture's places: "with all the model work we've done for Texture, I'm wondering if 3D VFX are a valid
+avenue?" Then, of the spike: "those look fantastic honestly! Let's plan that round!"
+
+**The spike** (~/.cache/crunchy-wip/vfx-3d-spike/: spike.gd, vfx-3d-dungeon.mp4/.gif): six pixel presets made by the CLI with the
+ordinary 2D Godot export, played in CrunchyTexture's "flames" dungeon (places-godot.mjs, KEEP_PROJ=1) by an 84-line script. Godot's
+AnimatedSprite3D reads the 2D export's SpriteFrames .tres UNCHANGED, so no new art and no second sheet. What sold it was the LIGHT:
+an OmniLight3D per effect whose energy follows the frames (the explosion turns the room orange, the lightning flickers a wall blue).
+The geometry hides what is behind it (the ledge hides the explosion's foot). What each effect needed that the 2D export does not
+say: a SCALE (meters per pixel), a STANDING (face the camera, stay upright, lie flat), a LIGHT (color + curve), and its ORIGIN (the
+impact point: the 2D export's offset already is it). Weak spots: a flat disk (the portal) is thin from the side; sprites draw unlit,
+so a PS1 wobble shader does not touch them.
+
+**The rule: a 3D effect is the 2D effect standing in a room.** Same frames, same SpriteFrames, same script API (autoplay,
+free_when_done, `impact` / `finished`, play(), stop()), same sound (AudioStreamPlayer3D). 3D adds only placement and light. No
+GPUParticles3D re-simulation, no new renderer of the effect itself: that would be a second VFX and would drift from the first.
+
+### 61.1 What the effect says (PARAMS, appended, a "3D" group; defaults change NO 2D byte and no old link)
+- `d3Stand` (enum, append-only): **auto** (default) / faces you / upright / flat on the ground / on the screen.
+  - auto = `AUTO_STAND`, ONE table by preset name (+ a rule for custom effects from their system: ground systems flat, area weather
+    on the screen, the rest faces you). The engine suite asserts every shipped preset resolves.
+  - flat: Scorch Mark, Ground Crack, Cracks, Water Ripple, Summon Circle, Rune Circle, Summon Seal, Summon Grid, Pixel Lava Pool,
+    Pixel Burning Ground, Glass Web … (rings and marks on a floor).
+  - upright: fires, columns and portals (Campfire Smoke, Torch Flicker, Pixel Torch/Bonfire/Wall of Fire/Smoke Column, Heal Rise,
+    Pixel Heal, Portal, Pixel Portal, Pixel Dream Portal …): they keep their up when the camera looks down.
+  - on the screen: Camera & Light, Atmosphere, most Weather (a 3D game puts rain on the camera, not on one billboard). Exported as
+    a CanvasLayer scene: honest, and what a 3D game does with them.
+  - faces you: everything else (impacts, explosions, magic, pickups, emotes, numbers, status over a head).
+- `d3Size`: the effect's frame in meters (auto = 0.025 m per pixel, the spike's dungeon scale: a 64 px pickup ~1.6 m frame, its art
+  smaller). One number, so a Texture place and a Godot default scene agree.
+- `d3Light`: auto (default) / off; `d3LightPower` 0-2 (1). AUTO: from the frames' EMISSIVE pixels (index.html emissiveFrames, the
+  mask the sheet export already makes): per frame, energy = emissive coverage, normalized to the effect's peak; color = the mean of
+  the brightest emissive third; range from the frame's size. Smoke, blood, ink, dust: no emissive pixels, no light. Baked into the
+  scene as a PackedFloat32Array (one energy per frame), never computed in Godot.
+
+### 61.2 The Godot export (the Export dialog's Godot output, a "3D scene too" option, OFF by default)
+- `<base>_3d.tscn` + `<base>_3d.gd` beside the 2D files, pointing at the SAME `<base>.tres`:
+  Node3D (script) > AnimatedSprite3D "Sprite" (texture_filter NEAREST, alpha_cut DISCARD, shaded off, pixel_size, offset = the 2D
+  offset with y flipped, billboard by `d3Stand`; flat = no billboard, turned to lie on XZ, lifted 1 cm) > OmniLight3D "Light"
+  (color, range, `energies` per frame, shadows off by default) > AudioStreamPlayer3D "Sound".
+- on the screen: `<base>_3d.tscn` is a CanvasLayer holding the 2D scene, full-screen, so it can be dropped into a 3D game the same way.
+- Variety (§39) and runtime text (§53) work as in 2D (the text node becomes a billboarded Node3D drawing the same glyph atlas).
+- The README gains a "3D" part; Unity/Unreal: the sheet + "a billboard quad, nearest filter, alpha clip, a point light following
+  energies.json" (an `<base>_3d.json` of stand, size, origin, light), no engine scene in this round.
+- The Library plants exactly what Export writes (CLAUDE.md), so planting follows for free; the CLI gets `--3d`.
+
+### 61.3 The preview: "In a room" (a stage view beside the 2D one)
+- A view switch on the stage (2D | 3D). 3D shows the effect in a small room at low resolution (320 x 200, upscaled NEAREST, the look
+  of Texture's places), the camera orbiting on drag (yaw + a little pitch), the light pooling on the floor and wall.
+- SOFTWARE, PURE, deterministic: a new VFX file `room3d.js` (no DOM; returns RGBA): ray against a floor plane and a back wall (and a
+  side wall), each textured with crunchyCore `textures.js` + `ramps.js` (flagstones/blockwork dungeon, grass at night, plating,
+  wood: 4 rooms), lit by ambient + the effect's OmniLight (the same energies the export bakes, so the preview IS the export's light);
+  the sprite drawn as a billboard / upright / flat decal (flat = sampled in floor space) with a depth test against the planes.
+  No WebGL (headless WebGL hides errors: reference-headless-webgl-hides-errors) and testable by pixel hash.
+- textures.js + ramps.js + room3d.js load LAZILY the first time 3D opens (Item's DEPS_3D pattern), so the app's start is unchanged.
+- One quiet line under the room: the rooms are CrunchyTexture's textures, "build whole places in CrunchyTexture" (the suite's
+  cross-promotion helper), never in a Tile/Texture-less way that nags.
+
+### 61.4 Proofs
+- Engine: every preset resolves a stand (AUTO_STAND covers the list); the light curve is deterministic and zero for non-emissive
+  effects; room3d.js pixel hashes for each stand; the FRAME HASH and every export byte unchanged with "3D scene too" off; old links
+  decode exactly.
+- `tests/godot-3d.mjs` in REAL Godot: each stand's scene loads with the right nodes and billboard mode, the light's energy follows
+  `energies` frame by frame, `impact`/`finished` fire, a one-shot frees itself, the CanvasLayer kind shows; with a display, frames
+  rendered on a plain floor (and, when ~/Code/crunchyTexture is there, in a Texture place, like the spike) to LOOK at.
+- DOM: the view switch, orbit, the export option, the CLI's `--3d`.
+
+### 61.6 As built: the export half (export agent, 2026-11-26)
+- **fx3d.js** (pure, a new runtime file after vfx.js): `FX3D_AUTO_STAND` lists EVERY shipped preset in exactly one stand
+  (227 face, 46 upright, 15 flat, 33 screen; the engine suite fails on a preset missing from it). `fx3dStand(st, name?)`:
+  the person's d3Stand, else the table by name, else the NEAREST shipped preset (a quarter or less of the rows either sets
+  differ: an edited or CLI-renamed preset stands as its preset), else `fx3dStandRule` (the systems: weather / camera /
+  pixel area loops on the screen, sigil / ripple / fracture / growth / grid / a squashed vortex / pixFlat >= 0.7 flat,
+  pixel fire and portals upright, the rest faces you; it alone agrees with the table on 257 of 321).
+- **Judged in renders, changed from the plan:** Scorch Mark and Ground Slam stand UPRIGHT (Ground Crack, whose debris falls far below its crack, floated standing up and lies flat) (lying flat, the
+  Scorch Mark's smoke was a long smear across the floor). A FLAT effect drawn squashed in 2D is stretched back to round
+  along the floor's depth (`fx3dFlatDepth`: 1 / the renderer's own squash factor, at most 4x): Summon Circle lies as a
+  round ring. An UPRIGHT effect's node is its FOOT (the bottom of everything it draws), so it goes on the floor: Pixel
+  Portal and Pixel Bonfire stand on it. The light's color is every glowing pixel weighted by brightness x (saturation + 0.08), not
+  the brightest third (that lit an Explosion white and a portal near-white); it hangs over the middle of what the effect
+  draws, at least 0.3 m up (`fx3dLightPos`, shared with the room). Its peak energy grows with the SQUARE ROOT of the glowing area, K 5.5, clamped
+  0.4..10 (by the area itself a torch was a glimmer and Pixel Heal flooded the room green).
+- **Soft or hard alpha, measured:** pixel art (all-or-nothing alpha) gets `alpha_cut` discard; an effect whose drawn pixels
+  are more than 12 % see-through (glow, smoke) blends instead (a cut turned them to blocks). `fx3dAlphaMode`.
+- **The scene** (`godot3dFiles` in index.html, the text in fx3d.js): `<base>_3d.tscn` / `_3d.gd` / `_3d.json` (and
+  `_text_3d.gd`) beside the 2D files on the SAME .tres. The 3D script is the 2D one turned at fixed anchor lines
+  (`fx3dScript`, throws if an anchor moves), so the API cannot drift; Variety in 3D: flips by the sprite's own flip with
+  its offset mirrored, scale on its base, a turn only lying flat (a billboard always stands straight), the nudge in its
+  plane, the SAME random draws in the same order as 2D (a seed replays the same picks), each baked variation's own light
+  curve (`energy_starts`). Text: each glyph a Sprite3D at the Text node placed by its OFFSET, so the word billboards as
+  one. On the screen: a CanvasLayer holding the 2D scene (its own autoplay off; the layer plays it), scaled to cover the
+  view in whole steps, the API passed through.
+- Off is byte for byte: the frame hash (467 lines) and every Godot bundle of 87 presets x 2 settings (scenes, READMEs,
+  Variety, text) are identical between base/ and this copy; `d3` is written to settings only when on.
+- Proofs: tests/regression.js §61 block; `node tests/godot-3d.mjs` (real Godot: nodes, billboards, shared SpriteFrames,
+  light = energies per frame, impact / finished / freed, loops, the screen kind, Variety, Text, the CLI's --3d; with a
+  display, renders on a floor and in a CrunchyTexture place, kept as contact sheets).
+
+### 61.7 The persona round, export half (1.3.1, 2026-11-27)
+- **AUTO SIZE by what is DRAWN** (a 192 px torch was 4.8 m): `d3Size` (0-8 m now) is the longer side of what the effect
+  DRAWS (fx3dBounds over every frame); auto (`fx3dAutoSize`) aims per stand: faces you 1.3 m (0.7-3), upright 1.6 m
+  (1-2.2), flat 2.4 m (1.6-3.2), times sqrt(frame / 128 px) within 0.85-1.4; an explosion's (its preset's moments) x1.7,
+  a pickup's x0.75; STRIKES AND BEAMS (`FX3D_STRIKES`: Pixel Lightning, Lightning Zap, Chain Lightning, Tesla Coil, Pixel
+  Zap, Pixel Arc, lasers…; a custom effect by a pixel bolt, arcs or a beam) about 3 m (2.4-3.6), and Pixel Lightning stands
+  UPRIGHT so its strike reaches the floor (it was a thin 1.3 m bolt in the middle of the room). The Size row reads
+  "Auto (1.9 m)" while it is 0. `fx3dMetersPerPixel(st, bounds, name)`.
+- **Light "Always"** appended to d3Light (auto / off / always): a light in the effect's own main color (drawn pixels by
+  alpha x saturation), following how much is drawn, at 0.35 of what the same area would give glowing. Light power greys out
+  with no light; the "no light" hint names Glow thresh only when the effect has a Glow layer.
+- **LOOPS ARE AMBIENT:** a looping effect's light is 0.45 of the peak, steadier (its curve kept to the top 30 %), its reach
+  2x what it draws within 2-6 m (one-shots 2.5x within 2-9 m). Pixel Portal had peaked at 5.7 with a 12 m reach.
+- **The Export dialog:** with 3D in play (the 3D view open, or any 3D row off auto) the row shows with other metadata too,
+  greyed, with "Use Godot 4"; opened from the 3D view by someone who never set the option, it starts ticked (a new key,
+  crunchyvfx.export3d.v1, says they have); the copy says light or "no light (nothing in it glows)", and "a loop emits
+  impact each time round".
+- The README's spawn line per stand (on the screen: no position, said plainly); the 3D scripts' examples name their own
+  scene (the 2D .gd untouched, so no planted 2D effect reads as changed). A stale "Exported <name>" clears once another
+  effect is loaded.
+
+### 61.5 How it gets built (max 3 agents, WIP copies in ~/.cache/crunchy-wip/vfx-1.3/)
+1. **export agent**: 61.1 + 61.2 (AUTO_STAND, the light curve, the scene writer, README, CLI, godot-3d.mjs).
+2. **preview agent**: 61.3 (room3d.js, the stage switch, lazy load), reading 61.1's fields through a stub until the merge.
+3. the lead merges (index.html by block markers), runs the heavy suites once, then a persona pass. Not in this round: Unity/Unreal
+   scenes, effects re-simulated as 3D particles, Texture placing planted VFX effects in its places (a later Texture round: the
+   natural next cross-link).
+
+## 62. Test references re-recorded after Firefox's raster drift (2026-11-27, Firefox 160.0.1)
+
+**Why.** scripts/release.sh stopped before tagging 1.3.0. The frame hash had moved (309 lines of
+tests/frame-hash.expected.txt). The web suite (13/15) and the desktop suite (71/76) failed exactly the checks that compare
+a RECORDED frame fingerprint: `legacy/heads-share-links-open-to-the-same-frames`, `legacy/heads-my-effects-still-load-and-
+render-the-same`, `legacy/my-effects-open-to-heads-frames`, `legacy/a-head-crunchyvfx-file-opens-as-it-did`,
+`imports-history/opens-from-the-toolbar-and-the-panel-and-still-works` (its export-history entry reopens to
+`exportFrames[0]`; every other condition held), and `palettes/old-locked-links-render-byte-for-byte`.
+No code had changed. The v1.2.0 tag (cd3d284), rendered today, gives the same frame hash as the 1.3 code
+(FRAMEHASH b524a27fe1e9ed1e over 467) and fails the same checks. All of them passed when 1.2.0 shipped on 2026-11-05.
+The machine changed: Firefox went from 159.0 to 160.0 on 2026-11-12 (pacman.log) and rasterizes some canvas work
+slightly differently. 285 of 428 preset frames, 21 of 37 export cases and the batch zip moved; the rest did not.
+§59 and §60 had already met these as "the same legacy-fixture failures as before".
+
+**What was re-recorded, and from what.** Each reference was recorded from the build it protects, rendered by today's
+Firefox. Nothing was recorded from a later build.
+- tests/fixtures/head.js, head-effects.json and head-project.crunchyvfx: `make-fixtures.js` on HEAD 11e8d14, with the
+  build.py of cfd73e1 (the commit that made them; today's build.py adds §30's version-drift guard, which 11e8d14 fails
+  for want of a version.json, and assembles the same page otherwise). `new Date()` was pinned to the original recording
+  instant (2026-10-12T02:41:34.151Z), so the project file's `saved` stamp comes out as it was.
+- tests/fixtures/locked-links.js: on HEAD 04c23ea. No maker had ever been committed, so one was reconstructed:
+  make-locked-links.js (kept in ~/.cache/crunchy-wip/vfx-fixtures/ and proposed for tests/). For each of the five
+  built-in lock palettes it applies a preset, sets a spread of Crunch values (Alpha cut 0.5 / a dither / both /
+  neither), locks it through the Crunch box's own `setPalette`, and records `encodePatch("<preset> locked")` and the
+  frames. It reproduces every stored `label`, `enc` and `lock` byte for byte.
+- tests/frame-hash.expected.txt: `node tests/run-ff.mjs hash` on the v1.2.0 tag, and the 1.3 working tree renders it
+  identically.
+
+**The data did not move.** head-effects.json and head-project.crunchyvfx are byte-identical. In head.js, every field but
+the 14 frame fingerprints is identical: the 9 localStorage keys, the project and effects files, and the five share links.
+locked-links.js changes only its five `frames` (plus one header line). Two runs on 11e8d14 agreed byte for byte. With the
+new references, the 1.3 tree passes web 15/15, desktop 76/76, an unchanged frame hash and tests/run.html (815, through
+crunchyCore's run-suite.mjs), using release.sh's own commands.
+
+**Next time Firefox drifts.** First prove it is drift and not code. `git archive` the last release tag into
+~/.cache/crunchy-wip/ and run `node tests/run-ff.mjs hash` there. If that equals today's tree and fails the same
+fingerprint checks, the machine moved. Then:
+1. Run `git archive 11e8d14` into a WIP folder. Add `git show cfd73e1:tests/build.py`, today's run-ff.mjs,
+   make-fixtures.js and save-fixtures.py, and a suite that injects the clock pin before the app. Run
+   `node tests/run-ff.mjs <that suite> | python3 tests/save-fixtures.py`.
+2. Run `git archive 04c23ea` into another folder, with make-locked-links.js as a suite there. Save its line under the
+   file's header.
+3. Diff old against new: only frame fingerprints may move. A changed effect, store key, link or project byte is a real
+   change. If you see one, stop.
+4. Re-render the hash on the release tag and on the tree, require them to be equal, then copy the result in.
+
+## 63. The strip's pictures, baked (2026-11-27, VFX 1.3; AJ: at launch "the previews slowly pour in for the presets while the application is virtually unusable")
+
+**Decision (AJ, agreed: "an improvement across the board").** The default pictures are drawn at BUILD time, not at
+launch. `node tools/bake-thumbs.mjs` opens the app in a headless Firefox (WebDriver BiDi, as tools/vfx-cli.mjs does) and
+draws every preset's strip picture and every layer's strip picture with the app's own functions, then writes ONE sheet
+and its index, both GENERATED (never edited):
+- `preset-thumbs.png`: 60 px cells, 20 a row; the 321 presets in PRESETS order, then the 59 layers in LAYER_GROUPS
+  order (1200x1140, 685 KB). Re-encoded in Node (per-row filter, zlib 9), so the same pictures always write the same bytes.
+- `preset-thumbs.js`: `PRESET_THUMBS`, per picture `[cell, fingerprint, pixel hash]`, one picture a line.
+
+**The pictures are the live ones, factored out, not copies.** `presetStillCanvas(st)` is presetThumbOf's frame
+(presetThumbOf is now its `toDataURL`), `layerStillCanvas(L)` is a fresh `layerThumb(L)`'s chosen frame. The bake and the
+suite call exactly these.
+
+**When a baked picture is shown.** Only while its FINGERPRINT matches (`thumbPrint`): a cyrb53 hash of the kind,
+`PTHUMB_RULE` (bump it when either still function draws differently), the render stamps that can change a picture without
+touching a preset (`thumbStamps`: PIXART_BUILD, FIRE_BUILD, GLYPHS_BUILD), and either the size + the preset's own JSON, or
+the size + LAYER_BASE + the layer switch's source (`String(L.on)`). A new PARAMS row is neutral (the rule), so it is not
+in the fingerprint. Everything else draws live exactly as before (`presetThumbURL`, the 15 ms queue, `layerThumb`):
+- a preset edited, renamed or added since the bake;
+- the game palette on (`presetThumbKey(name) !== name`: the pictures are in the palette's colors, §38);
+- My Effects (their own thumbnails, untouched), hover-to-play (both strips), the Wizard's nine;
+- a sheet that fails to load (`thumbSheetBroken`: every baked picture goes back to live).
+
+**How it is shown.** A preset cell's `<img>` takes the sheet as its `src` with `object-fit: none` and an
+`object-position` (one decode for every picture; `data-baked` holds the cell); `thumbShowLive` undoes it for a live one.
+A layer cell's canvas gets a `drawImage` of its cell (class `baked`), painted again whenever its page shows (WebKitGTK
+drops a hidden canvas's pixels). A Wizard question card draws its cell on a 60 px canvas (it shows at 48 px, which a cell
+of an `<img>` cannot). The sheet's URL is built from preset-thumbs.js's own `<script src>` (`thumbSheetUrl`), so on the
+web it carries the deploy's `?v=` stamp and is cached immutable for exactly as long as its index; the worker needs nothing
+new. On `file://` the sheet is another origin to Firefox, so a layer canvas it is drawn into can't be read back (the app
+never reads them; the suite's layer-strip row checks a baked cell by its cell, not its pixels).
+
+**Stale pictures are caught three ways.**
+1. The bake decodes its own PNG and requires every cell to hash to the pixels the page drew (`--check` compares with the
+   files on disk instead of writing).
+2. `node tests/worker.test.mjs` (the suite's Node runner) decodes the committed PNG against the committed index (every
+   cell), requires the index to cover exactly presets.js's presets, the GENERATED header, index.html's `<script src>`
+   after presets.js, both files in build.rs and published (not in .assetsignore), the stamped sheet cached immutable, and
+   the root's images to be exactly the four drawn-in-code ones plus the sheet.
+3. The sync suite (tests/regression.js, "the strip's pictures are baked…") redraws EVERY preset's and layer's picture
+   live and fails on any stale fingerprint or pixel hash, naming the pictures and saying `run node tools/bake-thumbs.mjs`;
+   then a fresh strip must be all sheet cells with nothing queued, and a preset edited in place (count + 1) must go live
+   and come back baked. A negative run (one fingerprint and one pixel hash altered) failed exactly those two.
+Because the pixel hashes are Firefox's pixels, a Firefox raster drift (§62) fails row 3 too: re-bake (one command, about
+3 s); the fingerprints do not move, so the app shows the same cells meanwhile.
+
+**Measured (startup, time until the visible strip has every picture; a freeze = a gap over 50 ms between 4 ms ticks).**
+| | before | after |
+|---|---|---|
+| headless Firefox, 1400x900 (13 cells) | 411 / 544 ms | 204 / 277 ms (at `load`) |
+| WebKitGTK 2.54 (gi), 1600x1000 (16 cells) | 1097 / 1319 ms | 810 / 853 ms (at `load`) |
+| the real Tauri debug app, fresh storage | 1197 / 1296 ms | 809 / 897 ms (at `load`) |
+| the real app, AJ's state (below): the strip at launch | 1292 / 1451 ms | 891 / 896 ms |
+| the same, paging the strip at ~9 s (during the update check) | 1851 / 2609 ms to fill | 35 / 38 ms |
+A preset picture costs about 1 ms in WebKit here and a layer picture about 6 ms, and neither strip froze the app on a
+fresh start before or after: the startup freezes are the scripts' own load (about 0.7 s in WebKit).
+
+**What AJ's chug actually is (measured, NOT fixed here).** The real app with AJ's state (his localStorage keys, read
+only, and a copy of splotch2's crunchy/vfx reopened at launch) is blocked 23.3 s of its first 24 s (57 freezes, up to
+1.1 s), before and after this change. The cause is §43's `projCheckUpdates`: 68 of splotch2's 75 planted effects were
+written by 1.1.0 (the CLI, Firefox's pixels), so each is rendered and compared on EVERY open (about 340 ms each in
+WebKit); they come out changed, and a changed verdict is never remembered (only "current" is, in crunchyvfx.checked.v1).
+The strip's pictures queued behind those renders are what "pour in slowly"; with this change they are there at load and
+on every page flip, but the app stays busy until the check ends. Proposed, for AJ to decide (the desktop row
+`update/the-check-renders-only-what-could-have-changed` pins today's behavior, "again === 1"): remember a CHANGED verdict
+too, by version and sidecar hash, so a known-changed effect keeps its "update available" badge without a render; or
+"Update all" once in splotch2, after which those effects are this version's and skipped.
+
+
+### 63.1 The real launch chug: the Library's update check (2026-11-27)
+
+The bake agent reproduced AJ's chug in the real desktop app with AJ's own state (his storage, read only, and a copy of his
+game's crunchy/vfx): blocked 23.3 s of the first 24 s, baked pictures or not. The cause was §43's update check: 68 of the
+game's 75 planted effects were written by 1.1.0 (the CLI, Firefox's pixels), so each was rendered again on EVERY open
+(~340 ms each in WebKit) because only a "current" verdict was remembered (`crunchyvfx.checked.v1`). Now:
+- BOTH verdicts are remembered, per game and effect, keyed by this version and the sidecar's hash (`…|changed` for a changed
+  one), so a changed effect keeps its badge with no render until the version, its hash, a followed set/palette, a linked
+  sound or a pending save says otherwise (`projCheckSkips` -> false / "current" / "changed").
+- After any effect that had to be rendered, the check pauses `PROJ_CHECK_GAP` (120 ms) before the next, so even the one-time
+  pass after an app update leaves the page frames to answer clicks and paint the strip.
+- The desktop row `update/the-check-renders-only-what-could-have-changed` now asserts the second pass renders NOTHING and
+  the changed effect is still marked (it pinned `again === 1` before).
+Press "Update all" once in a game whose effects are from an older version to make them current for good.

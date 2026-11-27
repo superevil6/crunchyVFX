@@ -37,6 +37,8 @@ Options:
   --set key=value            any row (--list params); repeat for more
   --play auto|loop|once      --trim / --no-trim   --scales 1,2   --meta godot|generic|aseprite|phaser|none
   --no-sound                 leave out the synthesized sound a .crunchy effect carries
+  --3d                       a 3D scene too (Godot): <base>_3d.tscn + _3d.gd + _3d.json on the same SpriteFrames, standing
+                             as the effect's 3D rows say (--set d3Stand=… ; auto by default) with a light that follows it
   --out DIR                  where the effect folders go (default .)
   --godot-import             afterwards, run Godot's import on the project the folders are in (else an open editor
                              does not see the new files until it is focused)
@@ -49,7 +51,7 @@ crunchy/vfx/ folder shows them in the Library too. Writing over an effect replac
 
 A batch file: { "out": "crunchy/vfx", "effects": [ { "name": "attack-ameko", "wizard": { "type": "hit", "tags": ["cute"],
 "seed": 1, "pick": 3 }, "strengths": [2, 5, 8] }, { "name": "boom", "preset": "Pixel Explosion", "palette": ["#f6d743"] } ] }
-Every option above is a key there (crunchy: a path, relative to the batch file; set: an object).
+Every option above is a key there (crunchy: a path, relative to the batch file; set: an object; --3d is "3d": true).
 
 Pixels: rendered by Firefox, as the web app is. The desktop app renders with WebKit; the same effect, though an
 anti-aliased edge can differ by a shade.`;
@@ -107,6 +109,7 @@ else if (val("--batch")) {
   if (has("--trim")) e.trim = true;
   if (has("--no-trim")) e.trim = false;
   if (has("--no-sound")) e.sound = false;
+  if (has("--3d")) e["3d"] = true;
   if (has("--fit-apart")) e.fitApart = true;
   argv.forEach((a, i) => {
     if (a !== "--set") return;

@@ -12,13 +12,16 @@
  * =================================================================================================
  * WHY (1) EXISTS
  *
- * CrunchySFX loads three subresources and gets away without this. CrunchyVFX loads TWENTY-SIX —
- * presets.js, the vendored synth, glyphs.js, shapes.js, fire.js, pixart.js, vfx.js, gif.js, apng.js, suite.js, crunchy-icons.js,
+ * CrunchySFX loads three subresources and gets away without this. CrunchyVFX loads TWENTY-EIGHT —
+ * presets.js, preset-thumbs.js (VFX 1.3: the baked strip pictures' index), the vendored synth, glyphs.js, shapes.js, fire.js, pixart.js, vfx.js, fx3d.js, gif.js, apng.js, suite.js, crunchy-icons.js,
  * project-app.js, plant.js, library.js, shader.js, hero.js, moments.js, moments-ui.js, palette.js, palette-ui.js,
  * colorsets.js, settings.js, desktop.js, feedback.js and the two stylesheets (crunchy-base.css, styles.css) — each
  * cached independently by the browser, because the app must also open on file://
  * where modules and fetch are both CORS-blocked.
- * Twenty-six independent caches means a browser can pair a fresh
+ * (VFX-DESIGN §61.3: four more, the stage's 3D room, are injected by script the first time 3D opens; they copy
+ * vfx.js's own ?v= stamp, so they are versioned exactly as the twenty-eight are. The baked strip pictures' sheet,
+ * preset-thumbs.png, is loaded by script the same way, with preset-thumbs.js's stamp: immutable per deploy like it.)
+ * Twenty-eight independent caches means a browser can pair a fresh
  * index.html with a stale vfx.js and the app dies on a symbol that does not exist yet.
  *
  * That is not hypothetical for this codebase. It is exactly the failure that cost time TODAY: a

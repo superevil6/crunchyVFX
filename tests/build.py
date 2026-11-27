@@ -59,7 +59,9 @@ SUITES = {
     "godot": ("godot-plant.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),   # tests/godot-check.mjs runs it
     "scene": ("godot-scene.js", []),                                                 # tests/godot-scene.mjs runs it (§26, the web build)
     "text": ("godot-text.js", []),                                                   # tests/godot-text.mjs runs it (§53, runtime text)
+    "3d": ("godot-3d.js", []),                                                       # tests/godot-3d.mjs runs it (§61, effects in 3D)
     "show": ("show-desktop.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),   # a look, for wkshot.py
+    "room3d": ("room3d-dom.js", []),                                                 # <vfx3d-preview> §61.3: the stage's 3D view (the room)
 }
 
 

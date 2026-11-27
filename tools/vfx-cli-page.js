@@ -104,6 +104,9 @@ window.vfxCli = (function () {
     }
     const exp = Object.assign({}, EXP_DEFAULT, src.exp || {});
     for (const k of ["layout", "meta", "trim", "playback", "scales"]) if (j[k] != null) exp[k] = j[k];
+    // §61: "3d" (the --3d flag, or a batch entry's "3d": true; "d3" too) asks for the 3D scene; false takes it off a .crunchy's
+    const want3d = j["3d"] != null ? j["3d"] : j.d3;
+    if (want3d != null) { if (want3d && exp.meta === "godot") exp.d3 = true; else delete exp.d3; }
     exp.sound = !!src.sound && j.sound !== false;
     const f = { s: withState(st, () => encodePatch(name, fit)), exp: exp, fit: fit, base: sanitize(name) };
     if (exp.sound) f.sound = src.sound;
