@@ -2618,6 +2618,370 @@ window.PRESETS = {
     coreWhite: 0,
     moments: ["hit"],
   },
+  // <vfx13-fluid>
+  // §64 THE PIXEL FLUID: one invisible particle (as the pixel presets) and the Fluid layer. Two looks, five sources.
+  "Rolling Blast": {
+    shape: 0, count: 1, opacity: 0, fluid: 1, fluidSource: 0, fluidLook: 1, fluidColors: 0, fluidHeat: 1, fluidCool: 0.4, fluidSmoke: 0.9,
+    fluidPush: 1, fluidSize: 0.17, fluidBuoyancy: 0.5, fluidCurl: 1.6, fluidViscosity: 0.6, fluidFade: 0.3, fluidShade: 0.8, fluidOutline: 1,
+    originY: 0.64, duration: 1.2, fps: 20, frameSize: 4,
+    moments: ["explosion"],
+  },
+  "Curling Smoke": {
+    shape: 0, count: 1, opacity: 0, fluid: 1, fluidSource: 1, fluidLook: 1, fluidLoop: 1, fluidColors: 2, fluidSize: 0.07, fluidAmount: 1,
+    fluidNoise: 0.9, fluidCurl: 1.1, fluidWind: 0.3, fluidFade: 0.15, fluidShade: 0.8, fluidOutline: 1,
+    originY: 0.92, duration: 1.5, fps: 20, frameSize: 4,
+    moments: ["ambient"],
+  },
+  "Ink Drop": {
+    shape: 0, count: 1, opacity: 0, blend: 1, fluid: 1, fluidSource: 4, fluidAngle: 90, fluidColors: 4, fluidSize: 0.1, fluidPush: 0.5,
+    fluidBuoyancy: -0.9, fluidCurl: 1.4, fluidFade: 0.05, fluidThick: 1.4, fluidShade: 0.6, fluidNoise: 0.7,
+    hue: 300, sat: 0.85, originY: 0.14, duration: 2, fps: 20, frameSize: 4,
+    moments: ["ambient"],
+  },
+  "Mist Swirl": {
+    shape: 0, count: 1, opacity: 0, blend: 2, fluid: 1, fluidSource: 3, fluidLoop: 1, fluidColors: 4, fluidSize: 0.1, fluidBuoyancy: 0,
+    fluidNoise: 0.9, fluidCurl: 1.2, fluidFade: 0.5, fluidThick: 1, fluidShade: 0.4,
+    hue: 275, sat: 0.8, duration: 2, fps: 20, frameSize: 4,
+    moments: ["ambient"],
+  },
+  "Steam Vent": {
+    shape: 0, count: 1, opacity: 0, blend: 1, fluid: 1, fluidSource: 2, fluidLoop: 1, fluidColors: 2, fluidAngle: -60, fluidSize: 0.05,
+    fluidPush: 1.2, fluidBuoyancy: 0.4, fluidFade: 0.5, fluidCurl: 1, fluidNoise: 0.8,
+    originX: 0.15, originY: 0.85, duration: 1.5, fps: 20, frameSize: 4,
+    moments: ["ambient"],
+  },
+  // </vfx13-fluid>
+  // <vfx13-lit> §65 LIT EFFECTS: smoke, dust and rubble that take the game's lights (a normal map per frame from their own
+  // drawing). Nothing in them glows (Glow thresh 1, colors under white), so every pixel shades, and they cast no light.
+  "Lit Dust Cloud": {
+    shape: 39, emitter: 4, count: 14, emitRadius: 0.25, emitAngle: 0, emitSpread: 120,
+    speed: 85, speedVar: 0.6, drag: 0.85, gravity: -22, turb: 0.3, turbScale: 2.5, life: 0.95, lifeVar: 0.35,
+    size: 34, sizeVar: 0.7, grow: 0.8, fadeIn: 0.1, fadeOut: 0.55,
+    hue: 34, hueLife: 0, sat: 0.2, bright: 0.85, coreWhite: 0, blend: 1, opacity: 1,
+    smokeSoft: 0.25, glowThresh: 1, originY: 0.7, duration: 1.1, fps: 24,
+    lit: 1, litRound: 0.7, litBump: 0.5,
+    moments: ["land"],
+  },
+  "Lit Pixel Dust": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 3, pixSize: 1.2, pixCount: 12, pixSpan: 0.06, pixSpread: 170, pixSpeed: 7, pixDrag: 4,
+    pixGravity: -3, pixScatter: 0.4, pixBlob: 0.75, pixCore: 0, pixLife: 0.85, pixLumps: 0.35, pixHeat: 0, pixTone: 0.5, pixSmoke: 0,
+    pixLight: 0, pixRim: 0.2, pixBits: 0, pixSparks: 0, glowThresh: 1,
+    duration: 0.9, fps: 30, frameSize: 3, originX: 0.5, originY: 0.75,
+    lit: 1, litRound: 0.6, litBump: 0.35,
+    moments: ["land"],
+  },
+  "Lit Rock Burst": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixSpeed: 9, pixGravity: 40, pixCore: 0, pixGrow: 0, pixSizeVar: 0.5, pixLumps: 0.3, pixBreak: 1, pixLight: 0, pixRim: 0.3, pixSmoke: 0, pixBits: 14, pixSparks: 0, pixColors: 3, pixShape: 3, pixCount: 10, pixSpan: 0.03, pixAngle: -90, pixSpread: 140, pixFloor: 0.18, pixLandAs: 1, pixBreakAt: 0.8, pixBreakAs: 1, pixBlob: 0.36, pixLife: 1.4, pixHeat: 0, pixTone: 0.3, pixBitSpeed: 7, pixBitGravity: 40,
+    glowThresh: 1, fps: 30, duration: 1, originY: 0.7, frameSize: 4,
+    lit: 1, litRound: 0.35, litBump: 0.8,
+    moments: ["hit"],
+  },
+  "Lit Smoke Column": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixLoop: 1, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixFire: 1, pixColors: 3, pixFireW: 0.24, pixFireH: 1.2, pixFireWind: 0.3, pixFireSpread: 0.75, pixFireSpeed: 2, pixOutline: 1,
+    glowThresh: 1, originY: 0.92, duration: 1, frameSize: 4, fps: 30,
+    lit: 1, litRound: 0.8, litBump: 0.45,
+    moments: ["ambient"],
+  },
+  // </vfx13-lit>
+  // <vfx13-tile>
+  // ---------- Textures (§66): SEAMLESS LOOPING TEXTURES, Tile on. Each frame tiles (left edge into right, top into
+  // bottom) and the last frame flows into the first: materials for a floor, a wall, water, a force field. Most are the
+  // Field layer (a pattern that tiles by construction); Energy Field and Lava Crust add particles that wrap round the tile;
+  // Rain Streaks is the Weather layer made periodic in a tile. The one invisible particle (opacity 0) is the engine's.
+  "Energy Field": {
+    tile: 1, frameSize: 2, field: 1, fieldKind: 0, fieldScale: 2, fieldSpeed: 1, fieldSteps: 6, fieldPixel: 2, fieldDither: 0.5,
+    fieldWarp: 0.55, fieldSharp: 0.35,
+    ramp: "0,250,0.7,0.1,1|0.35,265,0.8,0.3,1|0.65,200,0.9,0.5,1|0.88,180,0.9,0.7,1|1,170,0.6,0.95,1",
+    count: 14, emitter: 6, emitRadius: 0.5, emitTime: 1, speed: 14, speedVar: 0.5, gravity: -30, drag: 0, life: 1.6, lifeVar: 0.2,
+    size: 4, sizeVar: 0.3, shape: 1, hue: 180, sat: 0.5, coreWhite: 1, fadeIn: 0.3, fadeOut: 0.5, duration: 2, fps: 12,
+    moments: ["ambient"],
+  },
+  "Water Caustics": {
+    tile: 1, frameSize: 4, field: 1, fieldKind: 1, fieldScale: 3, fieldSpeed: 1, fieldWarp: 0.6, fieldSharp: 0.45,
+    ramp: "0,212,0.75,0.2,1|0.4,204,0.7,0.36,1|0.7,192,0.65,0.6,1|1,180,0.6,0.95,1",
+    count: 1, opacity: 0, duration: 3, fps: 12, moments: ["ambient"],
+  },
+  "Lava Crust": {
+    tile: 1, frameSize: 2, field: 1, fieldKind: 2, fieldScale: 3, fieldSpeed: 1, fieldSteps: 7, fieldPixel: 2, fieldWarp: 0.6,
+    fieldSharp: 0.45, ramp: "0,5,0.55,0.07,1|0.22,8,0.6,0.13,1|0.45,12,0.95,0.38,1|0.7,28,1,0.55,1|1,52,1,0.85,1",
+    count: 10, emitter: 6, emitRadius: 0.5, emitTime: 1, speed: 8, speedVar: 0.5, gravity: -50, drag: 0, life: 1.2, lifeVar: 0.3,
+    size: 3, sizeVar: 0.4, hue: 30, sat: 1, coreWhite: 0.8, fadeIn: 0.2, fadeOut: 0.6, duration: 2, fps: 12, moments: ["ambient"],
+  },
+  "Force Field": {
+    tile: 1, frameSize: 4, field: 1, fieldKind: 4, fieldScale: 7, fieldSpeed: 1, fieldFill: 0, fieldSharp: 0.55, fieldWarp: 0.6,
+    hue: 188, hueLife: 25, sat: 0.85, bright: 1, coreWhite: 0.7, count: 1, opacity: 0, glow: 0.5, glowRadius: 3, glowThresh: 0.4,
+    duration: 2, fps: 12, moments: ["shield", "ambient"],
+  },
+  "Rune Crawl": {
+    tile: 1, frameSize: 2, field: 1, fieldKind: 5, fieldScale: 4, fieldSpeed: 1, fieldDriftY: -1, fieldFill: 0, fieldPixel: 2,
+    fieldWarp: 0.55, fieldSharp: 0.5, hue: 48, hueLife: -10, sat: 0.9, bright: 1, coreWhite: 0.5, count: 1, opacity: 0,
+    glow: 0.35, glowRadius: 2, glowThresh: 0.5, duration: 2, fps: 12, moments: ["ambient"],
+  },
+  "Electric Static": {
+    tile: 1, frameSize: 3, field: 1, fieldKind: 3, fieldScale: 4, fieldSpeed: 6, fieldFill: 0, fieldSharp: 0.8, fieldWarp: 0.6,
+    hue: 205, hueLife: 20, sat: 0.7, bright: 1, coreWhite: 0.9, count: 1, opacity: 0, glow: 0.6, glowRadius: 3, glowThresh: 0.35,
+    duration: 1, fps: 12, moments: ["status", "ambient"],
+  },
+  "Rain Streaks": {
+    tile: 1, frameSize: 2, count: 1, opacity: 0, weather: 1, weatherCount: 36, weatherAngle: 100, weatherSpeed: 1.6,
+    weatherLength: 0.14, weatherSize: 1, hue: 205, sat: 0.35, bright: 0.95, duration: 1, fps: 12, moments: ["ambient"],
+  },
+  // </vfx13-tile>
+  // <vfx13-pack>
+  // THE DUNGEON PACK (VFX 1.3, §67): a dungeon crawler's effects, each judged in 2D and in the 3D room. Light sources stand
+  // upright and loop steadily; floor marks lie flat; moments face you (or burst, swing and ring as 3D-native forms).
+  "Wall Sconce": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixLoop: 1, pixSmoke: 0, pixBits: 0, pixSparks: 4, pixSparkSpeed: 4,
+    pixFire: 1, pixColors: 0, pixFireW: 0.3, pixFireH: 1.1, pixFireSpread: 0.45, pixFireWind: 0.1, originY: 0.78, duration: 1,
+    fps: 30, frameSize: 3, pixDetail: 40,
+    moments: ["ambient"],
+  },
+  "Brazier": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixLoop: 1, pixSmoke: 0, pixBits: 0, pixSparks: 14, pixSparkSpeed: 7, pixFire: 1,
+    pixColors: 0, pixFireW: 0.42, pixFireH: 0.75, pixFireSpread: 0.6, pixFireWind: 0, originY: 0.75, duration: 1, fps: 30,
+    frameSize: 4, pixEmit: 1, pixCount: 12, pixSpan: 1, pixAngle: -90, pixSpread: 50, pixSpeed: 9, pixScatter: 0.3,
+    pixGravity: -4, pixBlob: 0.2, pixSizeVar: 0.3, pixCore: 0, pixGrow: 0, pixSwell: -1, pixLife: 0.7, pixLumps: 0, pixBreak: 0,
+    pixHeat: 1, pixCool: 0.8, pixStretch: 0.6, pixTone: 0.3,
+    moments: ["ambient"],
+  },
+  "Candle Cluster": {
+    shape: 25, count: 48, emitter: 1, emitAngle: 0, emitSpread: 0, emitRadius: 0.005, emitTime: 1, speed: 10, speedVar: 0.2,
+    drag: 0.3, gravity: -25, turb: 0.05, size: 20, sizeVar: 0.2, grow: -0.4, life: 0.35, lifeVar: 0.15, fadeIn: 0.1, fadeOut: 0.5,
+    angle: 0, angleVar: 0, hue: 42, hueLife: -28, sat: 1, bright: 1, coreWhite: 0.3, glow: 0.5, glowRadius: 9, shots: 4,
+    shotDelay: 0.02, shotScale: 0.82, shotSpread: 1, loopBlend: 0.8, originY: 0.6, duration: 1.2, fps: 24, frameSize: 4, blend: 1,
+    seed: 3,
+    moments: ["ambient"],
+  },
+  "Glow Mushrooms": {
+    shape: 0, count: 14, opacity: 1, emitter: 4, emitAngle: 90, emitRadius: 0.3, emitTime: 1, speed: 12, speedVar: 0.6, drag: 0.4,
+    gravity: -30, turb: 0.4, turbSpeed: 0.6, size: 7, sizeVar: 0.4, grow: 0, life: 1.6, lifeVar: 0.3, fadeIn: 0.3, fadeOut: 0.5,
+    hue: 170, hueLife: 30, sat: 0.8, bright: 1, coreWhite: 0.5, glow: 0.5, pix: 1, pixShape: 16, pixParticle: 45, pixEmit: 6,
+    pixCount: 5, pixLoop: 1, pixSpan: 1, pixSpeed: 0, pixGravity: 0, pixBlob: 1, pixSizeVar: 0.6, pixCore: 0, pixGrow: 0,
+    pixSwell: 0, pixLife: 1.2, pixLumps: 0, pixBreak: 0, pixColors: 4, pixHeat: 0, pixTone: 0.55, pixLight: 0.5, pixRim: 0.35,
+    pixSmoke: 0, pixBits: 0, pixSparks: 0, loopBlend: 0.7, originX: 0.5, originY: 0.7, duration: 2, fps: 20, frameSize: 4,
+    pixAreaW: 0.75, pixAreaH: 0.2, pixDetail: 40,
+    moments: ["ambient"],
+  },
+  "Crystal Pulse": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 16, pixCount: 5, pixCore: 0, pixLoop: 1, pixSpan: 1, pixSpeed: 0,
+    pixGravity: 0, pixBlob: 1.9, pixSizeVar: 0.5, pixGrow: 0, pixSwell: 0, pixLife: 1.2, pixLumps: 0, pixBreak: 0, pixColors: 4,
+    hue: 290, sat: 0.85, pixHeat: 0, pixTone: 0.6, pixLight: 0.6, pixRim: 0.4, pixSmoke: 0, pixBits: 0, pixSparks: 6,
+    pixSparkSpeed: 3, pixStroke: 1, pixStrokeN: 2, pixStrokeSize: 2, pixStrokeW: 0.12, pixStrokeLife: 0.7, originY: 0.6,
+    duration: 1.2, fps: 30, frameSize: 3, pixParticle: 42, pixEmit: 6, pixAreaW: 0.35, pixAreaH: 0.1, pixDetail: 40,
+    moments: ["ambient"],
+  },
+  "Lantern Glow": {
+    shape: 25, count: 40, opacity: 1, emitter: 1, emitRadius: 0.005, emitTime: 1, speed: 8, speedVar: 0.2, drag: 0.3, size: 22,
+    sizeVar: 0.2, grow: -0.4, life: 0.35, lifeVar: 0.15, fadeIn: 0.1, fadeOut: 0.5, hue: 40, hueLife: -25, sat: 1, bright: 1,
+    coreWhite: 0.4, emit2Count: 60, emit2Shape: 0, emit2Emitter: 0, emit2Angle: 0, emit2Spread: 0, emit2Radius: 0, emit2Over: 1,
+    emit2Speed: 0, emit2SpeedVar: 0, emit2Gravity: 0, emit2Drag: 0, emit2Size: 58, emit2SizeVar: 0.1, emit2Grow: 0,
+    emit2Life: 0.8, emit2LifeVar: 0.2, emit2FadeIn: 0.5, emit2FadeOut: 0.5, emit2Hue: 38, emit2Sat: 1, emit2Bright: 0.7,
+    emit2Opacity: 0.1, chain: 1, chainSegs: 10, chainReach: 0.42, chainAngle: 270, chainSwing: 6, chainSpeed: 0.625,
+    chainLag: 0.05, chainWidth: 1.5, chainTaper: 0, chainBeads: 0, swarm: 1, swarmCount: 5, swarmSpread: 0.2, swarmWander: 0.15,
+    swarmSpeed: 1.2, swarmSize: 1.5, swarmFlicker: 0.3, loopBlend: 0.8, originY: 0.55, duration: 1.6, fps: 24, frameSize: 4,
+    emitAngle: 0, emitSpread: 0, gravity: -20, angle: 0, angleVar: 0, blend: 1, emit2Blend: 2,
+    moments: ["ambient"],
+  },
+  "Pressure Plate": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 2, pixCount: 12, pixScatter: 0.9, pixSpeed: 5, pixSpeedVar: 0.3, pixDrag: 3,
+    pixGravity: -2, pixFlat: 0.75, pixBlob: 0.5, pixSizeVar: 0.4, pixCore: 0, pixGrow: 0.1, pixSwell: 0.4, pixLife: 0.8,
+    pixLumps: 0.4, pixBreak: 1, pixBreakAs: 1, pixColors: 3, pixHeat: 0, pixTone: 0.5, pixSmoke: 0, pixBits: 10, pixBitSpeed: 4,
+    pixBitGravity: 30, pixSparks: 0, pixFlash: 1, pixStroke: 1, pixStrokeN: 1, pixStrokeSize: 2.2, pixStrokeW: 0.2,
+    pixStrokeLife: 0.45, originY: 0.6, duration: 0.6, fps: 30, frameSize: 3, pixSize: 1.4,
+    moments: ["land"],
+  },
+  "Trap Glyph": {
+    shape: 33, count: 8, opacity: 1, emitter: 2, emitRadius: 0.37, emitTime: 0, speed: 0, speedVar: 0, drag: 0, size: 16,
+    sizeVar: 0, grow: 0, life: 2, lifeVar: 0, fadeIn: 0.3, fadeOut: 0.3, angle: 0, angleVar: 0, sigil: 1, sigilRings: 2,
+    sigilRadius: 0.3, sigilSpin: 40, sigilGap: 0.3, sigilTicks: 24, sigilSpokes: 5, sigilWidth: 2.5, sigilSquash: 0,
+    sigilGrow: 0.2, sigilLife: 2, hue: 355, hueLife: 15, sat: 0.9, bright: 1, coreWhite: 0.4, glow: 0.55, glowRadius: 8,
+    loopBlend: 0.6, duration: 2, fps: 24, frameSize: 5,
+    moments: ["ambient"],
+  },
+  "Puddle Drip": {
+    shape: 0, count: 1, opacity: 0, ripple: 1, rippleCount: 3, rippleSpeed: 0.7, rippleWidth: 4, rippleSquash: 0, rippleLife: 1.2,
+    hue: 200, hueLife: -10, sat: 0.6, bright: 1, coreWhite: 0.8, glow: 0.45, loopBlend: 0.9, duration: 1.2, fps: 24, frameSize: 4,
+    moments: ["ambient"],
+  },
+  "Frost Creep": {
+    shape: 14, count: 16, opacity: 1, emitter: 3, emitRadius: 0.3, emitTime: 0.8, speed: 0, speedVar: 0, drag: 0, size: 10,
+    sizeVar: 0.4, grow: 0, life: 0.6, lifeVar: 0.3, fadeIn: 0.3, fadeOut: 0.5, spin: 60, spinVar: 1, growth: 1, growSeeds: 8,
+    growBranch: 0.7, growAngle: 50, growLen: 0.3, growWidth: 2.6, growTaper: 0.4, growTime: 0.8, hue: 192, hueLife: 12, sat: 0.5,
+    bright: 1, coreWhite: 0.85, glow: 0.4, glowRadius: 7, duration: 1.4, fps: 24, frameSize: 5, growDir: 0, growSpread: 360,
+    moments: ["status"],
+  },
+  "Chest Open": {
+    shape: 34, count: 14, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 50, emitRadius: 0.05, emitTime: 0.3, emitDelay: 0.08,
+    speed: 230, speedVar: 0.35, drag: 0.12, gravity: 620, size: 22, sizeVar: 0.25, grow: 0, life: 1.1, lifeVar: 0.2, fadeIn: 0,
+    fadeOut: 0.3, spin: 240, spinVar: 0.8, emit2Count: 22, emit2Shape: 3, emit2Emitter: 1, emit2Angle: 0, emit2Spread: 40,
+    emit2Radius: 0.06, emit2Delay: 0.1, emit2Over: 0.6, emit2Speed: 110, emit2SpeedVar: 0.5, emit2Gravity: -60, emit2Drag: 0.5,
+    emit2Size: 12, emit2SizeVar: 0.4, emit2Grow: -0.3, emit2Life: 0.8, emit2LifeVar: 0.3, emit2FadeIn: 0.1, emit2FadeOut: 0.5,
+    emit2Hue: 50, emit2Sat: 0.6, emit2Bright: 1, emit2Opacity: 1, emit2Blend: 1, cone: 0.6, coneAngle: 0, coneSpread: 40,
+    coneLength: 0.9, coneSoft: 0.3, coneLife: 1.2, flash: 0.7, flashSize: 0.3, flashLife: 0.15,
+    layerDelay: "Cone:0.05,Flash:0.08", hue: 46, hueLife: -10, sat: 0.85, bright: 1, coreWhite: 0.35, glow: 0.4, originY: 0.75,
+    duration: 1.4, fps: 24, frameSize: 6, shapeMix: "30", bounce: 0.45, groundY: 0.85, blend: 1,
+    moments: ["pickup"],
+  },
+  "Door Unlock": {
+    shape: 54, count: 1, opacity: 1, emitter: 0, speed: 0, speedVar: 0, drag: 0, size: 80, sizeVar: 0, grow: 0, life: 0.9,
+    lifeVar: 0, fadeIn: 0, fadeOut: 0.3, angle: 0, angleVar: 0, spin: 140, spinVar: 0, blend: 1, emit2Count: 18, emit2Shape: 1,
+    emit2Emitter: 0, emit2Spread: 360, emit2Radius: 0.02, emit2Delay: 0.55, emit2Over: 0.03, emit2Speed: 230, emit2SpeedVar: 0.5,
+    emit2Gravity: 300, emit2Drag: 0.5, emit2Size: 16, emit2SizeVar: 0.4, emit2Grow: -0.3, emit2Life: 0.45, emit2LifeVar: 0.3,
+    emit2FadeIn: 0, emit2FadeOut: 0.5, emit2Hue: 48, emit2Sat: 0.9, emit2Bright: 1, emit2Opacity: 1, emit2Blend: 1, flash: 0.9,
+    flashSize: 0.3, flashLife: 0.12, flashRays: 4, lines: 0.8, lineCount: 8, lineInner: 0.18, lineOuter: 0.4, lineWidth: 4,
+    lineLife: 0.25, layerDelay: "Flash:0.55,Lines:0.55", hue: 44, hueLife: 0, sat: 0.7, bright: 1, coreWhite: 0.15, sparkLen: 0.5,
+    duration: 1.1, fps: 24, frameSize: 5,
+    moments: ["pickup"],
+  },
+  "Item Rise": {
+    shape: 3, count: 1, opacity: 1, emitter: 1, emitAngle: 0, emitSpread: 0, speed: 90, speedVar: 0, drag: 0.75, size: 44,
+    sizeVar: 0, grow: -0.2, life: 1, lifeVar: 0, fadeIn: 0, fadeOut: 0.35, angle: 0, angleVar: 0, spin: 90, spinVar: 0,
+    starPoints: 4, starInner: 0.22, emit2Count: 18, emit2Shape: 3, emit2Emitter: 1, emit2Angle: 0, emit2Spread: 70,
+    emit2Radius: 0.08, emit2Over: 0.6, emit2Speed: 70, emit2SpeedVar: 0.5, emit2Gravity: -50, emit2Drag: 0.5, emit2Size: 11,
+    emit2SizeVar: 0.5, emit2Grow: -0.4, emit2Life: 0.7, emit2LifeVar: 0.3, emit2FadeIn: 0.1, emit2FadeOut: 0.5, emit2Hue: 50,
+    emit2Sat: 0.6, emit2Bright: 1, emit2Opacity: 1, cone: 0.5, coneAngle: 0, coneSpread: 16, coneLength: 0.9, coneSoft: 0.4,
+    coneLife: 0.9, flash: 0.6, flashSize: 0.3, flashLife: 0.1, hue: 48, hueLife: 0, sat: 0.9, bright: 1, coreWhite: 0.5,
+    glow: 0.6, originY: 0.72, duration: 1.1, fps: 24, frameSize: 4,
+    moments: ["pickup"],
+  },
+  "Spell Cast": {
+    shape: 3, count: 30, opacity: 1, emitter: 0, emitSpread: 360, emitRadius: 0.03, emitTime: 0.05, emitDelay: 0.55, speed: 220,
+    speedVar: 0.4, drag: 0.6, size: 22, sizeVar: 0.4, grow: -0.4, life: 0.5, lifeVar: 0.3, fadeIn: 0, fadeOut: 0.5, starPoints: 4,
+    starInner: 0.25, spin: 200, spinVar: 1, hue: 275, hueLife: 40, sat: 0.85, bright: 1, coreWhite: 0.7, glow: 0.5, pix: 1,
+    pixEmit: 1, pixGather: 1, pixSpread: 360, pixScatter: 0.15, pixCount: 30, pixSpan: 0.45, pixLife: 0.45, pixBlob: 0.28,
+    pixStretch: 1, pixSpeed: 4, pixGravity: 0, pixCore: 1, pixGrow: 0, pixSizeVar: 0.3, pixLumps: 0.3, pixBreak: 0, pixLight: 0,
+    pixRim: 0, pixSmoke: 0, pixBits: 0, pixSparks: 0, pixColors: 4, pixHeat: 1, pixCool: 1, pixTone: 0.4, pixSwell: -0.8,
+    flash: 1, flashSize: 0.45, flashLife: 0.12, wave: 0.9, waveSpeed: 0.8, waveWidth: 0.2, waveLife: 0.4,
+    layerDelay: "Flash:0.55,Shockwave:0.56", duration: 1.1, fps: 30, frameSize: 4,
+    moments: ["muzzle"],
+  },
+  "Monster Dissolve": {
+    shape: 0, count: 30, opacity: 1, emitter: 6, emitRadius: 0.2, emitTime: 0.6, emitDelay: 0.15, speed: 20, speedVar: 0.6,
+    drag: 0.4, gravity: -120, turb: 0.3, size: 9, sizeVar: 0.4, grow: -0.3, life: 0.8, lifeVar: 0.3, fadeIn: 0.1, fadeOut: 0.5,
+    hue: 110, hueLife: 20, sat: 0.75, bright: 1, coreWhite: 0.6, glow: 0.5, pix: 1, pixShape: 16, pixParticle: 31, pixCount: 1,
+    pixCore: 1, pixSpan: 0, pixSpeed: 0, pixGravity: 0, pixBlob: 1.5, pixSizeVar: 0, pixGrow: 0, pixSwell: 0, pixLife: 1,
+    pixLumps: 0, pixBreak: 0, pixColors: 4, pixHeat: 0, pixTone: 0.5, pixLight: 0.5, pixRim: 0.35, pixSmoke: 0, pixBits: 0,
+    pixSparks: 0, pixWipe: 4, pixWipeAt: 0.15, pixWipeTime: 0.6, pixWipeEdge: 0.8, pixDust: 1, pixBreakAs: 1, originY: 0.5,
+    duration: 1.2, fps: 30, frameSize: 4,
+    moments: ["death"],
+  },
+  "Secret Found": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixShape: 2, pixEmit: 3, pixCount: 7, pixAngle: -90, pixSpread: 160, pixScatter: 1.5,
+    pixSpan: 0.4, pixSpeed: 1.5, pixSpeedVar: 0, pixDrag: 2, pixGravity: -4, pixBlob: 0.9, pixSizeVar: 0, pixCore: 0,
+    pixGrow: 0.1, pixSwell: -0.4, pixLife: 0.55, pixLumps: 0, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.7, pixHeat: 1,
+    pixCool: 0.5, pixTone: 0.6, pixColors: 6, pixLight: 0.4, pixRim: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 16,
+    pixSparkSpeed: 6, pixFlash: 1, originY: 0.7, duration: 1.3, fps: 30, frameSize: 6, pixSize: 1.4,
+    moments: ["powerup"],
+  },
+  "Sword Swing": {
+    shape: 0, count: 1, opacity: 0,
+    pix: 1, pixSize: 1.5, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 8, pixSparkSpeed: 10, pixStroke: 3, pixAngle: -45,
+    pixSpread: 170, pixStrokeSize: 1.7, pixStrokeW: 0.42, pixStrokeLife: 0.7, pixStrokeN: 2, pixColors: 2, pixHeat: 1, pixCool: 0.5,
+    pixTone: 0.3, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.5,
+    duration: 0.35, fps: 30, frameSize: 4,
+    moments: ["hit"],
+  },
+  "Arrow Volley": {
+    shape: 98, count: 5, opacity: 1, emitter: 1, emitAngle: 90, emitSpread: 0, emitRadius: 0, emitTime: 0, speed: 220,
+    speedVar: 0.05, drag: 0, size: 70, sizeVar: 0.1, grow: 0, life: 0.7, lifeVar: 0, fadeIn: 0, fadeOut: 0.1, angle: 90,
+    angleVar: 0, hue: 34, hueLife: 0, sat: 0.3, bright: 1, coreWhite: 0.25, blend: 1, emit2Count: 18, emit2Shape: 5,
+    emit2Emitter: 6, emit2Angle: 90, emit2Spread: 40, emit2Radius: 0.3, emit2Over: 0.3, emit2Speed: 60, emit2SpeedVar: 0.5,
+    emit2Gravity: -20, emit2Drag: 0.6, emit2Size: 22, emit2SizeVar: 0.4, emit2Grow: 0.5, emit2Life: 0.6, emit2LifeVar: 0.3,
+    emit2FadeIn: 0.1, emit2FadeOut: 0.6, emit2Hue: 30, emit2Sat: 0.2, emit2Bright: 0.6, emit2Opacity: 0.6, emit2Blend: 2,
+    originX: 0.04, duration: 1, fps: 30, frameSize: 3, frameW: 256, frameH: 112, shots: 5, shotDelay: 0.08, shotScale: 1,
+    shotSpread: 1,
+    moments: ["projectile"],
+  },
+  "Torch Smoke": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixBlobs: 0, pixLoop: 1, pixSmoke: 0, pixBits: 0, pixSparks: 3, pixSparkSpeed: 4,
+    pixFire: 1, pixColors: 0, pixFireW: 0.18, pixFireH: 0.55, pixFireSpread: 0.45, fluid: 1, fluidSource: 1, fluidLook: 1,
+    fluidLoop: 1, fluidColors: 4, fluidSize: 0.05, fluidAmount: 0.7, fluidNoise: 0.8, fluidCurl: 1.2, fluidWind: 0.35,
+    fluidFade: 0.1, fluidShade: 0.8, fluidOutline: 1, fluidBuoyancy: 1.2, originY: 0.8, duration: 1.5, fps: 20, frameSize: 4,
+    fluidSpeed: 1.6, fluidPush: 1, hue: 30, sat: 0.14, bright: 0.55,
+    moments: ["ambient"],
+  },
+  "Poison Vent": {
+    shape: 0, count: 1, opacity: 0,
+    fluid: 1, fluidSource: 2, fluidLook: 1, fluidLoop: 1, fluidColors: 4, fluidSize: 0.06, fluidPush: 1.3, fluidBuoyancy: 0.3,
+    fluidFade: 0.35, fluidCurl: 1.3, fluidNoise: 0.9, fluidShade: 0.7, fluidOutline: 1, fluidAngle: -90,
+    hue: 100, sat: 0.85,
+    pix: 1, pixEmit: 1, pixLoop: 1, pixCount: 6, pixSpan: 1, pixAngle: -90, pixSpread: 40, pixSpeed: 2, pixGravity: -4, pixScatter: 0.3,
+    pixBlob: 0.18, pixHollow: 0.5, pixSizeVar: 0.4, pixCore: 0, pixGrow: 0.2, pixSwell: 0.2, pixLife: 0.7, pixLumps: 0, pixBreak: 0,
+    pixColors: 4, pixHeat: 0, pixTone: 0.7, pixLight: 0.5, pixRim: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 0,
+    originY: 0.85, duration: 1.5, fps: 20, frameSize: 4,
+    moments: ["status", "ambient"],
+  },
+  "Ghost Wisps": {
+    shape: 0, count: 1, opacity: 0, blend: 2, fluid: 1, fluidSource: 3, fluidLook: 0, fluidLoop: 1, fluidColors: 4,
+    fluidSize: 0.09, fluidBuoyancy: 0.2, fluidNoise: 0.9, fluidCurl: 1.5, fluidFade: 0.45, fluidThick: 0.9, fluidShade: 0.4,
+    hue: 185, sat: 0.55, pix: 1, pixShape: 0, pixEmit: 2, pixCount: 3, pixLoop: 1, pixSpan: 0, pixSpeed: 0, pixGravity: 0,
+    pixScatter: 1.1, pixSpin: 1, pixFlat: 0.3, pixBlob: 0.5, pixSizeVar: 0, pixCore: 0, pixGrow: 0, pixSwell: 0, pixLife: 1.2,
+    pixLumps: 0, pixBreak: 0, pixColors: 4, pixHeat: 0, pixTone: 0.9, pixLight: 0.6, pixRim: 0.2, pixSmoke: 0, pixBits: 0,
+    pixSparks: 0, duration: 2, fps: 20, frameSize: 4, pixStretch: 1, pixTrail: 0.18, pixTrailN: 6,
+    moments: ["ambient"],
+  },
+  "Dragon Breath": {
+    shape: 0, count: 1, opacity: 0,
+    fluid: 1, fluidSource: 2, fluidLook: 1, fluidColors: 0, fluidHeat: 1, fluidCool: 0.35, fluidSmoke: 0.8, fluidAngle: 0,
+    fluidSize: 0.07, fluidPush: 2.6, fluidBuoyancy: 0.4, fluidCurl: 1.4, fluidFade: 0.3, fluidShade: 0.8, fluidOutline: 1,
+    pix: 1, pixBlobs: 0, pixSmoke: 0, pixBits: 0, pixSparks: 14, pixSparkSpeed: 14, pixAngle: 0, pixSpread: 40, pixColors: 0,
+    originX: 0.12, originY: 0.55, duration: 1.2, fps: 20, frameSize: 4,
+    moments: ["muzzle"],
+  },
+  "Cold Breath": {
+    shape: 0, count: 1, opacity: 0, blend: 1, fluid: 1, fluidSource: 2, fluidLook: 0, fluidColors: 2, fluidAngle: 10,
+    fluidSize: 0.08, fluidPush: 1.5, fluidBuoyancy: 0.15, fluidFade: 0.5, fluidCurl: 1.2, fluidNoise: 0.7, fluidThick: 0.8,
+    fluidShade: 0.5, originX: 0.18, originY: 0.5, duration: 1.2, fps: 20, frameSize: 2,
+    moments: ["ambient"],
+  },
+  // LIT (§65): matter that takes the torches' light (Glow thresh 1: nothing glows, every pixel shades)
+  "Falling Rubble": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixEmit: 6, pixAreaW: 0.6, pixAreaH: 0.05, pixCount: 16, pixSpan: 0.5, pixAngle: 90,
+    pixSpread: 70, pixSpeed: 3, pixScatter: 1.2, pixGravity: 55, pixShape: 3, pixBlob: 0.65, pixSizeVar: 0.6, pixCore: 0,
+    pixGrow: 0, pixLumps: 0.3, pixBreak: 1, pixBreakAs: 1, pixBreakAt: 0.8, pixFloor: 0.72, pixLandAs: 1, pixLife: 1.6,
+    pixColors: 3, pixHeat: 0, pixTone: 0.5, pixLight: 0, pixRim: 0.3, pixSmoke: 0.6, pixBits: 10, pixBitSpeed: 7,
+    pixBitGravity: 40, pixSparks: 0, glowThresh: 1, originY: 0.12, duration: 1.3, fps: 30, frameSize: 4, lit: 1, litRound: 0.35,
+    litBump: 0.8,
+    moments: ["land"],
+  },
+  "Blood Spatter": {
+    shape: 0, count: 1, opacity: 0, pix: 1, pixColors: 1, pixShape: 0, pixCount: 14, pixSpan: 0.03, pixAngle: -90, pixSpread: 120,
+    pixSpeed: 10, pixGravity: 45, pixScatter: 0.3, pixFloor: 0.25, pixLandAs: 0, pixBlob: 0.3, pixStretch: 0.6, pixSizeVar: 0.5,
+    pixCore: 0, pixGrow: 0, pixLife: 1.2, pixLumps: 0.2, pixBreak: 0.3, pixBreakAs: 1, pixHeat: 0, pixTone: 0.5, pixLight: 0.4,
+    pixRim: 0.3, pixSmoke: 0, pixBits: 0, pixSparks: 0,
+    glowThresh: 1, originY: 0.55, duration: 0.9, fps: 30, frameSize: 4,
+    lit: 1, litRound: 0.7, litBump: 0.3,
+    moments: ["hit"],
+  },
+  "Cave-in Dust": {
+    shape: 0, count: 1, opacity: 0, fluid: 1, fluidSource: 0, fluidLook: 1, fluidColors: 3, fluidHeat: 0, fluidBuoyancy: 0.1,
+    fluidSize: 0.2, fluidPush: 1.4, fluidAngle: 0, fluidCurl: 1.2, fluidViscosity: 0.6, fluidFade: 0.3, fluidShade: 0.8, fluidOutline: 1,
+    glowThresh: 1, originY: 0.75, duration: 1.4, fps: 20, frameSize: 4,
+    lit: 1, litRound: 0.7, litBump: 0.5,
+    moments: ["land"],
+  },
+  // the dungeon's SURFACES (§66's Tile): a ward across a doorway, a brimstone floor, a sewer channel
+  "Blood Ward": {
+    tile: 1, frameSize: 3, field: 1, fieldKind: 4, fieldScale: 4, fieldSpeed: 1, fieldFill: 0, fieldSharp: 0.6, fieldWarp: 0.5,
+    fieldSteps: 5, fieldPixel: 2, fieldDither: 0.5, hue: 350, hueLife: -20, sat: 0.9, bright: 1, coreWhite: 0.55, count: 1,
+    opacity: 0, duration: 2, fps: 12,
+    moments: ["shield", "ambient"],
+  },
+  "Brimstone Floor": {
+    tile: 1, frameSize: 2, field: 1, fieldKind: 2, fieldScale: 3, fieldSpeed: 1, fieldSteps: 6, fieldPixel: 2, fieldWarp: 0.6,
+    fieldSharp: 0.25,
+    ramp: "0,265,0.3,0.08,1|0.25,275,0.25,0.14,1|0.5,330,0.5,0.25,1|0.72,40,0.95,0.45,1|0.88,62,1,0.6,1|1,72,0.9,0.85,1",
+    count: 1, duration: 2, fps: 12, opacity: 0,
+    moments: ["ambient"],
+  },
+  "Sewer Water": {
+    tile: 1, frameSize: 2, field: 1, fieldKind: 1, fieldScale: 2, fieldSpeed: 1, fieldDriftX: 1, fieldWarp: 0.7, fieldSharp: 0.5,
+    fieldSteps: 6, fieldPixel: 2, fieldDither: 0.6,
+    ramp: "0,95,0.45,0.1,1|0.35,85,0.4,0.18,1|0.65,75,0.35,0.32,1|0.9,65,0.35,0.55,1|1,60,0.3,0.75,1",
+    count: 1, opacity: 0, duration: 3, fps: 12,
+    moments: ["ambient"],
+  },
+  // </vfx13-pack>
 };
 
 // [category, [preset names…]] — the collapsible layout of the browser.
@@ -2672,6 +3036,22 @@ window.PRESET_CATEGORIES = [
                  "Pixel Damage Number", "Pixel Heal Number", "Pixel Score Pop", "Pixel Crit Text", "Pixel Miss", "Pixel KO", "Pixel Alert", "Pixel Question", "Pixel Sleepy", "Pixel Music Notes", "Pixel Anger", "Pixel Skull Rise", "Pixel Pow",
                  "Pixel Disintegrate", "Pixel Ghost Fade", "Pixel Burn Away", "Pixel Warp Out", "Pixel Dream Portal", "Pixel Underwater", "Pixel Bonfire", "Pixel Torch Flame", "Pixel Burning Ground", "Pixel Spirit Fire", "Pixel Wall of Fire", "Pixel Smoke Column", "Pixel Heat Shimmer",
                  "Pixel Snowflakes", "Pixel Ghosts", "Pixel Gem Burst", "Pixel Flower Burst", "Pixel Bone Burst"]],
+  // <vfx13-fluid>
+  ["Fluid", ["Rolling Blast", "Curling Smoke", "Ink Drop", "Mist Swirl", "Steam Vent"]],
+  // </vfx13-fluid>
+  // <vfx13-lit> §65: effects that take the game's lights
+  ["Lit", ["Lit Dust Cloud", "Lit Pixel Dust", "Lit Rock Burst", "Lit Smoke Column"]],
+  // </vfx13-lit>
+  // <vfx13-tile> §66
+  ["Textures", ["Energy Field", "Water Caustics", "Lava Crust", "Force Field", "Rune Crawl", "Electric Static", "Rain Streaks"]],
+  // </vfx13-tile>
+  // <vfx13-pack>
+  ["Dungeon", ["Wall Sconce", "Brazier", "Candle Cluster", "Glow Mushrooms", "Crystal Pulse", "Lantern Glow",
+               "Pressure Plate", "Trap Glyph", "Puddle Drip", "Frost Creep", "Chest Open", "Door Unlock", "Item Rise",
+               "Spell Cast", "Monster Dissolve", "Secret Found", "Sword Swing", "Arrow Volley", "Torch Smoke",
+               "Poison Vent", "Ghost Wisps", "Dragon Breath", "Cold Breath",
+               "Falling Rubble", "Blood Spatter", "Cave-in Dust", "Blood Ward", "Brimstone Floor", "Sewer Water"]],
+  // </vfx13-pack>
 ];
 
 // THE MOMENTS (VFX-DESIGN §26). A game developer thinks in moments ("I need a hit spark, a death puff, a pickup sparkle"),

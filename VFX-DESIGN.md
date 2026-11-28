@@ -2988,6 +2988,9 @@ so a PS1 wobble shader does not touch them.
 **The rule: a 3D effect is the 2D effect standing in a room.** Same frames, same SpriteFrames, same script API (autoplay,
 free_when_done, `impact` / `finished`, play(), stop()), same sound (AudioStreamPlayer3D). 3D adds only placement and light. No
 GPUParticles3D re-simulation, no new renderer of the effect itself: that would be a second VFX and would drift from the first.
+<!-- <vfx13-shapes> --> *(Amended by §61.8, 2026-11-27: AJ asked for bursts "in a 3D area". A card is still this rule, byte for byte;
+`d3Form` adds 3D-native forms that re-emit an effect's PARTICLES as CPUParticles3D from the effect's own numbers and sprites,
+and lay slashes, beams and rings on meshes that show the effect's own frames.)* <!-- </vfx13-shapes> -->
 
 ### 61.1 What the effect says (PARAMS, appended, a "3D" group; defaults change NO 2D byte and no old link)
 - `d3Stand` (enum, append-only): **auto** (default) / faces you / upright / flat on the ground / on the screen.
@@ -3090,6 +3093,66 @@ GPUParticles3D re-simulation, no new renderer of the effect itself: that would b
 - The README's spawn line per stand (on the screen: no position, said plainly); the 3D scripts' examples name their own
   scene (the 2D .gd untouched, so no planted 2D effect reads as changed). A stale "Exported <name>" clears once another
   effect is loaded.
+
+<!-- <vfx13-shapes> -->
+### 61.8 3D-native shapes: particles, slash arcs, beams, rings (the shapes agent, VFX 1.3 content round, 2026-11-27)
+AJ, of the billboards: could bursts like Pixel Level Up "burst in a 3D area"? **`d3Form`** (a 3D row, appended; enum
+`FX3D_FORMS` append-only: auto / card / particles / arc / beam / ring) says what the effect becomes in a 3D game; the room under
+the stage has it as **As**. A **card** is §61's scene, byte for byte (proved against base's fx3d.js in the page suite).
+- **Auto** = `FX3D_AUTO_FORM`, by preset name, else the nearest shipped preset, else a card. Judged in room renders, 28 presets:
+  particles (Pixel Level Up, Pixel Gem Burst/Sparkle, Pixel Flower/Bone Burst, Pixel Spark, Pixel Button Sparkle, Ring Burst,
+  Magic Sparkle, Confetti, Twinkle, Pixel Burst, Charm Hearts, Emoji Burst, Coin Burst, Candy Shower), arcs (Slash, Twin
+  Slash, Pixel Slash, Pixel Swoosh, Pixel Twin Swoosh, Sword Slash), beams (Laser, Pixel Laser), rings (Shockwave, Pixel
+  Shockwave, Pixel Ring Blast, Sonic Pulse). A chosen form the effect cannot take (no particles, on the screen, baked Variety,
+  runtime text) is a card. The engine suite asserts every preset resolves, by name and from its state alone.
+- **Particles** (`fx3dParticleSystems`): the main emitter (A), Layer B, the pixel layer's blobs (burst, stream, ring), its core
+  and its sparks, each a system of **CPUParticles3D** (not GPU: it simulates the same headless, on the Flatpak's Compatibility
+  GL and everywhere, a burst of hundreds costs nothing, every knob is an inspector field). Emission is DIRECTED POINTS (each
+  point carries its own direction), so the 2D geometry carries over exactly: a burst is a uniform sphere, a cone a cone round
+  its axis, a ring (and a spiral) lies in the floor plane thrown outward, a disc is a ball, a line a bar, a box a cube; a
+  flattened pixel burst fans out level. Godot picks a pooled node's points at random, so an EVENLY laid ring (the pixel
+  layer's) is one emitter per blob, each with its own birth, speed, size and life, the 2D blob's one for one. Hue variety is
+  rows of the strip, one node per row; a stream longer than a life is several nodes a lifetime apart (Godot spreads a
+  one-shot's births over at most one lifetime). Units: meters per sim px = the render's transform x mpp; the pixel layer's
+  R0-per-clip speeds and gravity converted by its art scale and the clip.
+- **Drag, fitted** (`fx3dFitDamping`): 2D drag is exponential, Godot's damping takes a fixed amount off the speed's length (so a
+  rule of thumb ate gravity: Pixel Level Up's stars stayed on the floor). Of a grid of (damping, where its curve falls to 0),
+  the one whose paths (thrown level, up, down, at 45 degrees, under the same gravity) stay nearest the 2D paths over the life.
+  The pixel layer drags only the launch and lets gravity fall free (pixart.js fly()); the fit knows which.
+- **The strips**: each particle's own look over its life, K cells (a row per hue). A smooth particle's strip is drawn by the
+  app's own renderer (`fx3dSmoothStripState`: one still particle in a C x C frame, every other layer at its PARAMS default, so
+  its shapes.js drawing, ramp, fade, glow and crunch are the 2D ones); a pixel blob's by pixart.js itself (`fx3dPixelStrip`:
+  the layer's one blob at each life stage: heat, swell, light, rim, break-up, outline); a spark is its single art pixel.
+  Godot shows cell `row x K + floor(0.5 + t (K - 1))` (`fx3dStripAnim`: anim_offset/anim_speed, particles_anim_h/v_frames).
+- **The card**, with particles, is the effect WITHOUT them: the same simulation with their alpha zeroed (so Fit and every
+  other layer stay put) and the pixel layer's blobs/sparks off; its own `<base>_3d_card.png/.tres` (made by buildExportFiles);
+  nothing left (Pixel Level Up, Confetti): the sprite hides and stays the clock (impact, finished, the light).
+- **Arc / ring / beam** (`fx3dArcSpec`, `fx3dRingSpec`, `fx3dBeamSpec`): measured from the frames round the emitter (an annulus
+  sector: all but the widest empty angle gap, radii 1-99 %; a ring per frame, the ellipse stretched by fx3dFlatDepth; a beam
+  along its direction). A `MeshInstance3D "Shape"` (a subdivided PlaneMesh) with `<base>_3d.gdshader` places each vertex and
+  gives it the frame pixel it shows (`fx3dArcVertex` etc. in JS: the room uses the same math); the script hands the shader
+  each frame's region of the 2D SpriteFrames (its own AtlasTexture), so no new art file. The arc lies in the swing plane,
+  turned so its middle points straight ahead (-Z), leaning 20 degrees, its outer radius 1.25 m (a reach); spawned on the
+  camera's basis it sweeps across a first-person view. The ring lies on the floor and grows (r_in/r_out per frame). The beam
+  is turned about its own axis to face the camera; `aim(at)` points and stretches it.
+- **The scene** (`fx3dShapesTscn`, `fx3dShapesScriptLines`): the 3D script gains `_shape(f)` at the same anchor lines as the light
+  (particle nodes start on their frames: `particle_frames`; a loop keeps emitting; stop() stops them). A one-shot's particles
+  end with the clip, as the 2D clip ends (the scene frees itself there); those done earlier emit `finished`. `<base>_3d.json`
+  gains `form` (systems, points, normals, strips; or the mesh's numbers) for other engines.
+- **The room** (room3d.js build 2): `o.geom(cam)` returns camera-facing quads (BILLBOARD_PARTICLES: the camera's own axes, turned
+  by the particle's angle) and textured triangles (perspective-correct), drawn after the room and the card against a depth
+  buffer: cut writes depth, mix and add drawn far to near. `fx3dParticleSim` steps Godot's model at 60 Hz (births, damping
+  curve, gravity, radial, spin, strip cell); Godot draws its own random numbers, so a particle there is not this one, the
+  population and every number are. Eye height: the arc on the camera, the beam from the hip.
+- Proofs: tests/regression.js §61.8 block; `node tests/shapes3d.mjs` (the room's row, the room drawing and hiding by depth,
+  each form's export, a card's 3D files byte for byte base's, pictures); `node tests/room3d.test.mjs` (geom, pinned);
+  `node tests/godot-3d.mjs` (8 more effects: CPUParticles3D amounts/lifetimes/gravity/cells as the .json says, directed
+  points, billboard-particle quads wearing their strips, emitting, finished, freed; the mesh forms' shader and regions in
+  turn, a ring growing, aim(); with a display, renders: Pixel Level Up from a low and a high camera, a first-person slash,
+  rings on the floor, an aimed laser, Confetti).
+- Not yet: collision (CPUParticles3D has none: Pixel Gem Burst's gems sink through the floor instead of lying on it), sub-
+  emitters (Spark Shower's sparks off sparks), swirl/turbulence/attractor motion, directional sprites turning with flight.
+<!-- </vfx13-shapes> -->
 
 ### 61.5 How it gets built (max 3 agents, WIP copies in ~/.cache/crunchy-wip/vfx-1.3/)
 1. **export agent**: 61.1 + 61.2 (AUTO_STAND, the light curve, the scene writer, README, CLI, godot-3d.mjs).
@@ -3228,3 +3291,283 @@ game's 75 planted effects were written by 1.1.0 (the CLI, Firefox's pixels), so 
 - The desktop row `update/the-check-renders-only-what-could-have-changed` now asserts the second pass renders NOTHING and
   the changed effect is still marked (it pinned `again === 1` before).
 Press "Update all" once in a game whose effects are from an older version to make them current for good.
+
+<!-- <vfx13-fluid> -->
+## 64. The pixel fluid (2026-11-27, VFX 1.3's content round; the fluid agent)
+
+AJ, for 1.3 ("let's get everything out now"): curling smoke, ink in water, mist and rolling explosion clouds that move as a
+fluid does, kept pixel art when the look is pixel art. The particles and the Pixel art layer's blobs FLY; nothing in the app
+ROLLED. Now a "Fluid" layer (a new group, 25 rows appended after the 3D rows, `fluid` 0 = off) simulates a small grid fluid
+and draws its dye in the effect's colors.
+
+**fluid.js** (VFX's own, pure, a new runtime file after pixart.js): `fluidSim(o)` -> one density grid (and one heat grid) per
+frame, the shape of crunchyCore fire.js (§55, §59): its own hash RNG (`fluidRnd`), deterministic (the same seed and rows give
+the same Float32 numbers; the engine suite checks every source, loop or not), cached (`fluidSimFor`, the last three sims by
+everything they read). Each step, stable fluids (Stam): the SOURCE pushes dye, heat and velocity in; BUOYANCY lifts heat and
+dye (negative sinks ink); WIND leans what carries dye; VORTICITY CONFINEMENT puts the curls back, fed the curl SMOOTHED over
+3 x 3 cells (fed the raw curl it amplified the grid's one-cell eddies into icicle fingers hanging off every cloud: measured
+by switching it off, they went); the velocity carries itself (semi-Lagrangian), is damped (Viscosity) and PROJECTED
+(Gauss-Seidel, 14 sweeps warm-started from the last step, open edges: pressure 0 outside, so smoke leaves the frame); the dye
+and heat ride it by MACCORMACK (a step forward, one back, half the error put back, clamped), because the plain step blurred
+every fold away in a few dozen steps and a cloud read as a soft blob; then Fade thins everything and wears the thinnest wisps
+away. Heat cools (Cool), a little faster at the thin edges, so a hot cloud keeps a hot heart.
+- **Sources** (`FLUID_SOURCES`, append-only): puff (a CLUSTER of 6-10 dome-shaped lumps, kicked outward, so it billows instead
+  of swelling as a disc), column (dye coming in puffs by Noise, the heading swinging), jet (narrower, faster), swirl (a spinning
+  field worked out once; dye fed at three points on a ring that turns whole turns per clip), ink drop (a disc along Direction,
+  then a thinning trickle for a fifth of the clip). The dye goes in with a value-noise grain so the folds show inside.
+- **A puff could not swell**: an incompressible projection removes any outward push. DIVERGENCE CONTROL: the projection is
+  asked for a little divergence where a puff's dye is (fading over the first part of the clip) and where gas is hot; what
+  expands thins out by the same amount.
+- **Placed by the frame and Origin X/Y, never Fit** (as the Pixel art layer). The grid: "Cells" across the frame's short side
+  (default 48). The PIXEL look keeps the Pixel art layer's grid (a whole k, so the two line up); the SMOOTH look keeps the same
+  cells at any render size (k fractional), so an export at 4x draws the cloud of the preview.
+
+**Drawing** (`fluidFrame`): the colors are the Pixel art layer's (`pixPalette` over PIX_RAMPS by Colors, Hue shift: "effect
+colors" by default, so a color set or the game palette reaches it): a ladder of the smoke grays (with Heat and Smoke) then the
+ramp. Hot cells climb the ramp by heat and turn to smoke as they cool; with no heat, by density (Thickness: the density drawn
+full). SHADE: a self-shadow (how much fluid lies between a cell and an up-left light, one pass along the diagonal) plus the
+density's slope at the rim, kept within the cell's part of the ladder (lit smoke never turns to flame), so a cloud is lit on
+one side and dark in its belly, as a sprite artist shades one. SMOOTH: the ladder blended, alpha by density, stretched over
+the frame with smoothing, in the effect's blend. PIXEL ART: the ladder in hard steps, ordered-dithered between them (Dither,
+PIX_BAYER), cells under a threshold empty (the threshold dithered too, so the edge breaks up as the pixel layer's smoke
+does), lone cells dropped (the dither's salt is not art), Outline in the ramp's outline color, drawn opaque at a whole k,
+always source-over. Nothing is cut square at the frame: the coverage thins over the last tenth to every edge. A one-shot is
+gone by its last frame (its coverage drains over the last 30 %: a pixel cloud dissolves through its dither).
+
+**Loops** (Loop): the forcing repeats every clip (draws salted by the step within the clip, as fire.js does) and the sim warms
+up whole clips first; then the last quarter of the clip is CROSS-FADED into the head ON THE FIELDS (before coloring, so the
+pixel look stays hard): frame i of the first quarter is the sim one clip later blended toward the sim at i, so the last frame
+leads into the first as one step leads into the next. Periodic forcing alone never repeats a chaotic flow; the fade alone
+would ghost two different clouds. Measured (the engine suite, mean density change per frame): Curling Smoke's seam 0.027
+against ordinary steps up to 0.035 (0.070 without the fade), Mist Swirl 0.058 / 0.096 (0.107 without), Steam Vent 0.020 /
+0.036 (0.027 without: its jet nearly repeats on its own); on the rendered pixels every seam is under the clip's biggest step.
+
+**Speed** (Firefox, cold, the sim included): a 128 px preset renders in 22-143 ms (Rolling Blast 24 frames 22 ms, Curling
+Smoke 30 frames 81 ms, Mist Swirl 40 frames 143 ms); a 60-frame looping column 92 ms. The engine suite fails over a second.
+
+**Presets** (a "Fluid" category; FX3D_AUTO_STAND upright: Curling Smoke, Steam Vent, Ink Drop; face: Rolling Blast, Mist
+Swirl): Rolling Blast (pixel: a fireball rolling up into curling smoke, fire ramp, Heat), Curling Smoke (pixel loop: a smoke
+column curling in a breeze), Ink Drop (smooth: a magenta drop falling into a curling mushroom), Mist Swirl (smooth loop, screen:
+violet mist wound round a turning vortex), Steam Vent (smooth loop: a jet of steam curling off at an angle). A fluid in the
+pixel look counts as pixel art for the Look switch (`presetIsPixel`).
+
+**What would move to crunchyCore** (as fire.js did): all of fluid.js (it needs pixart.js's `pixPalette` and `PIX_BAYER`, both
+core already). VFX keeps `drawFluid` (the canvas) and the rows.
+
+Not done: Quick shape macros for the fluid; Randomize turns it on through LAYER_GROUPS like any layer (jittering its rows),
+the Wizard has no fluid ingredient; lit effects (the lit agent's normal maps) are not wired to it here.
+<!-- </vfx13-fluid> -->
+
+<!-- <vfx13-lit> -->
+## 65. Lit effects (2026-11-27, VFX 1.3's content round, lit agent)
+
+Until now every effect was unlit: it glows, or it sits flat on whatever is behind it. A LIT effect takes the game's lights:
+smoke, dust, debris and blood shade from the light's side. **The frames never change**: Lit is how the stage, the room and
+the exported scenes SHADE them, through a normal map per frame worked out from the effect's own drawing.
+
+**The rows** (a "Lit" panel, folded, after the 3D panel; appended after the 3D rows; Lit off = every frame, link and export
+byte as before, measured: the frame hash with the four new presets taken out is identical to 1.3's, line for line):
+`lit` (off), `litRound` Roundness (0.6), `litBump` Bumps (0.4), `litParts` (append-only: "All but the glow" / "Everything").
+All four in BREED_SKIP and fx3dNearestPreset ignores them (a lit preset still stands as its preset).
+
+**The normal map** (lit.js, pure, a new runtime file after fx3d.js): HEIGHT = how much is drawn (alpha) blurred by
+Roundness (reach: up to a twelfth of the short side; at 3+ cells a third of that reach is mixed in at 40 %, so overlapping
+puffs keep their lumps) + Bumps (the drawing's own light and dark against its neighborhood); Sobel; K = 3.2 x reach. OpenGL
+convention (green is UP: what Godot reads), opaque everywhere, 128,128,255 where nothing is drawn. A PIXEL effect (pixel art:
+pixart.js's whole art pixel k; or Pixelate) is worked out on its ART-PIXEL grid, one normal per art pixel, the grid kept
+where it was in a trimmed sheet (the trim's offset). GLOWING pixels (exactly emissiveFrames' test: luminance x alpha >=
+Glow thresh) get the flat normal and every shader leaves them as drawn ("Everything" shades them too).
+
+**One light model everywhere** (the stage, the room, the Godot 2D and 3D shaders): Lambert WRAPPED by 0.4,
+clamp((N.L + 0.4) / 1.4), soft like light through dust. A pixel effect's light comes in 3 hard BANDS (round(w x 3) / 3,
+per light): pixel art shades in a few tones, never a smooth ramp (judged in the pictures: a smooth gradient over pixel
+blobs read as a filter, the bands read as drawn).
+
+**Export** (any sheet export, whatever the metadata): `<base>_n.png`, built from the same (trimmed) frames as the sheet,
+like `_emissive.png`, so it lines up pixel for pixel (Variety's baked variations: stacked the same way). The `.png`, `.tres`
+and both scripts are byte for byte the unlit ones.
+- **Godot 2D** (`<base>.tscn`): the Sprite wears a ShaderMaterial (inline Shader sub_resource): `NORMAL_MAP` from the normal
+  sheet at the frame's UV (an AtlasTexture region's UV IS the sheet's: measured in Godot 4.7, so the shared SpriteFrames .tres
+  stays as it is: no CanvasTexture, which a 3D sprite could not share), and a `light()` with the wrapped Lambert. A
+  CanvasModulate darkens EVERYTHING on its layer, glow included (measured: a shader cannot undo it per pixel), so an effect
+  with glowing pixels gets a **Glow** child (AnimatedSprite2D under Sprite, so it takes its flips, scale and offset; an
+  unshaded material that discards all but the glowing pixels; a built-in script that follows the Sprite's animation and
+  frame). Nothing glows: no Glow node.
+- **Godot 3D** (`<base>_3d.tscn`): the AnimatedSprite3D wears a `material_override` ShaderMaterial (an override replaces the
+  sprite's own material, so it does what that one did: the billboard by stand, Godot's own StandardMaterial3D lines with
+  keep-scale; nearest; the alpha cut or blend), samples the sheet itself (the mesh's UV is the sheet's, measured), takes
+  NORMAL_MAP, the wrapped Lambert in `light()`, and glowing pixels as EMISSION with no albedo. The `_3d.json` gains
+  `normalSheet`. A text effect (§53) and the screen stand stay unlit (their sheet is the `_fx` one / a CanvasLayer).
+- The README gains a LIT part (PointLight2D Height, CanvasModulate, the Glow child, the wrap).
+
+**The room** (room3d.js build 2): `o.lit` { normal, glow, steps } shades the sprite by ambient, the room's lamp, its moon,
+the new torch and the effect's own light (a lit Pixel Explosion's smoke takes its fire's light), in the sprite's tangent
+frame (billboard toward the camera, upright turned about Y, flat facing up). A fifth room, **Torchlit cellar** (cobble,
+earth blockwork, a torch on a stand at the front left with a drawn flame), so a lit effect shows its torch side warm from
+where the camera starts: in the four old rooms the lamp hangs BEHIND the effect, so a lit effect is backlit there (honest,
+and dark; the old rooms' pictures are unchanged, the room test's 20 pinned hashes hold).
+
+**The stage**: while Lit is on, the 2D stage shows the effect as a PointLight2D at its test light shows it (warm, over a
+darkened scene); the light sits up-left, follows the pointer over the stage and stays where it was left, a small marker
+shows where. One line in the Lit panel says all this.
+
+**Presets** (a "Lit" category; FX3D_AUTO_STAND): Lit Dust Cloud (smooth: the cloud particle, so the puffs stay lumpy), Lit
+Pixel Dust, Lit Rock Burst (faces you), Lit Smoke Column (upright, a pixel fire in the dust ramp). Glow thresh 1 and colors
+under white: nothing glows, every pixel shades, no 3D light.
+
+**Proofs**: tests/regression.js §65 block; tests/room3d.test.mjs part 8 (the torch side brighter both ways, glow as drawn,
+bands, off = the unlit picture); `node tests/godot-lit.mjs` (page half tests/godot-lit.js): Lit off byte for byte with every
+Lit row moved, on adds only `_n.png` and the scenes' lit parts, normals face outward, crisp art-pixel blocks; then REAL
+Godot 4.7: imports clean, the materials and the Glow child as stated, and RENDERED: each lit preset (and a lit Pixel
+Explosion) held on one frame, lit from the left then the right, brighter on the lit side both ways in 2D (PointLight2D under
+a dark CanvasModulate) and 3D (OmniLight3D beside the billboard), and the explosion's fire still bright with NO light.
+
+**Variety's flips** (§39): in 3D the sprite's flip_h / flip_v mirror the picture, not its normals, so a lit + varied 3D
+script gets one spliced line setting the material's `flip` (the material is local to each instance; proved over 24 seeded
+plays in Godot). In 2D the flip is a negative scale, which Godot's canvas applies to the normal too (not separately proved).
+
+**What glows vs bright matter** (asked by the lead after the fluid round: Curling Smoke, Steam Vent and Ink Drop lit the
+3D room white and magenta). The glow mask says only that a pixel is BRIGHT. fx3d.js `fx3dGlowMode(st)`: "all" when something
+in the effect MAKES light (particles or Layer B drawn additive or screen; a light layer: Glow, Flash, Streaks, Bokeh, Cone,
+Rim light, Light shafts, Twinkle, Particle rings, Beam, Arc, Lines, Sigil, Rift, Shockwave, Ribbon, Vortex, Orbit, Chain,
+Impact, Zoom blur, Kaleidoscope; pixel art with Heat, a fire in fire colors, sparks, a star blob, or a ramp other than blood /
+cloud / dust / shadow / ink; a fluid with Heat, or a smooth fluid drawn additive or screen), as before; "hot" for an effect of
+MATTER only: only its FIRE-colored bright pixels glow (`fx3dHot`: bright, saturation at least 0.6, hue about -15 to 60
+degrees: embers in smoke, never tan dust, white or magenta); "none" when Lit parts is Everything. The SAME rule decides the
+auto 3D light, what stays emissive in the lit shaders (`hot_only`), the stage and the room. The fluid presets: Rolling Blast
+(Heat) and Mist Swirl (screen) light; Curling Smoke, Steam Vent, Ink Drop do not. Old presets whose auto 3D light changes
+(measured over all 325, before = every bright pixel): OFF now: Cracks, Slime Blob, Goo Split, Poison Cloud, Rain, Downpour,
+Snow, Water Splash, Speech Pop, Talk Bubble, Damage Number, Petal Fall, Ash Fall, Jet Exhaust, Feather Fall, Bird Flock,
+Skull Puff, Pixel Poof, Pixel Dust, Pixel Slam, Pixel Gust, Pixel Rock Burst, Pixel Dust Devil, Pixel Run Dust, Pixel Snow,
+Pixel Blizzard, Pixel Ash Fall, Pixel Sandstorm, Pixel Miss, Pixel Ghosts, Pixel Bone Burst (white/gray/green/blue/tan
+matter, text and bubbles: the same mistake); DIMMER (only their orange/yellow pieces): Charm Hearts, Confetti, Confetti Toss,
+Candy Shower, Cog Burst. Every other preset's light is unchanged. Frames and 2D exports never depended on it.
+
+**Not done**: text effects and the screen stand are unlit; frames zips and APNG carry no normal map (sheet
+only); Unity/Unreal get the `_n.png` and the json key, no material.
+<!-- </vfx13-lit> -->
+
+<!-- <vfx13-tile> -->
+## 66. Seamless looping textures (2026-11-27, VFX 1.3's content round, tile agent)
+
+**What.** The other kind of output: not a sprite centered in a frame but a MATERIAL TEXTURE whose left edge continues into its
+right and top into its bottom, and whose last frame flows into its first: energy and force fields, water caustics, lava crust,
+crawling runes, static, rain on a pane. A **Tile** panel (appended PARAMS rows, all off: `tile`, `tileSize` frame/32/64/128/256,
+`tileAxes` both / across only / up and down only, `tileLoop` seconds, 0 = Duration) and a new layer, the **Field** (12 rows,
+`field` 0 = off). VFX's own file `seamless.js` (after vfx.js) holds both; vfx.js has marked hooks only.
+
+**Space: folding, never blending.** The effect is drawn on the plane at its own scale (its frame centered on the tile, Fit never
+applies) onto a canvas one tile bigger on every wrapped side, and that canvas is FOLDED onto the tile: every tile-sized block
+drawn onto the tile at the same spot, with the effect's blend. That is the periodic sum of the drawing, so whatever leaves an
+edge comes back at the other, for every engine that draws in the frame's space (particles, strokes, rings, beams, the
+sigil, the pixel layer). Particles are also wrapped (drawn at their position modulo the tile, in the middle block), so a
+drifter never leaves the window. The pixel layer sizes itself from its canvas, so on the big canvas its rows are rescaled
+(`seamPixState`: detail, size, origin, area, floor, fire) to draw exactly the art pixels it draws on the frame. Layers that
+draw over the whole canvas (Bokeh, Droplets, Twinkle, Weather, Flare) are drawn on the tile once per neighbor offset (the
+same sum). The post chain runs on a 3 x 3 repeat of the folded tile and keeps the middle (`postRefPx` gives it the tile
+frame's reference), so a glow, an outline or a palette dither crossing an edge is the wrapped one. **Proved exactly**: an
+effect drawn half a tile over is the tile rolled by half (mean difference 0.001 of 255 for particles with glow, 0 for the
+pixel layer, 0 for a cross-faded sigil): the seam is an ordinary interior line. Not periodic by construction, said here:
+position-centered post passes (Warp, Slice, Zoom, Kaleidoscope, Dissolve's noise, Haze's waves, the bubble) and the pixel
+fire automaton's own grid (it is folded like the rest, so it repeats, but a source the full tile wide tapers at its ends: a
+dimmer column at the seam; a toroidal fire is a one-line crunchyCore fire.js change, not made: core files are not edited here).
+
+**Time: a loop that truly closes.** Particles: births WRAP (the clip is one period of a steady stream: simulate runs
+`seamCycles` periods and overlays every period's frame at each phase, so the particles of earlier cycles still flying are
+drawn; turbulence is made periodic in time, `seamTimeNoise`, the field at s and s - P mixed by s / P). The Field: whole
+cycles per loop by construction (noise lattices periodic in time, Changes x 2 slices; Drift whole tiles per loop). Weather in
+a tile: its field wraps at the tile and its fall and sway are quantized to whole tiles / whole cycles per loop (`xf.seam`).
+The pixel layer: its own Loop (§44). EVERY OTHER LAYER (functions of time that never repeat: a sigil turning, a beam, a
+vortex) is CROSS-FADED: drawn at t + L and at t and mixed by t / L, premultiplied (`seamMix`), which closes the loop at the
+price of a double image mid-way. `seamNative` is the one list.
+
+**The Field** (`drawField`): a pattern per pixel (or per Pixel size block) on lattices that WRAP: plasma (sines of whole
+frequencies, warped), caustics (the borders of drifting Worley cells, warped, a finer net over it), crust (Worley plates with
+glowing cracks; the points orbit whole turns per loop), static (thin ridges of three-octave noise, rare sparks), hexes (a hex
+grid stretched to whole rows, a pulse running diagonally), runes (5 x 5 mirrored glyphs on an 8 x 8 grid, a wave up the rows).
+Colors: the effect's ramp, else hue to a white core; Color steps with a Bayer dither; Fill 0 lets the dark parts through.
+Proved: every pattern equals itself at u + 1, v + 1 and phase + 1 to 1e-9, and is continuous through the edge. A Field is
+never rolled by Randomize (a full-frame fill in a sprite).
+
+**The preview:** a third view tab, **Tiled**, shown while Tile is on (it opens by itself when Tile goes on): the stage draws
+the tile 3 x 3, playing. **3D:** `d3Stand` appends "texture" ("A surface (tiled)"); Tile on makes any effect one (auto); the
+room tiles the floor with it (unshaded, 1 m a tile by default: FX3D_AUTO_SIZE.texture) and casts no light.
+
+**The export** (`seamExportFiles`, from buildExportBundle with Tile on; off: nothing runs): `<base>_tile.png` (a flipbook,
+columns x rows, no gaps, no trim), `<base>_tile.png.import` (lossless, no mipmaps, never recompressed as 3D: Godot keeps
+it), `<base>_tile_frames/` (a PNG per frame), `<base>_tile.json`, Godot 4 `<base>_tile_3d.gdshader` / `.tres` (spatial,
+unshaded, nearest, `repeats`, `fps`, `speed`, the frame from TIME, the inner uv clamped half a texel inside each cell) on a
+ready 2 m plane (`_tile_3d.tscn`), `<base>_tile_2d.*` (canvas_item) on a ready ColorRect, and `<base>_tile_README.txt`.
+"3D scene too" for a surface writes `<base>_3d.tscn` as a plane two tiles a side wearing the material.
+
+**Proofs** (`node tests/seam.mjs`: tests/seam.js in the real page, then a real Godot): numbers in the round's report and
+NOTES.md. With a display, each texture's plane is rendered from straight above (orthographic, 2 x 2 tiles at 2 px a texel)
+and its ColorRect (1 px a texel), frozen on frame 0: the render IS frame 0 tiled 2 x 2, and the lines where the copies meet
+differ no more than ordinary neighbors.
+
+**For the suite (not built here).** CrunchyTexture could take a planted texture's `<base>_tile.png` + `_tile.json` as an
+ANIMATED MATERIAL in its places: a lava floor, a water channel, a force-field door, a rune wall, sampled exactly as the
+Godot shader does (frame from time, fract(uv x repeats), nearest), so a Texture place's walls and floors move; its PS1
+look (affine wobble, dither) applies on top, since the tile is just a texture. CrunchyShader could take the flipbook (or
+the Field's pattern as an IR node: periodic noise + a ramp) as an INPUT texture to its looks and eras, a moving source
+for a CRT or an outline pass; the tile's json says how to step it.
+<!-- </vfx13-tile> -->
+
+<!-- <vfx13-pack> -->
+## 67. The dungeon pack (2026-11-27, VFX 1.3's content round; the pack agent)
+
+AJ, of 1.3 ("effects in 3D", the last big push before his games): new presets "only add value to the user, and might inspire
+things they didn't think about", and the baked strip pictures make them nearly free at startup. So a DUNGEON CRAWLER's
+effects, one "Dungeon" category (29 presets), every one judged in the 2D stage AND in the 3D room (contact sheets in the round's scratch),
+each carrying its game MOMENT (its `moments` field: the Moments view and search find it) and placed in FX3D_AUTO_STAND (and,
+where a 3D-native form clearly reads better, FX3D_AUTO_FORM). No preset sets a 3D row (§61's rule): the tables decide.
+Spread over the engines so each new one ships with examples.
+
+| preset | engine | stands / form | moment |
+|---|---|---|---|
+| Wall Sconce | pixel fire automaton + sparks (loop) | upright | ambient |
+| Brazier | pixel fire, a stream of hot embers (loop) | upright | ambient |
+| Candle Cluster | smooth flame particles, four Shots (seed 3) as four candles (Seamless loop) | upright | ambient |
+| Glow Mushrooms | pixel "particle" blobs (mushroom) on the area emitter + smooth spores | upright | ambient |
+| Crystal Pulse | pixel spikes on the area emitter, a ring stroke pulsing (loop) | upright | ambient |
+| Lantern Glow | smooth: a flame, a steady alpha halo, a chain up, moths (swarm) | upright | ambient |
+| Pressure Plate | pixel: a dust ring flattened, a ring stroke, debris, a flash | flat · ring | land |
+| Trap Glyph | sigil (five spokes) + rune particles on a ring (loop) | flat | ambient |
+| Puddle Drip | ripples (loop) | flat | ambient |
+| Frost Creep | growth, eight seeds + snowflakes | flat | status |
+| Chest Open | smooth: coins and gems bouncing, stars rising, a light cone, a flash (256 px: bigger in the room) | upright · particles | pickup |
+| Door Unlock | smooth: a key turning a quarter, then a flash, rays, lines and sparks | face | pickup |
+| Item Rise | smooth: a big four-point star rising, sparkles, a light column | upright · particles | pickup |
+| Spell Cast | pixel blobs gathering, then a smooth burst, flash and shockwave (layer delays) | face · particles | muzzle |
+| Monster Dissolve | a pixel skull (green) wiped away bottom-up into dust + rising smooth motes | upright | death |
+| Secret Found | pixel stars laid along an ARC in order (a chime's rising notes) + sparks (256 px) | face · particles | powerup |
+| Sword Swing | pixel swoosh stroke, two copies, steel | face · arc | hit |
+| Arrow Volley | smooth darts, five Shots, a 256 x 112 frame, dust puffs | face | projectile |
+| Torch Smoke | fluid column (pixel, soot) over a pixel fire | upright | ambient |
+| Poison Vent | fluid jet (pixel, green) + hollow bubbles | upright | status, ambient |
+| Ghost Wisps | fluid swirl (smooth, screen) + three eyeless pixel wisps circling, short trailing tails | face | ambient |
+| Dragon Breath | fluid jet sideways with Heat (pixel), sparks | face | muzzle |
+| Cold Breath | fluid jet (smooth), a small white puff | face | ambient |
+| Falling Rubble | LIT pixel: square rocks on the area emitter falling and landing (stick), gray smoke, dust bits | upright | land |
+| Blood Spatter | LIT pixel: a blood spray that splats on a floor | face | hit |
+| Cave-in Dust | LIT fluid: a dust puff rolling along the floor (pixel) | face | land |
+| Blood Ward | TILE: crimson pixel hexes, see-through (a ward across a doorway) | texture | shield, ambient |
+| Brimstone Floor | TILE: dark violet crust plates, red cracks, sulfur-hot joints (pixel) | texture | ambient |
+| Sewer Water | TILE: murky green pixel caustics drifting across | texture | ambient |
+
+**Judged, changed from the first drafts:** a smooth-particle halo under a pixel loop does not loop (Seamless loop is off
+whenever the pixel layer loops, `loopBlendCount`), so the sconce and the brazier have none; Glow does not reach pixel art,
+so a pixel light's halo in 2D is its fire alone (the room's light does the rest). Candles as pixel blobs read as specks;
+smooth flames with Shots read as candles (each shot an offset flame column). The pixel "line" emitter thins its blobs to a
+tip, so clusters (mushrooms, crystals) use the area emitter. Monster Dissolve as particles lost its wipe (the ghost became
+one 3D particle), so it stays a card. Puddle Drip's several rings are one card (a ring form measures one ring a frame).
+**Size in the room (the shapes report):** a particle burst keeps the effect's auto size, so Chest Open and Secret Found are
+256 px frames (sqrt(256/128) = 1.4x): about 1.7 m and 1.8 m, not a pickup-sized sparkle; fx3d's rules are untouched.
+
+**The ghosts (the lead, AJ's call pending):** VFX's built-in "ghost" particle (a dome, two eyes, a wavy hem) reads like a
+famous arcade ghost, so no pack preset uses it: Monster Dissolve is a green skull, Ghost Wisps' figures are eyeless round
+wisps with short tapering trails (Trail + Stretch under the layer's Spin). The built-in shape and its old presets are untouched.
+**Lit and tiled** (built after the merge): the three lit presets are judged in the Torchlit cellar (they take its torch:
+Glow thresh 1, nothing glows, no 3D light); the three surfaces are dungeon-colored and pixel-stepped, so they sit beside the
+seven Textures (Force Field's smooth cyan hexes, Lava Crust's orange plates, Water Caustics' clear blue) rather than repeat them.
+<!-- </vfx13-pack> -->

@@ -82,6 +82,7 @@ fx.forEach((e, i) => {
   mkdirSync(join(proj, e.dir), { recursive: true });
   for (const f of files[i] || []) writeFileSync(join(proj, e.dir, f.name), f.data);
   e.tres = e.text ? "res://" + e.dir + "/" + e.base + "_fx.tres" : "res://" + e.dir + "/" + e.base + (e.scales.length > 1 ? "@1x" : "") + ".tres";
+  if (e.cardTres) e.tres = "res://" + e.dir + "/" + e.cardTres;   // <vfx13-shapes> particles: the card is the effect without them, its own sheet
   e.light = !!(e.meta.light);
   e.energies = e.light ? e.meta.light.energies : [];
   e.starts = e.light && e.meta.light.energyStarts ? e.meta.light.energyStarts : [0];
@@ -109,7 +110,8 @@ t("Godot imports every exported file with no error", impErr.length === 0, impErr
 
 // 3b. in a running SceneTree
 const jobs = fx.map((e) => ({ name: e.name, scene: e.scene, scene2d: e.scene2d, tres: e.tres, stand: e.want, light: e.light, energies: e.energies,
-  starts: e.starts, loop: !!e.loop, impact: e.impact, frames: e.frames, fps: e.fps, sound: e.sound, text: !!e.text, variety: !!e.variety }));
+  starts: e.starts, loop: !!e.loop, impact: e.impact, frames: e.frames, fps: e.fps, sound: e.sound, text: !!e.text, variety: !!e.variety,
+  form: e.form || "card" }));   // vfx13-shapes
 writeFileSync(join(proj, "check.gd"), `extends SceneTree
 var jobs = ${JSON.stringify(jobs)}
 var runs = []
@@ -145,6 +147,32 @@ func spawn(j, seed):
 		r["energy0"] = li.light_energy if li else -1.0
 		r["sound"] = so.get_class() if so else ""
 		r["n_energies"] = fx.energies.size()
+		# <vfx13-shapes> §61.8: the 3D-native parts
+		r["sprite_visible"] = sp.visible
+		if j.form == "particles":
+			var pn = []
+			_parts_of(fx, pn)
+			r["parts"] = []
+			r["parts_done"] = 0
+			r["emitting_ticks"] = 0
+			r["part_nodes"] = pn
+			for p in pn:
+				var mat = p.mesh.material if p.mesh else null
+				r["parts"].append({ "amount": p.amount, "lifetime": p.lifetime, "gravity": [p.gravity.x, p.gravity.y, p.gravity.z], "one_shot": p.one_shot,
+					"shape": p.emission_shape, "points": p.emission_points.size(), "normals": p.emission_normals.size(), "mesh": p.mesh.get_class() if p.mesh else "",
+					"cells": mat.particles_anim_h_frames if mat else 0, "billboard": mat.billboard_mode if mat else -1, "filter": mat.texture_filter if mat else -1,
+					"unshaded": mat.shading_mode == 0 if mat else false, "tex": mat.albedo_texture.resource_path if mat and mat.albedo_texture else "" })
+				p.finished.connect(func(): r["parts_done"] += 1)
+		elif j.form != "card":
+			var sh = fx.get_node_or_null("Shape")
+			r["shape"] = sh.get_class() if sh else ""
+			r["shape_mesh"] = sh.mesh.get_class() if sh and sh.mesh else ""
+			r["shape_mat"] = sh.material_override.get_class() if sh and sh.material_override else ""
+			r["shape_shader"] = sh.material_override.shader.resource_path if sh and sh.material_override else ""
+			r["regions"] = {}
+			r["shape_vis"] = 0
+			r["r_out"] = []
+		# </vfx13-shapes>
 	if j.stand != "screen":
 		fx.position = Vector3(runs.size() * 10, 0, 0)
 	root.add_child(fx)
@@ -152,6 +180,11 @@ func spawn(j, seed):
 	fx.finished.connect(func(): r["finished"] += 1)
 	runs.append(r)
 	return r
+func _parts_of(n, out):   # vfx13-shapes: every CPUParticles3D below n, in tree order
+	for c in n.get_children():
+		if c is CPUParticles3D:
+			out.append(c)
+		_parts_of(c, out)
 func _initialize():
 	for j in jobs:
 		spawn(j, 0)
@@ -200,6 +233,27 @@ func _process(_delta):
 			r["lit"][str(fx._e0) + ":" + str(sp.frame)] = li.light_energy
 		if r["seen"].size() == 0 or r["seen"][r["seen"].size() - 1] != sp.frame:
 			r["seen"].append(sp.frame)
+		# <vfx13-shapes> the particles emit; the mesh shows frame after frame (a ring grows); a beam can be aimed
+		if j.form == "particles":
+			var any = false
+			for p in r["part_nodes"]:
+				if is_instance_valid(p) and p.emitting:
+					any = true
+			if any:
+				r["emitting_ticks"] += 1
+		elif j.form != "card":
+			var sh = fx.get_node_or_null("Shape")
+			if sh and sh.visible:
+				r["shape_vis"] += 1
+				var m = sh.material_override
+				r["regions"][str(m.get_shader_parameter("region"))] = 1
+				if j.form == "ring":
+					r["r_out"].append(m.get_shader_parameter("r_out"))
+			if j.form == "beam" and tick == 4:
+				fx.aim(fx.global_position + Vector3(0, 0, -4))
+				var ax = fx.get_node("Shape").material_override.get_shader_parameter("axis")
+				r["aim"] = [ax.x, ax.y, ax.z, fx.get_node("Shape").material_override.get_shader_parameter("stretch")]
+		# </vfx13-shapes>
 	if tick == 400:
 		for r in runs:
 			if is_instance_valid(r["node"]) and r["j"].loop:
@@ -212,6 +266,7 @@ func _process(_delta):
 			var o = r.duplicate()
 			o.erase("node")
 			o.erase("j")
+			o.erase("part_nodes")   # vfx13-shapes
 			res.append(o)
 		out["runs"] = res
 		var f = FileAccess.open("res://check.json", FileAccess.WRITE)
@@ -234,8 +289,8 @@ for (const e of fx) {
       r.class === "CanvasLayer" && r.child === "Node2D" && /\/[^/]+\.tscn$/.test(r.child_scene) && r.child_scene.indexOf(e.base + ".tscn") > 0 && r.child_autoplay === false && r.cover === true,
       JSON.stringify({ c: r.class, ch: r.child, s: r.child_scene, a: r.child_autoplay, cover: r.cover }));
   } else {
-    t(e.name + ": a Node3D > AnimatedSprite3D on the 2D scene's own SpriteFrames, nearest, unshaded, billboard " + e.want +
-      (e.want === "flat" ? " (none, lying on Y)" : ""), r.class === "Node3D" && r.sprite === "AnimatedSprite3D" && r.tres === e.tres && res[e.name + ":shared"] === true &&
+    t(e.name + ": a Node3D > AnimatedSprite3D on the 2D scene's own SpriteFrames" + (e.cardTres ? " (particles: the card's own, the effect without them)" : "") + ", nearest, unshaded, billboard " + e.want +
+      (e.want === "flat" ? " (none, lying on Y)" : ""), r.class === "Node3D" && r.sprite === "AnimatedSprite3D" && r.tres === e.tres && res[e.name + ":shared"] === !e.cardTres &&
       r.filter === 0 && r.shaded === false && r.billboard === BB[e.want] && (e.want !== "flat" || r.axis === 1) && r.pixel_size > 0,
       JSON.stringify({ c: r.class, s: r.sprite, tres: r.tres, want: e.tres, shared: res[e.name + ":shared"], f: r.filter, b: r.billboard, a: r.axis }));
     t(e.name + ": " + (e.light ? "an OmniLight3D (shadows off, dark before it plays)" : "no light") + (e.sound ? ", an AudioStreamPlayer3D" : ""),
@@ -256,6 +311,35 @@ for (const e of fx) {
       r.impacts.length === 1 && (e.want === "screen" || r.impacts[0][0] === e.impact) && r.finished === 1 && r.freed_at > 0, JSON.stringify({ i: r.impacts, f: r.finished, fr: r.freed_at }));
   }
   if (e.text) t(e.name + ": its 3D Text node lays out new words (\"-99\": three glyphs)", r.letters === 3, String(r.letters));
+  // <vfx13-shapes> §61.8 the 3D-native forms, against what the .json says
+  if (e.form === "particles" && e.meta.form) {
+    const want = [].concat(...e.meta.form.systems.map((y) => y.nodes.map((nd) => ({ amount: nd.amount, lifetime: nd.lifetime, gravity: y.gravity, cells: y.cells }))));
+    const got = r.parts || [];
+    const same = got.length === want.length && got.every((p, i) => p.amount === want[i].amount && Math.abs(p.lifetime - want[i].lifetime) < 1e-3 &&
+      p.gravity.every((g, k) => Math.abs(g - want[i].gravity[k]) < 1e-3) && p.cells === want[i].cells);
+    t(e.name + ": " + got.length + " CPUParticles3D below the node, amounts, lifetimes, gravity and strip cells as the .json says (" + got.reduce((a, p) => a + p.amount, 0) + " particles)",
+      same, JSON.stringify({ got: got.map((p) => [p.amount, p.lifetime, p.gravity, p.cells]).slice(0, 4), want: want.map((p) => [p.amount, p.lifetime, p.gravity, p.cells]).slice(0, 4) }));
+    t(e.name + ": each emits from its own points along their normals (directed points), a QuadMesh billboarded as particles, unshaded, nearest, wearing its strip",
+      got.length > 0 && got.every((p) => p.shape === 5 && p.points > 0 && p.points === p.normals && p.mesh === "QuadMesh" && p.billboard === 3 && p.filter === 0 && p.unshaded && /_3d_p\d+\.png$/.test(p.tex)),
+      JSON.stringify(got[0] || {}));
+    // a one-shot's emitters that are done before the clip ends say so (finished); the rest end with the clip, as in 2D
+    const clip = e.frames / e.fps, early = e.meta.form.systems.filter((y) => y.busyUntil !== undefined && y.busyUntil < clip - 0.1).length;
+    t(e.name + ": the particles emit while it plays" + (e.loop ? "" : ", " + (early ? "finish (" + r.parts_done + " emitters)" : "end with the clip") + " and the scene frees itself"),
+      r.emitting_ticks > 0 && (e.loop || ((!early || r.parts_done >= 1) && r.freed_at > 0)), JSON.stringify({ em: r.emitting_ticks, done: r.parts_done, fr: r.freed_at, early }));
+    t(e.name + ": its card " + (e.cardTres ? "shows what is not a particle" : "is empty, so the sprite is hidden (it stays the clock)"), r.sprite_visible === !!e.cardTres, String(r.sprite_visible));
+  }
+  if (e.form === "arc" || e.form === "beam" || e.form === "ring") {
+    const regions = Object.keys(r.regions || {}).length;
+    t(e.name + ": a MeshInstance3D \"Shape\" (a PlaneMesh, its own " + e.base + "_3d.gdshader) shows the frames, " + regions + " regions of the sheet in turn; the sprite hidden (the clock)",
+      r.shape === "MeshInstance3D" && r.shape_mesh === "PlaneMesh" && r.shape_mat === "ShaderMaterial" && /_3d\.gdshader$/.test(r.shape_shader) && r.sprite_visible === false && r.shape_vis > 2 && regions >= 2,
+      JSON.stringify({ s: r.shape, m: r.shape_mesh, mat: r.shape_mat, sh: r.shape_shader, v: r.sprite_visible, vis: r.shape_vis, regions }));
+    if (e.form === "ring") {
+      const ro = r.r_out || [];
+      t(e.name + ": the ring grows on the floor (its outer radius " + (ro.length ? ro[0].toFixed(1) + " to " + Math.max.apply(null, ro).toFixed(1) : "?") + " px)", ro.length > 2 && Math.max.apply(null, ro) > ro[0] + 4, JSON.stringify(ro.slice(0, 8)));
+    }
+    if (e.form === "beam") t(e.name + ": aim() points the beam at a place and stretches it to reach", r.aim && Math.abs(r.aim[2] + 1) < 0.01 && r.aim[3] > 0, JSON.stringify(r.aim));
+  }
+  // </vfx13-shapes>
   if (e.variety) {
     const picks = rs.slice(1).map((x) => x.picks[0] ? x.picks[0][1] : "?");
     const curves = new Set(rs.flatMap((x) => Object.keys(x.lit).map((k) => k.split(":")[0])));
@@ -445,6 +529,120 @@ func _process(_d: float) -> void:
       t("the place's contact sheet and a loop video written", existsSync(join(RENDERS, "place-sheet.png")));
     }
   } else console.log("  (no kept CrunchyTexture place at " + KEPT + ": the dungeon render is skipped)");
+  // <vfx13-shapes> §61.8: the 3D-native forms RENDERED by Godot, to look at: Pixel Level Up bursting round a point from a low
+  // and a high camera (the volume), a slash from a first-person camera (the scene spawned on the camera's basis) and from
+  // behind, rings on the floor, a beam aimed with aim(), Confetti; contact sheets shapes-<name>.png
+  {
+    const by = (n) => fx.find((e) => e.name === n);
+    const segs = [
+      ["Pixel Level Up", "low", [0.4, 0.9, 2.4], [0, 0.55, 0], "floor"], ["Pixel Level Up", "high", [1.7, 2.6, 1.7], [0, 0.35, 0], "floor"],
+      ["Confetti", "low", [0.4, 1.2, 3.4], [0, 1.0, 0], "air"], ["Confetti", "high", [2.2, 3.0, 2.2], [0, 0.8, 0], "air"],
+      ["Pixel Slash", "first-person", [0, 1.6, 2.6], [0, 1.45, -2], "fp"], ["Pixel Slash", "behind", [0.9, 2.1, 3.0], [0, 1.0, -0.6], "air"],
+      ["Shockwave", "floor", [0.3, 2.2, 3.4], [0, 0, 0], "floor"], ["Pixel Ring Blast", "floor", [0.3, 2.2, 3.4], [0, 0, 0], "floor"],
+      ["Laser", "aimed", [0.6, 1.7, 3.6], [0.4, 1.1, -1], "aim"],
+    ].filter((g) => by(g[0])).map((g) => { const e = by(g[0]); return { name: g[0], view: g[1], scene: e.scene, cam: g[2], look: g[3], spawn: g[4], n: Math.max(12, Math.round(e.frames / e.fps * 30) + 8) }; });
+    writeFileSync(join(proj, "shapes.gd"), `extends Node3D
+# CrunchyVFX 1.3 §61.8: the 3D-native forms, each as exported, in front of a camera.
+var segs = ${JSON.stringify(segs)}
+var seg := 0
+var k := 0
+var cur = null
+var cam: Camera3D
+func _ready():
+	var env = WorldEnvironment.new()
+	var e = Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.04, 0.04, 0.06)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.22, 0.22, 0.26)
+	env.environment = e
+	add_child(env)
+	var img = Image.create(64, 64, false, Image.FORMAT_RGB8)
+	for y in 64:
+		for x in 64:
+			var c = 0.40 if ((x / 8) + (y / 8)) % 2 == 0 else 0.33
+			img.set_pixel(x, y, Color(c, c, c * 1.05))
+	var tex = ImageTexture.create_from_image(img)
+	var m = StandardMaterial3D.new()
+	m.albedo_texture = tex
+	m.uv1_scale = Vector3(40, 40, 1)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var fl = MeshInstance3D.new()
+	var pm = PlaneMesh.new()
+	pm.size = Vector2(80, 80)
+	fl.mesh = pm
+	fl.material_override = m
+	add_child(fl)
+	var wall = MeshInstance3D.new()
+	var bm = BoxMesh.new()
+	bm.size = Vector3(80, 12, 0.4)
+	wall.mesh = bm
+	wall.material_override = m
+	wall.position = Vector3(0, 6, -4.5)
+	add_child(wall)
+	var post = MeshInstance3D.new()
+	var cm = BoxMesh.new()
+	cm.size = Vector3(0.4, 1.8, 0.4)
+	post.mesh = cm
+	var pmat = StandardMaterial3D.new()
+	pmat.albedo_color = Color(0.25, 0.3, 0.45)
+	post.material_override = pmat
+	post.position = Vector3(-1.6, 0.9, -1.2)
+	add_child(post)
+	cam = Camera3D.new()
+	cam.fov = 62
+	add_child(cam)
+	cam.current = true
+func _process(_d):
+	if seg >= segs.size():
+		get_tree().quit()
+		return
+	var S = segs[seg]
+	cam.position = Vector3(S.cam[0], S.cam[1], S.cam[2])
+	cam.look_at(Vector3(S.look[0], S.look[1], S.look[2]))
+	if k == 0:
+		if cur and is_instance_valid(cur):
+			cur.queue_free()
+		cur = load(S.scene).instantiate()
+		cur.autoplay = false
+		cur.free_when_done = false
+		add_child(cur)
+		if S.spawn == "fp":
+			# the README's first-person spawn: on the camera's basis, at the hand
+			var t = cam.global_transform
+			t.origin += t.basis * Vector3(0.1, -0.45, -0.1)
+			cur.global_transform = t
+		elif S.spawn == "air":
+			cur.position = Vector3(0, 1.0, 0)
+		elif S.spawn == "aim":
+			cur.position = Vector3(-1.6, 1.0, 0.2)
+		cur.play()
+		if S.spawn == "aim":
+			cur.aim(Vector3(2.6, 1.3, -2.6))
+	k += 1
+	if k >= S.n:
+		k = 0
+		seg += 1
+`);
+    writeFileSync(join(proj, "shapes.tscn"), '[gd_scene format=3]\n\n[ext_resource type="Script" path="res://shapes.gd" id="1"]\n\n[node name="Shapes" type="Node3D"]\nscript = ExtResource("1")\n');
+    const sdir = join(scratch, "shape-frames");
+    mkdirSync(sdir, { recursive: true });
+    const mv2 = spawnSync(godot, ["--path", proj, "--resolution", "640x400", "--fixed-fps", "30", "--write-movie", join(sdir, "s.png"), "res://shapes.tscn"], { encoding: "utf8", timeout: 600000 });
+    const sf = existsSync(sdir) ? readdirSync(sdir).filter((n) => /\.png$/.test(n)).sort() : [];
+    const total = segs.reduce((a, g) => a + g.n, 0);
+    t("rendered " + sf.length + " frames of the 3D-native forms in Godot (" + segs.length + " shots)", sf.length >= total - 2,
+      (mv2.stderr || "").split("\n").filter((l) => /ERROR/.test(l)).slice(0, 3).join(" | "));
+    let at = 0, made = 0;
+    for (const g of segs) {
+      const pick = [0.12, 0.25, 0.38, 0.5, 0.62, 0.78].map((q) => sf[at + 1 + Math.round(q * (g.n - 2))]).filter(Boolean).map((n) => join(sdir, n));
+      const outp = join(RENDERS, "shapes-" + g.name.replace(/[^A-Za-z0-9]+/g, "-").toLowerCase() + "-" + g.view + ".png");
+      spawnSync("montage", pick.concat(["-tile", "3x2", "-geometry", "+2+2", "-background", "#111", "-title", g.name + " (" + g.view + ")", "-fill", "#ddd", outp]), { encoding: "utf8" });
+      if (existsSync(outp)) made++;
+      at += g.n;
+    }
+    t("contact sheets of the forms written (" + made + ", " + RENDERS + "/shapes-*.png)", made === segs.length, made + " of " + segs.length);
+  }
+  // </vfx13-shapes>
 } else console.log("  (no display, or NO_RENDER=1: renders skipped)");
 if (!process.env.KEEP) rmSync(scratch, { recursive: true, force: true });
 else console.log("  kept " + scratch);

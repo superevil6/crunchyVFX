@@ -1072,7 +1072,7 @@
       const layerGroups = LAYER_GROUPS.map((x) => x.g);
       const shapeGroups = Object.keys(PANEL_SHAPES);
       const ALWAYS = ["Emitter", "Motion", "Life", "Color", "Crunch", "Output", "Master",
-                      "Trails", "Glow", "3D"];   // §61: the 3D panel is always there (folded)
+                      "Trails", "Glow", "3D", /* <vfx13-lit> */ "Lit" /* </vfx13-lit> */, "Tile" /* vfx13-tile §66 */];   // §61: the 3D panel is always there (folded); §65 the Lit panel too
       const orphan = groups.filter((g) => layerGroups.indexOf(g) < 0 &&
                                           shapeGroups.indexOf(g) < 0 && ALWAYS.indexOf(g) < 0);
       ok(orphan.length === 0, "every panel is reachable somehow", orphan.join(", "));
@@ -1403,7 +1403,12 @@
           [["emit2Angle", "emit2Spread"], { emit2Emitter: 1 }, { emit2Emitter: 0 }], [["emit2Radius"], { emit2Emitter: 0 }, { emit2Emitter: 1 }],
           [["pixCool"], { pixHeat: 1 }, { pixHeat: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 1 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }], [["pixBreakAs", "pixBreakFrom"], { pixBreak: 0, pixBreakIn: 0.5 }, { pixBreak: 0, pixBreakIn: 0, pixTrail: 0 }],
           [["pixBreakAt"], { pixBreak: 1 }, { pixBreak: 0 }], [["pixTrailN"], { pixTrail: 0.5 }, { pixTrail: 0 }], [["pixLandAs"], { pixFloor: 0.2 }, { pixFloor: 0 }], [["pixAreaW", "pixAreaH"], { pixEmit: 6 }, { pixEmit: 0 }], [["pixWipeAt", "pixWipeTime", "pixWipeEdge", "pixDust"], { pixWipe: 1 }, { pixWipe: 0 }], [["pixWobbleAxis", "pixWobbleWave", "pixWobbleSpeed"], { pixWobble: 0.5 }, { pixWobble: 0 }], [["pixFireW", "pixFireH", "pixFireWind", "pixFireSpread", "pixFireSpeed"], { pixFire: 1 }, { pixFire: 0 }], [["pixStrokeSize", "pixStrokeW", "pixStrokeLife", "pixStrokeN"], { pixStroke: 1 }, { pixStroke: 0 }], [["pixStrokeWobble"], { pixStroke: 2 }, { pixStroke: 1 }], [["pixCycleSpeed", "pixCycleBands"], { pixCycle: 2 }, { pixCycle: 0 }], [["pixPulses"], { pixEmit: 1 }, { pixEmit: 2 }],
+          [["tileSize", "tileAxes", "tileLoop"], { tile: 1 }, { tile: 0 }], [["fieldDither"], { field: 1, fieldSteps: 4 }, { field: 1, fieldSteps: 0 }],   // vfx13-tile §66
           [["pixBitSpeed", "pixBitGravity"], { pixBits: 4 }, { pixBits: 0 }], [["pixSparkSpeed"], { pixSparks: 4 }, { pixSparks: 0 }], [["pixBitsAt"], { pixBits: 4, pixSparks: 0 }, { pixBits: 0, pixSparks: 0 }],
+          // <vfx13-fluid> §64
+          [["fluidAngle"], { fluidSource: 1 }, { fluidSource: 3 }], [["fluidCool", "fluidSmoke"], { fluidHeat: 0.5 }, { fluidHeat: 0 }],
+          [["fluidDither", "fluidOutline"], { fluidLook: 1 }, { fluidLook: 0 }],
+          // </vfx13-fluid>
         ];
         const covered = new Set(["originX", "originY"]), badRule = [];
         for (const [keys, on, off] of RULES) {
@@ -1856,7 +1861,9 @@
         for (const L of LAYER_GROUPS) if (L.is()) { seen[L.g]++; on++; }
         perRoll.push(on);
       }
-      const never = Object.keys(seen).filter((g) => !seen[g]);
+      // (1.3: the Field layer is never rolled, by design (randomize's pool leaves it out: it fills the frame); it is not
+      // counted, or it eats the margin and the row flakes)
+      const never = Object.keys(seen).filter((g) => !seen[g] && g !== "Field");
       // Statistical, not exact: ~1.5 systems per roll over 150 rolls makes it overwhelmingly
       // likely every system shows up, but asserting all 42 would flake. 35 is a wide margin that
       // still fails hard if a whole era of systems is unreachable, which is the actual bug.
@@ -4288,7 +4295,7 @@
 
     // ---------------------------------------------------------------- §61: effects in 3D (fx3d.js, the export half)
     {
-      const STANDS = ["face", "upright", "flat", "screen"], names = Object.keys(PRESETS);
+      const STANDS = ["face", "upright", "flat", "screen", "texture"], names = Object.keys(PRESETS);   // vfx13-tile: + texture (§66)
       // AUTO_STAND covers the list: every shipped preset in exactly one list, no list naming a preset that is gone
       const seen = {}, stale = [], twice = [];
       for (const k in FX3D_AUTO_STAND) for (const n of FX3D_AUTO_STAND[k]) { if (!PRESETS[n]) stale.push(n); if (seen[n]) twice.push(n); seen[n] = k; }
@@ -4314,7 +4321,10 @@
         custom({ pix: 1, pixEmit: 6, pixLoop: 1 }) === "screen" && custom({}) === "face", "§61 a custom effect stands by its systems (weather on the screen, marks flat, fire upright, the rest faces you)");
       // the rows: appended, neutral, in a 3D panel of their own, the light a select
       const rows = PARAMS.filter((p) => p[7] === "3D").map((p) => p[0]);
-      ok(rows.join() === "d3Stand,d3Size,d3Light,d3LightPower" && PARAMS.slice(-4).every((p) => p[7] === "3D") &&
+      // <vfx13-merge> the four first and together; after them only more 3D rows (§61.8 d3Form) and later rounds' groups
+      const at3 = PARAMS.findIndex((p) => p[7] === "3D"), LATER = new Set(["3D", "Fluid", "Lit", "Tile", "Field"]);
+      ok(rows.slice(0, 4).join() === "d3Stand,d3Size,d3Light,d3LightPower" && PARAMS.slice(at3, at3 + 4).every((p) => p[7] === "3D") && PARAMS.slice(at3 + 4).every((p) => LATER.has(p[7])) &&
+      // </vfx13-merge>
         PARAM_BY_KEY.d3Stand[5] === 0 && PARAM_BY_KEY.d3Size[5] === 0 && PARAM_BY_KEY.d3Light[5] === 0 && PARAM_BY_KEY.d3LightPower[5] === 1,
         "§61 the four 3D rows are APPENDED to PARAMS with auto defaults", rows.join());
       const pnl = document.querySelector('#panels .panel[data-group="3D"]');
@@ -4372,6 +4382,235 @@
         "§61 the 3D scene's script is the 2D one turned 3D (the same signals, options and methods) with the light; Variety and Text too");
       applyPreset(PRESETS["Explosion"], "Explosion", true);
     }
+    // <vfx13-shapes> ---------------------------------------------- §61.8: the 3D-native forms (particles, arcs, beams, rings)
+    {
+      const names = Object.keys(PRESETS), seen = {}, stale = [], twice = [];
+      for (const k in FX3D_AUTO_FORM) for (const n of FX3D_AUTO_FORM[k]) { if (!PRESETS[n]) stale.push(n); if (seen[n]) twice.push(n); seen[n] = k; }
+      ok(!stale.length && !twice.length && Object.keys(FX3D_AUTO_FORM).every((k) => FX3D_FORMS.indexOf(k) > 1) && FX3D_FORMS.join() === "auto,card,particles,arc,beam,ring",
+        "§61.8 FX3D_AUTO_FORM names shipped presets, each once, in real forms (" + Object.keys(seen).length + ")", "stale " + stale.join(", ") + " · twice " + twice.join(", "));
+      // EVERY preset resolves a form, by its name and from its state alone (the nearest shipped preset): the table's take theirs
+      const bad = [];
+      for (const n of names) {
+        const st = presetOutcome(PRESETS[n], true), sd = fx3dStand(st, n);
+        if (seen[n] && !fx3dFormCan(st, seen[n], sd)) bad.push(n + " cannot be " + seen[n]);
+        const want = seen[n] || "card";
+        if (fx3dForm(st, n, sd) !== want) bad.push(n + " by name");
+        if (fx3dForm(st, undefined, sd) !== want) bad.push(n + " by state");
+      }
+      ok(!bad.length, "§61.8 every preset (" + names.length + ") resolves a form by its name and from its state alone: the auto table's as listed, the rest cards", bad.slice(0, 8).join(", "));
+      const row = PARAM_BY_KEY.d3Form;
+      ok(!!row && row[7] === "3D" && row[5] === 0 && row[8] === "enum" && row[9] === FX3D_FORM_WORDS && inputs.d3Form && inputs.d3Form.tagName === "SELECT" &&
+        document.querySelector('#panels .panel[data-group="3D"]').contains(inputs.d3Form) && BREED_SKIP.has("d3Form") && !names.some((n) => "d3Form" in PRESETS[n]),
+        "§61.8 d3Form is an appended 3D row, auto by default, a select in the 3D panel, never bred, set by no preset");
+      {
+        applyPreset(PRESETS["Pixel Level Up"], "Pixel Level Up", true);
+        const sh = encodePatch("Pixel Level Up"), st = stateOfShare(sh);
+        ok(!/d3Form/.test(JSON.stringify(decodePatch(sh))) && st.d3Form === 0, "§61.8 a share link carries no d3Form at auto, and opens with it at auto");
+      }
+      const PL = presetOutcome(PRESETS["Pixel Level Up"], true);
+      ok(fx3dForm(Object.assign({}, PL, { d3Form: 1 }), "Pixel Level Up") === "card" && fx3dForm(Object.assign({}, PL, { d3Form: 3 }), "Pixel Level Up") === "card" &&
+        fx3dForm(Object.assign({}, presetOutcome(PRESETS["Explosion"], true), { d3Form: 2 }), "Explosion") === "particles" &&
+        fx3dForm(Object.assign({}, presetOutcome(PRESETS["Rain"], true), { d3Form: 2 }), "Rain") === "card",
+        "§61.8 a chosen form wins where the effect has it (an Explosion as particles), else a card (Pixel Level Up as an arc; on the screen)");
+      // the systems: Pixel Level Up's ring of blobs is one emitter per blob (Godot picks points at random), its core and sparks
+      const cx = { mpp: 0.012, k: 1, w: 96, h: 96, origin: { x: 48, y: 62 }, anchor: { x: 48, y: 62 }, stand: "upright", depth: 1, loop: false };
+      const sy = fx3dParticleSystems(PL, cx), blob = sy.find((y) => y.src === "blob");
+      const unit = (v) => Math.abs(Math.hypot(v[0], v[1], v[2]) - 1) < 1e-6;
+      ok(sy.map((y) => y.src).join() === "blob,core,spark" && blob.nodes.length === Math.round(PL.pixCount) - 1 && blob.nodes.every((nd) => nd.amount === 1 && Math.abs(nd.normals[0][1]) < 1e-9) &&
+        sy.every((y) => y.nodes.every((nd) => nd.points.length === nd.normals.length && nd.normals.every(unit))) && blob.gravity[1] > 0,
+        "§61.8 Pixel Level Up's particles: a ring of blobs in the floor plane, one emitter each, its core, its sparks; unit directions; rising", JSON.stringify(sy.map((y) => [y.src, y.nodes.length])));
+      const CF = presetOutcome(PRESETS["Confetti"], true), csy = fx3dParticleSystems(CF, cx)[0], ax = fx3dDir2((CF.emitAngle - 90) * Math.PI / 180);
+      ok(csy.src === "A" && csy.nodes.reduce((a, nd) => a + nd.amount, 0) === CF.count && csy.strip.V === 4 &&
+        csy.nodes.every((nd) => nd.normals.every((d) => d[0] * ax[0] + d[1] * ax[1] + d[2] * ax[2] >= Math.cos(CF.emitSpread * Math.PI / 360) - 1e-6)) && csy.gravity[1] < 0,
+        "§61.8 Confetti: its 70 in a cone round its axis (no direction outside the spread), four hue rows, falling");
+      // the sim: deterministic; a one-shot's particles all gone by the clip's end; a damping that follows the 2D drag
+      const sA = JSON.stringify(fx3dParticleSim(blob, 0.4)), sB = JSON.stringify(fx3dParticleSim(blob, 0.4));
+      ok(sA === sB && JSON.parse(sA).length > 0 && sy.every((y) => fx3dSystemEnd(y) <= PL.duration + 1e-6) && fx3dParticleSim(blob, PL.duration + 0.05).length === 0,
+        "§61.8 the room's particle sim is deterministic and a one-shot's particles are gone by the clip's end");
+      const fd = fx3dFitDamping(2, 0, 3, 1), fn = fx3dFitDamping(2, -5, 0, 1);
+      ok(fd.damp0 > 0 && fn.damp0 === 0, "§61.8 drag becomes fitted Godot damping (none without drag)", JSON.stringify({ fd, fn }));
+      // the strips: a smooth one keeps only the particle's look (every other layer at its default); a pixel one is the layer's own blob
+      const FW = presetOutcome(PRESETS["Firework"], true), fws = fx3dParticleSystems(FW, cx)[0], ss = fx3dSmoothStripState(FW, fws.strip, 0);
+      ok(ss.pathTrail === 0 && ss.flash === 0 && ss.count === 1 && ss.speed === 0 && ss.frameW === fws.strip.C && ss.duration * ss.fps === fws.strip.K && ss.shape === FW.shape,
+        "§61.8 a smooth particle's strip state: one still particle in a C x C frame, every other layer off (Firework's trail and flash)");
+      const ps = fx3dPixelStrip(PL, blob.strip), cellN = (k) => { let n = 0; for (let y = 0; y < ps.h; y++) for (let x = k * blob.strip.C; x < (k + 1) * blob.strip.C; x++) if (ps.data[(y * ps.w + x) * 4 + 3]) n++; return n; };
+      ok(ps.w === blob.strip.C * blob.strip.K && cellN(0) > 10 && cellN(blob.strip.K - 1) < cellN(0), "§61.8 a pixel blob's strip is the layer's own blob, then broken up by the end", cellN(0) + " → " + cellN(blob.strip.K - 1));
+      // the card: what is not a particle (Coin Burst keeps its flash; Confetti and Pixel Level Up have nothing else)
+      const make = (n, sd) => { applyPreset(PRESETS[n], n, true); const o = fx3dOrigin(state, rendered, fitOn);
+        return d3sMake(state, rendered, fitOn, n, sd, { mpp: 0.01, bounds: null, origin: o, anchor: o, frames: d3sRGBA(rendered.canvases), depth: 1, alpha: "cut" }); };
+      const cS = make("Confetti", "face"), lS = make("Pixel Level Up", "upright"), kS = make("Coin Burst", "face");
+      ok(cS && cS.cardHidden && lS && lS.cardHidden && lS.strips.length === 3 && kS && !kS.cardHidden,
+        "§61.8 the card: Confetti's and Pixel Level Up's are empty (hidden), Coin Burst's keeps its flash; a strip per system",
+        JSON.stringify({ c: cS && cS.cardHidden, l: lS && lS.cardHidden, k: kS && kS.cardHidden }));
+      // a card writes exactly §61's scene: the form adds nothing to the text when it is a card
+      const p0 = { base: "x", name: "x", tres: "x.tres", stand: "face", mpp: 0.01, mult: 1, w: 64, h: 64, origin: { x: 32, y: 32 }, bounds: { x0: 10, y0: 10, x1: 50, y1: 50 }, depth: 1,
+        alpha: "cut", light: null, impact: 2, sound: 0, offset2d: { x: 0, y: 0 }, sheet: "x.png", frames: 8, fps: 24, loop: false };
+      ok(fx3dScript(EFFECT_SCENE_SCRIPT, "x") === fx3dScript(EFFECT_SCENE_SCRIPT, "x", "card") && fx3dTscn(p0) === fx3dTscn(Object.assign({}, p0, { shapes: null })) &&
+        !/form/.test(fx3dJson(p0)) && /func _shape\(f: int\)/.test(fx3dScript(EFFECT_SCENE_SCRIPT, "x", "particles")) && /func aim\(at: Vector3\)/.test(fx3dScript(EFFECT_SCENE_SCRIPT, "x", "beam")),
+        "§61.8 a card's 3D scene, script and .json are §61's as ever; a form's script starts its particles or shows its mesh (a beam can be aimed)");
+      // (the room drawing them: tests/shapes3d-dom.js, where the room's lazy files are loaded)
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+    }
+    // </vfx13-shapes>
+
+    // <vfx13-fluid>
+    // ---------------------------------------------------------------- §64: the pixel fluid (fluid.js)
+    {
+      const FL = ["Rolling Blast", "Curling Smoke", "Ink Drop", "Mist Swirl", "Steam Vent"];
+      const simOpts = (src, loop) => ({ w: 40, h: 40, frames: 24, loop, seed: 7, source: src, duration: 1, ax: 20, ay: src === 4 ? 6 : 30, angle: src === 4 ? 90 : -90, heat: src === 0 ? 1 : 0 });
+      const same = (a, b) => a.length === b.length && a.every((g, i) => g.length === b[i].length && g.every((v, j) => Object.is(v, b[i][j])));
+      // DETERMINISTIC: the same seed and rows give the same numbers, every source, loop or not; another seed moves them
+      const det = [];
+      for (let src = 0; src < FLUID_SOURCES.length; src++) for (const loop of [false, true]) {
+        const A = fluidSim(simOpts(src, loop)), B = fluidSim(simOpts(src, loop));
+        if (!same(A.dens, B.dens) || (A.heat && !same(A.heat, B.heat)) || A.dens.length !== 24) det.push(FLUID_SOURCES[src] + (loop ? " loop" : ""));
+      }
+      const other = fluidSim(Object.assign(simOpts(1, true), { seed: 8 }));
+      ok(!det.length && !same(other.dens, fluidSim(simOpts(1, true)).dens), "§64 the fluid is deterministic: same seed, same numbers (5 sources x loop/one-shot); another seed differs", det.join(", ") || "clean");
+      // OFF IS NOTHING: Fluid 0 simulates nothing and draws nothing (no older effect's frame can move)
+      fluidCache.length = 0;
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+      ok(fluidFrame(state, 0.1, 128, 128, 1) === null && fluidCache.length === 0 && state.fluid === 0, "§64 Fluid off: no sim, no frame");
+      // every preset: same bytes twice (cache cleared between), draws in most frames, stands upright/faces as the table says
+      const bytes = (cvs) => cvs.map((cv) => Array.from(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data).join(",")).join("|");
+      const notSame = [], empty = [], timing = [];
+      for (const n of FL) {
+        applyPreset(PRESETS[n], n, true);
+        fluidCache.length = 0;
+        const t0 = performance.now(), r1 = renderFrames(state, {}), ms = performance.now() - t0;
+        timing.push(n + " " + r1.canvases.length + "f " + Math.round(ms) + " ms");
+        const b1 = bytes(r1.canvases);
+        fluidCache.length = 0;
+        if (b1 !== bytes(renderFrames(state, {}).canvases)) notSame.push(n);
+        const lit = r1.canvases.filter((cv) => { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) return true; return false; }).length;
+        if (lit < r1.canvases.length * (state.fluidLoop > 0 ? 0.95 : 0.75)) empty.push(n + " " + lit + "/" + r1.canvases.length);   // a one-shot dissolves away
+      }
+      ok(!notSame.length && !empty.length, "§64 every fluid preset renders the same bytes twice from a cold cache and draws in its frames", (notSame.concat(empty).join(", ") || "clean") + "; " + timing.join(", "));
+      // FAST ENOUGH: a 128 px effect's 60 frames, cold (the sim included), well under a second (measured ~0.1-0.3 s in Firefox)
+      applyPreset(PRESETS["Curling Smoke"], "Curling Smoke", true);
+      state.duration = 2; state.fps = 30; fluidCache.length = 0;
+      const tc = performance.now(), r60 = renderFrames(state, {}), cold = performance.now() - tc;
+      ok(r60.canvases.length === 60 && cold < 1000, "§64 a 128 px looping smoke column, 60 frames from cold in under a second", Math.round(cold) + " ms");
+      // THE LOOP SEAM: the last frame leads into the first as one frame leads into the next. Measured on the fields (mean
+      // density change) at each loop preset's own grid: the seam's step is no bigger than the clip's biggest ordinary step;
+      // without the cross-fade (periodic forcing alone) it is. And on the rendered frames, the same.
+      const step = (a, b) => { let t = 0; for (let i = 0; i < a.length; i++) t += Math.abs(a[i] - b[i]); return t / a.length; };
+      const seams = [], seamBad = [], needed = [];
+      for (const n of ["Curling Smoke", "Mist Swirl", "Steam Vent"]) {
+        applyPreset(PRESETS[n], n, true);
+        const G = fluidGrid(state, 128, 128), NL = Math.round(state.duration * state.fps);
+        const o = { w: G.Wa, h: G.Ha, frames: NL, loop: true, seed: state.seed, source: state.fluidSource, duration: state.duration, ax: state.originX * G.Wa,
+          ay: state.originY * G.Ha, angle: state.fluidAngle, size: state.fluidSize, amount: state.fluidAmount, push: state.fluidPush, speed: state.fluidSpeed,
+          viscosity: state.fluidViscosity, fade: state.fluidFade, curl: state.fluidCurl, buoyancy: state.fluidBuoyancy, wind: state.fluidWind, noise: state.fluidNoise,
+          heat: state.fluidHeat, cool: state.fluidCool };
+        for (const xf of [true, false]) {
+          const D = fluidSim(Object.assign({}, o, { crossfade: xf })).dens, st = [];
+          for (let i = 0; i + 1 < D.length; i++) st.push(step(D[i], D[i + 1]));
+          const seam = step(D[D.length - 1], D[0]), big = Math.max.apply(null, st);
+          seams.push(n + (xf ? "" : " (no fade)") + " seam " + seam.toFixed(4) + " / max " + big.toFixed(4));
+          if (xf && seam > big) seamBad.push(n);
+          if (!xf && seam > big) needed.push(n);
+        }
+        const px = renderFrames(state, {}).canvases.map((cv) => cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data);
+        const ps = []; for (let i = 0; i + 1 < px.length; i++) ps.push(step(px[i], px[i + 1]));
+        const pseam = step(px[px.length - 1], px[0]);
+        seams.push(n + " pixels " + pseam.toFixed(2) + " / max " + Math.max.apply(null, ps).toFixed(2));
+        if (pseam > Math.max.apply(null, ps)) seamBad.push(n + " pixels");
+      }
+      ok(!seamBad.length && needed.length >= 2, "§64 a fluid loop's seam is no bigger than its biggest ordinary frame step (without the cross-fade it is, for " + needed.length + " of 3)", (seamBad.join(", ") || "clean") + ": " + seams.join("; "));
+      // PIXEL-HONEST: the pixel look is opaque cells of the palette on whole k x k blocks; the smooth look is soft
+      applyPreset(PRESETS["Rolling Blast"], "Rolling Blast", true);
+      const Fp = fluidFrame(state, 0.3, 128, 128, 1), pal = new Set(pixPalette(Object.assign({}, state, { pixColors: state.fluidColors, pixHue: state.fluidHue })).pal.map((c) => c.join(",")));
+      let badA = 0, badC = 0, drawn = 0;
+      for (let j = 0; j < Fp.Wa * Fp.Ha; j++) {
+        const a = Fp.rgba[j * 4 + 3]; if (!a) continue;
+        drawn++; if (a !== 255) badA++;
+        if (!pal.has(Fp.rgba[j * 4] + "," + Fp.rgba[j * 4 + 1] + "," + Fp.rgba[j * 4 + 2])) badC++;
+      }
+      const cvP = renderFrames(state, {}).canvases[6], dP = cvP.getContext("2d").getImageData(0, 0, 128, 128).data, k = Fp.k;
+      let blocky = true;
+      for (let y = 0; y < 128 && blocky; y++) for (let x = 0; x < 128; x++) {
+        const j = (y * 128 + x) * 4, j0 = ((y - y % k) * 128 + (x - x % k)) * 4;
+        if (dP[j] !== dP[j0] || dP[j + 3] !== dP[j0 + 3]) { blocky = false; break; }
+      }
+      ok(Fp.pixel && k === 3 && drawn > 50 && !badA && !badC && blocky, "§64 the pixel look: opaque cells, every one a palette color, drawn as whole " + k + " x " + k + " blocks", JSON.stringify({ drawn, badA, badC, blocky }));
+      applyPreset(PRESETS["Ink Drop"], "Ink Drop", true);
+      const Fs = fluidFrame(state, 0.5, 128, 128, 1);
+      let soft = 0; for (let j = 3; j < Fs.rgba.length; j += 4) if (Fs.rgba[j] > 0 && Fs.rgba[j] < 250) soft++;
+      ok(!Fs.pixel && soft > 20, "§64 the smooth look is soft (alpha by density)", soft + " soft cells");
+      // A ONE-SHOT IS DONE BY ITS END: the last frame draws at most a tenth of its peak (a pixel cloud dissolves through its dither)
+      const litN = (cv) => { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; let c = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 8) c++; return c; };
+      const ends = [];
+      for (const n of ["Rolling Blast", "Ink Drop"]) {
+        applyPreset(PRESETS[n], n, true);
+        const L = renderFrames(state, {}).canvases.map(litN), peak = Math.max.apply(null, L);
+        if (L[L.length - 1] > peak * 0.1) ends.push(n + " " + L[L.length - 1] + "/" + peak);
+      }
+      ok(!ends.length, "§64 a one-shot fluid is gone by its last frame", ends.join(", ") || "clean");
+      // fluid.js is pure: none of its functions touches the page, the window, storage or the editor's state
+      const impureF = Object.getOwnPropertyNames(window).filter((k2) => /^fluid/.test(k2) && typeof window[k2] === "function" &&
+        /\b(document|window|localStorage|sessionStorage|state)\b/.test(String(window[k2])));
+      ok(!impureF.length && FLUID_BUILD === 1, "§64 fluid.js's functions are pure (no document, window, storage or state)", impureF.join(", "));
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+    }
+    // </vfx13-fluid>
+
+    // <vfx13-lit>
+    // ---------------------------------------------------------------- §65: lit effects (lit.js)
+    {
+      const LITROWS = ["lit", "litRound", "litBump", "litParts"], at = PARAMS.map((p) => p[0]);
+      const idx = LITROWS.map((k) => at.indexOf(k));
+      ok(idx.every((i) => i > at.indexOf("d3LightPower")) && PARAM_BY_KEY.lit[5] === 0 && PARAM_BY_KEY.litParts[9] === LIT_PARTS && LIT_PARTS[0] === "All but the glow",
+        "§65 the Lit rows are APPENDED, Lit off by default, Lit parts an append-only enum", idx.join());
+      const pnl = document.querySelector('#panels .panel[data-group="Lit"]');
+      ok(pnl && LITROWS.every((k) => pnl.contains(paramRows[k])) && document.getElementById("litNote") && pnl.contains(document.getElementById("litNote")),
+        "§65 the Lit panel holds its four rows and its note");
+      // a share link carries no Lit row at its default; an old link opens with Lit off
+      let linkSame = true;
+      for (const n of ["Explosion", "Pixel Torch"]) {
+        applyPreset(PRESETS[n], n, true);
+        if (/"lit/.test(JSON.stringify(decodePatch(encodePatch(n))))) linkSame = false;
+        if (LITROWS.some((k) => stateOfShare(encodePatch(n))[k] !== PARAM_BY_KEY[k][5])) linkSame = false;
+      }
+      ok(linkSame, "§65 a share link carries no Lit row at its default, and an old link opens unlit");
+      ok(LITROWS.every((k) => BREED_SKIP.has(k)), "§65 the Lit rows are in BREED_SKIP (a sibling is lit as its parent is)");
+      const LP = Object.keys(PRESETS).filter((n) => PRESETS[n].lit);
+      // <vfx13-pack> §67: the dungeon pack's lit presets live in its own "Dungeon" category (a preset is in exactly one)
+      const LITCATS = ["Lit", "Dungeon"], inCat = (n) => PRESET_CATEGORIES.some((c) => LITCATS.indexOf(c[0]) >= 0 && c[1].indexOf(n) >= 0);
+      ok(LP.length >= 2 && LP.every((n) => fx3dAutoOf(n)) && PRESET_CATEGORIES.some((c) => c[0] === "Lit" && c[1].length >= 2) && LP.every(inCat),
+        "§65 at least two lit presets, each placed in 3D and in the Lit (or the Dungeon) category (" + LP.join(", ") + ")");
+      // </vfx13-pack>
+      // lit presets glow nowhere and cast no light: every pixel takes the game's light
+      const glowing = LP.filter((n) => { applyPreset(PRESETS[n], n, true); return fx3dLightOf(state, rendered).on || litGlowsAny(rendered.canvases, state); });
+      ok(!glowing.length, "§65 the lit presets have nothing that glows and cast no 3D light", glowing.join(", "));
+      // the frames do not move with Lit: the same pixels on, off, and with every Lit row moved
+      applyPreset(PRESETS["Smoke Puff"], "Smoke Puff", true);
+      const px = () => rendered.canvases.map((cv) => Array.from(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data.filter((v, i) => i % 97 === 0)).join()).join("|");
+      const before = px();
+      Object.assign(state, { lit: 1, litRound: 0.1, litBump: 1, litParts: 1 }); rerender();
+      ok(px() === before, "§65 Lit never changes a frame (it is the stage's test light, the room and the export that shade it)");
+      // the stage shows a lit effect under the test light, and the plain frame otherwise
+      const sh = litStageFrame(0);
+      Object.assign(state, { lit: 0 }); rerender();
+      ok(sh && sh.width === rendered.w && litStageFrame(0) === null, "§65 the stage's test light shows only while Lit is on");
+      // WHAT GLOWS vs BRIGHT MATTER (the fluid round: white smoke, steam and magenta ink lit the 3D room): an effect of matter
+      // only (alpha particles, no light layer, no hot ramp) lights only from its FIRE-colored pixels; additive, it glows as before
+      const lightWith = (n, patch) => { applyPreset(PRESETS[n], n, true); Object.assign(state, patch); rerender(); return { mode: fx3dGlowMode(state), L: fx3dLightOf(state, rendered) }; };
+      const whiteSmoke = lightWith("Smoke Puff", { bright: 1, sat: 0, opacity: 1, glowThresh: 0.4 }), inkM = lightWith("Smoke Puff", { hue: 300, sat: 0.85, bright: 1, opacity: 1, glowThresh: 0.3 });
+      const addSmoke = lightWith("Smoke Puff", { bright: 1, sat: 0, opacity: 1, glowThresh: 0.4, blend: 0 }), boom = lightWith("Explosion", {});
+      const embers = lightWith("Smoke Puff", { bright: 1, sat: 0, opacity: 1, glowThresh: 0.4, emit2Count: 30, emit2Blend: 2, emit2Hue: 25, emit2Sat: 1, emit2Bright: 1 });
+      ok(whiteSmoke.mode === "hot" && !whiteSmoke.L.on && !inkM.L.on && addSmoke.mode === "all" && addSmoke.L.on && boom.mode === "all" && boom.L.on &&
+        fx3dHot(255, 140, 30) && !fx3dHot(228, 206, 160) && !fx3dHot(255, 255, 255) && !fx3dHot(220, 40, 230),
+        "§65 white alpha smoke and magenta alpha ink cast no 3D light; drawn additive they do; an Explosion does; fire colors are hot, tan dust, white and magenta are not",
+        JSON.stringify([whiteSmoke.mode, whiteSmoke.L.on, inkM.L.on, addSmoke.L.on, boom.L.on, embers.mode]));
+      // lit.js is pure (DOM-free; the canvases are index.html's)
+      const impure = Object.getOwnPropertyNames(window).filter((k) => /^lit/.test(k) && typeof window[k] === "function" &&
+        ["litNormalCanvases", "litGlowsAny", "litScene2d", "litReadme", "litStageFrame", "litStageMarker"].indexOf(k) < 0 &&
+        /\b(document|window|localStorage|sessionStorage|state)\b/.test(String(window[k])));
+      ok(!impure.length && LIT_BUILD === 1, "§65 lit.js's functions are pure (no document, window, storage or state)", impure.join(", "));
+      applyPreset(PRESETS["Explosion"], "Explosion", true);
+    }
+    // </vfx13-lit>
 
     // ---------------------------------------------------------------- American spelling
     // AJ, 2026-10-18: "no British spelling … wipe it out everywhere in all apps" (the suite rule). CrunchyUI's

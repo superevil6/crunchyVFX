@@ -62,6 +62,9 @@ SUITES = {
     "3d": ("godot-3d.js", []),                                                       # tests/godot-3d.mjs runs it (§61, effects in 3D)
     "show": ("show-desktop.js", ["tauri-mock.js", "fixtures/head.js", "seed-head.js"]),   # a look, for wkshot.py
     "room3d": ("room3d-dom.js", []),                                                 # <vfx3d-preview> §61.3: the stage's 3D view (the room)
+    "shapes3d": ("shapes3d-dom.js", ["shapes3d-look.js"]),                                             # <vfx13-shapes> §61.8: the 3D-native forms in the app and the room
+    "lit": ("godot-lit.js", []),                                                     # <vfx13-lit> §65: tests/godot-lit.mjs runs it (lit effects)
+    "seam": ("seam.js", []),                                                         # <vfx13-tile> §66: seamless textures (tests/seam.mjs runs it)
 }
 
 

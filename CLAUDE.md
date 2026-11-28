@@ -235,6 +235,20 @@ more particles.
 
 ## Status
 
+<!-- <vfx13-fluid> -->
+- **The pixel fluid (§64, 2026-11-27, VFX 1.3)**: a "Fluid" layer (fluid.js, VFX's own, pure, cached): a small stable-fluids grid
+  (vorticity confinement, buoyancy, MacCormack dye, divergence for puffs) in the Pixel art layer's palette, smooth or pixel art
+  (dithered steps, outline); puff, column, jet, swirl, ink drop; Loop cross-fades the fields; 5 presets (a "Fluid" category).
+<!-- </vfx13-fluid> -->
+<!-- <vfx13-shapes> -->
+- **3D-native shapes (§61.8, 2026-11-27, VFX 1.3)**: `d3Form` (3D row, appended; "As" under the room): a card (§61, byte for byte) or
+  real CPUParticles3D bursts from the effect's own emitters and sprites (strips over life), a slash arc for first person, a beam
+  (aim()), a ring on the floor; auto by `FX3D_AUTO_FORM` (28 presets). fx3d.js + room3d.js build 2 (o.geom). `node tests/shapes3d.mjs`.
+<!-- </vfx13-shapes> -->
+- **Seamless looping textures (§66, 2026-11-27, VFX 1.3, tile agent)** <!-- vfx13-tile -->: a Tile panel (off by default) draws the
+  effect on a torus (folded, never blended; particles wrapped, births wrap in time) and a Field layer (plasma, caustics, crust,
+  static, hexes, runes) tiles and loops by construction; a Tiled view (3 x 3); `<base>_tile.*` exports with Godot 4
+  materials; d3Stand "texture"; 7 Textures presets. `seamless.js` (VFX's own); `node tests/seam.mjs` proves it in real Godot.
 - **Baked strip pictures (§63, 2026-11-27, VFX 1.3)**: every preset's and layer's strip picture drawn at build time into
   preset-thumbs.png (+ its index preset-thumbs.js) by `node tools/bake-thumbs.mjs`; shown with no render while its
   fingerprint matches, live otherwise (edited preset, game palette, sheet missing). Startup chug in AJ's planted game is

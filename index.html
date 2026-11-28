@@ -154,7 +154,7 @@
   <!-- THE VIEW (VFX-DESIGN §61.3): the effect as it ships, or standing in a small room in 3D, lit by its own light. The
        room's files (textures.js, texgen.js, ramps.js, room3d.js) load the first time 3D opens, never before. -->
   <div class="r3v-tabs zoomgroup" id="viewTabs" role="tablist" aria-label="View">
-    <button type="button" role="tab" id="tab2d" data-view="2d" aria-selected="true" aria-controls="stageWrap" class="active" title="The effect as it exports: its frames, flat">2D</button><button type="button" role="tab" id="tab3d" data-view="3d" aria-selected="false" aria-controls="r3vView" tabindex="-1" data-icon="layers" title="The effect standing in a small 3D room, lit by its own light, the way the Godot 3D scene stands it. Drag to look around">3D</button>
+    <button type="button" role="tab" id="tab2d" data-view="2d" aria-selected="true" aria-controls="stageWrap" class="active" title="The effect as it exports: its frames, flat">2D</button><button type="button" role="tab" id="tab3d" data-view="3d" aria-selected="false" aria-controls="r3vView" tabindex="-1" data-icon="layers" title="The effect standing in a small 3D room, lit by its own light, the way the Godot 3D scene stands it. Drag to look around">3D</button><!-- <vfx13-tile> --><button type="button" role="tab" id="tabTiled" data-view="tiled" aria-selected="false" aria-controls="stageWrap" tabindex="-1" hidden title="The seamless tile repeated 3 x 3, playing: a seam or a jump would show here">Tiled</button><!-- </vfx13-tile> -->
   </div>
   <!-- /vfx3d-preview -->
   <div class="stage-box">
@@ -172,6 +172,7 @@
       <!-- the effect's own 3D rows (the 3D panel's d3Stand, d3Size, d3Light, d3LightPower), right where they show -->
       <div class="r3v-bar r3v-set" id="r3vSet" role="group" aria-label="How it stands in 3D">
         <label class="r3v-ctl" title="How it stands in a 3D game: facing the camera, upright, flat on the ground or over the whole screen. Auto picks from the effect">Stand <select id="r3vStand"></select></label>
+        <!-- <vfx13-shapes> --><label class="r3v-ctl" title="What it becomes in a 3D game: its frames on a card, or 3D itself: real particles bursting round it, a slash arc for a first-person swing, a beam, a ring on the floor. Auto picks where it clearly looks better">As <select id="r3vForm"></select></label><!-- </vfx13-shapes> -->
         <label class="r3v-ctl" title="How big it is in a 3D game: the longer side of what it draws, in meters (Auto sizes it by what it is)">Size <input type="range" id="r3vSize"><span class="hint r3v-val" id="r3vSizeV"></span></label>
         <label class="r3v-ctl" title="The light it casts in a 3D game, following its frames: auto lights the room from its glow">Light <select id="r3vLight"></select></label>
         <label class="r3v-ctl" title="How bright its light is">Power <input type="range" id="r3vPower"><span class="hint r3v-val" id="r3vPowerV"></span></label>
@@ -386,8 +387,12 @@
 <!-- The pixel-art layer (crunchyCore pixart.js, GENERATED: never edit it here; VFX-DESIGN §60): vfx.js's drawPixelArt paints the
      frame its pixArtFrame draws. Pure; needs fire.js; loaded before vfx.js, which sets its hooks. -->
 <script src="pixart.js"></script>
+<!-- <vfx13-fluid> The pixel fluid (VFX's own, pure; VFX-DESIGN §64): smoke, steam, ink and mist from a small grid fluid. Needs
+     pixart.js's palette at call time; vfx.js's drawFluid paints its frames. --><script src="fluid.js"></script><!-- </vfx13-fluid> -->
 <script src="vfx.js"></script>
+<!-- <vfx13-tile> --><script src="seamless.js"></script><!-- </vfx13-tile> -->
 <!-- vfx3d-export --><script src="fx3d.js"></script><!-- /vfx3d-export -->
+<!-- <vfx13-lit> --><script src="lit.js"></script><!-- </vfx13-lit> -->
 <script src="gif.js"></script>
 <script src="apng.js"></script>
 <!-- The "Crunchy suite" dialog and the suite's pixel icons: GENERATED from crunchyCore by
@@ -1166,6 +1171,68 @@ const PARAMS = [
   ["d3Light",    "Light",       0, FX3D_LIGHTS.length - 1, 1, 0, "", "3D", "enum", FX3D_LIGHT_WORDS],
   ["d3LightPower","Light power",0, 2, 0.05, 1, "x",    "3D"],
   // </vfx3d-export>
+  // <vfx13-shapes> §61.8: what it becomes in 3D (auto: fx3d.js FX3D_AUTO_FORM, the rest a card; a card is §61's scene, every
+  // 3D byte as before). Nothing in 2D reads it.
+  ["d3Form",     "In 3D as",    0, FX3D_FORMS.length - 1, 1, 0, "", "3D", "enum", FX3D_FORM_WORDS],
+  // </vfx13-shapes>
+  // <vfx13-fluid>
+  // §64 (VFX 1.3): THE PIXEL FLUID (fluid.js): smoke, steam, ink and mist from a small grid fluid, in the effect's colors,
+  // smooth or as pixel art. Off (fluid 0) draws nothing and simulates nothing: no frame of an older effect moves.
+  ["fluid",         "Fluid",       0, 1, 0.01, 0, "",    "Fluid"],
+  ["fluidSource",   "Source",      0, FLUID_SOURCES.length - 1, 1, 0, "", "Fluid", "enum", FLUID_SOURCES],
+  ["fluidLook",     "Look",        0, FLUID_LOOKS.length - 1, 1, 0, "", "Fluid", "enum", FLUID_LOOKS],
+  ["fluidLoop",     "Loop",        0, 1, 1, 0, "",       "Fluid"],
+  ["fluidColors",   "Colors",      0, PIX_RAMPS.length - 1, 1, 4, "", "Fluid", "enum", PIX_RAMPS],
+  ["fluidHue",      "Hue shift",   0, 360, 1, 0, "°",    "Fluid"],
+  ["fluidDetail",   "Cells",       16, 96, 1, 48, "",    "Fluid"],
+  ["fluidSize",     "Source size", 0.02, 0.4, 0.01, 0.12, "", "Fluid"],
+  ["fluidAmount",   "Amount",      0.1, 2, 0.05, 1, "",  "Fluid"],
+  ["fluidPush",     "Push",        0, 3, 0.05, 0.6, "",  "Fluid"],
+  ["fluidAngle",    "Direction",   -180, 180, 1, -90, "°", "Fluid"],
+  ["fluidSpeed",    "Speed",       0.2, 3, 0.05, 1, "x", "Fluid"],
+  ["fluidViscosity","Viscosity",   0, 1, 0.01, 0.2, "",  "Fluid"],
+  ["fluidFade",     "Fade",        0, 1, 0.01, 0.3, "",  "Fluid"],
+  ["fluidCurl",     "Curl",        0, 2, 0.01, 0.6, "",  "Fluid"],
+  ["fluidBuoyancy", "Buoyancy",    -2, 2, 0.01, 0.6, "", "Fluid"],
+  ["fluidWind",     "Wind",        -1, 1, 0.01, 0, "",   "Fluid"],
+  ["fluidNoise",    "Noise",       0, 1, 0.01, 0.5, "",  "Fluid"],
+  ["fluidHeat",     "Heat",        0, 1, 0.01, 0, "",    "Fluid"],
+  ["fluidCool",     "Cool",        0, 1, 0.01, 0.5, "",  "Fluid"],
+  ["fluidSmoke",    "Smoke",       0, 1, 0.01, 0.6, "",  "Fluid"],
+  ["fluidThick",    "Thickness",   0.1, 2, 0.05, 0.6, "", "Fluid"],
+  ["fluidShade",    "Shade",       0, 1, 0.01, 0.5, "",  "Fluid"],
+  ["fluidDither",   "Dither",      0, 1, 0.01, 0.35, "", "Fluid"],
+  ["fluidOutline",  "Outline",     0, 1, 1, 0, "",       "Fluid"],
+  // </vfx13-fluid>
+  // <vfx13-lit>
+  // §65 (VFX 1.3): LIT EFFECTS (lit.js). Off: nothing reads the rest, no frame and no export byte moves. On: the stage shows
+  // it under a test light, the export adds <base>_n.png (a normal map per frame) and the Godot scenes take lights through it.
+  ["lit",        "Lit",         0, 1, 1, 0, "",        "Lit"],
+  ["litRound",   "Roundness",   0, 1, 0.01, 0.6, "",   "Lit"],
+  ["litBump",    "Bumps",       0, 1, 0.01, 0.4, "",   "Lit"],
+  ["litParts",   "Lit parts",   0, LIT_PARTS.length - 1, 1, 0, "", "Lit", "enum", LIT_PARTS],
+  // </vfx13-lit>
+  // <vfx13-tile>
+  // §66 SEAMLESS TEXTURES (seamless.js). Tile: the effect drawn on a torus (it repeats with no seam) and looping in time (the
+  // last frame flows into the first): a material for a floor or a wall. Off by default: every frame and byte as before.
+  ["tile",       "Seamless tile", 0, 1, 1, 0, "",     "Tile"],
+  ["tileSize",   "Tile size",   0, SEAM_SIZES.length - 1, 1, 0, "px", "Tile", "enum", SEAM_SIZES],
+  ["tileAxes",   "Repeats",     0, SEAM_AXES.length - 1, 1, 0, "", "Tile", "enum", SEAM_AXES],
+  ["tileLoop",   "Loop length", 0, 8, 0.05, 0, "s",   "Tile"],   // 0 = the clip's Duration
+  // THE FIELD: a seamless moving pattern filling the frame (plasma, caustics, lava crust, static, hexes, runes). Off (0).
+  ["field",      "Field",       0, 1, 0.01, 0, "",    "Field"],
+  ["fieldKind",  "Pattern",     0, FIELD_KINDS.length - 1, 1, 0, "", "Field", "enum", FIELD_KINDS],
+  ["fieldScale", "Cells",       1, 16, 1, 4, "",      "Field"],   // whole cells across the tile: it repeats
+  ["fieldSpeed", "Changes",     0, 8, 1, 1, "x",      "Field"],   // whole cycles per loop: it loops
+  ["fieldDriftX","Drift across",-4, 4, 1, 0, "",      "Field"],   // whole tiles per loop
+  ["fieldDriftY","Drift down", -4, 4, 1, 0, "",       "Field"],
+  ["fieldWarp",  "Warp",        0, 1, 0.01, 0.4, "",  "Field"],
+  ["fieldSharp", "Sharpness",   0, 1, 0.01, 0.5, "",  "Field"],
+  ["fieldFill",  "Fill",        0, 1, 0.01, 1, "",    "Field"],   // 1 opaque (a whole material), 0 the dark parts see-through
+  ["fieldSteps", "Color steps", 0, 12, 1, 0, "",      "Field"],   // 0 smooth, 2+ hard steps (pixel art)
+  ["fieldDither","Step dither", 0, 1, 0.01, 0, "",    "Field"],
+  ["fieldPixel", "Pixel size",  1, 8, 1, 1, "px",     "Field"],
+  // </vfx13-tile>
 ];
 
 const state = {};
@@ -1252,7 +1319,8 @@ function rerender() {
   updateParamWhen();          // §24: a drag that turned Turbulence on (or Spin off) shows or hides the rows it governs
   lastRenderMs = ms;
   const n = rendered.canvases.length;
-  stage.width = rendered.w; stage.height = rendered.h;
+  seamViewSync();                              // vfx13-tile: the Tiled tab shows with Tile on (§66)
+  stage.width = rendered.w * seamViewK(); stage.height = rendered.h * seamViewK();   // vfx13-tile: 3 x 3 in the Tiled view
   applyZoom();
   scrub.max = String(n - 1);
   if (frameIdx >= n) frameIdx = 0;
@@ -1298,6 +1366,10 @@ function drawGuides(g, w, h) {
 function drawStage() {
   if (!rendered) return;
   const cv = rendered.canvases[frameIdx];
+  // <vfx13-tile> §66: the Tiled view draws the tile 3 x 3 (the stage resized when the view or the render changed)
+  const sK = seamViewK();
+  if (stage.width !== rendered.w * sK || stage.height !== rendered.h * sK) { stage.width = rendered.w * sK; stage.height = rendered.h * sK; applyZoom(); }
+  // </vfx13-tile>
   sctx.clearRect(0, 0, stage.width, stage.height);
   if (!ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   if (guides.onion) {
@@ -1310,7 +1382,12 @@ function drawStage() {
     if (next) sctx.drawImage(next, 0, 0);
     sctx.globalAlpha = 1;
   }
-  if (cv) sctx.drawImage(cv, 0, 0);
+  // <vfx13-lit> §65: a lit effect shows under the stage's test light (the frames themselves are untouched)
+  const lcv = cv && typeof litView !== "undefined" && litView ? litStageFrame(frameIdx) : null;
+  if (lcv) { for (let j = 0; j < sK; j++) for (let i = 0; i < sK; i++) sctx.drawImage(lcv, i * rendered.w, j * rendered.h); litStageMarker(sctx); }   // vfx13-tile: 3 x 3 in the Tiled view
+  else
+  // </vfx13-lit>
+  if (cv) for (let j = 0; j < sK; j++) for (let i = 0; i < sK; i++) sctx.drawImage(cv, i * rendered.w, j * rendered.h);   // vfx13-tile: once (sK 1) unless Tiled
   if (ref.front) drawRefFrame(sctx, frameIdx, stage.width, stage.height);
   drawGuides(sctx, stage.width, stage.height);
   paintDock();
@@ -1619,13 +1696,13 @@ function autoZoom() {
   if (!col) return 1;
   const avail = col.clientWidth - 36;                                     // the stage box's padding and border
   const availH = Math.max(200, innerHeight - 490);
-  return Math.max(1, Math.min(8, Math.floor(Math.min(avail / rendered.w, availH / rendered.h))));
+  return Math.max(1, Math.min(8, Math.floor(Math.min(avail / (rendered.w * seamViewK()), availH / (rendered.h * seamViewK())))));   // vfx13-tile
 }
 function applyZoom() {
   if (!rendered) return;
   const z = zoomMode === "auto" ? autoZoom() : zoomMode;
-  stage.style.width = (rendered.w * z) + "px";
-  stage.style.height = (rendered.h * z) + "px";
+  stage.style.width = (rendered.w * seamViewK() * z) + "px";     // vfx13-tile: 3 x 3 in the Tiled view
+  stage.style.height = (rendered.h * seamViewK() * z) + "px";
 }
 addEventListener("resize", () => { if (zoomMode === "auto") applyZoom(); });
 
@@ -1665,11 +1742,12 @@ const R3V_DEPS = [
   { file: "textures.js", want: 20, got: () => (typeof TEXTURES_BUILD === "undefined" ? 0 : TEXTURES_BUILD) },
   { file: "texgen.js", want: 8, got: () => (typeof TEXGEN_BUILD === "undefined" ? 0 : TEXGEN_BUILD) },
   { file: "ramps.js", want: 3, got: () => (typeof CT_RAMPS_BUILD === "undefined" ? 0 : CT_RAMPS_BUILD) },
-  { file: "room3d.js", want: 1, got: () => (typeof ROOM3D_BUILD === "undefined" ? 0 : ROOM3D_BUILD) },
+  { file: "room3d.js", want: 4, got: () => (typeof ROOM3D_BUILD === "undefined" ? 0 : ROOM3D_BUILD) },   // <vfx13-shapes> 2: o.geom; <vfx13-lit> 3: o.lit + the Torchlit cellar </vfx13-lit>; vfx13-tile 4: the "texture" stand tiles the floor
 ];
 // this browser only: { room, open (the 3D view was showing), eye (the camera at eye height) }; a bare room id is read too
 const R3V_PREF = "crunchyvfx.room3d.v1";
-const R3V_STANDS = { face: "faces you", upright: "stands upright", flat: "lies on the floor", screen: "on the screen" };
+const R3V_STANDS = { face: "faces you", upright: "stands upright", flat: "lies on the floor", screen: "on the screen",
+                     texture: "covers the floor, tiled" };   // vfx13-tile (§66)
 const R3V_ZOOM = [0.45, 1.6];
 let r3vWasOpen = false;
 try {
@@ -1718,16 +1796,18 @@ function r3vLoaded() {
   sel.disabled = false;
   r3vPaint();
 }
-function r3vSet(which) {
+function r3vSet(which, quiet) {   // vfx13-tile: quiet (the Tiled view following Tile) saves nothing
   r3v.open = which === "3d";
+  seamView = which === "tiled";                 // vfx13-tile: the Tiled view is the 2D stage, 3 x 3
   document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
     const on = b.dataset.view === which;
     b.classList.toggle("active", on); b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1;
   });
   stageWrap.hidden = r3v.open;
   document.getElementById("r3vView").hidden = !r3v.open;
-  r3vSave();
+  if (!quiet) r3vSave();
   if (r3v.open) { r3vFit(); r3vCamButtons(); r3vSync(); r3v.swayAt = performance.now(); r3vPaint(); }
+  else if (rendered) drawStage();                // vfx13-tile: 2D and Tiled share the stage, sized by the view
 }
 // a whole-number zoom when two or more fit (pixels stay square), else the column's width
 function r3vFit() {
@@ -1739,7 +1819,11 @@ function r3vFit() {
 }
 // once per render: every frame's pixels, where it stands, and its light
 function r3vPrep() {
-  if (r3v.key === rendered) return;
+  // <vfx13-lit> §65: a lit effect's normals belong to the render AND the Lit rows
+  const litKey = litOn(state) ? [state.litRound, state.litBump, state.litParts, state.glowThresh].join("|") : "";
+  if (r3v.key === rendered && r3v.litKey === litKey) return;
+  r3v.litKey = litKey;
+  // </vfx13-lit>
   r3v.key = rendered;
   r3v.frames = rendered.canvases.map((cv) => { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height); return { w: d.width, h: d.height, data: d.data }; });
   // EXACTLY what the Godot 3D scene is made of (godot3dFiles): the same stand, size, masks, bounds, anchor, alpha mode,
@@ -1754,16 +1838,28 @@ function r3vPrep() {
   // the scene's offset is rounded to whole sheet pixels (fx3dPlacement), so the anchor the sprite really hangs from is
   const anchor = { x: rendered.w / 2 - Math.round(rendered.w / 2 - a.x), y: rendered.h / 2 - Math.round(rendered.h / 2 - a.y) };
   // Light "always" takes its color from the effect's own pixels (opt.frames), as the export's does
-  r3v.light = r3v.stand === "screen" ? null : fx3dLight(state, masks, rendered.fps, { frames: r3v.frames, name: effectLabel });
+  r3v.light = r3v.stand === "screen" || r3v.stand === "texture" ? null : fx3dLight(state, masks, rendered.fps, { frames: r3v.frames, name: effectLabel });   // vfx13-tile: a surface casts none
   r3v.place = room3dPlace(r3v.frames, r3v.stand, mpp, anchor, {
     alpha: fx3dAlphaMode(masks), depth: depth,
     light: r3v.light && r3v.light.on ? fx3dLightPos(r3v.stand, bounds, anchor, mpp, depth) : null });
+  // <vfx13-shapes> §61.8: what the scene's 3D-native form is made of (null: a card)
+  r3v.shapes = null;
+  try {
+    r3v.shapes = d3sMake(state, rendered, fitOn, effectLabel, r3v.stand,
+      { mpp: mpp, bounds: bounds, origin: org, anchor: anchor, frames: r3v.frames, depth: depth, alpha: fx3dAlphaMode(masks) });
+  } catch (e) { console.warn("CrunchyVFX: the 3D form", e); }
+  if (r3v.shapes) r3v.shapes.node = [0, r3v.place.lift, 0];
+  // </vfx13-shapes>
   if (!r3v.user) { const V = room3dView(r3v.place); r3v.yaw = V.yaw; r3v.pitch = V.pitch; }
+  // <vfx13-lit> the frames' normal maps (the export's: the same cell), for the room's lights to shade
+  r3v.normals = litOn(state) && r3v.stand !== "screen" ? litNormalFrames(r3v.frames, state, { cell: litCell(state, rendered.w, rendered.h, 1) }) : null;
+  // </vfx13-lit>
   r3vSync();
 }
 // THE 3D ROWS UNDER THE ROOM: the same PARAMS rows as the 3D panel, changed THROUGH the panel's own controls (their
 // handlers do the rest: the lock, undo, the render, links), and shown from state after every render (undo, a preset).
 const R3V_ROWS = { r3vStand: "d3Stand", r3vSize: "d3Size", r3vLight: "d3Light", r3vPower: "d3LightPower" };
+R3V_ROWS.r3vForm = "d3Form";   // <vfx13-shapes> §61.8
 function r3vRow(key) { return PARAMS.find((p) => p[0] === key); }
 function r3vSetParam(key, v, commit) {
   const el = typeof inputs !== "undefined" ? inputs[key] : null;
@@ -1789,6 +1885,10 @@ function r3vSync() {
   const auto = !(Math.round(state.d3Stand) > 0), autoStand = auto ? r3v.stand : fx3dStand(Object.assign({}, state, { d3Stand: 0 }), effectLabel);
   const st0 = document.getElementById("r3vStand").options[0];
   if (st0 && autoStand) st0.textContent = r3vRow("d3Stand")[9][0] + " (" + (R3V_STANDS[autoStand] || autoStand) + ")";
+  // <vfx13-shapes> the form's auto says what it chose; a form the effect cannot take reads as a card
+  const fo = document.getElementById("r3vForm"), form = d3sFormNow();
+  if (fo && fo.options[0] && rendered) fo.options[0].textContent = "Auto (" + FX3D_FORM_WORDS[FX3D_FORMS.indexOf(fx3dForm(Object.assign({}, state, { d3Form: 0 }), effectLabel, r3v.stand || undefined))].toLowerCase() + ")";
+  // </vfx13-shapes>
   const meters = r3v.size ? r3v.size.m : 0;
   document.getElementById("r3vSizeV").textContent = +state.d3Size > 0 ? (+state.d3Size).toFixed(2) + " m" : "Auto (" + meters.toFixed(1) + " m)";
   document.getElementById("r3vPowerV").textContent = (+state.d3LightPower).toFixed(2) + "x";
@@ -1801,7 +1901,7 @@ function r3vSync() {
   info.textContent = r3v.stand === "screen"
     ? stand + " In a game it covers the camera, the way weather does, and casts no light. A sparse one like Rain may want Downpour or a bigger Count."
     : stand + (lit ? " Light: it lights the room from its glow." : /^off/i.test(r3vRow("d3Light")[9][Math.round(state.d3Light)] || "") ? " Light: off."
-      : " Light: nothing in it glows, so it casts none.");
+      : " Light: nothing in it glows, so it casts none.") + d3sSay(form);   // <vfx13-shapes>
 }
 // "More 3D settings": the 3D panel in the editor, unfolded and brought into view
 function r3vMore() {
@@ -1841,8 +1941,15 @@ function r3vPaint() {
   if (playing && !r3v.drag && !r3vReduced()) r3v.sway += Math.min(0.2, Math.max(0, (now - r3v.swayAt) / 1000)) * 0.35;
   r3v.swayAt = now;
   const i = Math.max(0, Math.min(frameIdx, r3v.frames.length - 1)), L = r3v.light;
-  const pic = room3dRender(Object.assign({ room: r3v.room, place: r3v.place, frame: r3v.frames[i],
-                             light: L && L.on ? { color: L.color, energy: L.energies[i] || 0, range: L.range } : null }, r3vCam()));
+  // <vfx13-shapes> a 3D-native form: its card (or none) and its particles or mesh, drawn for this camera
+  const S = r3v.shapes;
+  if (S) S.eye = r3v.eye;
+  const fr = !S ? r3v.frames[i] : S.cardHidden ? null : S.cardFrames[i];
+  // </vfx13-shapes>
+  const pic = room3dRender(Object.assign({ room: r3v.room, place: r3v.place, frame: fr,
+                             geom: S ? (cam) => fx3dRoomDraws(S, i, i / rendered.fps, cam) : undefined,   // <vfx13-shapes>
+                             light: L && L.on ? { color: L.color, energy: L.energies[i] || 0, range: L.range } : null,
+                             /* <vfx13-lit> */ lit: !S && r3v.normals && r3v.normals[i] ? { normal: r3v.normals[i].data, glow: litGlow(state), hot: litHotOnly(state), steps: litSteps(state) } : null /* </vfx13-lit> */ }, r3vCam()));
   cv.getContext("2d").putImageData(new ImageData(pic.data, pic.w, pic.h), 0, 0);
 }
 document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
@@ -1850,7 +1957,9 @@ document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
   b.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     e.preventDefault();
-    const other = document.querySelector('#viewTabs [role=tab]:not([data-view="' + b.dataset.view + '"])');
+    // vfx13-tile: three tabs (Tiled shows with Tile on): the arrows step through the ones that show
+    const tabs = [...document.querySelectorAll("#viewTabs [role=tab]")].filter((x) => !x.hidden), i = tabs.indexOf(b);
+    const other = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
     r3vSet(other.dataset.view); other.focus();
   });
 });
@@ -1938,6 +2047,21 @@ document.querySelectorAll("#viewTabs [role=tab]").forEach((b) => {
 })();
 // </vfx3d-preview>
 
+// <vfx13-tile>
+// §66 THE TILED VIEW: a third view tab, shown while Tile is on, that draws the tile 3 x 3 on the stage, playing, so a seam
+// or a jump at the loop would show. It opens by itself when Tile goes on (unless the room is open) and closes when it goes off.
+var seamView = false, seamWasTile = false;
+function seamViewK() { return seamView && rendered && +state.tile > 0 ? 3 : 1; }
+function seamViewSync() {
+  const tab = document.getElementById("tabTiled"), on = +state.tile > 0;
+  if (!tab) return;
+  tab.hidden = !on;
+  if (!on && seamView) r3vSet("2d", true);
+  else if (on && !seamWasTile && !(r3v && r3v.open) && !seamView) r3vSet("tiled", true);
+  seamWasTile = on;
+}
+// </vfx13-tile>
+
 // Re-render is cheap (a few ms), but dragging a slider fires input continuously — debounce so a
 // drag stays smooth on a 3000-particle patch.
 let renderTimer = null;
@@ -1959,6 +2083,10 @@ function scheduleRender() {
 const AIMED_EMITTERS = [1, 4, 6];               // EMITTERS: cone, line, box
 const aimed = (e) => AIMED_EMITTERS.indexOf(Math.round(e)) >= 0;
 const PARAM_WHEN = {
+  // <vfx13-tile> §66: the Tile rows matter only with Tile on; the Field's dither only with color steps
+  tileSize: (s) => s.tile > 0, tileAxes: (s) => s.tile > 0, tileLoop: (s) => s.tile > 0,
+  fieldDither: (s) => s.fieldSteps >= 2,
+  // </vfx13-tile>
   emitAngle:   (s) => aimed(s.emitter),
   emitSpread:  (s) => aimed(s.emitter),
   emitRadius:  (s) => Math.round(s.emitter) !== 1,
@@ -1978,6 +2106,11 @@ const PARAM_WHEN = {
   pixWipeAt: (s) => s.pixWipe > 0, pixWipeTime: (s) => s.pixWipe > 0, pixWipeEdge: (s) => s.pixWipe > 0, pixDust: (s) => s.pixWipe > 0,
   pixFireW: (s) => s.pixFire > 0, pixFireH: (s) => s.pixFire > 0, pixFireWind: (s) => s.pixFire > 0, pixFireSpread: (s) => s.pixFire > 0, pixFireSpeed: (s) => s.pixFire > 0,
   pixWobbleAxis: (s) => s.pixWobble > 0, pixWobbleWave: (s) => s.pixWobble > 0, pixWobbleSpeed: (s) => s.pixWobble > 0,
+  // <vfx13-fluid> the direction steers a puff, a column, a jet or a drop, not a swirl; heat's rows only with heat; the pixel
+  // look's rows only on it
+  fluidAngle: (s) => Math.round(s.fluidSource) !== 3, fluidCool: (s) => s.fluidHeat > 0, fluidSmoke: (s) => s.fluidHeat > 0,
+  fluidDither: (s) => Math.round(s.fluidLook) === 1, fluidOutline: (s) => Math.round(s.fluidLook) === 1,
+  // </vfx13-fluid>
   pixPulses:   (s) => Math.round(s.pixEmit) < 2,
   pixBitSpeed: (s) => s.pixBits > 0,
   pixBitGravity: (s) => s.pixBits > 0,
@@ -3360,6 +3493,12 @@ const LAYER_GROUPS = [
   { g: "Layer B",     is: () => state.emit2Count > 0,
     on: () => { state.emit2Count = 120; } },
   { g: "Glitch",      is: () => state.glitch > 0,     on: () => { state.glitch = 1; } },
+  // <vfx13-fluid>
+  { g: "Fluid",       is: () => state.fluid > 0,      on: () => { state.fluid = 1; } },
+  // </vfx13-fluid>
+  // <vfx13-tile> §66: the Field (seamless.js): a moving pattern that tiles
+  { g: "Field",       is: () => state.field > 0,      on: () => { state.field = 1; } },
+  // </vfx13-tile>
 ];
 // The inverse of the "＋ Growth" chip. Deriving it from PARAMS rather than hand-writing 24 `off`
 // functions means it cannot drift as params are added to a group — and it works because of the
@@ -3424,6 +3563,10 @@ const LAYER_ABOUT = {
   "Smear":          ["Motion", "Motion smear, as an animator draws speed"],
   "Orbit":          ["Motion", "Shapes circling the center on a tilted ring"],
   "Pixel art":      ["Particles", "Blobs and bits drawn as a sprite artist would: explosions, blood, poofs, dust"],
+  // <vfx13-fluid>
+  "Fluid":          ["Particles", "Smoke, steam, ink and mist that curl and roll as a real fluid does"],
+  // </vfx13-fluid>
+  "Field":          ["Shapes & lines", "A moving pattern filling the frame that tiles and loops: plasma, caustics, lava crust, static, hexes, runes"],   // vfx13-tile
   "Shockwave":      ["Shapes & lines", "An expanding ring from the center"],
   "Ripples":        ["Shapes & lines", "Rings spreading out, as on water"],
   "Vortex":         ["Shapes & lines", "Spinning rings on a flat plane: a portal, a whirlpool"],
@@ -5251,7 +5394,9 @@ function lookLoad() {
   presetLook = v === "smooth" || v === "pixel" ? v : "";
 }
 function lookSave() { try { const o = lookPrefs(); o[project ? project.dir : ""] = presetLook; localStorage.setItem(LOOK_KEY, JSON.stringify(o)); } catch (e) { /* private mode */ } }
-const presetIsPixel = (name) => !!(PRESETS[name] && PRESETS[name].pix > 0);
+// <vfx13-fluid> a fluid in the pixel look is pixel art too (§64)
+const presetIsPixel = (name) => !!(PRESETS[name] && (PRESETS[name].pix > 0 || (PRESETS[name].fluid > 0 && Math.round(PRESETS[name].fluidLook || 0) === 1)));
+// </vfx13-fluid>
 const presetLookOk = (name) => !presetLook || (presetLook === "pixel") === presetIsPixel(name);
 lookLoad();
 // §27: GAME MOMENTS, the strip's default way in (AJ, 2026-10-15: a game developer thinks "I need a hit spark, a death
@@ -6027,7 +6172,7 @@ function randomize() {
   // systems on at once and every roll would look like the same brown soup.
   const pixRoll = presetLook === "pixel" ? true : presetLook === "smooth" ? false : Math.random() < 0.2;   // §48: the Look
   {
-    const pool = LAYER_GROUPS.filter((L) => L.g !== "Pixel art");   // a pixel layer comes as a pixel roll (below), never jittered
+    const pool = LAYER_GROUPS.filter((L) => L.g !== "Pixel art" && L.g !== "Field");   // vfx13-tile: a Field fills the frame: never rolled into a sprite   // a pixel layer comes as a pixel roll (below), never jittered
     const n = pixRoll ? 0 : Math.floor(Math.random() * 4);
     for (let i = 0; i < n && pool.length; i++) {
       const L = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
@@ -6786,6 +6931,22 @@ function emissiveFrames(frames, st) {
   });
 }
 
+// <vfx13-lit>
+// §65 LIT: the normal maps of an export's frames (canvases, maybe trimmed by `trim`, at `mult`), as canvases. The normal
+// cell is the effect's art pixel at that scale, and a trimmed frame keeps the grid where it was (its offset).
+function litNormalCanvases(frames, C, mult, trim) {
+  const cell = litCell(C.st, C.r.w, C.r.h, mult), ox = trim ? trim.x : 0, oy = trim ? trim.y : 0;
+  return frames.map((src) => {
+    const img = src.getContext("2d").getImageData(0, 0, src.width, src.height);
+    const n = litNormals({ w: img.width, h: img.height, data: img.data }, C.st, { cell: cell, ox: ox, oy: oy });
+    const out = document.createElement("canvas");
+    out.width = n.w; out.height = n.h;
+    out.getContext("2d").putImageData(new ImageData(n.data, n.w, n.h), 0, 0);
+    return out;
+  });
+}
+// </vfx13-lit>
+
 // ---------- Engine sidecars ----------
 // Only formats whose shape can be stated with confidence — a sidecar that ALMOST imports is worse
 // than none. Generic JSON, Aseprite and Phaser are verified against their own loaders; Godot 4's
@@ -7097,11 +7258,13 @@ var VARIETY_ANIM = (i) => (i ? "variation_" + (i + 1) : "default");
 async function bakedSheetFiles(VC, mult, opts, o, name, files, loop) {
   const parts = [], so = Object.assign({}, opts, { pot: false });
   for (const c of VC) {
-    const fr = o.emissive ? framesAtScale(mult, c) : null;
+    const lit = litOn(c.st);   // vfx13-lit
+    const fr = o.emissive || lit ? framesAtScale(mult, c) : null;
     const sh = fr ? buildSheet(Object.assign({ frames: fr }, so)) : await buildSheetStreaming(mult, so, c);
     const em = o.emissive ? buildSheet({ frames: emissiveFrames(sh.frames, c.st), layout: so.layout }) : null;
+    const nm = lit ? buildSheet({ frames: litNormalCanvases(sh.frames, c, mult, sh.trim), layout: so.layout }) : null;   // vfx13-lit
     if (fr && fr !== c.r.canvases && fr !== outputCanvases(c)) for (const cv of fr) releaseCanvas(cv);
-    parts.push({ sh: sh, em: em, fps: c.r.fps });
+    parts.push({ sh: sh, em: em, nm: nm, fps: c.r.fps });
   }
   let W = 0, H = 0;
   for (const p of parts) { p.y = H; H += p.sh.cv.height; W = Math.max(W, p.sh.cv.width); }
@@ -7121,7 +7284,14 @@ async function bakedSheetFiles(VC, mult, opts, o, name, files, loop) {
     files.push({ name: name + "_emissive.png", data: new Uint8Array(await (await canvasBlob(ec)).arrayBuffer()) });
     releaseCanvas(ec);
   }
-  for (const p of parts) { releaseCanvas(p.sh.cv); if (p.em) releaseCanvas(p.em.cv); }
+  // <vfx13-lit> the normal maps stacked as the sheets are
+  if (parts.every((p) => p.nm)) {
+    const nc = stack("nm");
+    files.push({ name: name + "_n.png", data: new Uint8Array(await (await canvasBlob(nc)).arrayBuffer()) });
+    releaseCanvas(nc);
+  }
+  // </vfx13-lit>
+  for (const p of parts) { releaseCanvas(p.sh.cv); if (p.em) releaseCanvas(p.em.cv); if (p.nm) releaseCanvas(p.nm.cv); }
 }
 // sidecarFor's Godot SpriteFrames, one animation per baked variation, every region in the one stacked sheet.
 function godotTresBaked(parts, name, loop) {
@@ -7260,8 +7430,55 @@ function godotSceneInfo(base, files, o, C) {
       info.sounds = VC.map((c) => Math.min(c.r.canvases.length - 1, set));
     }
   }
+  // <vfx13-lit> §65: a lit effect's scene shades its Sprite with <base>_n.png (and a Glow child keeps what glows as drawn)
+  if (litOn(C.st)) info.lit = { normal: tres.replace(/\.tres$/, "_n.png"), glow: litGlow(C.st), hot: litHotOnly(C.st), glows: litGlowsAny(C.r.canvases, C.st), steps: litSteps(C.st) };
+  // </vfx13-lit>
   return info;
 }
+// <vfx13-lit> the README's Lit part (only when an effect is lit)
+function litReadme(infos) {
+  const glow = infos.some((i) => i.lit && i.lit.glows);
+  return [
+    "LIT (the effect takes your game's lights)",
+    "",
+    "  <name>_n.png is a normal map per frame, lined up with <name>.png pixel for pixel (x right, y UP, z toward you:",
+    "  Godot's convention). The scene's Sprite wears a material that reads it, so 2D lights (PointLight2D,",
+    "  DirectionalLight2D) shade the effect from their side. Give a PointLight2D some Height (around 30-60 px) or it",
+    "  only grazes the effect. Darken the scene with a CanvasModulate and the lights pick the effect out of it.",
+    glow ? "  What GLOWS stays as drawn: a Glow child draws those pixels unshaded over the Sprite, so no CanvasModulate dims them."
+         : "  Nothing in it glows, so every pixel takes the light.",
+    "  In 3D (<name>_3d.tscn) the billboard wears the same normal map: an OmniLight3D or a sun shades it, glowing pixels",
+    "  stay emissive. Both use one light model: Lambert wrapped by 0.4 (the `wrap` shader parameter), soft like dust.",
+    "",
+  ];
+}
+// does any pixel of any frame glow (the emissive test)? Then the 2D scene needs its Glow child.
+function litGlowsAny(canvases, st) {
+  const thr = litGlow(st) * 255, hot = litHotOnly(st);
+  if (thr > 255) return false;
+  for (const cv of canvases) {
+    const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    for (let i = 0; i < d.length; i += 4) if (litIsGlow(d, i, thr, hot)) return true;
+  }
+  return false;
+}
+// the 2D scene's lit parts: its resources, the Sprite's material line, the Glow child (null when not lit)
+function litScene2d(info, files) {
+  const L = info.lit;
+  if (!L || info.text || !files.some((x) => x.name === L.normal)) return null;
+  const subs = ['[sub_resource type="Shader" id="Shader_lit"]\ncode = ' + litTscnString(litShader2d(L.steps)) + "\n",
+    '[sub_resource type="ShaderMaterial" id="Lit"]\nshader = SubResource("Shader_lit")\nshader_parameter/normal_sheet = ExtResource("6")\n'];
+  if (L.glows) subs.push('[sub_resource type="Shader" id="Shader_glow"]\ncode = ' + litTscnString(litGlowShader2d()) + "\n",
+    '[sub_resource type="ShaderMaterial" id="Glow"]\nshader = SubResource("Shader_glow")\nshader_parameter/glow_threshold = ' + +L.glow.toFixed(4) + "\n" + (L.hot ? "shader_parameter/hot_only = 1.0\n" : ""),
+    '[sub_resource type="GDScript" id="GDScript_glow"]\nscript/source = ' + litTscnString(LIT_GLOW_SYNC) + "\n");
+  return {
+    res: '[ext_resource type="Texture2D" path="' + L.normal + '" id="6"]',
+    subs: subs.join("\n") + "\n",
+    material: 'material = SubResource("Lit")\n',
+    glow: L.glows ? (off) => '\n[node name="Glow" type="AnimatedSprite2D" parent="Sprite"]\nmaterial = SubResource("Glow")\nsprite_frames = ExtResource("2")\n' + off + 'script = SubResource("GDScript_glow")\n' : () => "",
+  };
+}
+// </vfx13-lit>
 // The two scene files ({ name, data }, as buildExportFiles's), or none if no .tres was written to point at.
 function godotSceneFiles(info, files) {
   if (!files.some((x) => x.name === info.tres)) return [];
@@ -7271,10 +7488,12 @@ function godotSceneFiles(info, files) {
   if (T) res.push('[ext_resource type="Script" path="' + info.base + '_text.gd" id="4"]', '[ext_resource type="Texture2D" path="' + info.base + '_glyphs.png" id="5"]');
   const node = String(info.name).replace(/[^A-Za-z0-9_]/g, "_") || "Effect";
   const off = info.offset.x || info.offset.y ? "offset = Vector2(" + info.offset.x + ", " + info.offset.y + ")\n" : "";
-  const tscn = "[gd_scene format=3]\n\n" + res.join("\n") + "\n\n" +
+  const LS = litScene2d(info, files);   // vfx13-lit: null unless lit (every byte as before)
+  if (LS) res.push(LS.res);
+  const tscn = "[gd_scene format=3]\n\n" + res.join("\n") + "\n\n" + (LS ? LS.subs + "\n" : "") +
     '[node name="' + node + '" type="Node2D"]\ntexture_filter = 1\nscript = ExtResource("1")\n' +
     "impact_frame = " + info.impact + "\nsound_frame = " + info.sound + "\n" + varietyProps(info) + "\n" +
-    '[node name="Sprite" type="AnimatedSprite2D" parent="."]\nsprite_frames = ExtResource("2")\n' + off +
+    '[node name="Sprite" type="AnimatedSprite2D" parent="."]\n' + (LS ? LS.material : "") + 'sprite_frames = ExtResource("2")\n' + off + (LS ? LS.glow(off) : "") +
     (info.stream ? '\n[node name="Sound" type="AudioStreamPlayer2D" parent="."]\nstream = ExtResource("3")\n' : "") +
     (T ? '\n[node name="Text" type="Node2D" parent="."]\nscript = ExtResource("4")\n' + textNodeProps(T) : "");
   const enc = new TextEncoder();
@@ -7524,7 +7743,7 @@ function godotReadme(infos) {
     "  variety_seed    0      different every run; any other number replays the same sequence (set it",
     "                         before add_child). `variation` says which baked one the latest play picked.",
     "",
-  ] : []).concat(infos.some((i) => i.d3) ? fx3dReadme(infos) : []).concat([   // vfx3d-export: §61's 3D part, only with a 3D scene
+  ] : []).concat(infos.some((i) => i.d3) ? fx3dReadme(infos) : []).concat(/* <vfx13-lit> */ infos.some((i) => i.lit && !i.text) ? litReadme(infos) : [] /* </vfx13-lit> */).concat([   // vfx3d-export: §61's 3D part, only with a 3D scene
     "FILES (per effect)",
     "  <name>.tscn  the scene        <name>.gd   its script",
     "  <name>.tres  SpriteFrames for an AnimatedSprite2D (frames, fps, loop)",
@@ -7620,6 +7839,7 @@ function fx3dPanelNote() {
           (state.glow > 0 ? " (Glow thresh, in the Glow panel, decides what glows)" : "") + ". Set Light to \u201cAlways\u201d to light it in its own color.");
       }
     }
+    if (sd !== "screen") bits.push(esc(d3sSay(d3sFormNow()).trim()));   // <vfx13-shapes> §61.8
     bits.push("Export it with Godot 4 and \u201c3D scene too\u201d.");
     fx3dNoteEl.innerHTML = bits.join(" ");
   }, 200);
@@ -7629,6 +7849,7 @@ function fx3dPanelNote() {
 // `label`: the effect's name, for the auto stand. Sets info.d3 for the README's 3D part.
 async function godot3dFiles(info, files, o, C, label) {
   const st = C.st, mult = o.scales.indexOf(1) >= 0 ? 1 : o.scales[0], stand = fx3dStand(st, label);
+  if (stand === "texture") return seamGodot3dFiles(info, files, C, label);   // vfx13-tile: a surface, not a sprite (§66)
   const masks = fx3dMasksOf(C.r.canvases, st), T = info.text, bounds = fx3dBounds(masks);
   const lopt = (c) => ({ frames: Math.round(c.st.d3Light) === 2 ? fx3dFramesOf(c.r.canvases) : null, name: label, loop: info.loop });
   const p = {
@@ -7638,6 +7859,9 @@ async function godot3dFiles(info, files, o, C, label) {
     impact: info.impact, sound: info.sound, varietyProps: varietyProps(info), offset2d: info.offset,
     sheet: info.tres.replace(/\.tres$/, ".png"), frames: info.frames, fps: info.fps, loop: info.loop, text: T ? textNodeProps(T) : null,
   };
+  // <vfx13-lit> §65: lit, the billboard is shaded through the same <base>_n.png the 2D scene uses
+  if (info.lit && !T && stand !== "screen" && files.some((x) => x.name === info.lit.normal)) p.lit = { sheet: p.sheet, normal: info.lit.normal, glow: info.lit.glow, hot: info.lit.hot, steps: info.lit.steps };
+  // </vfx13-lit>
   // §39 baked variations: each animation's own light curve, one after another, and where each starts
   if (info.anims && p.light && p.light.on) {
     const VC = varietyCtxs(C) || [C], all = [], starts = [];
@@ -7648,17 +7872,253 @@ async function godot3dFiles(info, files, o, C, label) {
     });
     p.energies = all; p.energyStarts = starts;
   }
-  const src = stand === "screen" ? fx3dScreenScript(info.base) : fx3dScript(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT, info.base);
+  // <vfx13-shapes> §61.8: a 3D-native form (a card: none of this runs, every byte as before)
+  const extra = stand === "screen" || T || info.anims ? [] : await d3sSceneFiles(p, C, o, label, mult, bounds, masks);
+  // </vfx13-shapes>
+  let src = stand === "screen" ? fx3dScreenScript(info.base) : fx3dScript(info.variety ? EFFECT_SCENE_SCRIPT_VARIETY : EFFECT_SCENE_SCRIPT, info.base, p.shapes ? p.shapes.form : undefined);   // vfx13-shapes: the form
+  // <vfx13-lit> a lit, varied effect: its flips flip the normal map too (the material is local to each instance)
+  if (p.lit && info.variety && src.indexOf("\t_sprite.flip_v = _base_fv != fv\n") >= 0)
+    src = src.replace("\t_sprite.flip_v = _base_fv != fv\n", "\t_sprite.flip_v = _base_fv != fv\n" +
+      "\tif _sprite.material_override is ShaderMaterial:\n\t\t_sprite.material_override.set_shader_parameter(\"flip\", Vector2(-1.0 if fh else 1.0, -1.0 if _sprite.flip_v else 1.0))\n");
+  // </vfx13-lit>
   const enc = new TextEncoder(), out = [
     { name: info.base + "_3d.gd", data: enc.encode(src) },
     { name: info.base + "_3d.tscn", data: enc.encode(fx3dTscn(p)) },
-  ];
+  ].concat(extra);   // vfx13-shapes
   if (T && stand !== "screen") out.push({ name: info.base + "_text_3d.gd", data: enc.encode(fx3dTextScript(TEXT_SCENE_SCRIPT)) });
   out.push({ name: info.base + "_3d.json", data: enc.encode(fx3dJson(p)) });
   info.d3 = { stand: stand, light: !!(p.light && p.light.on) };
+  if (p.shapes) info.d3.form = p.shapes.form;   // <vfx13-shapes>
   return out;
 }
 // </vfx3d-export>
+// <vfx13-shapes>
+// §61.8 THE 3D-NATIVE FORMS (fx3d.js decides; these draw what needs a canvas): a smooth particle's strip (the app's own
+// renderer, one particle standing still), the card WITHOUT the particles (the same simulation, their alpha zeroed, so Fit
+// and every other layer stay exactly where they were), and the scene's extra files. One place for the room and the export.
+function d3sFormNow() { return rendered ? fx3dForm(state, effectLabel, fx3dStand(state, effectLabel)) : "card"; }
+function d3sSay(form) { return form && form !== "card" ? " In 3D it " + FX3D_FORM_SAY[form] + "." : ""; }
+function d3sRGBA(canvases) {
+  return canvases.map((cv) => ({ w: cv.width, h: cv.height, data: cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data }));
+}
+function d3sStrip(st, sys) {
+  const sp = sys.strip;
+  if (sp.kind === "pixel") return fx3dPixelStrip(st, sp);
+  if (sp.kind === "spark") return fx3dSparkStrip(st, sp);
+  const C = sp.C, K = sp.K, V = sp.V || 1, W = C * K, out = new Uint8ClampedArray(W * C * V * 4);
+  for (let j = 0; j < V; j++) {
+    const R = renderFrames(fx3dSmoothStripState(st, sp, j), { fit: false, w: C, h: C });
+    for (let k = 0; k < K && k < R.canvases.length; k++) {
+      const d = R.canvases[k].getContext("2d").getImageData(0, 0, C, C).data;
+      for (let y = 0; y < C; y++) out.set(d.subarray(y * C * 4, (y + 1) * C * 4), ((j * C + y) * W + k * C) * 4);
+    }
+    for (const cv of R.canvases) releaseCanvas(cv);
+  }
+  return { w: W, h: C * V, data: out };
+}
+// the card: the pixel layer without the blobs or sparks that became particles; the simulation with its particles unseen
+function d3sCardState(st, systems) {
+  const s = Object.assign({}, st), has = (k) => systems.some((y) => y.src === k);
+  if (has("blob") || has("core")) s.pixBlobs = 0;
+  if (has("spark")) s.pixSparks = 0;
+  return s;
+}
+function d3sMaskSim(sim, systems) {
+  const A = systems.some((y) => y.src === "A"), B = systems.some((y) => y.src === "B");
+  if (!A && !B) return sim;
+  const frames = sim.frames.map((arr, f) => {
+    const c = arr.slice();
+    for (let i = 0, n = sim.counts[f]; i < n; i++) {
+      const o = i * P_STRIDE, kd = c[o + P_KIND];
+      if ((A && kd === K_PART) || (B && kd === K_PART2)) c[o + P_ALPHA] = 0;
+    }
+    return c;
+  });
+  return Object.assign({}, sim, { frames: frames });
+}
+// what the form is made of. o: { mpp, bounds, origin, anchor (the node, frame px: as the scene's rounded offset puts it),
+// frames (the effect's own, RGBA), depth, alpha }. null: a card.
+function d3sMake(st, r, fit, label, stand, o) {
+  const form = fx3dForm(st, label, stand);
+  if (form === "card" || !r || !r.sim) return null;
+  let k = 1;
+  try { k = renderPrep(st, { fit: fit, sim: r.sim, w: r.w, h: r.h }).k; } catch (e) { /* no sim: 1 */ }
+  const cx = { mpp: o.mpp, k: k, w: r.w, h: r.h, origin: o.origin, anchor: o.anchor, stand: stand, depth: o.depth || 1, loop: !!effectLoops(st),
+               mppFlat: fx3dMetersPerPixel(Object.assign({}, st, { d3Stand: FX3D_STANDS.indexOf("flat") }), o.bounds, label) };
+  const S = fx3dShapesOf(st, form, cx, o.frames);
+  if (!S) return null;
+  S.alpha = o.alpha;
+  S.frames = o.frames;
+  if (form === "particles") {
+    S.strips = S.systems.map((sys) => d3sStrip(st, sys));
+    S.cardSt = d3sCardState(st, S.systems);
+    S.cardSim = d3sMaskSim(r.sim, S.systems);
+    const cr = renderFrames(S.cardSt, { fit: fit, sim: S.cardSim, w: r.w, h: r.h });
+    S.cardFrames = d3sRGBA(cr.canvases);
+    S.cardCanvases = cr.canvases;
+    S.cardHidden = !S.cardFrames.some((F) => { for (let i = 3; i < F.data.length; i += 4) if (F.data[i] >= 8) return true; return false; });
+  } else S.cardHidden = true;
+  return S;
+}
+async function d3sPng(img) {
+  const cv = document.createElement("canvas");
+  cv.width = img.w; cv.height = img.h;
+  cv.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(img.data), img.w, img.h), 0, 0);
+  const b = await canvasBlob(cv);
+  releaseCanvas(cv);
+  return new Uint8Array(await b.arrayBuffer());
+}
+// the export's extra files for a form, and p.shapes for the scene's text (fx3dTscn, fx3dScript, fx3dJson)
+async function d3sSceneFiles(p, C, o, label, mult, bounds, masks) {
+  const a = fx3dAnchor(p), anchor = { x: p.w / 2 - Math.round((p.w / 2 - a.x) * mult) / mult, y: p.h / 2 - Math.round((p.h / 2 - a.y) * mult) / mult };
+  const S = d3sMake(C.st, C.r, C.fit, label, p.stand, { mpp: p.mpp, bounds: bounds, origin: p.origin, anchor: anchor, frames: fx3dFramesOf(C.r.canvases),
+    depth: p.depth, alpha: p.alpha });
+  if (!S) return [];
+  const out = [], base = p.base;
+  S.fps = C.r.fps;
+  if (S.form === "particles") {
+    S.stripFiles = S.systems.map((sys, i) => base + "_3d_p" + i + ".png");
+    for (let i = 0; i < S.strips.length; i++) out.push({ name: S.stripFiles[i], data: await d3sPng(S.strips[i]) });
+    if (!S.cardHidden) {
+      // the card's own sheet and SpriteFrames, made exactly as the 2D ones are, from the card's frames
+      const CC = { st: S.cardSt, r: { canvases: S.cardCanvases, w: C.r.w, h: C.r.h, fps: C.r.fps, sim: S.cardSim }, fit: C.fit, ref: NO_REF, synth: null, link: null, soundFrame: 0 };
+      const made = await buildExportFiles(null, { format: "sheet", meta: "godot", base: base + "_3d_card", scales: [mult], trim: o.trim, layout: o.layout, pot: o.pot,
+        emissive: false, sound: false, playback: o.playback, ctx: CC });
+      for (const f of made.files) out.push(f);
+      S.cardTres = base + "_3d_card.tres";
+    }
+    for (const cv of S.cardCanvases) releaseCanvas(cv);
+  } else {
+    S.shaderFile = base + "_3d.gdshader";
+    out.push({ name: S.shaderFile, data: new TextEncoder().encode(fx3dShapeShader(S.spec.kind, S.alpha)) });
+  }
+  p.shapes = S;
+  return out;
+}
+// </vfx13-shapes>
+// <vfx13-tile>
+// §66 THE SEAMLESS TEXTURE'S FILES (Tile on): beside whatever the Export dialog writes, a flipbook with no gaps and no trim
+// (<base>_tile.png: every frame a whole tile, columns x rows), each frame as its own PNG (<base>_tile_frames/), a JSON of the
+// layout, and Godot 4 materials that play it on a surface: a spatial ShaderMaterial (unshaded, nearest, repeats across the
+// mesh's UV, the frame from the game's clock) on a ready plane, and a canvas_item one on a ready ColorRect; plus their
+// README part. One size (1x): a texture is drawn at its tile size.
+function seamGodotShader(kind, L, opaque, add) {
+  const modes = kind === "3d" ? ["unshaded", "cull_disabled"].concat(add ? ["blend_add"] : []) : add ? ["blend_add"] : [];
+  return [
+    "// CrunchyVFX seamless texture (" + L.name + "): a flipbook of " + L.frames + " frames, " + L.w + " x " + L.h + " px each, in " +
+      L.cols + " x " + L.rows + ". Every frame tiles and the last flows into the first.",
+    "shader_type " + (kind === "3d" ? "spatial" : "canvas_item") + ";",
+  ].concat(modes.length ? ["render_mode " + modes.join(", ") + ";"] : []).concat([
+    "",
+    "uniform sampler2D flipbook : source_color, filter_nearest, repeat_disable;",
+    "uniform vec2 repeats = vec2(2.0, 2.0);   // tiles across the " + (kind === "3d" ? "mesh's UV" : "node (its size / the tile's px)"),
+    "uniform float fps = " + L.fps.toFixed(1) + ";",
+    "uniform float speed = 1.0;",
+    "uniform float brightness = 1.0;",
+    "const vec2 GRID = vec2(" + L.cols.toFixed(1) + ", " + L.rows.toFixed(1) + ");",
+    "const float FRAMES = " + L.frames.toFixed(1) + ";",
+    "const vec2 TILE_PX = vec2(" + L.w.toFixed(1) + ", " + L.h.toFixed(1) + ");",
+    "",
+    "vec4 tile_at(vec2 uv, float t) {",
+    "\tfloat f = mod(floor(t * fps * speed), FRAMES);",
+    "\tvec2 cell = vec2(mod(f, GRID.x), floor(f / GRID.x));",
+    "\tvec2 inside = clamp(fract(uv * repeats), 0.5 / TILE_PX, 1.0 - 0.5 / TILE_PX);   // never a neighbor frame's pixel",
+    "\treturn texture(flipbook, (cell + inside) / GRID);",
+    "}",
+    "",
+    "void fragment() {",
+    "\tvec4 c = tile_at(UV, TIME);",
+  ]).concat(kind === "3d"
+    ? ["\tALBEDO = c.rgb * brightness;"].concat(opaque ? [] : ["\tALPHA = c.a;"])
+    : ["\tCOLOR = vec4(c.rgb * brightness, c.a);"]).concat(["}", ""]).join("\n");
+}
+function seamGodotTres(shader, png, L) {
+  return '[gd_resource type="ShaderMaterial" load_steps=3 format=3]\n\n' +
+    '[ext_resource type="Shader" path="' + shader + '" id="1"]\n' +
+    '[ext_resource type="Texture2D" path="' + png + '" id="2"]\n\n' +
+    "[resource]\nshader = ExtResource(\"1\")\nshader_parameter/flipbook = ExtResource(\"2\")\n" +
+    "shader_parameter/repeats = Vector2(2, 2)\nshader_parameter/fps = " + L.fps.toFixed(1) + "\nshader_parameter/speed = 1.0\nshader_parameter/brightness = 1.0\n";
+}
+function seamNodeName(base) { return base.replace(/(^|[-_ .]+)(\w)/g, (m, a, c) => c.toUpperCase()).replace(/\W/g, "") + "Tile"; }
+function seamReadme(base, L) {
+  return [
+    "SEAMLESS TEXTURE (" + L.name + ", made with Tile on in CrunchyVFX)",
+    "  Every frame tiles: its left edge continues into its right and its top into its bottom" + (L.axes.x && L.axes.y ? "" : L.axes.x ? " (across only)" : " (up and down only)") + ",",
+    "  and the last frame flows into the first. A material for a floor, a wall, a force field, water.",
+    "",
+    "  " + base + "_tile.png       the flipbook: " + L.frames + " frames of " + L.w + " x " + L.h + " px, " + L.cols + " across x " + L.rows + " down, no gaps",
+    "  " + base + "_tile_frames/   the same frames, one PNG each (for an engine that takes a frame list)",
+    "  " + base + "_tile.json      the layout: columns, rows, frames, fps, the tile's size",
+    "",
+    "  GODOT 4",
+    "  " + base + "_tile_3d.tres    a ShaderMaterial for any 3D surface (unshaded: it glows as drawn). Drop it in a",
+    "                       MeshInstance3D's material slot. `repeats` = tiles across the mesh's UV (the ready",
+    "                       plane is 2 m with repeats 2: one tile a meter); `fps` / `speed` = how fast it plays.",
+    "  " + base + "_tile_3d.tscn    a 2 m plane wearing it: drag it into a 3D scene.",
+    "  " + base + "_tile_2d.tres    the same for 2D: on a ColorRect (or any CanvasItem); repeats = its size / " + L.w + " px.",
+    "  " + base + "_tile_2d.tscn    a ColorRect of 2 x 2 tiles wearing it.",
+    "  It plays from the game's clock (TIME), so every surface wearing it moves together.",
+    "  Keep the PNG unfiltered: the shader samples it nearest, with no mipmaps (" + base + "_tile.png.import says so).",
+    "",
+    "  OTHER ENGINES: a flipbook over a repeating UV. frame = floor(time * fps) mod frames; column = frame mod columns,",
+    "  row = floor(frame / columns); uv = ((column, row) + fract(uv * repeats)) / (columns, rows). Sample it nearest",
+    "  with no mipmaps (or clamp the inner uv half a pixel inside each cell) so a neighbor frame never bleeds in.",
+    "",
+  ].join("\n");
+}
+async function seamExportFiles(base, C) {
+  const st = C.st, r = C.r, fr = r.canvases, n = fr.length, W = r.w, H = r.h;
+  const lay = seamSheetLayout(n), sheet = document.createElement("canvas");
+  sheet.width = W * lay.cols; sheet.height = H * lay.rows;
+  const g = sheet.getContext("2d");
+  fr.forEach((cv, i) => g.drawImage(cv, (i % lay.cols) * W, Math.floor(i / lay.cols) * H));
+  let opaque = true;
+  for (const cv of fr) {        // the frames, not the sheet (its last row may have empty cells)
+    const d = cv.getContext("2d").getImageData(0, 0, W, H).data;
+    for (let i = 3; i < d.length && opaque; i += 4) if (d[i] !== 255) opaque = false;
+    if (!opaque) break;
+  }
+  const L = { name: base, frames: n, w: W, h: H, cols: lay.cols, rows: lay.rows, fps: r.fps, axes: seamAxes(st) };
+  const enc = new TextEncoder(), bytes = async (cv) => new Uint8Array(await (await canvasBlob(cv)).arrayBuffer());
+  const png = base + "_tile.png", add = !opaque && seamBlendOp(st) === "lighter", nm = seamNodeName(base);
+  const files = [{ name: png, data: await bytes(sheet) }];
+  releaseCanvas(sheet);
+  // Godot's import of the sheet: lossless, no mipmaps, never recompressed as a 3D texture (its params; Godot fills the rest)
+  files.push({ name: png + ".import", data: enc.encode('[remap]\n\nimporter="texture"\ntype="CompressedTexture2D"\n\n[params]\n\n' +
+    "compress/mode=0\ncompress/high_quality=false\nmipmaps/generate=false\nroughness/mode=0\nprocess/fix_alpha_border=false\nprocess/premult_alpha=false\ndetect_3d/compress_to=0\n") });
+  files.push({ name: base + "_tile.json", data: enc.encode(JSON.stringify({ app: "CrunchyVFX", kind: "seamless texture", name: base,
+    image: png, frames: n, columns: lay.cols, rows: lay.rows, tile: [W, H], fps: r.fps, loop: true,
+    repeats: { across: L.axes.x, down: L.axes.y }, blend: opaque ? "opaque" : add ? "add" : "alpha" }, null, 2) + "\n") });
+  for (let i = 0; i < n; i++) files.push({ name: base + "_tile_frames/" + base + "_tile_" + String(i).padStart(3, "0") + ".png", data: await bytes(fr[i]) });
+  files.push({ name: base + "_tile_3d.gdshader", data: enc.encode(seamGodotShader("3d", L, opaque, add)) });
+  files.push({ name: base + "_tile_2d.gdshader", data: enc.encode(seamGodotShader("2d", L, opaque, add)) });
+  files.push({ name: base + "_tile_3d.tres", data: enc.encode(seamGodotTres(base + "_tile_3d.gdshader", png, L)) });
+  files.push({ name: base + "_tile_2d.tres", data: enc.encode(seamGodotTres(base + "_tile_2d.gdshader", png, L)) });
+  files.push({ name: base + "_tile_3d.tscn", data: enc.encode('[gd_scene load_steps=3 format=3]\n\n[ext_resource type="Material" path="' + base + '_tile_3d.tres" id="1"]\n\n' +
+    '[sub_resource type="PlaneMesh" id="PlaneMesh_1"]\nsize = Vector2(2, 2)\n\n[node name="' + nm + '" type="MeshInstance3D"]\n' +
+    'mesh = SubResource("PlaneMesh_1")\nsurface_material_override/0 = ExtResource("1")\n') });
+  files.push({ name: base + "_tile_2d.tscn", data: enc.encode('[gd_scene load_steps=2 format=3]\n\n[ext_resource type="Material" path="' + base + '_tile_2d.tres" id="1"]\n\n' +
+    '[node name="' + nm + '" type="ColorRect"]\nmaterial = ExtResource("1")\noffset_right = ' + (2 * W) + ".0\noffset_bottom = " + (2 * H) + ".0\n") });
+  files.push({ name: base + "_tile_README.txt", data: enc.encode(seamReadme(base, L)) });
+  return files;
+}
+// "3D scene too" for a surface (d3Stand texture, auto for every Tile-on effect): <base>_3d.tscn is a plane two tiles a side
+// (a tile is the 3D Size: auto 1 m) wearing <base>_tile_3d.tres (repeats 2), and <base>_3d.json says so. The tile's own
+// files come with Tile on (buildExportBundle); a surface made of an effect with Tile off brings them here.
+async function seamGodot3dFiles(info, files, C, label) {
+  const masks = fx3dMasksOf(C.r.canvases, C.st), m = fx3dSize(C.st, fx3dBounds(masks), label).m, side = +(2 * m).toFixed(4), enc = new TextEncoder();
+  const out = [
+    { name: info.base + "_3d.tscn", data: enc.encode('[gd_scene load_steps=3 format=3]\n\n[ext_resource type="Material" path="' + info.base + '_tile_3d.tres" id="1"]\n\n' +
+      '[sub_resource type="PlaneMesh" id="PlaneMesh_1"]\nsize = Vector2(' + side + ", " + side + ')\n\n[node name="' + seamNodeName(info.base) + '3D" type="MeshInstance3D"]\n' +
+      'mesh = SubResource("PlaneMesh_1")\nsurface_material_override/0 = ExtResource("1")\n') },
+    { name: info.base + "_3d.json", data: enc.encode(JSON.stringify({ app: "crunchyvfx", kind: "effect-3d", version: 1, name: info.name, stand: "texture",
+      material: info.base + "_tile_3d.tres", sheet: info.base + "_tile.png", tileMeters: m, frames: C.r.canvases.length, fps: C.r.fps, loop: true }, null, 1) + "\n") },
+  ];
+  if (!(+C.st.tile > 0)) for (const f of await seamExportFiles(info.base, C)) out.push(f);
+  info.d3 = { stand: "texture", light: false };
+  return out;
+}
+// </vfx13-tile>
 // The Export dialog's files AND, for a Godot sheet, the ready scene (+ README.txt unless `o.readme === false`). Every
 // export a person makes goes through here; buildExportFiles stays the sheet and its metadata (the frame hash's EXPORT
 // lines hash exactly that). Returns { files, base, scene } (`scene`: godotSceneInfo, for a pack's one README).
@@ -7679,6 +8139,9 @@ async function buildExportBundle(onProgress, o) {
       if (o.readme !== false) out.files.push(godotReadme([info]));
     }
   }
+  // <vfx13-tile> §66: Tile on adds the seamless texture's files (off: nothing here runs, every byte as before)
+  { const C = o.ctx || liveExportCtx(); if (+C.st.tile > 0 && C.r) for (const f of await seamExportFiles(out.base, C)) out.files.push(f); }
+  // </vfx13-tile>
   return out;
 }
 
@@ -7975,6 +8438,7 @@ function refreshExpInfo() {
           (L && L.on ? (always ? "with a light in its own color that follows what it draws" : "with a light that follows its glow") : "no light (nothing in it glows)")) +
         "." + (loopFor(expPlay.value) ? " A loop emits <b>impact</b> each time round." : "") +
         " Set how it stands, its size and its light in the 3D panel. A <code>_3d.json</code> says the same for other engines.");
+      if (sd !== "screen" && d3sFormNow() !== "card") bits.push("<b>In 3D</b> it " + FX3D_FORM_SAY[d3sFormNow()] + " (\u201cIn 3D as\u201d in the 3D panel).");   // <vfx13-shapes>
     }
     // </vfx3d-export>
     // §53: a text effect's words are the game's
@@ -7986,6 +8450,17 @@ function refreshExpInfo() {
       ? "Plus an <b>_emissive</b> sheet: only the pixels above Glow thresh, un-blurred, for your engine to bloom itself."
       : "Plus an <b>_emissive</b> sheet — but Glow is off, so the threshold is all this patch has to go on. Raise Glow thresh to choose what counts as emitting.");
   }
+  // <vfx13-lit>
+  if (litOn(state) && fmt === "sheet") bits.push("Lit: plus an <b>_n</b> sheet, a normal map per frame lined up with the colors" +
+    (expMetaSel.value === "godot" ? "; the Godot scene" + (exp3d.checked ? "s take" : " takes") + " your lights through it." : ", for your engine's 2D or 3D lights."));
+  // </vfx13-lit>
+  // <vfx13-tile> §66: what Tile on adds, whatever the format
+  if (+state.tile > 0) {
+    const nm = esc(sanitize(exportNameNow()));
+    bits.push("<b>Seamless tile:</b> plus <code>" + nm + "_tile.png</code> (every frame a whole tile, no gaps, no trim), one PNG per frame, a <code>_tile.json</code>, " +
+      "and Godot 4 materials that play it on a surface: <code>" + nm + "_tile_3d.tres</code> on a ready plane, <code>" + nm + "_tile_2d.tres</code> on a ready ColorRect.");
+  }
+  // </vfx13-tile>
   expNote.innerHTML = bits.map((b) => "<p>" + b + "</p>").join("");
 }
 for (const el of [expFormat, expLayout, expMetaSel, expPlay, expTrim, expPot, expEmis, expSound]) el.addEventListener("change", refreshExpInfo);
@@ -8072,7 +8547,7 @@ async function buildExportFiles(onProgress, o) {
     const opts = { trim: o.trim, layout: o.layout, pot: o.pot };
     // The emissive mask is built from the finished frames, so that one option still needs the
     // whole sequence in memory. Everything else streams.
-    const needsAllFrames = fmt === "apng" || (fmt === "sheet" && o.emissive);
+    const needsAllFrames = fmt === "apng" || (fmt === "sheet" && (o.emissive || /* <vfx13-lit> */ litOn(C.st) /* </vfx13-lit> */));
     const frames = needsAllFrames ? framesAtScale(mult, C) : null;
 
     // §39: a varied effect with baked variations writes ONE stacked sheet + a SpriteFrames of one animation each
@@ -8095,6 +8570,14 @@ async function buildExportFiles(onProgress, o) {
         const eb = await canvasBlob(em.cv);
         files.push({ name: base + suffix + "_emissive.png", data: new Uint8Array(await eb.arrayBuffer()) });
       }
+      // <vfx13-lit> §65: Lit adds the normal map sheet, built from the same trimmed frames, so it lines up pixel for pixel
+      if (litOn(C.st)) {
+        const nm = buildSheet({ frames: litNormalCanvases(sh.frames, C, mult, sh.trim), layout: o.layout, pot: o.pot });
+        files.push({ name: base + suffix + "_n.png", data: new Uint8Array(await (await canvasBlob(nm.cv)).arrayBuffer()) });
+        for (const cv of nm.frames) releaseCanvas(cv);
+        releaseCanvas(nm.cv);
+      }
+      // </vfx13-lit>
       releaseCanvas(sh.cv);
     } else if (fmt === "apng") {
       // encodeApng() takes the whole sequence; APNG is a single container with an inter-frame
@@ -8655,7 +9138,7 @@ function decodePatch(str) {
 // exactly what happened when Layer B arrived with three of them.
 const BREED_SKIP = new Set(["duration", "fps", "seed", "frameW", "frameH", "pixLoop", "pixOutline", "pixGather", "pixBlobs"]);   // §49: a child keeps its blobs (off with no stroke is nothing)   // §44: a sibling keeps its loop and its outline   // frame size too: a sibling once came out 128 x 1, a speck (VFX-DESIGN §39, 2026-10-27)
 for (const p of PARAMS) if (p[8] === "enum" || p[8] === "shape" || p[8] === "shape2" || p[8] === "pshape") BREED_SKIP.add(p[0]);
-for (const p of PARAMS) if (p[7] === "3D") BREED_SKIP.add(p[0]);   // vfx3d-export: a sibling stands as its parent does (and no 2D roll moves)
+for (const p of PARAMS) if (p[7] === "3D" || /* <vfx13-lit> */ p[7] === "Lit" /* </vfx13-lit> */) BREED_SKIP.add(p[0]);   // vfx3d-export: a sibling stands as its parent does (and no 2D roll moves)
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
 // Which groups are actually IN PLAY for a given effect. Two kinds of irrelevance:
@@ -8753,7 +9236,7 @@ function mutateGenome(src, amount, opts) {
 }
 function crossGenome(a, b) {
   const g = {};
-  for (const p of PARAMS) g[p[0]] = p[7] === "3D" ? a[p[0]] : Math.random() < 0.5 ? a[p[0]] : b[p[0]];   // vfx3d-export: no draw for the 3D rows
+  for (const p of PARAMS) g[p[0]] = p[7] === "3D" || /* <vfx13-lit> */ p[7] === "Lit" /* </vfx13-lit> */ ? a[p[0]] : Math.random() < 0.5 ? a[p[0]] : b[p[0]];   // vfx3d-export: no draw for the 3D rows
   for (const k in PATCH_EXTRAS) g[k] = Math.random() < 0.5 ? a[k] : b[k];
   return g;
 }
@@ -8983,7 +9466,10 @@ document.body.appendChild(timeModal);
 const TIMED_LAYERS = ["Flash", "Shockwave", "Bokeh", "Cone", "Arms", "Grid",
   "Light shafts", "Droplets", "Twinkle", "Decal", "Sweep", "Fracture", "Drip", "Tunnel", "Growth",
   "Vortex", "Weather", "Sigil", "Chain", "Beam", "Ribbon", "Arc", "Shatter", "Lines", "Ripples",
-  "Rift", "Tumble", "Swarm", "Crackle", "Orbit", "Pixel art"];
+  "Rift", "Tumble", "Swarm", "Crackle", "Orbit", "Pixel art",
+  "Fluid",   // <vfx13-fluid> </vfx13-fluid>
+  "Field",   // vfx13-tile
+];
 
 function layerDelayMap() { return parseLayerDelays(state.layerDelay); }
 function setLayerDelay(name, secs) {
@@ -11132,7 +11618,7 @@ makeCollapsible(document.getElementById("styleSection"),
 // "p:<group>", so the key keeps its shape and the desktop suite's pinned set of keys is unchanged). The essentials are
 // open the first time (Quick shape, Particle shape, Palette, Era style, Duration, the particle panels and every layer you
 // turn on); the long, set-once ones start folded.
-const PANEL_FOLDED = ["Master", "Crunch", "3D"];   // vfx3d-export: "3D" is set once, folded
+const PANEL_FOLDED = ["Master", "Crunch", "3D", /* <vfx13-lit> */ "Lit" /* </vfx13-lit> */, "Tile" /* vfx13-tile */];   // vfx3d-export: "3D" is set once, folded
 // THE ORDER: what every effect has comes first — Output (Duration), Master and Crunch, which used to sit after every
 // layer panel at the bottom of the page — then the particles (Emitter, Motion, Life, Color, the selected shapes' own
 // panels), then "Add a layer" and the layers that are on. Within a band the PARAMS order holds.
@@ -11150,7 +11636,7 @@ function orderPanels() {
   const layer = (el) => LAYER_GROUPS.some((L) => L.g === el.dataset.group);
   const band = (el) => PANEL_TOP.indexOf(el.dataset.group) >= 0 ? PANEL_TOP.indexOf(el.dataset.group)
     : PANEL_PARTICLES.indexOf(el.dataset.group) >= 0 ? 10 + PANEL_PARTICLES.indexOf(el.dataset.group)
-    : layer(el) ? 40 : el.dataset.group === "3D" ? 30 : 20;   // vfx3d-export: the 3D panel after every panel an effect has
+    : layer(el) ? 40 : el.dataset.group === "3D" ? 30 : /* <vfx13-lit> */ el.dataset.group === "Lit" ? 31 : /* </vfx13-lit> */ el.dataset.group === "Tile" ? 32 : /* vfx13-tile */ 20;   // vfx3d-export: the 3D panel after every panel an effect has
   const sorted = all.map((el, i) => ({ el, i, b: band(el) })).sort((a, b) => a.b - b.b || a.i - b.i);
   // (AJ, 2026-10-25: the layer strip heads the whole editor now, "what goes into it" first; the layers' own panels keep
   // their place after the panels every effect has, under their own heading)
@@ -11158,6 +11644,54 @@ function orderPanels() {
   for (const x of sorted) (x.b === 40 ? panelsLayers : panelsCore).appendChild(x.el);
 }
 orderPanels();
+// <vfx13-lit>
+// §65 THE STAGE'S TEST LIGHT: while Lit is on, the stage shows the effect as a PointLight2D at the light shows it (lit.js
+// litShade: the same wrapped Lambert as the exported shaders), over a darkened scene. The light sits up and to the left,
+// and follows the pointer over the stage (it stays where the pointer left it). Normals are worked out once per render.
+var litView = { r: null, key: "", n: [], cv: null, at: null };
+var LIT_TEST = { color: [1, 0.86, 0.66], energy: 1.2, ambient: 0.28 };
+function litStageFrame(i) {
+  if (!rendered || !litOn(state)) return null;
+  const src = rendered.canvases[i];
+  if (!src) return null;
+  const key = [state.litRound, state.litBump, state.litParts, state.glowThresh, state.pix, state.pixDetail, state.pixelate].join("|");
+  if (litView.r !== rendered || litView.key !== key) { litView.r = rendered; litView.key = key; litView.n = []; }
+  const img = src.getContext("2d").getImageData(0, 0, src.width, src.height), f = { w: img.width, h: img.height, data: img.data };
+  if (!litView.n[i]) litView.n[i] = litNormals(f, state, { cell: litCell(state, rendered.w, rendered.h, 1) });
+  const at = litView.at || { x: f.w * 0.15, y: f.h * 0.18 };
+  const pic = litShade(f, litView.n[i], state, Object.assign({ x: at.x, y: at.y, z: Math.min(f.w, f.h) * 0.4 }, LIT_TEST));
+  if (!litView.cv) litView.cv = document.createElement("canvas");
+  litView.cv.width = f.w; litView.cv.height = f.h;
+  litView.cv.getContext("2d").putImageData(new ImageData(pic.data, f.w, f.h), 0, 0);
+  return litView.cv;
+}
+// the light's place on the stage: a small warm square with a dark ring
+function litStageMarker(g) {
+  const at = litView.at || { x: stage.width * 0.15, y: stage.height * 0.18 }, s = Math.max(2, Math.round(Math.min(stage.width, stage.height) / 64));
+  g.fillStyle = "#000"; g.fillRect(Math.round(at.x) - s * 2, Math.round(at.y) - s * 2, s * 4, s * 4);
+  g.fillStyle = "#ffd38a"; g.fillRect(Math.round(at.x) - s, Math.round(at.y) - s, s * 2, s * 2);
+}
+stage.addEventListener("pointermove", (e) => {
+  if (!litOn(state) || !rendered) return;
+  const r = stage.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  litView.at = { x: (e.clientX - r.left) / r.width * stage.width, y: (e.clientY - r.top) / r.height * stage.height };
+  if (!playing) drawStage();
+});
+// the Lit panel's line: what Lit does, where to see it
+(function litPanelNote() {
+  const panel = document.querySelector('#panels .panel[data-group="Lit"]');
+  if (!panel) return;
+  const p = document.createElement("p");
+  p.className = "hint";
+  p.id = "litNote";
+  p.textContent = "Lit effects take a game's lights: smoke, dust, debris and blood shade from the light's side. The stage shows it " +
+    "under a test light (point at the stage to move it); the 3D view's rooms light it too. Glowing pixels (over Glow thresh) " +
+    "stay as drawn unless Lit parts is Everything. Exports add <name>_n.png, a normal map per frame, and the Godot scenes " +
+    "(2D and 3D) take your lights through it.";
+  panel.appendChild(p);
+})();
+// </vfx13-lit>
 for (const panel of panels.querySelectorAll(".panel[data-group]")) {
   const g = panel.dataset.group;
   makeCollapsible(panel, panel.querySelector("h2"), "p:" + g, PANEL_FOLDED.indexOf(g) >= 0);

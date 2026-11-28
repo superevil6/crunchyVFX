@@ -105,7 +105,7 @@
       { name: "Pixel Damage Number", want: "face" },
       { name: "Pixel Lightning", want: "upright", scales: [2] },
       { name: "Hit Spark", base: "varied-hit", want: "face", variety: "fh:1,fv:1,r:1,s:1-2,v:10,j:2,b:3,bs:1" },
-      { name: "Pixel Gem Sparkle", want: "face" },
+      { name: "Pixel Gem Sparkle", want: "face", form: "particles" },   // vfx13-shapes: auto makes it 3D particles
       { name: "Pixel Heal", want: "upright" },
       { name: "Pixel Bonfire", want: "upright" },
       // the ground marks, to look at lying down
@@ -117,6 +117,17 @@
       { name: "Pixel Lava Pool", ground: true, want: "flat" },
       { name: "Pixel Slam", ground: true, want: "flat" },
       { name: "Ground Crack", ground: true, want: "flat" },
+      // <vfx13-shapes> §61.8 the 3D-native forms, as auto picks them (and one set by hand)
+      { name: "Pixel Level Up", want: "upright", form: "particles" },
+      { name: "Confetti", want: "face", form: "particles" },
+      { name: "Pixel Slash", want: "face", form: "arc" },
+      { name: "Laser", want: "face", form: "beam" },
+      { name: "Shockwave", want: "face", form: "ring" },
+      { name: "Pixel Ring Blast", want: "face", form: "ring" },
+      { name: "Magic Sparkle", label: "Magic Sparkle as particles", base: "sparkle-parts", want: "face", form: "particles" },
+      { name: "Coin Burst", want: "face", form: "particles" },
+      { name: "Explosion", label: "Explosion as particles", base: "boom-parts", want: "face", form: "particles", set: { d3Form: 2 } },
+      // </vfx13-shapes>
     ];
     let k = 0;
     for (const j of JOBS) {
@@ -141,7 +152,10 @@
       const js = files.find((x) => x.name === base + "_3d.json");
       const meta = js ? JSON.parse(new TextDecoder().decode(js.data)) : {};
       t(j.name + ": stands " + j.want, meta.stand === j.want, meta.stand);
-      const info = { name: j.label || j.name, base: base, want: j.want, wantLight: j.light !== undefined ? j.light : j.want === "screen" ? false : j.ground ? undefined : true, meta: meta, frames: C.r.canvases.length, fps: C.r.fps, loop: loopFor("auto", st),
+      // <vfx13-shapes> what it became in 3D (no "form" in the json: a card)
+      t(j.name + ": in 3D as " + (j.form || "card"), (meta.form ? meta.form.kind : "card") === (j.form || (/_3d_p0\.png|_3d\.gdshader/.test(names(files)) ? "?" : "card")), meta.form ? meta.form.kind : "card");
+      // </vfx13-shapes>
+      const info = { name: j.label || j.name, base: base, want: j.want, form: j.form || "card", cardTres: files.some((x) => x.name === base + "_3d_card.tres") ? base + "_3d_card.tres" : null, wantLight: j.light !== undefined ? j.light : j.want === "screen" ? false : j.ground ? undefined : true, meta: meta, frames: C.r.canvases.length, fps: C.r.fps, loop: loopFor("auto", st),
         sound: !!f.sound, variety: !!j.variety, text: textStampOf(st), scales: exp.scales, files: files.map((x) => x.name),
         impact: (/\nimpact_frame = (\d+)/.exec(tscn) || [])[1] | 0 };
       say("FX3D " + JSON.stringify(info));

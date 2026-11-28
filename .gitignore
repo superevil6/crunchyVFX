@@ -30,3 +30,7 @@ flatpak/build-dir/
 flatpak/.flatpak-builder/
 flatpak/*.deb
 flatpak/*.flatpak
+
+# <vfx13-shapes> written by tests/shapes3d.mjs before each run (the preset list and base fx3d.js for the byte proof)
+tests/shapes3d-look.js
+# </vfx13-shapes>

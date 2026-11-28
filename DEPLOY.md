@@ -118,7 +118,7 @@ two-line fix.
 Tauri and Flatpak sources. Without it, `assets.directory: "."` publishes the **entire repo** on
 every path a crawler can find.
 
-The published set is exactly: `index.html`, the twenty-six sibling scripts (preset-thumbs.js with VFX 1.3: the index of the baked strip pictures, beside its sheet `preset-thumbs.png`, which the app loads with preset-thumbs.js's own `?v=` stamp, so it is versioned like a script and the worker needs nothing new; suite.js and crunchy-icons.js from crunchyCore; fire.js with §59; pixart.js with §60; fx3d.js with §61; since VFX-DESIGN §18 project.js is gone and project-app.js, plant.js, library.js, settings.js and desktop.js joined; feedback.js with §20; glyphs.js with §28; shader.js, hero.js, moments.js and moments-ui.js with §32; palette.js, palette-ui.js and colorsets.js with §37; plus the four the stage's 3D view loads LAZILY, textures.js, texgen.js, ramps.js and room3d.js with §61.3: no `<script src>`, fetched with vfx.js's own `?v=` stamp, so the worker needs nothing new), the two stylesheets (`crunchy-base.css`, `styles.css`), and
+The published set is exactly: `index.html`, the twenty-nine sibling scripts (fluid.js with §64, vfx13-fluid; lit.js with §65, the lit effects (vfx13-lit); seamless.js with §66, the seamless textures (vfx13-tile); preset-thumbs.js with VFX 1.3: the index of the baked strip pictures, beside its sheet `preset-thumbs.png`, which the app loads with preset-thumbs.js's own `?v=` stamp, so it is versioned like a script and the worker needs nothing new; suite.js and crunchy-icons.js from crunchyCore; fire.js with §59; pixart.js with §60; fx3d.js with §61; since VFX-DESIGN §18 project.js is gone and project-app.js, plant.js, library.js, settings.js and desktop.js joined; feedback.js with §20; glyphs.js with §28; shader.js, hero.js, moments.js and moments-ui.js with §32; palette.js, palette-ui.js and colorsets.js with §37; plus the four the stage's 3D view loads LAZILY, textures.js, texgen.js, ramps.js and room3d.js with §61.3: no `<script src>`, fetched with vfx.js's own `?v=` stamp, so the worker needs nothing new), the two stylesheets (`crunchy-base.css`, `styles.css`), and
 `favicon.png` / `apple-touch-icon.png` / `og.png` / `wordmark.png` (the header logo, drawn in code by crunchyCore's
 `tools/make-wordmarks.mjs`; an `<img>`, so a plain asset like og.png: unversioned, `no-cache`); and, for search engines (VFX-DESIGN §29), `about.html` (the About page, web
 only: static, no script, served at `/about` by the default `html_handling`, which redirects `/about.html` there; the Worker
@@ -160,7 +160,7 @@ Confirmed locally on that runtime:
 - all eleven subresources stamped (nine scripts + the two stylesheets), every one with the same version (confirmed then;
   sixteen since VFX-DESIGN §20: fourteen scripts + two stylesheets; seventeen since §28 (glyphs.js); twenty-one since §32 (the game moment's four); twenty-four since §37 (the
   palette's three); twenty-five since §59 (fire.js); twenty-six since §60 (pixart.js); twenty-seven since §61 (fx3d.js); twenty-eight with VFX 1.3 (preset-thumbs.js, whose
-  sheet preset-thumbs.png borrows its stamp); the same stamping
+  sheet preset-thumbs.png borrows its stamp); twenty-nine with §64 (fluid.js, vfx13-fluid); thirty with §65 (lit.js, vfx13-lit); thirty-one with §66 (seamless.js, vfx13-tile); the same stamping
   path, not re-run on workerd)
 - `index.html` `no-cache`; `vfx.js?v=…` immutable; bare `vfx.js` `no-cache`
 - `.assetsignore` works — `CLAUDE.md`, `VFX-DESIGN.md`, `worker.js`, `wrangler.jsonc` and

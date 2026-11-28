@@ -83,14 +83,14 @@
     cv.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, cancelable: true }));
     return ok(Math.abs(r3v.yaw - y - 0.15) < 0.5 && r3v.yaw > y);
   });
-  await t("rooms/four-to-pick-each-its-own-picture", function () {
+  await t("rooms/five-to-pick-each-its-own-picture", function () {
     const sel = document.getElementById("r3vRoom"), seen = {};
     for (const o of Array.from(sel.options)) { sel.value = o.value; sel.dispatchEvent(new Event("change")); seen[o.value] = hash(pix()); }
     let kept = null; try { kept = localStorage.getItem("crunchyvfx.room3d.v1"); } catch (e) { /* none */ }
     const names = Array.from(sel.options).map(function (o) { return o.textContent; });
     sel.value = "dungeon"; sel.dispatchEvent(new Event("change"));
-    return ok(sel.options.length === 4 && new Set(Object.values(seen)).size === 4 && (JSON.parse(kept || "{}").room === "hall") && r3v.room === "dungeon" &&
-              names.join() === "Dungeon,Night meadow,Sci-fi deck,Wooden hall", names.join() + " " + kept);
+    return ok(sel.options.length === 5 && new Set(Object.values(seen)).size === 5 && (JSON.parse(kept || "{}").room === "cellar") && r3v.room === "dungeon" &&
+              names.join() === "Dungeon,Night meadow,Sci-fi deck,Wooden hall,Torchlit cellar", names.join() + " " + kept);
   });
   await t("orbit/wheel-and-pinch-zoom", function () {
     document.getElementById("r3vReset").click();

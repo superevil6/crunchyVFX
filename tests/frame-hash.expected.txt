@@ -426,6 +426,66 @@ VFX FRAME "Spear Thrust" 728da888366df991
 VFX FRAME "nofit:Spear Thrust" 625f70e99ad45f76
 VFX FRAME "Comic Pow" 43665a005bbac803
 VFX FRAME "Arrow Shot" a67666139e3f7ac2
+VFX FRAME "Rolling Blast" 5f00fb4d41328368
+VFX FRAME "nofit:Rolling Blast" 5f00fb4d41328368
+VFX FRAME "Curling Smoke" 835384b918115d60
+VFX FRAME "Ink Drop" 1a14ea7699fae123
+VFX FRAME "Mist Swirl" a751cd986fbdf2b3
+VFX FRAME "nofit:Mist Swirl" a751cd986fbdf2b3
+VFX FRAME "Steam Vent" 386e060319082440
+VFX FRAME "Lit Dust Cloud" a2965954cc02e6e1
+VFX FRAME "Lit Pixel Dust" 1d72f965d5a88962
+VFX FRAME "nofit:Lit Pixel Dust" 1d72f965d5a88962
+VFX FRAME "Lit Rock Burst" 33427535265df8c6
+VFX FRAME "Lit Smoke Column" 416b09c5d3c1e206
+VFX FRAME "Energy Field" 1353ff116d0b994a
+VFX FRAME "nofit:Energy Field" 1353ff116d0b994a
+VFX FRAME "Water Caustics" e548b9868b3eef11
+VFX FRAME "Lava Crust" 70d365ea5a3fcf27
+VFX FRAME "Force Field" 6c0db968f21f9f95
+VFX FRAME "nofit:Force Field" 6c0db968f21f9f95
+VFX FRAME "Rune Crawl" 43ada5cb1a6cb528
+VFX FRAME "Electric Static" 4080b245efdb14bc
+VFX FRAME "Rain Streaks" 76579c8778de4924
+VFX FRAME "nofit:Rain Streaks" 76579c8778de4924
+VFX FRAME "Wall Sconce" 079a83355c051a2e
+VFX FRAME "Brazier" 9fbab0c512013586
+VFX FRAME "Candle Cluster" c1fd4f9bc80e2f48
+VFX FRAME "nofit:Candle Cluster" a7ca180a205dacaf
+VFX FRAME "Glow Mushrooms" 274da0dbaf66ac2c
+VFX FRAME "Crystal Pulse" 175317a56ef523d6
+VFX FRAME "Lantern Glow" 6298ac0b596d2586
+VFX FRAME "nofit:Lantern Glow" 2c7ee869a738130c
+VFX FRAME "Pressure Plate" 4bb1c635c6722b7e
+VFX FRAME "Trap Glyph" b2010d4ddfe47c8e
+VFX FRAME "Puddle Drip" d7b43de00ca19877
+VFX FRAME "nofit:Puddle Drip" 61d974606efe08a1
+VFX FRAME "Frost Creep" 1287b8fe31503fb3
+VFX FRAME "Chest Open" 8cf1588177a75ac4
+VFX FRAME "Door Unlock" ca989470250a87e9
+VFX FRAME "nofit:Door Unlock" 8d531fe934f9fbec
+VFX FRAME "Item Rise" 183047d90b750b02
+VFX FRAME "Spell Cast" d12f6c265b7784ed
+VFX FRAME "Monster Dissolve" 472e898116582012
+VFX FRAME "nofit:Monster Dissolve" 3efbba452967ac44
+VFX FRAME "Secret Found" 6cba3d7f896b745e
+VFX FRAME "Sword Swing" ef92d1c3e1593806
+VFX FRAME "Arrow Volley" 4220a32544ec957a
+VFX FRAME "nofit:Arrow Volley" 4a21b829a81027ea
+VFX FRAME "Torch Smoke" bd93f047f63504cc
+VFX FRAME "Poison Vent" 735bad1cdadf3cc9
+VFX FRAME "Ghost Wisps" b3157a629401ee01
+VFX FRAME "nofit:Ghost Wisps" b3157a629401ee01
+VFX FRAME "Dragon Breath" ef86733bd1dcacce
+VFX FRAME "Cold Breath" cc8d6b88c970f613
+VFX FRAME "Falling Rubble" d46890b306a9ebc6
+VFX FRAME "nofit:Falling Rubble" d46890b306a9ebc6
+VFX FRAME "Blood Spatter" 886737e3e99e67c6
+VFX FRAME "Cave-in Dust" dfbcdf24a8518459
+VFX FRAME "Blood Ward" 7cfafe2d34db97c6
+VFX FRAME "nofit:Blood Ward" 7cfafe2d34db97c6
+VFX FRAME "Brimstone Floor" bf94954573a52ee6
+VFX FRAME "Sewer Water" da5c86b5c38964d6
 VFX EXPORT "Explosion|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" becbb6bf557e284a
 VFX EXPORT "Magic Sparkle|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" d8c3872fefce4170
 VFX EXPORT "Frost Growth|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 14c5bcd63e8e233d
@@ -462,8 +522,13 @@ VFX EXPORT "Portal Open|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"go
 VFX EXPORT "Energy Bolt|{\"format\":\"frames\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[1,2]}" 2361b1f6947ffe6b
 VFX EXPORT "Crit Burst|{\"format\":\"apng\",\"layout\":\"grid\",\"meta\":\"generic\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 0c039f9f658a7616
 VFX EXPORT "Talk Bubble|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":false,\"pot\":false,\"emis\":true,\"scales\":[1]}" a79940c074b34981
+VFX EXPORT "Mist Swirl|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"godot\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 97e44ddae6fae9f7
+VFX EXPORT "Force Field|{\"format\":\"sheet\",\"layout\":\"row\",\"meta\":\"generic\",\"trim\":false,\"pot\":true,\"emis\":true,\"scales\":[1,2]}" f98ae203621c7b04
+VFX EXPORT "Lantern Glow|{\"format\":\"sheet\",\"layout\":\"col\",\"meta\":\"aseprite\",\"trim\":true,\"pot\":false,\"emis\":false,\"scales\":[1]}" 296220e18bb4c4f2
+VFX EXPORT "Monster Dissolve|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"phaser\",\"trim\":true,\"pot\":true,\"emis\":true,\"scales\":[1]}" 5a7ff4b24ba5a713
+VFX EXPORT "Falling Rubble|{\"format\":\"sheet\",\"layout\":\"grid\",\"meta\":\"none\",\"trim\":false,\"pot\":false,\"emis\":false,\"scales\":[2,3]}" 704fcc20e534a6ab
 VFX EXPORT "sound:Hit Spark" 9933837ebc14b86d
 VFX BATCH "crunchyvfx-pack.zip" 8fb63964768cd6bb
-VFX BATCH "crunchyvfx-pack.zip" fb3fffe6dadb06e5
-VFX FRAMEHASH b524a27fe1e9ed1e over 467
-VFX END PASS 467 hashes
+VFX BATCH "crunchyvfx-pack.zip" 1096da4efb2d5dcb
+VFX FRAMEHASH 631c617c6c2ea3b1 over 532
+VFX END PASS 532 hashes

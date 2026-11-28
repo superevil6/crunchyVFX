@@ -44,6 +44,8 @@ cd "$(git rev-parse --show-toplevel)" || die "not inside a git repo"
 # --full ignores the receipt.
 RECEIPT="$(git rev-parse --git-dir)/crunchy-suites.receipt"
 tree_hash() { git ls-files -co --exclude-standard -z | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1; }
+# Heavy suites run under a memory cap where systemd is there to give one (defined before the --suites split: both use it).
+cap() { local mem="$1"; shift; if command -v systemd-run >/dev/null 2>&1; then systemd-run --user --scope -q -p MemoryMax="$mem" "$@"; else "$@"; fi; }
 if [[ -z "$SUITES_ONLY" ]]; then
 [[ -n "$VERSION" ]] || die "usage: $0 <version> [--dry] [--full]   e.g. $0 1.0.1   (or: $0 --suites, to run the suites now and keep a receipt)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be x.y.z (got '$VERSION')"
@@ -52,7 +54,6 @@ META=flatpak/com.crunchyvfx.app.metainfo.xml
 FILES=(src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json "$META" index.html version.json)
 
 # Heavy suites run under a memory cap where systemd is there to give one (the suite's rule on this box).
-cap() { local mem="$1"; shift; if command -v systemd-run >/dev/null 2>&1; then systemd-run --user --scope -q -p MemoryMax="$mem" "$@"; else "$@"; fi; }
 
 # ---------------------------------------------------------------- pre-flight: the repo
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo detached)"
@@ -128,6 +129,16 @@ else
   node "$CORE/tools/run-suite.mjs" tests/run.html --size=1400,3600 --mem=8G --timeout=900 --banner="body > div:last-of-type" --shot="$WIP/run.png" \
     || die "tests/run.html did not pass (its result box is above; the page: $WIP/run.png)"
   ok "screenshot suite (tests/run.html)"
+  # VFX 1.3 (§61-§67): the 3D room, the 3D forms, the seams, real Godot's 3D and lit scenes, the baked pictures
+  node tools/bake-thumbs.mjs --check >/dev/null || die "the baked strip pictures are stale: run node tools/bake-thumbs.mjs"
+  ok "baked pictures current"
+  cap 3G node tests/room3d.test.mjs >/dev/null || die "node tests/room3d.test.mjs failed (the 3D room)"
+  cap 8G node tests/run-ff.mjs room3d --quiet || die "the room's page suite failed (node tests/run-ff.mjs room3d)"
+  cap 8G node tests/shapes3d.mjs >/dev/null || die "node tests/shapes3d.mjs failed (the 3D forms)"
+  cap 8G node tests/seam.mjs >/dev/null || die "node tests/seam.mjs failed (seamless textures)"
+  cap 3G node tests/godot-3d.mjs >/dev/null || die "node tests/godot-3d.mjs failed (the 3D scenes in real Godot)"
+  cap 3G node tests/godot-lit.mjs >/dev/null || die "node tests/godot-lit.mjs failed (lit effects in real Godot)"
+  ok "1.3's suites: the room, 3D forms, seams, Godot 3D and lit"
   [[ "$(tree_hash)" == "$HASH" ]] && echo "$HASH $(date '+%F %H:%M')" > "$RECEIPT" && ok "receipt written: a release of this exact tree skips these suites"
 fi
 if [[ -n "$SUITES_ONLY" ]]; then ok "suites done (--suites): nothing committed, tagged or pushed"; exit 0; fi

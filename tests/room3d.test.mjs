@@ -49,6 +49,9 @@ const GOLDEN = {
   "deck/flat": "21f6cb52", "deck/screen": "51968d18",
   "hall/none": "35f0ffdd", "hall/face": "6f5c4146", "hall/upright": "db0f18b9",
   "hall/flat": "29e627fa", "hall/screen": "5171a5cd",
+  // <vfx13-lit> §64: the Torchlit cellar
+  "cellar/none": "7c21b8b0", "cellar/face": "3aa8e442", "cellar/upright": "9156cb86", "cellar/flat": "98cec0c6", "cellar/screen": "11c66b8d",
+  // </vfx13-lit>
 };
 const got = {};
 for (const room of R.rooms) {
@@ -76,7 +79,7 @@ for (const room of R.rooms) for (const part of ["floor", "wall", "side"]) {
   for (let i = 0; i < T.length; i += 3) seen.add(T[i] + "," + T[i + 1] + "," + T[i + 2]);
   ok("rooms/" + room.id + "/" + part + "/" + spec.tex + "-draws", R.TEXTURES.indexOf(spec.tex) >= 0 && seen.size >= 3, seen.size + " colors");
 }
-ok("rooms/four-rooms-unknown-id-falls-back", R.rooms.length === 4 && R.room("nope") === R.rooms[0] && new Set(R.rooms.map((r) => r.id)).size === 4);
+ok("rooms/five-rooms-unknown-id-falls-back", R.rooms.length === 5 && R.room("nope") === R.rooms[0] && new Set(R.rooms.map((r) => r.id)).size === 5);   // vfx13-lit: + the cellar
 
 // 3. placement: the impact point on the floor; a burst centered on its origin is lifted until its foot touches it
 const footP = R.place([F], "face", 0.025, { x: 24, y: 55 }), midP = R.place([F], "face", 0.025, { x: 24, y: 30 });
@@ -183,7 +186,72 @@ const src = readFileSync(join(root, "room3d.js"), "utf8").replace(/\/\/.*$/gm, "
 ok("pure/no-dom-window-or-storage", !/\b(document|window|localStorage|sessionStorage|navigator|fetch)\b/.test(src));
 const tops = [...src.matchAll(/^(?:function|const|let|var)\s+([A-Za-z0-9_$]+)/gm)].map((m) => m[1]);
 ok("pure/top-level-names-prefixed", tops.length > 5 && tops.every((t) => /^(room3d|ROOM3D_)/.test(t)), tops.filter((t) => !/^(room3d|ROOM3D_)/.test(t)).join(", "));
-ok("pure/build-stamp", R.build === 1);
+ok("pure/build-stamp", R.build === 4);   // <vfx13-shapes> 2: o.geom (VFX-DESIGN §61.8); vfx13-lit 3: o.lit + the cellar (§65); vfx13-tile 4: the texture stand (§66)
+
+// <vfx13-shapes> 8. THE 3D-NATIVE FORMS (o.geom): camera-facing quads and textured triangles drawn after the room and the card,
+// tested against their depth. A white quad in the open draws; under the floor or behind the back wall it does not; "add"
+// brightens what is there; a triangle shows the frame pixel at each corner; the same picture twice; pinned.
+{
+  const white = { w: 2, h: 2, data: new Uint8ClampedArray(16).fill(255) };
+  const scene = (parts, tris) => R.render({ room: "dungeon", place: footP, frame: null, geom: () => ({ parts: parts, tris: tris || [] }) });
+  const whites = (pic) => { let c = 0; for (let i = 0; i < pic.data.length; i += 4) if (pic.data[i] === 255 && pic.data[i + 1] === 255 && pic.data[i + 2] === 255) c++; return c; };
+  const q = (p, mode) => ({ p: p, s: 0.5, a: 0.3, img: white, cell: [0, 0, 2, 2], mode: mode || "cut" });
+  const none = R.render({ room: "dungeon", place: footP, frame: null });
+  const open = whites(scene([q([0, 1, 0])])), under = whites(scene([q([0, -0.6, 0])])), behind = whites(scene([q([0.2, 1.2, -4.5])]));
+  ok("geom/a-quad-draws-in-the-open-and-hides-under-the-floor-and-behind-a-wall", open > 200 && under === whites(none) && behind === whites(none), JSON.stringify({ open, under, behind }));
+  const add = scene([q([0, 1, 0], "add")]);
+  let brighter = 0, darker = 0;
+  for (let i = 0; i < add.data.length; i += 4) { const d = add.data[i] - none.data[i]; if (d > 0) brighter++; if (d < 0) darker++; }
+  ok("geom/add-only-brightens", brighter > 200 && darker === 0, JSON.stringify({ brighter, darker }));
+  const empty = R.render({ room: "dungeon", place: footP, frame: null, geom: () => ({ parts: [], tris: [] }) });
+  ok("geom/nothing-given-draws-the-room-as-ever", none.data.every((v, i) => v === empty.data[i]));
+  // a triangle standing in front of the camera, mapping the synthetic sprite's corners: its magenta shows
+  const tri = { v: [[-0.8, 0.2, 0.5], [0.8, 0.2, 0.5], [0, 1.8, 0.5]], fp: [[0, 63], [47, 63], [24, 0]], img: F, mode: "cut" };
+  const tp = scene([], [tri]), tp2 = scene([], [tri]);
+  ok("geom/a-triangle-shows-its-frame-pixels", magenta(tp) > 300 && tp.data.every((v, i) => v === tp2.data[i]), String(magenta(tp)));
+  const GEOM = "4cfda2a4", gh = hash(scene([q([0, 1, 0]), q([0.6, 0.6, 0.4], "add"), q([-0.5, 1.4, -0.2], "mix")], [tri]).data);
+  if (PRINT) console.log("geom hash: " + gh);
+  else ok("geom/pinned", gh === GEOM, gh);
+}
+
+// <vfx13-lit> 9. A LIT sprite (§65): shaded by the room's lights through its normal map, the torch's side brighter; its glow
+// stays as drawn; the same pixels twice; no lit = byte for byte the unlit picture
+{
+  // a dome's normals for the synthetic sprite (x right, y up, z out), flat outside it
+  const nm = new Uint8ClampedArray(F.data.length);
+  for (let y = 0; y < F.h; y++) for (let x = 0; x < F.w; x++) {
+    const o = (y * F.w + x) * 4, dx = (x + 0.5 - 24) / 24, dy = -(y + 0.5 - 30) / 25, r = dx * dx + dy * dy;
+    const z = r < 1 ? Math.sqrt(1 - r) : 1, nx = r < 1 ? dx : 0, ny = r < 1 ? dy : 0;
+    nm[o] = Math.round((nx * 0.5 + 0.5) * 255); nm[o + 1] = Math.round((ny * 0.5 + 0.5) * 255); nm[o + 2] = Math.round((z * 0.5 + 0.5) * 255); nm[o + 3] = 255;
+  }
+  const P = R.place([F], "face", 0.025, { x: 24, y: 55 });
+  const side = (s) => { const c = Math.cos(0.55), sn = Math.sin(0.55), C = R.room("cellar"); return Object.assign({}, C, { torch: Object.assign({}, C.torch, { pos: [s * 1.8 * c + 0.9 * sn, 1.0, -s * 1.8 * sn + 0.9 * c] }) }); };
+  const o = (room, lit) => ({ room, place: P, frame: F, light: null, yaw: 0.55, lit });
+  const L = { normal: nm, glow: 0.99 };
+  const left = R.render(o(side(-1), L)), right = R.render(o(side(1), L)), again = R.render(o(side(-1), L));
+  const plain = R.render(o(side(-1), null)), bareR = R.render({ room: side(-1), place: P, frame: null, yaw: 0.55 });
+  let x0 = 320, x1 = 0; const mask = [];
+  for (let p = 0; p < 320 * 200; p++) { const q = p * 4; if (plain.data[q] !== bareR.data[q] || plain.data[q + 1] !== bareR.data[q + 1] || plain.data[q + 2] !== bareR.data[q + 2]) { mask.push(p); x0 = Math.min(x0, p % 320); x1 = Math.max(x1, p % 320); } }
+  const mid = (x0 + x1) >> 1, half = (pic, a) => { let s = 0, k = 0; for (const p of mask) if ((p % 320 < mid) === a) { s += lum(at(pic, p % 320, (p / 320) | 0)); k++; } return s / Math.max(1, k); };
+  ok("lit/the-torch-side-is-brighter-both-ways-round", half(left, true) > half(left, false) + 5 && half(right, false) > half(right, true) + 5,
+    [half(left, true), half(left, false), half(right, true), half(right, false)].map(Math.round).join(" "));
+  ok("lit/deterministic", hash(left.data) === hash(again.data));
+  ok("lit/off-is-the-unlit-picture", hash(R.render(o(side(-1), undefined)).data) === hash(plain.data));
+  // the yellow core glows (luminance x alpha over the threshold): drawn as it is, lit or not
+  const core = R.render(o(side(-1), { normal: nm, glow: 0.5 }));
+  let coreSame = 0, coreN = 0;
+  for (const p of mask) { const c = at(plain, p % 320, (p / 320) | 0); if (c[0] === 255 && c[1] === 230 && c[2] === 40) { coreN++; if (at(core, p % 320, (p / 320) | 0).join() === c.join()) coreSame++; } }
+  ok("lit/glowing-pixels-stay-as-drawn", coreN > 20 && coreSame === coreN, coreSame + " of " + coreN);
+  // pixel art: the light comes in bands (steps 3): far fewer distinct tones on the sprite than smooth
+  const banded = R.render(o(side(-1), { normal: nm, glow: 0.99, steps: 3 }));
+  const tones = (pic) => new Set(mask.map((p) => at(pic, p % 320, (p / 320) | 0).join())).size;
+  ok("lit/pixel-art-shades-in-bands", tones(banded) < tones(left) / 2, tones(banded) + " vs " + tones(left));
+  // the cellar shows its torch (a flame drawn where it hangs)
+  let flame = 0; const cel = R.render({ room: "cellar" });
+  for (let i = 0; i < cel.data.length; i += 4) if (cel.data[i] === 255 && cel.data[i + 1] === 245 && cel.data[i + 2] === 200) flame++;
+  ok("lit/the-cellar-shows-its-torch", flame > 0, String(flame));
+}
+// </vfx13-lit>
 
 console.log((fails ? "FAIL " : "PASS ") + (n - fails) + "/" + n);
 process.exit(fails ? 1 : 0);

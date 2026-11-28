@@ -5,7 +5,7 @@
 //
 // If you add a sibling file to the frontend, add it here too — a missing one fails the build
 // loudly rather than shipping a desktop app with a feature quietly missing.
-const FRONTEND: [&str; 36] = [
+const FRONTEND: [&str; 39] = [   // vfx13: + fluid.js, lit.js, seamless.js
     "index.html",
     "favicon.png",
     // The header logo (an <img> in index.html), drawn in code by crunchyCore tools/make-wordmarks.mjs.
@@ -25,9 +25,17 @@ const FRONTEND: [&str; 36] = [
     "fire.js",
     // The pixel-art layer (crunchyCore pixart.js, GENERATED; VFX-DESIGN §60): vfx.js's drawPixelArt paints its frames.
     "pixart.js",
+    // <vfx13-fluid> The pixel fluid (VFX's own, pure; VFX-DESIGN §64): vfx.js's drawFluid paints its frames. </vfx13-fluid>
+    "fluid.js",
     "vfx.js",
     // §61 (VFX 1.3): effects in 3D, pure (how an effect stands, its scale, its light; the Godot 3D scene's text).
     "fx3d.js",
+    // <vfx13-lit> §65 (VFX 1.3): lit effects, pure (the normal maps, the test light, the Godot shaders' text).
+    "lit.js",
+    // </vfx13-lit>
+    // <vfx13-tile> §66: seamless looping textures (the Tile option and the Field layer); VFX's own, after vfx.js
+    "seamless.js",
+    // </vfx13-tile>
     "gif.js",
     "apng.js",
     // The planted Library (VFX-DESIGN §18): VFX's own adapter, then plant.js, library.js, settings.js and

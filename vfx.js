@@ -227,6 +227,8 @@ function simulate(st) {
   const nFrames = Math.max(1, Math.min(MAX_FRAMES, Math.round(dur * fps)));
   const dt = 1 / (fps * SUB);
   const seed = Math.max(1, Math.round(st.seed)) | 0;
+  // vfx13-tile §66: how many periods a seamless tile overlays (births wrap); 1 when off, so nSim = nFrames
+  const cyc = +st.tile > 0 && typeof seamCycles === "function" ? seamCycles(st) : 1, nSim = nFrames * cyc;
 
   // Shots: the whole burst re-fires `shots` times, each smaller and nudged off-center. One loop
   // around the emitter, not a second engine.
@@ -325,8 +327,8 @@ function simulate(st) {
     }
   }
 
-  const frames = new Array(nFrames);
-  const counts = new Int32Array(nFrames);
+  const frames = new Array(nSim);          // vfx13-tile: nSim = nFrames when off
+  const counts = new Int32Array(nSim);
   const scratch = new Float32Array((total + 2 * shots) * P_STRIDE);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   // A shape that knows where its pixels are (SHAPE_DEFS[i].extent: the crescent's arc sits a radius off its particle) is
@@ -346,7 +348,12 @@ function simulate(st) {
   const groundPx = st.groundY * fs;
   const dragK = st.drag * 6;
   const turb = st.turb, turbScale = Math.max(0.01, st.turbScale), turbSpeed = st.turbSpeed;
-  const nSteps = nFrames * SUB;
+  // <vfx13-tile> §66: a seamless tile's births WRAP: the clip is one period of a steady stream, so `cyc` periods are run and
+  // folded (seamless.js); turbulence is periodic in time there. Off: cyc = 1, vn = vnoise, every number as before.
+  const vn = +st.tile > 0 && typeof seamTimeNoise === "function"
+    ? (sd, x, y, z) => seamTimeNoise(sd, x, y, z, nFrames / fps * turbSpeed) : vnoise;
+  const nSteps = nSim * SUB;
+  // </vfx13-tile>
 
   for (let s = 0; s <= nSteps; s++) {
     const t = s * dt;
@@ -356,7 +363,7 @@ function simulate(st) {
     }
 
     // snapshot at each frame boundary (before integrating, so frame 0 is the birth instant)
-    if (s % SUB === 0 && (s / SUB) < nFrames) {
+    if (s % SUB === 0 && (s / SUB) < nSim) {      // vfx13-tile: nSim = nFrames when off
       const f = s / SUB;
       let n = 0;
       for (let g = 0; g < total; g++) {
@@ -520,6 +527,7 @@ function simulate(st) {
         ax += (dx / d) * st.radial - (dy / d) * st.swirl;
         ay += (dy / d) * st.radial + (dx / d) * st.swirl;
       }
+      // vfx13-tile: vn is vnoise itself unless a tile's time is periodic (§66)
       if (turb > 0) {
         const nx = px[g] / (fs / turbScale), ny = py[g] / (fs / turbScale), nt = t * turbSpeed;
         if (st.turbCurl > 0) {
@@ -527,14 +535,14 @@ function simulate(st) {
           // around each other instead of piling into the field's sources and sinks — the reason
           // plain value noise reads as "jittery" and curl reads as "fluid".
           const e = 0.35;
-          const dNdy = (vnoise(seed, nx, ny + e, nt) - vnoise(seed, nx, ny - e, nt)) / (2 * e);
-          const dNdx = (vnoise(seed, nx + e, ny, nt) - vnoise(seed, nx - e, ny, nt)) / (2 * e);
+          const dNdy = (vn(seed, nx, ny + e, nt) - vn(seed, nx, ny - e, nt)) / (2 * e);
+          const dNdx = (vn(seed, nx + e, ny, nt) - vn(seed, nx - e, ny, nt)) / (2 * e);
           const k = st.turbCurl;
-          ax += (dNdy * k + vnoise(seed, nx, ny, nt) * (1 - k)) * turb * 900;
-          ay += (-dNdx * k + vnoise(seed + 7717, nx, ny, nt) * (1 - k)) * turb * 900;
+          ax += (dNdy * k + vn(seed, nx, ny, nt) * (1 - k)) * turb * 900;
+          ay += (-dNdx * k + vn(seed + 7717, nx, ny, nt) * (1 - k)) * turb * 900;
         } else {
-          ax += vnoise(seed, nx, ny, nt) * turb * 900;
-          ay += vnoise(seed + 7717, nx, ny, nt) * turb * 900;
+          ax += vn(seed, nx, ny, nt) * turb * 900;
+          ay += vn(seed + 7717, nx, ny, nt) * turb * 900;
         }
       }
       // Point attractor / repulsor. Unlike `radial`, which always works from the emitter, this is
@@ -582,6 +590,9 @@ function simulate(st) {
     by0 = Math.min(by0, oy - reach); by1 = Math.max(by1, oy + reach);
   }
   if (!isFinite(bx0)) { bx0 = by0 = 0; bx1 = by1 = fs; }
+  // <vfx13-tile> §66: every period's frame at each phase, overlaid: the loop frame
+  if (cyc > 1) { const F = seamFoldFrames(frames, counts, nFrames, cyc); return { frames: F.frames, counts: F.counts, nFrames, fps, fs, bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 } }; }
+  // </vfx13-tile>
   return { frames, counts, nFrames, fps, fs, bbox: { x0: bx0, y0: by0, x1: bx1, y1: by1 } };
 }
 
@@ -751,7 +762,7 @@ function drawFrame(sim, f, g, st, xf) {
   const setB = shapeSet(shapeB, st.emit2ShapeMix);
   const trail = st.trail;
   // Function-scoped because the optical passes at the bottom need them too.
-  const t = f / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;
+  const t = (xf.fAdd ? f + xf.fAdd : f) / sim.fps, fs = sim.fs, seed = Math.max(1, Math.round(st.seed)) | 0;   // vfx13-tile: fAdd, a tile's cross-fade clock (§66)
   const ox = st.originX * fs * xf.k + xf.dx, oy = st.originY * fs * xf.k + xf.dy;
   // Structure layers draw first, so sparks and debris land on top of the beam/growth rather than
   // behind it. They share the blend mode, so an additive patch gets an additive beam.
@@ -763,10 +774,14 @@ function drawFrame(sim, f, g, st, xf) {
   // functions divide by their own life, and t < 0 would run them backwards from nowhere.
   const delays = parseLayerDelays(st.layerDelay);
   const stage = (name, fn) => {
+    if (xf.only && !xf.only(name)) return;     // vfx13-tile: a tile draws its parts in passes (§66); off: no filter
     const d = delays[name] || 0;
     if (t >= d) fn(t - d);
   };
   {
+    // <vfx13-tile> §66: THE FIELD, a seamless moving pattern, behind everything (seamless.js); a tile draws it on its own
+    if (st.field > 0 && !xf.only && typeof drawField === "function") stage("Field", (tt) => drawField(g, st, tt, sim));
+    // </vfx13-tile>
     stage("Bokeh", (tt) => drawBokeh(g, st, tt, xf, fs, ox, oy, seed));
     stage("Droplets", (tt) => drawDroplets(g, st, tt, xf, fs, ox, oy, seed));
     stage("Twinkle", (tt) => drawTwinkle(g, st, tt, xf, fs, ox, oy, seed));
@@ -795,12 +810,17 @@ function drawFrame(sim, f, g, st, xf) {
     stage("Swarm", (tt) => drawSwarm(g, st, tt, xf, fs, ox, oy, seed));
     stage("Crackle", (tt) => drawCrackle(g, st, tt, xf, fs, ox, oy, seed));
     stage("Orbit", (tt) => drawOrbit(g, st, tt, xf, fs, ox, oy, seed));
-    stage("Pixel art", (tt) => drawPixelArt(g, st, tt, xf, fs, ox, oy, seed));
+    stage("Fluid", (tt) => drawFluid(g, st, tt, seed));   // <vfx13-fluid> §64: behind the pixel art (smoke under the flame) </vfx13-fluid>
+    stage("Pixel art", (tt) => drawPixelArt(g, xf.pixSt || st, tt, xf, fs, ox, oy, seed));   // vfx13-tile: pixSt, the layer's rows on a tile's big canvas
+    if (!xf.only || xf.only("particles")) {      // vfx13-tile
     drawPRings(g, sim, f, st, xf);
     drawPathTrails(g, sim, f, st, xf);
     drawWeb(g, sim, f, st, xf);
+    }                                            // vfx13-tile
   }
+  const partsOff = !!xf.only && !xf.only("particles"), wrap = xf.wrap || null;   // vfx13-tile (§66)
   for (let i = 0; i < n; i++) {
+    if (partsOff) break;                         // vfx13-tile
     const o = i * P_STRIDE;
     const a = arr[o + P_ALPHA];
     if (a <= 0.004) continue;
@@ -809,7 +829,13 @@ function drawFrame(sim, f, g, st, xf) {
     // at most once per frame — no per-particle state churn.
     const wantOp = kind === K_PART2 ? blendOpB : blendOpA;
     if (wantOp !== curOp) { g.globalCompositeOperation = wantOp; curOp = wantOp; }
-    const x = arr[o + P_X] * xf.k + xf.dx, y = arr[o + P_Y] * xf.k + xf.dy;
+    let x = arr[o + P_X] * xf.k + xf.dx, y = arr[o + P_Y] * xf.k + xf.dy;
+    // <vfx13-tile> §66: in a tile every particle is drawn where it is modulo the tile, in the middle one (the fold does the rest)
+    if (wrap) {
+      if (wrap.x0 !== null) x = wrap.x0 + (((x - wrap.x0) % wrap.w) + wrap.w) % wrap.w;
+      if (wrap.y0 !== null) y = wrap.y0 + (((y - wrap.y0) % wrap.h) + wrap.h) % wrap.h;
+    }
+    // </vfx13-tile>
     const sz = arr[o + P_SIZE] * xf.k;
     const hue = arr[o + P_HUE], sat = arr[o + P_SAT], light = arr[o + P_LIGHT];
 
@@ -890,8 +916,8 @@ function drawFrame(sim, f, g, st, xf) {
   // source-atop so it only brightens pixels that already exist — drawn before the particles it
   // composited onto an empty canvas and did nothing at all, silently. A flare is likewise a
   // property of the lens and belongs on top of everything it is reacting to.
-  drawFlare(g, st, t, xf, fs, ox, oy, seed);
-  drawImpact(g, st, t, xf);
+  if (!xf.only || xf.only("Flare")) drawFlare(g, st, t, xf, fs, ox, oy, seed);     // vfx13-tile: a tile's passes (§66)
+  if (!xf.only || xf.only("Impact")) drawImpact(g, st, t, xf);
 }
 
 function drawRays(g, x, y, sz, st, hue, a) {
@@ -1673,12 +1699,18 @@ function drawWeather(g, st, t, xf, fs, ox, oy, seed) {
   g.strokeStyle = c.css;
   g.fillStyle = c.css;
   g.lineCap = "round";
+  // <vfx13-tile> §66: in a tile the field wraps at the TILE (no margin: the neighbor offsets draw what crosses an edge) and
+  // moves whole tiles per loop (its fall rounded, at least one), the sway whole cycles: it loops exactly. Off: as before.
+  const sm = xf.seam || null;
+  const qv = (v, P) => { const q = Math.round(v * sm.T / P); return (q || (v ? Math.sign(v) : 0)) * P / sm.T; };
+  const svx = sm ? qv(vx, sm.W) : vx, svy = sm ? qv(vy, sm.H) : vy, swf = sm ? Math.max(1, Math.round(2 * sm.T / 6.283)) * 6.283 / sm.T : 2;
+  // </vfx13-tile>
   for (let i = 0; i < n; i++) {
     // Wrap with a modulo over a margin-padded box so nothing pops in at an edge.
-    const pad = Math.max(len, 8);
-    const bw = w + pad * 2, bh = h + pad * 2;
-    let x = (rnd(seed, i, 151) * bw + vx * t) % bw;
-    let y = (rnd(seed, i, 152) * bh + vy * t) % bh;
+    const pad = sm ? 0 : Math.max(len, 8);         // vfx13-tile
+    const bw = (sm ? sm.W : w) + pad * 2, bh = (sm ? sm.H : h) + pad * 2;
+    let x = (rnd(seed, i, 151) * bw + svx * t) % bw;
+    let y = (rnd(seed, i, 152) * bh + svy * t) % bh;
     if (x < 0) x += bw;
     if (y < 0) y += bh;
     x -= pad; y -= pad;
@@ -1690,7 +1722,7 @@ function drawWeather(g, st, t, xf, fs, ox, oy, seed) {
       g.lineTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len);
       g.stroke();
     } else {                                         // flakes / motes
-      const sway = Math.sin(t * 2 + rnd(seed, i, 154) * 6.283) * st.weatherSway * fs * xf.k;
+      const sway = Math.sin(t * swf + rnd(seed, i, 154) * 6.283) * st.weatherSway * fs * xf.k;   // vfx13-tile: swf = 2 when off
       g.beginPath(); g.arc(x + sway, y, sz, 0, Math.PI * 2); g.fill();
     }
   }
@@ -2532,6 +2564,31 @@ function drawPixelArt(g, st, t, xf, fs, ox, oy, seed) {
   g.restore();
 }
 
+// <vfx13-fluid>
+// THE PIXEL FLUID (§64): fluid.js simulates and colors the frame (pure, cached per look and size); painting it is this app's,
+// as drawPixelArt paints pixart.js's. Placed by the frame and Origin X/Y, never by Fit (as the Pixel art layer). The pixel look
+// is drawn unsmoothed at a whole k over the cells (art pixels, the Pixel art layer's grid); the smooth look is stretched over
+// the frame with smoothing. Pixel art is never added (dark smoke is an occluder); the smooth look takes the effect's blend.
+// A fresh scratch canvas per frame (§41's WebKit lesson).
+function drawFluid(g, st, t, seed) {
+  if (!(st.fluid > 0)) return;
+  const W = g.canvas.width, H = g.canvas.height, F = fluidFrame(st, t, W, H, seed);
+  if (!F) return;
+  const cv = document.createElement("canvas");
+  cv.width = F.Wa; cv.height = F.Ha;
+  const cg = cv.getContext("2d"), img = cg.createImageData(F.Wa, F.Ha);
+  img.data.set(F.rgba);
+  cg.putImageData(img, 0, 0);
+  g.save();
+  if (F.pixel) g.globalCompositeOperation = "source-over";
+  g.globalAlpha = clamp01(st.fluid);
+  g.imageSmoothingEnabled = !F.pixel;
+  if (F.pixel) g.drawImage(cv, 0, 0, F.Wa * F.k, F.Ha * F.k);
+  else g.drawImage(cv, 0, 0, W, H);
+  g.restore();
+}
+// </vfx13-fluid>
+
 // ---------- dissolve ----------
 // A noise threshold that erases (or reveals) the WHOLE frame over time — burn-away, materialize,
 // teleport-out. Unlike everything else here it isn't a thing that draws, it's a post pass over
@@ -2704,6 +2761,10 @@ function blurPass(src, dst, w, h, r, horiz) {
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
 // The finishing chain, in the order the params read top-to-bottom in the Crunch panel.
+// <vfx13-tile> §66: the post chain's frame reference: the frame's, except while a tile's 3 x 3 repeat is processed (seamless.js
+// sets seamPostRef to the tile frame's), so a streak or a rim is as long as on the tile itself. 0 = frameRefPx exactly.
+function postRefPx(w, h) { return typeof seamPostRef !== "undefined" && seamPostRef > 0 ? seamPostRef : frameRefPx(w, h); }
+// </vfx13-tile>
 function postProcess(cv, st, overlay, t) {
   const w = cv.width, h = cv.height, g = cv.getContext("2d");
 
@@ -2720,7 +2781,7 @@ function postProcess(cv, st, overlay, t) {
     const sd = src.data;
     const dst = g.createImageData(w, h);
     const dd = dst.data;
-    const amp = st.haze * st.hazeAmount * frameRefPx(w, h) * 0.06;
+    const amp = st.haze * st.hazeAmount * postRefPx(w, h) * 0.06;
     const scale = Math.max(0.5, st.hazeScale) * 0.06;
     const phase = t * st.hazeSpeed * 6.283;
     for (let y = 0; y < h; y++) {
@@ -2751,7 +2812,7 @@ function postProcess(cv, st, overlay, t) {
   if (st.slice > 0) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src.length);
-    const ref = frameRefPx(w, h);
+    const ref = postRefPx(w, h);
     const ang = st.sliceAngle * DEG;
     const dx = Math.cos(ang), dy = Math.sin(ang);        // along the cut
     const nx = -dy, ny = dx;                             // across it
@@ -2785,7 +2846,7 @@ function postProcess(cv, st, overlay, t) {
   if (st.warp > 0) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src.length);
-    const ref = frameRefPx(w, h);
+    const ref = postRefPx(w, h);
     const cx = w / 2, cy = h / 2;
     const u = clamp01(t / Math.max(0.01, st.warpLife));
     const radius = u * st.warpReach * ref;
@@ -2860,7 +2921,7 @@ function postProcess(cv, st, overlay, t) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src.length);
     const ang = st.smearAngle * DEG;
-    const dist = st.smearAmount * frameRefPx(w, h) * 0.12;
+    const dist = st.smearAmount * postRefPx(w, h) * 0.12;
     const taps = Math.max(2, Math.min(24, Math.round(dist)));
     const dx = Math.cos(ang) * dist / taps, dy = Math.sin(ang) * dist / taps;
     for (let y = 0; y < h; y++) {
@@ -2938,7 +2999,7 @@ function postProcess(cv, st, overlay, t) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src);
     const cx = st.originX * w, cy = st.originY * h;
-    const ref = frameRefPx(w, h);
+    const ref = postRefPx(w, h);
     const reach = st.zoomAmount * 0.25;
     const taps = Math.max(2, Math.min(20, Math.round(4 + st.zoomAmount * 14)));
     const inner = st.zoomInner * ref * 0.5;
@@ -3000,7 +3061,7 @@ function postProcess(cv, st, overlay, t) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const add = new Float32Array(w * h * 3);
     const thr = st.streakThresh * 255;
-    const len = Math.max(2, Math.round(st.streakLength * frameRefPx(w, h) * 0.5));
+    const len = Math.max(2, Math.round(st.streakLength * postRefPx(w, h) * 0.5));
     const ang = st.streakAngle * DEG;
     const arms = [[Math.cos(ang), Math.sin(ang)], [-Math.cos(ang), -Math.sin(ang)],
                   [-Math.sin(ang), Math.cos(ang)], [Math.sin(ang), -Math.cos(ang)]];
@@ -3079,7 +3140,7 @@ function postProcess(cv, st, overlay, t) {
     // rather than a threshold, so it follows soft edges instead of quantizing them.
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src);
-    const reach = Math.max(1, Math.round(st.rimWidth * frameRefPx(w, h) * 0.06));
+    const reach = Math.max(1, Math.round(st.rimWidth * postRefPx(w, h) * 0.06));
     const hue = st.hue + st.rimHue;
     const col = hslParts(hue, st.sat, clamp01(0.5 + st.bright * 0.4));
     for (let y = 0; y < h; y++) {
@@ -3162,7 +3223,7 @@ function postProcess(cv, st, overlay, t) {
     const img = g.getImageData(0, 0, w, h), src = img.data;
     const out = new Uint8ClampedArray(src);
     const cx = w / 2, cy = h / 2;
-    const amt = st.chromaAmount * frameRefPx(w, h) * 0.03;
+    const amt = st.chromaAmount * postRefPx(w, h) * 0.03;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const o = (y * w + x) * 4;
@@ -3368,6 +3429,7 @@ function postProcess(cv, st, overlay, t) {
 // Setup shared by both render paths. Split out so streamFrames() and renderFrames() cannot
 // drift: exactly one place decides dimensions, scale and offset.
 function renderPrep(st, opt) {
+  if (+st.tile > 0 && typeof seamPrep === "function") return seamPrep(st, opt);   // vfx13-tile: a seamless tile (§66)
   opt = opt || {};
   const sim = opt.sim || simulate(st);
   // opt.size keeps the square shorthand working for every existing caller (thumbnails, the
@@ -3411,6 +3473,7 @@ function renderPrep(st, opt) {
 // framebuffer, which is what makes frames sequentially dependent and rules out rendering them
 // out of order.
 function renderOneFrame(prep, f, echoCv) {
+  if (prep.tile) return seamFrame(prep, f, echoCv);   // vfx13-tile: a seamless tile (§66)
   const st = prep.st, sim = prep.sim, ref = prep.ref;
   const cv = document.createElement("canvas");
   cv.width = prep.outW; cv.height = prep.outH;
@@ -3439,6 +3502,7 @@ function renderOneFrame(prep, f, echoCv) {
 function pixLoops(st) { return st.pix > 0 && st.pixLoop > 0; }
 function effectLoops(st) { return st.loopBlend > 0 || pixLoops(st); }
 function loopBlendCount(prep) {
+  if (prep.tile) return 0;                      // vfx13-tile: a tile closes its own loop (§66)
   return (prep.st.loopBlend > 0 && !pixLoops(prep.st) && prep.n > 3)
     ? Math.max(1, Math.round(prep.n * 0.35 * prep.st.loopBlend)) : 0;
 }
